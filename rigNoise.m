@@ -10,11 +10,11 @@
  
  
  if ispc
-     cd(['\\crash.dhe.duke.edu\charlie\Data\', fileName])
+     cd(['\\crash.dhe.duke.edu\charlie\Data\Rig_Noise', fileName])
  elseif ismac
-     cd(['~/Dropbox/Duke/Data/', fileName])
+     cd(['~/Dropbox/Duke/Data/Rig_Noise', fileName])
  elseif isunix
-     cd(['/home/charlie/Crash/Data/', fileName])
+     cd(['/home/charlie/Crash/Data/Rig_Noise', fileName])
  end
  
  d = dir;
