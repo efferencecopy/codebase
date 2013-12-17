@@ -7,16 +7,8 @@
  idx = 0;
  fileName = 'noiseTest_directComp';
  
- 
- 
- if ispc
-     cd(['\\crash.dhe.duke.edu\charlie\Data\Rig_Noise\', fileName])
- elseif ismac
-     cd(['~/Dropbox/Duke/Data/Rig_Noise/', fileName])
- elseif isunix
-     cd(['/home/charlie/Crash/Data/Rig_Noise/', fileName])
- end
- 
+ % go to the data directory and pull out the available file names
+ cd([PHYSPATH, 'Rig_Noise', filesep, fileName])
  d = dir;
 
  

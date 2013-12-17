@@ -1,5 +1,5 @@
 function fin
 
-clear all
+clear 
 close all hidden
 clc
