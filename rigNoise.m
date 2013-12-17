@@ -1,6 +1,6 @@
  %% Load in the data files and make a PS
- 
- clear all, clc
+
+ fin
  
  % some stuff for the analysis
  snpLength = 1;     % in sec
@@ -10,11 +10,11 @@
  
  
  if ispc
-     cd(['\\crash.dhe.duke.edu\charlie\Data\Rig_Noise', fileName])
+     cd(['\\crash.dhe.duke.edu\charlie\Data\Rig_Noise\', fileName])
  elseif ismac
-     cd(['~/Dropbox/Duke/Data/Rig_Noise', fileName])
+     cd(['~/Dropbox/Duke/Data/Rig_Noise/', fileName])
  elseif isunix
-     cd(['/home/charlie/Crash/Data/Rig_Noise', fileName])
+     cd(['/home/charlie/Crash/Data/Rig_Noise/', fileName])
  end
  
  d = dir;
