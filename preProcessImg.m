@@ -1,4 +1,4 @@
-function out = preProcessImg(in, info, NPIX)
+function out = preProcessImg(in, info, NPIX, LUT)
 
 % create the grayscale image, and then do median neighborhood averaging.
 if any(regexp(info.Filename, '_red'))
@@ -13,10 +13,22 @@ img_medFilt = (nlfilter(double(img_gray),[NPIX NPIX],fun));
 
 % make a look up table
 maxdac = info.MaxSampleValue(1);
-thresh = 0.7
-slope = 1.4;
 xx = linspace(0, 1, maxdac+1);
-LUT = 1-exp(-(xx./thresh).^slope);
+switch lower(LUT)
+    case 'weibull'
+        thresh = 0.7
+        slope = 1.4;
+        LUT = 1-exp(-(xx./thresh).^slope);
+    case 'naka'
+        n = 4;
+        c50 = 0.7;
+        rmax = 1.25;
+        LUT = rmax.*((xx.^n)./(c50.^n + xx.^n));
+        LUT = min(LUT, 1); % don't accept values larger than one...
+        img_medFilt = round(img_medFilt ./ 40);
+    case 'linear'
+        LUT = xx;
+end
 
 % apply the look up table
 idx = double(img_medFilt(:)) + 1; % vals b/w 1 and 256 for index to LUT

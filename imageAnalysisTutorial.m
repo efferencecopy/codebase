@@ -12,7 +12,8 @@ info = imfinfo(imgPath);
 
 % define some things
 SCALEBAR = 1000;    % in um
-NPIX = 5;          % in pix (for averaging)
+NPIX = 5;           % in pix (for averaging)
+LUT = 'naka';    % could be 'weibull', or 
 
 
 %% plot just to confirm
@@ -58,19 +59,8 @@ title('rgb2gray')
 %% Now try to do pix averaging, followed by sigmoidal LUT
 
 % create the grayscale image, and then do median neighborhood averaging.
-fun = @(x) median(x(:));
-img_gray = rgb2gray(img);
-img_medFilt = uint8(nlfilter(double(img_gray),[NPIX NPIX],fun));
-
-% apply a lookup table to the smoothed image
-maxdac = info.MaxSampleValue(1);
-thresh = 0.6;
-slope = 1.5;
-xx = linspace(0, 1, maxdac+1);
-LUT = 1-exp(-(xx./thresh).^slope);
-idx = double(img_medFilt(:)) + 1; % vals b/w 1 and 256 for index to LUT
-tmp = round(LUT(idx) .* maxdac);
-img_filtAndThresh = reshape(tmp, size(img,1), size(img, 2));
+img_medFilt = preProcessImg(img, info, NPIX, 'linear');
+img_filtAndThresh = preProcessImg(img, info, NPIX, LUT);
 
 figure
 subplot(1,3,1)
@@ -95,13 +85,13 @@ fileName = 'CH_1126_A_p5_s4_2x';
 imgPath = findfile([fileName, '_green'], IMGPATH, '.tif');
 img_green = imread(imgPath);
 info = imfinfo(imgPath);
-ch_green = preProcessImg(img_green, info, NPIX);
+ch_green = preProcessImg(img_green, info, NPIX, LUT);
 
 % deal with red channel
 imgPath = findfile([fileName, '_red'], IMGPATH, '.tif');
 img_red = imread(imgPath);
 info = imfinfo(imgPath);
-ch_red = preProcessImg(img_red, info, NPIX);
+ch_red = preProcessImg(img_red, info, NPIX, LUT);
 
 
 % merge the two channels and create a non-sense blue channel
