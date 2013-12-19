@@ -12,12 +12,12 @@ if ismac && strcmpi(license, '359028') %charlie's macbook pro
     defaultpath = '~/LabStuff/';
     
 elseif isunix % charlie's desktop linux machine
-    PHYSPATH = '~/Crash/Data/Physiology/';
+    PHYSPATH = '~/Crash/Data/Mouse_Phys/';
     IMGPATH = '~/Crash/Data/Imaging/';
     defaultpath = '~/Crash/';
     
 elseif ispc
-    PHYSPATH  = '\\crash.dhe.duke.edu\charlie\Data\';
+    PHYSPATH  = '\\crash.dhe.duke.edu\charlie\Data\Mouse_Phys\';
     IMGPATH =  '\\crash.dhe.duke.edu\charlie\Imaging\';
     defaultpath = '\\crash.dhe.duke.edu\charlie\';
 end
