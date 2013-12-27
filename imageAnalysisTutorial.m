@@ -134,6 +134,12 @@ d = dir;
 
 
 for a = 1:numel(d);
+    
+    % display the progress
+    if ~rem(a,5)
+        fprintf('%d more images to unpack\n', numel(d)-(a-1));
+    end
+    
     if ~any(strcmp(d(a).name, {'.', '..'})) % skip the hidden files
         
         % make sure the objective used is correct
