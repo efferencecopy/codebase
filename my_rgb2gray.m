@@ -2,31 +2,30 @@ function I = my_rgb2gray(img, info, coef)
 %RGB2GRAY Convert RGB image or colormap to grayscale.
 
 
+% do some error checking
 if (ndims(img)~=3);
     error('Image must be 3D')
 end
-
-% convert to double if need be
-wasfloat = true;
-if ~(isa(img, 'double') || isa(img, 'single'))
-    wasfloat = false;
-    img = double(img)./double(info.MaxSampleValue(1));
+if ~strcmpi('truecolor', info.ColorType)
+    error('Image must be truecolor')
+end
+if ~isinteger(img)
+    error('Image must be a truecolor (UINT8/16) to process')
 end
 
-% Shape input matrix so that it is a n x 3 array and initialize output matrix
-origSize = size(img);
-img = reshape(img(:),origSize(1)*origSize(2),3);
-sizeOutput = [origSize(1), origSize(2)];
-I = img * coef';
 
-% normalize so that the values are back to 0 to 1 range
-I = I./max(I);
-
-%Make sure that the output matrix has the right size
-I = reshape(I,sizeOutput);
-
-% bring things back
-if ~wasfloat
-    I = round(I.*double(info.MaxSampleValue(1))); %bring it back to int world
-    I = uint8(I);
+% define the coefficients for conversion to gray scale. The default values
+% in matlab's ind2rgb are 
+if ~exist('coef', 'var')
+    if any(regexp(info.Filename, '_red'))
+        coef = [.9, .5, 0];
+    elseif any(regexp(info.Filename, '_green'))
+        coef = [0.2989    0.5870    0.1140];
+    end
 end
+
+% this line was stolen from Matlab's rgb2gray, it's identical to a matrix
+% mulitply, but takes into consideration the class of 'img' (in this case
+% it's an INTEGER) and does some rounding under the hood to force the
+% scaled values back into integers
+I = imapplymatrix(coef, img, class(img));

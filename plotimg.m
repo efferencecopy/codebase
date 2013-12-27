@@ -24,11 +24,14 @@ else
 end
 
 
-% generate the plot
-image(img)
-axis equal tight
-set(gca, 'xtick', [], 'ytick', [])
+% generate the plot, assuming that the image is truecolor, forcing the
+% scaling to be between the min and max dac values
+bits = info.BitsPerSample(1);
+maxdac = 2^bits - 1;
+imshow(img, [0, maxdac])
 
 if exist('clrmap', 'var')
     colormap(clrmap)
+else 
+    colormap('jet')
 end

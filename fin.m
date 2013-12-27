@@ -1,5 +1,4 @@
-function fin
 
-clear 
+clearvars -EXCEPT GL_*
 close all hidden
 clc
