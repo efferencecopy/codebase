@@ -1,0 +1,7 @@
+%function fin;
+
+%just a short hand way to clear everything out
+clear all %all variables including globals
+close all hidden % all figs and such
+clear class %all current class definitions
+clc %clear the command window.

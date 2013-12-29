@@ -1,0 +1,46 @@
+function out = TranslateToColourMode(in, opt)
+% out = TranslateToColourMode(in, <opt>)
+%
+% Takes a NxMx3 matrix and converts it into an Nx2Mx3 matrix that this
+% appropriate for driving the Bits++ box in "colour mode".  In colour mode,
+% the Bits++ takes pairs of pixels and combines them into one pixel with 14
+% bits of intensity resolution on each gun.
+%
+% The format of the image passed to the Bits++ bix should be pairs of
+% bytes, a high order byte and a low order byte (the lowest two bits of
+% which are presumably ignored since the Bits++ does 14 bit D/A
+% conversion).
+%
+% If any of the values in the input argument exceeds 255, we assume that the
+% user is passing an image where 0 means minimum intensity and 65535 means
+% maximum intensity.  This interpretation can also be forced by setting
+% <opt> to 1.  Alternatively, we interpret the image as 0 means minimum
+% intensity and 255 means maximum intensity (and we just zero out the low
+% bytes).
+%
+% GDLH 5/9/07
+
+% Error checking
+if (ndims(in) ~= 3)
+    error('Input argument has to be NxMx3');
+end
+if (size(in,3) ~= 3)
+    error('Input argument has to be NxMx3');
+end
+
+% opt = 1 if user says so of if the image intensities exceed 255,
+% otherwise opt = 0
+if (max(in(:)) > 255)
+    opt = 1;
+elseif (nargin < 2)
+    opt = 0;
+end
+
+if (opt == 1)
+   out = zeros(size(in,1),2*size(in,2),3);
+   out(:,1:2:end,:) = floor(in/256);
+   out(:,2:2:end,:) = rem(in,256);
+else
+   out = zeros(size(in,1),2*size(in,2),3);
+   out(:,1:2:end,:) = in;
+end
