@@ -1,4 +1,4 @@
-function [GL_DATDIR, GL_DOCUPATH] = defineLocalPaths
+function [GL_DATPATH, GL_DOCUBASE] = defineLocalPaths
 
 %
 % Defines the data paths to Glickfeld lab data files. These paths are
@@ -6,18 +6,18 @@ function [GL_DATDIR, GL_DOCUPATH] = defineLocalPaths
 %
 
 if ismac && strcmpi(license, '359028') %charlie's macbook pro
-    GL_DATDIR = '~/Dropbox/Duke/Data/Mice/';
-    GL_DOCUPATH = '/LabStuff/DocuBase/';
+    GL_DATPATH = '~/LabStuff/Data/Mice/';
+    GL_DOCUBASE = '~/LabStuff/DocuBase/';
     defaultpath = '~/LabStuff/';
     
 elseif isunix % charlie's desktop linux machine
-    GL_DATDIR = '~/Crash/Data/Mice/';
-    GL_DOCUPATH = '/DocuBase/';
+    GL_DATPATH = '~/Crash/Data/Mice/';
+    GL_DOCUBASE = '/DocuBase/';
     defaultpath = '~/Crash/';
     
 elseif ispc
-    GL_DATDIR =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
-    GL_DOCUPATH = '\\crash.dhe.duke.edu\charlie\DocuBase';
+    GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
+    GL_DOCUBASE = '\\crash.dhe.duke.edu\charlie\DocuBase';
     defaultpath = '\\crash.dhe.duke.edu\charlie\';
 end
 

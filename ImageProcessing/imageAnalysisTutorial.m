@@ -6,7 +6,7 @@ fin
 % load a file
 fileName = 'CH_1126_A_p6_s1_10x_red';
 idx = regexp(fileName, '_p\d+', 'start');
-datPath = [GL_DATDIR, fileName(1:idx-1)];
+datPath = [GL_DATPATH, fileName(1:idx-1)];
 imgPath = findfile(fileName, datPath, '.tif');
 
 img = imread(imgPath);
@@ -50,7 +50,7 @@ for a = 1:numel(coeff)
     
     figure
     subplot(2,1,1)
-    plotimg(img_gray, info, SCALEBAR, 'gray')
+    plotimg(img_gray, info, SCALEBAR, 'gray');
     colorbar
     title(num2str(coeff{a}))
     
@@ -62,10 +62,10 @@ end
 
 figure
 img_gray = rgb2gray(img);
-plotimg(img_gray, info, SCALEBAR, 'gray')
+plotimg(img_gray, info, SCALEBAR, 'gray');
 title('rgb2gray')
 
-%% Now try to do pix averaging, followed by sigmoidal LUT
+%% Now try to do pix averaging, followed by contrast enhancement
 
 % create the grayscale image, and then do median neighborhood averaging
 % with different contrast enhancement techniques.
@@ -73,15 +73,15 @@ title('rgb2gray')
 figure
 subplot(1,3,1)
 tmp = preProcessImg(img, info, NPIX, 'imadjust');
-plotimg(tmp, info, SCALEBAR, 'gray')
+plotimg(tmp, info, SCALEBAR, 'gray');
 
 subplot(1,3,2)
 tmp = preProcessImg(img, info, NPIX, 'histeq');
-plotimg(tmp, info, SCALEBAR, 'gray')
+plotimg(tmp, info, SCALEBAR, 'gray');
 
 subplot(1,3,3)
 tmp = preProcessImg(img, info, NPIX, 'adapthisteq');
-plotimg(tmp, info, SCALEBAR, 'gray')
+plotimg(tmp, info, SCALEBAR, 'gray');
 
 
 
@@ -95,7 +95,7 @@ fileName = 'CH_1126_A_p8_s2_10x';
 
 % deal with the green channel
 idx = regexp(fileName, '_p\d+', 'start');
-datPath = [GL_DATDIR, fileName(1:idx-1)];
+datPath = [GL_DATPATH, fileName(1:idx-1)];
 imgPath = findfile([fileName, '_green'], datPath, '.tif');
 img_green = imread(imgPath);
 info_green = imfinfo(imgPath);
@@ -129,7 +129,7 @@ mouse = 'CH_1126_A';
 objective = '2x';
 contrastMethod = 'none';
 
-cd([GL_DATDIR, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
+cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 
 % grab the names in the directory
 d = dir;
@@ -170,7 +170,7 @@ for a = 1:numel(d);
             % unpack the images
             img_tmp = imread(d(a).name);
             info_tmp = imfinfo(d(a).name);
-            img_tmp = preProcessImg(img_tmp, info_tmp, 0, contrastMethod);
+            img_tmp = preProcessImg(img_tmp, info_tmp, 2, contrastMethod);
             
             
             % put the image in a structure according to it's position in

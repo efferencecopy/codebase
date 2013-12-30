@@ -119,7 +119,7 @@ function [d,si,h]=abfload(fn,varargin)
 % -------------------------------------------------------------------------
 %                       PART 1: check of input vars
 % -------------------------------------------------------------------------
-disp(['** ' mfilename])
+%disp(['** ' mfilename])
 % --- defaults   
 % gap-free
 start=0.0;
@@ -133,7 +133,7 @@ channels='a';
 % 5-30 min
 chunk=0.05;
 machineF='ieee-le';
-verbose=1;
+verbose=false;
 % if first and only optional input argument is string 'info' the user's
 % request is to obtain information on the file (header parameters), so set
 % flag accordingly
@@ -164,7 +164,7 @@ end
 % -------------------------------------------------------------------------
 %                       PART 2a: determine abf version
 % -------------------------------------------------------------------------
-disp(['opening ' fn '..']);
+%disp(['opening ' fn '..']);
 [fid,messg]=fopen(fn,'r',machineF);
 if fid == -1,
   error(messg);
@@ -347,6 +347,9 @@ if h.fFileVersionNumber>=2
     h.fADCProgrammableGain(ii)=ADCsec(i).fADCProgrammableGain;
     h.fInstrumentOffset(ii)=ADCsec(i).fInstrumentOffset;
     h.fSignalOffset(ii)=ADCsec(i).fSignalOffset;
+    h.fTelegraphFilter(ii) = ADCsec(i).fTelegraphFilter;
+    h.fSignalLowpassFilter(ii) = ADCsec(i).fSignalLowpassFilter;
+    h.fSignalHighpassFilter(ii) = ADCsec(i).fSignalHighpassFilter;
   end
   % --- read in the protocol section & copy some values to header h
   ProtocolSec=ReadSection(fid,ProtocolSection.uBlockIndex*BLOCKSIZE,ProtocolInfo);
@@ -574,11 +577,11 @@ switch h.nOperationMode
     
   case {2,4,5}
     if h.nOperationMode==2
-      disp('data were acquired in event-driven fixed-length mode');
+      %disp('data were acquired in event-driven fixed-length mode');
     elseif h.nOperationMode==4
-      disp('data were acquired in high-speed oscilloscope mode');
+      %disp('data were acquired in high-speed oscilloscope mode');
     else
-      disp('data were acquired in waveform fixed-length mode');
+      %disp('data were acquired in waveform fixed-length mode');
     end
     % extract timing information on sweeps
     if (h.lSynchArrayPtr<=0 || h.lSynchArraySize<=0),
@@ -668,7 +671,7 @@ switch h.nOperationMode
     end
     
   case 3
-    disp('data were acquired in gap-free mode');
+    %disp('data were acquired in gap-free mode');
     % from start, stop, headOffset and h.fADCSampleInterval calculate first point to be read
     %  and - unless stop is given as 'e' - number of points
     startPt=floor(1e6*start*(1/h.fADCSampleInterval));
