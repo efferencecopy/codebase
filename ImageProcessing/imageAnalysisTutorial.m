@@ -125,9 +125,10 @@ plotimg(img_merge_simple, info);
 
 fin
 
-mouse = 'CH_1126_A';
+mouse = 'CH_112613_A';
 objective = '2x';
 contrastMethod = 'none';
+NPIX = 0;
 
 cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 
@@ -135,7 +136,7 @@ cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 d = dir;
 
 % initialize the structure of images
-[img.green, img.red, info.green, info.red] = deal({});
+[img.green, img.red, img.blue] = deal({});
 
 
 for a = 1:numel(d);
@@ -163,46 +164,66 @@ for a = 1:numel(d);
             
             
             % red? or green?
-            if regexp(d(a).name, '_green'); color = 'green'; end
             if regexp(d(a).name, '_red');   color = 'red'; end
+            if regexp(d(a).name, '_green'); color = 'green'; end
+            if regexp(d(a).name, '_blue');   color = 'blue'; end
             
             
             % unpack the images
             img_tmp = imread(d(a).name);
             info_tmp = imfinfo(d(a).name);
-            img_tmp = preProcessImg(img_tmp, info_tmp, 2, contrastMethod);
+            img_tmp = preProcessImg(img_tmp, info_tmp, NPIX, contrastMethod);
             
             
             % put the image in a structure according to it's position in
             % the brain, and the color channel
             img = setfield(img, color, {plate, slice},  {img_tmp});
-            info = setfield(info, color, {plate, slice}, {info_tmp});
             
         end
     end
 end
 
 
+
+
 % combine the images into a merged truecolor RGB. Arrange them in a stack.
 idx = 1;
-for p = 1:size(img.red, 1)
-    for sl = 1:size(img.red, 2)
+numPlates = max([size(img.red,1), size(img.green,1), size(img.blue,1)]);
+numSlices = max([size(img.red,2), size(img.green,2), size(img.blue,2)]);
+
+for p = 1:numPlates
+    for sl = 1:numSlices
         
         % find the appropriate images
-        ch_green = img.green{p, sl};
-        ch_red = img.red{p, sl};
+        if ((size(img.red,1)>=p) && (size(img.red,2)>=sl)) && ~isempty(img.red{p,sl})
+            ch_red = img.red{p, sl};
+        else
+            ch_red = zeros(size(img_tmp));
+        end
+        
+        if (size(img.green,1)>=p) && (size(img.green,2)>=sl) && ~isempty(img.green{p,sl})
+            ch_green = img.green{p, sl};
+        else
+            ch_green = zeros(size(img_tmp));
+        end
+        
+        if (size(img.blue,1)>=p) && (size(img.blue,2)>=sl) && ~isempty(img.blue{p,sl})
+            ch_blue = img.blue{p, sl};
+        else
+            ch_blue = zeros(size(img_tmp));
+        end
         
         % do some basic error checking
         if isempty(ch_green) && ~isempty(ch_green);
             error('One channel is defined but not the other')
         end
-        if isempty([ch_green, ch_red]); continue; end % both channels are undefined... no big deal so no error
+        if all([ch_green(:);ch_red(:);ch_blue(:)]==0); continue; end % all channels are undefined... no big deal so no error
         
         
         % add images to the stack, make up a fake blue channel. During
         % image acquisition, the microscope objective flips the image L/R
         % and U/D, so flip all of them back...
-        merge = cat(3, ch_red, ch_green, zeros(size(ch_red)));
+        merge = cat(3, ch_red, ch_green, ch_blue);
         for a = 1:3
             merge(:,:,a) = rot90(merge(:,:,a), 2);
         end
