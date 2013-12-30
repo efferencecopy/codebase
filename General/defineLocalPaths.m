@@ -6,7 +6,7 @@ function [GL_DATPATH, GL_DOCUPATH] = defineLocalPaths
 %
 
 if ismac && strcmpi(license, '359028') %charlie's macbook pro
-    GL_DATPATH = '~/Dropbox/Duke/Data/Mice/';
+    GL_DATPATH = '~/LabStuff/Data/Mice/';
     GL_DOCUPATH = '/LabStuff/DocuBase/';
     defaultpath = '~/LabStuff/';
     
