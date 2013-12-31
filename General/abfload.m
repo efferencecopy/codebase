@@ -341,6 +341,7 @@ if h.fFileVersionNumber>=2
         h.recChUnits=strvcat(h.recChUnits,'');
     end
     h.nTelegraphEnable(ii)=ADCsec(i).nTelegraphEnable;
+    ADCsec(i).nTelegraphMode
     h.fTelegraphAdditGain(ii)=ADCsec(i).fTelegraphAdditGain;
     h.fInstrumentScaleFactor(ii)=ADCsec(i).fInstrumentScaleFactor;
     h.fSignalGain(ii)=ADCsec(i).fSignalGain;
@@ -355,7 +356,7 @@ if h.fFileVersionNumber>=2
   ProtocolSec=ReadSection(fid,ProtocolSection.uBlockIndex*BLOCKSIZE,ProtocolInfo);
   h.nOperationMode=ProtocolSec.nOperationMode;
   h.fSynchTimeUnit=ProtocolSec.fSynchTimeUnit;
-  
+  h.nExperimentType = ProtocolSec.nExperimentType;
   h.nADCNumChannels=ADCSection.llNumEntries;
   h.lActualAcqLength=DataSection.llNumEntries;
   h.lDataSectionPtr=DataSection.uBlockIndex;
@@ -697,7 +698,7 @@ switch h.nOperationMode
     tmp=1e-6*h.lActualAcqLength*h.fADCSampleInterval;
     if verbose
       disp(['total length of recording: ' num2str(tmp,'%5.1f') ' s ~ ' num2str(tmp/60,'%3.0f') ' min']);
-      disp(['sampling interval: ' num2str(h.si,'%5.0f') ' µs']);
+      disp(['sampling interval: ' num2str(h.si,'%5.0f') ' ï¿½s']);
       % 8 bytes per data point expressed in Mb
       disp(['memory requirement for complete upload in matlab: '...
         num2str(round(8*h.lActualAcqLength/2^20)) ' MB']);
