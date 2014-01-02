@@ -11,7 +11,7 @@ filePath = findfile(fileName, datPath, '.abf');
 % open the file
 
 [dat, ~, h] = abfload(filePath);
-h
+h.nExperimentType
 
 %
 % plot all the sweeps, or the one sweep if it's gap free.
@@ -107,4 +107,8 @@ end
 
 
 
+
+% seems like ABF load is applying "parameter" related header info based off
+% of only one recorded channel. Is it possible to output the V/I clamp
+% value for each analog input channel?
 
