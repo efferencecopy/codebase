@@ -125,9 +125,9 @@ plotimg(img_merge_simple, info);
 
 fin
 
-mouse = 'CH_112613_A';
+mouse = 'EMX_1';
 objective = '2x';
-contrastMethod = 'none';
+contrastMethod = 'adapthisteq';
 NPIX = 0;
 
 % cd to where the images are
@@ -239,7 +239,7 @@ for p = 1:numPlates
         mdbidx = ~cellfun(@isempty, mdbidx);
         thickness = mdb(mdbidx).histo.thickness;
         slicesPerPlate = mdb(mdbidx).histo.slicesPerPlate;
-        stack.loc(idx) = sum(slicesPerPlate(1:p-1).*thickness) + (sl.*thickness);
+        stack.loc(idx) = sum(slicesPerPlate(1:p-1).*thickness) + ((sl-1).*thickness);
 
         % update the index
         idx = idx + 1;
