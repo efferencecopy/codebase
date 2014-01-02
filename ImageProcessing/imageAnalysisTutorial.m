@@ -130,10 +130,14 @@ objective = '2x';
 contrastMethod = 'none';
 NPIX = 0;
 
+% cd to where the images are
 cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 
 % grab the names in the directory
 d = dir;
+
+% load in (and update) the mouseDB
+mdb = initMouseDB;
 
 % initialize the structure of images
 [img.green, img.red, img.blue] = deal({});
@@ -229,11 +233,15 @@ for p = 1:numPlates
         end
         stack.img{idx} = merge;
         
-        if p>2
-            stack.loc(idx) = (((p-1).*6)+sl+6) .* 70; % I'm making the assumption of 70 um per slice, and 6 slices per plate.
-        else
-            stack.loc(idx) = (((p-1).*9)+sl) .* 70;
-        end
+        % figure out where the slice was in the brain based off of the
+        % slice thickness and the slice number
+        mdbidx = regexp({mdb(:).name}', mouse);
+        mdbidx = ~cellfun(@isempty, mdbidx);
+        thickness = mdb(mdbidx).histo.thickness;
+        slicesPerPlate = mdb(mdbidx).histo.slicesPerPlate;
+        stack.loc(idx) = sum(slicesPerPlate(1:p-1).*thickness) + (sl.*thickness);
+
+        % update the index
         idx = idx + 1;
         
     end

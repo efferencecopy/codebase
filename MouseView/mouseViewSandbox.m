@@ -40,6 +40,9 @@ end
 
 fin
 
+% tell the user what's happening
+fprintf('Initializing the mouseView data base\n')
+
 % grab all the excel files
 cd(GL_DOCUPATH)
 d = dir;
@@ -63,27 +66,37 @@ else
     l_new = find(l_new);
 end
 
+
 % figure out which files in the DOCUBASE are newer than the ones in
 % matlab's Mouse Database
 
 
 for a = l_new
-    if regexp(d(a).name, '^[\.-*]') % hidden files and files that begin '--'...
-        continue
-    end
+    
+    % exclude hidden files (things that begin with '.'), the excel template
+    % (begins with '--') or the mouse data base ('mouseDB.mat')
+    exclude = any(cell2mat(regexp(d(a).name, {'^[\.]', '^[-*]', 'mouseDB.mat'})));
+    if exclude; continue; end
+    
+    % let the user know what you're doing
+    fprintf('  Updating %s\n', d(a).name);
     
     % where in the mouse db should the new stuff go?
     idx = numel(mdb)+1;
     
     % pull out the name
     name = regexp(d(a).name, '\.\w+', 'split');
-    mdb(idx).name = name{1}
+    mdb(idx).name = name{1};
+    
+    % pull out the histology information
+    [num, txt, raw] = xlsread(d(a).name, 'Histology')
     
     
 end
 
- 
-
+% save the database!
+save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
+fprintf('Initialization complete\n')
 
 
 %% NOTES

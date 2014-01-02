@@ -12,7 +12,7 @@ if ismac && strcmpi(license, '359028') %charlie's macbook pro
     
 elseif isunix % charlie's desktop linux machine
     GL_DATPATH = '~/Crash/Data/Mice/';
-    GL_DOCUPATH = '/DocuBase/';
+    GL_DOCUPATH = '~/DocuBase/';
     defaultpath = '~/Crash/';
     
 elseif ispc
