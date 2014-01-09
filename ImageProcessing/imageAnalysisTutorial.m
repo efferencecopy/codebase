@@ -123,11 +123,11 @@ plotimg(img_merge_simple, info);
 
 %% Automate makeing a stack
 
-fin
 
-mouse = 'EMX_1';
+
+mouse = 'CH_112613_A';
 objective = '2x';
-contrastMethod = 'adapthisteq';
+contrastMethod = 'none';
 NPIX = 0;
 
 % cd to where the images are

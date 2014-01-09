@@ -341,7 +341,6 @@ if h.fFileVersionNumber>=2
         h.recChUnits=strvcat(h.recChUnits,'');
     end
     h.nTelegraphEnable(ii)=ADCsec(i).nTelegraphEnable;
-    ADCsec(i).nTelegraphMode
     h.fTelegraphAdditGain(ii)=ADCsec(i).fTelegraphAdditGain;
     h.fInstrumentScaleFactor(ii)=ADCsec(i).fInstrumentScaleFactor;
     h.fSignalGain(ii)=ADCsec(i).fSignalGain;
