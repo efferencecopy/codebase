@@ -137,7 +137,7 @@ cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 d = dir;
 
 % load in (and update) the mouseDB
-mdb = initMouseDB;
+mdb = initMouseDB('new');
 
 % initialize the structure of images
 [img.green, img.red, img.blue] = deal({});
