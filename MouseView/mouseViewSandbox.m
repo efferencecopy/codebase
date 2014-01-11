@@ -10,8 +10,7 @@ filePath = findfile(fileName, datPath, '.abf');
 
 % open the file
 
-[dat, ~, h] = abfload(filePath);
-h.nExperimentType
+[dat, h] = my_abfload(filePath);
 
 %
 % plot all the sweeps, or the one sweep if it's gap free.

@@ -123,8 +123,6 @@ plotimg(img_merge_simple, info);
 
 %% Automate makeing a stack
 
-fin
-
 mouse = 'CH_112613_A';
 objective = '2x';
 contrastMethod = 'none';
