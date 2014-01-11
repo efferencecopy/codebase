@@ -125,9 +125,9 @@ plotimg(img_merge_simple, info);
 
 fin
 
-mouse = 'EMX_1';
+mouse = 'CH_112613_A';
 objective = '2x';
-contrastMethod = 'adapthisteq';
+contrastMethod = 'none';
 NPIX = 0;
 
 % cd to where the images are
@@ -137,7 +137,7 @@ cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 d = dir;
 
 % load in (and update) the mouseDB
-mdb = initMouseDB('new');
+mdb = initMouseDB();
 
 % initialize the structure of images
 [img.green, img.red, img.blue] = deal({});
