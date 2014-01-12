@@ -123,8 +123,6 @@ plotimg(img_merge_simple, info);
 
 %% Automate makeing a stack
 
-
-
 mouse = 'CH_112613_A';
 objective = '2x';
 contrastMethod = 'none';
@@ -137,7 +135,7 @@ cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 d = dir;
 
 % load in (and update) the mouseDB
-mdb = initMouseDB('new');
+mdb = initMouseDB();
 
 % initialize the structure of images
 [img.green, img.red, img.blue] = deal({});
