@@ -1,75 +1,134 @@
 function mdb = initMouseDB(option)
+ 
+ % %%%%%%%%%%%%%%%%%%
+ %
+ % to do
+ %
+ % I need to make sure there is a one to one match between files in the
+ % DocuBase dir and entries in the MBD. For each file there should be only
+ % one entry, and vice versa. Do this error checking b/4 doing anything
+ % else.
+ %
+ % Then add workbooks that do not exist in the directory
+ %
+ % Then update MDB entries that are out of date. At this point in the code,
+ % the number of entries in the MDB and the dir should be identical (after
+ % ignoring the excluded files).
+ %
+ % Add functionality to import the other work sheets.
+ %
+ % Start making GUI to visualize data and to text searches.
+ %
+ % %%%%%%%%%%%%%%%%%%%%%
+ 
+    global GL_DOCUPATH
 
-global GL_DOCUPATH
+    % tell the user what's happening
+    fprintf('Initializing the mouseView data base\n')
 
-% tell the user what's happening
-fprintf('Initializing the mouseView data base\n')
+    % deal with the optional input
+    if ~exist('option', 'var')
+        option = '';
+    end
+    OVERWRITE = strcmpi(option, 'new');
 
-% deal with the optional input
-if ~exist('option', 'var')
-    option = '';
+    % grab all the excel files
+    presDir = pwd; % cd back to this at the end of the routing...
+    cd(GL_DOCUPATH)
+    d = dir;
+    
+    % determine if the database is already available
+    WBnames = {d(:).name};
+    DBavailable = any(strcmpi('mouseDB.mat', WBnames));
+    if DBavailable && ~OVERWRITE
+        load('mouseDB.mat');
+    else
+        mdb = []; % 'mouse data base' structure
+    end
+    
+    % eliminate the hidden files (and other files that we should ignore)
+    % from the directory tree.
+    exclude = {'^[\.]', '^[-*]', 'mouseDB.mat'};
+    l_exclude = cellfun(@(x,y) regexpi(x,y), {d.name}, repmat({exclude}, 1, numel(d)), 'uniformoutput', false);
+    l_exclude = cellfun(@(x) any(cell2mat(x)), l_exclude);
+    d(l_exclude) = [];
+    WBnames = {d(:).name}; % up-date this variable after deleting some entries from the dir tree
+    
+    % figure out which files are absent from the existing MDB
+    if numel(mdb) == 0
+        l_absent = true(numel(WBnames),1);
+    else
+        % pull out the names of things in the DB
+        mdb_names = {mdb.name};
+        
+        % find the Workbooks that are already present in the database
+        l_present = cellfun(@(x,y) regexpi(x,y), WBnames, repmat({mdb_names}, 1, numel(WBnames)), 'uniformoutput', false);
+        l_absent = cellfun(@(x) ~any(cell2mat(x)), l_present); %notice the ~ ('not')!!
+    end
+
+
+    % add the missing files
+    if any(l_absent); 
+        fprintf('  Adding new files:\n');
+    end
+    for a = find(l_absent)'
+        
+        % display the name of the file about to get added
+        fprintf('    d(a).name\n')
+
+        % where in the mouse db should the new stuff go?
+        idx = numel(mdb)+1;
+        
+        % build mdb entry
+        mdb(idx) = build_DB_entry(d(a));
+
+    end
+    
+    
+    
+    
+    % figure out which files in the DOCUBASE are newer than the ones in
+    % matlab's Mouse Database
+    if numel(mdb) == 0
+        l_new = true(numel(WBnames),1);
+    else
+        % for each entry in the DB, determine which file it corresponds to
+        % in the DocuBase directory. Then compare the modDates for the
+        % workbook and the MDB entry.
+        WBnames = cellfun(@(x) x(1:regexp(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
+        l_new = false(numel(WBnames), 1);
+        for a = 1:numel(mdb)
+            
+            idx = find(strcmpi(mdb_names{a}, WBnames));
+            if numel(idx) == 0; warning('Entry <%s> exists in the Mouse Database but there is no workbook in the DocuBase', mdb_names{a}); continue; end
+            if numel(idx) > 1; error('Entry <%s> from the MDB has multiple workbooks in the DocuBase', mdb_names{a}); end
+            
+            % compare the modification date
+            datestr(mdb(a).modDate)
+            datestr(d(idx).datenum)
+            l_new(a) = mdb(a).modDate ~= d(idx).datenum;
+            
+        end
+        
+    end
+
+    % save the database!
+    save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
+    fprintf('Initialization complete\n')
+    cd(presDir)
 end
-OVERWRITE = strcmpi(option, 'new');
 
-% grab all the excel files
-presDir = pwd; % cd back to this at the end of the routing...
-cd(GL_DOCUPATH)
-d = dir;
+function out = build_DB_entry(fileInfo)
 
-% determine if the database is already available
-WBnames = {d(:).name};
-DBavailable = any(strcmpi('mouseDB.mat', WBnames));
-if DBavailable && ~OVERWRITE
-    load('mouseDB.mat');
-else
-    mdb = []; % 'mouse data base' structure
+        % pull out the name and the date the file was modified.
+        name = regexp(fileInfo.name, '\.\w+', 'split');
+        out.name = name{1};
+        out.modDate = fileInfo.datenum;
+
+        % pull out the histology information
+        out.histo = getHistologyInfo(fileInfo.name);
+
 end
-
-% figure out which files are absent from the existing MDB
-if numel(mdb) == 0
-    l_new = 1:numel(WBnames);
-else
-    mdb_names = {mdb.name};
-    l_new = cellfun(@(x,y) regexpi(x,y), WBnames, repmat({mdb_names}, 1, numel(WBnames)), 'uniformoutput', false);
-    l_new = cellfun(@(x) ~any(cell2mat(x)), l_new); %notice the ~ ('not')!!
-    l_new = find(l_new);
-end
-
-
-% figure out which files in the DOCUBASE are newer than the ones in
-% matlab's Mouse Database
-
-
-for a = l_new
-    
-    % exclude hidden files (things that begin with '.'), the excel template
-    % (begins with '--') or the mouse data base ('mouseDB.mat')
-    exclude = any(cell2mat(regexp(d(a).name, {'^[\.]', '^[-*]', 'mouseDB.mat'})));
-    if exclude; continue; end
-    
-    % let the user know what you're doing
-    fprintf('  Updating %s\n', d(a).name);
-    
-    % where in the mouse db should the new stuff go?
-    idx = numel(mdb)+1;
-    
-    % pull out the name
-    name = regexp(d(a).name, '\.\w+', 'split');
-    mdb(idx).name = name{1};
-    
-    % pull out the histology information
-    mdb(idx).histo = getHistologyInfo(d(a).name);
-    
-    
-    
-end
-
-% save the database!
-save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
-fprintf('Initialization complete\n')
-cd(presDir)
-end
-
 
 function histo = getHistologyInfo(fName)
     
@@ -99,6 +158,7 @@ function histo = getHistologyInfo(fName)
         switch keys{a,3}
             case 'string'
                 if isnumeric(tmp)
+                    if isnan(tmp); tmp = ''; end
                     tmp = num2str(tmp);
                 end
             case 'num'

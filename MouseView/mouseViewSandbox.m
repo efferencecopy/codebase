@@ -2,7 +2,7 @@
 
 fin
 
-fileName = '13d20004';
+fileName = '13d20006';
 mouse = 'EMX_3';
 datPath = [GL_DATPATH, mouse, filesep, 'Physiology'];
 filePath = findfile(fileName, datPath, '.abf');
@@ -10,7 +10,7 @@ filePath = findfile(fileName, datPath, '.abf');
 
 % open the file
 
-[dat, h] = my_abfload(filePath);
+[dat, h, wf] = my_abfload(filePath);
 
 %
 % plot all the sweeps, or the one sweep if it's gap free.
@@ -22,7 +22,7 @@ sampRate = 1/(h.si.*10^(-6));
 N = size(dat,1);
 tt = [0:N-1]./sampRate;
 
-sweep = 1;
+sweep = 8;
 figure
 nplts = numel(h.recChNames);
 for a = 1:nplts;

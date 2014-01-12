@@ -49,8 +49,8 @@ for tf = tempFreqs;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dtnt.rf_x = 50;     % in tenths of dva
     dtnt.rf_y = 0;       % in tenths of dva
-    dtnt.sigma = 4;    % in tenths of dva
-    dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
+    dtnt.sigma = 2;    % in tenths of dva
+    dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
     dtnt.theta = 0;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
@@ -105,8 +105,8 @@ for tf = tempFreqs;
     % create a temporary directory to hold all the data files that will get
     % stored as a result of the parfor operation
     switch license
-        case '380245' % charlie's laptop
-            params.saveDir = '/Users/charliehass/LabStuff/DTcones/Data/tmpBatchData_DTNT/';
+        case '359028' % charlie's laptop
+            params.saveDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data/tmpBatchData_DTNT/';
         otherwise
             params.saveDir = '~/Dropbox/Charlie/coneNoiseData/tmpBatchData_DTNT/';
     end
@@ -146,41 +146,28 @@ for tf = tempFreqs;
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    %
-    % code to run the matlab parallel processing functionality
-    %
-    %%%%%%%%%%%%%
-    
-    % %%open a matlabpool
-    % % if exist('matlabpool', 'file') == 2;
-    % %    matlabpool close force local
-    % %    pause(2)
-    % %    maxWorkers = 12;
-    % %    nWorkers = min(size(colorDirs,1), maxWorkers);
-    % %    matlabpool('open', nWorkers)
-    % %    fprintf(' *** Using parallel operations *** \n')
-    % % end
-    % %
-    % % for a = 1:nColors
-    % %     disp(a)
-    % %     % run the simulation
-    % %     DTcones(pstructs{a})
-    % %     clc
-    % % end
-    % %
-    % % % close the workers
-    % % if exist('matlabpool', 'file') == 2;
-    % %    matlabpool close?
-    % % end
-    
+%     %open a matlabpool
+%     if exist('matlabpool', 'file') == 2;
+%        matlabpool
+%        pause(2)
+%        maxWorkers = 2;
+%        nWorkers = min(size(colorDirs,1), maxWorkers);
+%        matlabpool('open', nWorkers)
+%        fprintf(' *** Using parallel operations *** \n')
+%     end
     
     for a = 1:nColors
         disp(a)
-        
         % run the simulation
         DTcones(pstructs{a})
         clc
     end
+    
+%     % close the workers
+%     if exist('matlabpool', 'file') == 2;
+%        matlabpool close?
+%     end
+    
     
     
     %

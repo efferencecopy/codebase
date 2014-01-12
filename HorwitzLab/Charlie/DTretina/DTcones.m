@@ -100,17 +100,17 @@ end
 function [gab, params] = initGabor(params)
     
     % common to both methods:
-    nContrasts = 20;
+    nContrasts = 15;
     gab.nTrials = 0;
     
     switch lower(params.runType)
         
         case 'default'
-            gab.sd = 2;           % in 1/10 dva
+            gab.sd = 4;           % in 1/10 dva
             gab.nSd = 3;          % number of SDs in gabor
             gab.theta = 0;        % in radians. Zero is horizontal drifting up
             gab.gamma = 1;        % SDx == SDy
-            gab.sf = 3;           % in cpd
+            gab.sf = 1;           % in cpd
             gab.driftRate = 3;    % in cyc/sec
             gab.length = 0.666;   % in sec
             gab.rf_x = 50;        % in 1/10 dva
@@ -828,7 +828,7 @@ function cones = makeConePowerSpectrum(cones, gab, params)
     end
     
     % turn the power spectra into ordinary magnitudes:
-    cones.modelNoise_fft = sqrt(cones.modelNoise_ps); %I'm wondering if this line needs a factor of N in it b/c Juan normalizes the FFT pow spect due to distrete sampling...
+    cones.modelNoise_fft = sqrt(cones.modelNoise_ps);
     cones.freqAxis_fft = [freqAxis(freqAxis>=0) freqAxis(freqAxis<0)];
    
 end

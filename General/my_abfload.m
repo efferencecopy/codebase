@@ -1,4 +1,4 @@
-function [d,h] = my_abfload(fn)
+function [d,h, wf] = my_abfload(fn)
 
 % **  [data, header] = abfload(filename)
 %
@@ -297,37 +297,35 @@ switch h.nOperationMode
         end
         % the byte offset at which the SynchArraySection starts
         lSynchArrayPtrByte=BLOCKSIZE*lSynchArrayPtr;
+        
         % before reading Synch Arr parameters check if file is big enough to hold them
         % 4 bytes/long, 2 values per episode (start and length)
         if lSynchArrayPtrByte+2*4*lSynchArraySize>fileSz,
             fclose(fid);
             error('file seems not to contain complete Synch Array Section');
         end
-        if fseek(fid,lSynchArrayPtrByte,'bof')~=0,
-            fclose(fid);
-            error('something went wrong positioning file pointer to Synch Array Section');
-        end
-        [synchArr,n]=fread(fid,lSynchArraySize*2,'int32');
-        if n~=lSynchArraySize*2,
-            fclose(fid);
-            error('something went wrong reading synch array section');
-        end
+        
+        
+        fseek(fid,lSynchArrayPtrByte,'bof');
+        synchArr=fread(fid,lSynchArraySize*2,'int32');
+
         % make synchArr a lSynchArraySize x 2 matrix
         synchArr=permute(reshape(synchArr',2,lSynchArraySize),[2 1]);
         if numel(unique(synchArr(:,2)))>1
             fclose(fid);
             error('sweeps of unequal length in file recorded in fixed-length mode');
         end
+        
         % the length of sweeps in sample points (**note: parameter lLength of
         % the ABF synch section is expressed in samples (ticks) whereas
         % parameter lStart is given in synchArrTimeBase units)
         h.sweepLengthInPts=synchArr(1,2)/h.nADCNumChannels;
+        
         % the starting ticks of episodes in sample points (t0=1=beginning of
         % recording)
         h.sweepStartInPts=synchArr(:,1)*(h.synchArrTimeBase/h.fADCSampleInterval/h.nADCNumChannels);
-        % recording start and stop times in seconds from midnight
-        h.recTime=h.lFileStartTime;
-        h.recTime=h.recTime+[0  (1e-6*(h.sweepStartInPts(end)+h.sweepLengthInPts))*h.fADCSampleInterval*h.nADCNumChannels];
+        
+        
         % determine first point and number of points to be read
         startPt=0;
         h.dataPts=h.lActualAcqLength;
@@ -336,17 +334,16 @@ switch h.nOperationMode
             fclose(fid);
             error('number of data points not OK');
         end
+        
         % temporary helper var
         dataPtsPerSweep=h.sweepLengthInPts*h.nADCNumChannels;
-        if fseek(fid,startPt*dataSz+headOffset,'bof')~=0
-            fclose(fid);
-            error('something went wrong positioning file pointer (too few data points ?)');
-        end
         d=zeros(h.sweepLengthInPts,length(recChInd),nSweeps);
+        
         % the starting ticks of episodes in sample points WITHIN THE DATA FILE
         selectedSegStartInPts=((sweeps-1)*dataPtsPerSweep)*dataSz+headOffset;
         
         % ** load data
+        fseek(fid,startPt*dataSz+headOffset,'bof'); 
         for i=1:nSweeps,
             fseek(fid,selectedSegStartInPts(i),'bof');
             [tmpd,n]=fread(fid,dataPtsPerSweep,precision);
@@ -373,6 +370,51 @@ switch h.nOperationMode
             d(:,:,i)=tmpd;
         end
         
+        %
+        % now load the waveforms (CAH added this section)
+        %
+        % This part doesn't quite work. For the one example file it looks
+        % like the command waveform comes after the analog wave form....
+        % It's almost like I'm reading the same data but with a small
+        % delay. Maybe the 'headOffset_wf' is wrong...
+        %
+        wf = nan(size(d));
+        headOffset_wf = DACSection.uBlockIndex*BLOCKSIZE+h.nNumPointsIgnored*dataSz;
+        selectedSegStartInPts=((sweeps-1)*dataPtsPerSweep)*dataSz+headOffset_wf;
+        fseek(fid,startPt*dataSz+headOffset_wf,'bof'); 
+        for i=1:nSweeps,
+            fseek(fid,selectedSegStartInPts(i),'bof');
+            [tmpd,n]=fread(fid,dataPtsPerSweep,precision);
+            h.dataPtsPerChan=n/h.nADCNumChannels;
+            if rem(n,h.nADCNumChannels)>0
+                fclose(fid);
+                error('number of data points in episode not OK');
+            end
+            
+            % separate channels..
+            tmpd=reshape(tmpd,h.nADCNumChannels,h.dataPtsPerChan);
+            tmpd=tmpd';
+            
+            % if data format is integer, scale appropriately; if it's float, d is fine
+            if ~h.nDataFormat
+                if i==1
+                    warning('DAC section probably not being scaled appropriately')
+                end
+                for j=1:length(recChInd),
+                    ch=recChIdx(recChInd(j))+1;
+                    tmpd(:,j)=tmpd(:,j)/(h.fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
+                        *h.fADCRange/h.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
+                end
+            end
+            
+            % now fill 3d array
+            wf(:,:,i)=tmpd;
+        end
+        %
+        % END CH ADDITIONS
+        %
+        
+        
         
     case 3
         % start at the beginning
@@ -382,21 +424,9 @@ switch h.nOperationMode
         h.dataPtsPerChan=h.lActualAcqLength/h.nADCNumChannels;
         h.dataPts=h.dataPtsPerChan*h.nADCNumChannels;
 
-        if rem(h.dataPts,h.nADCNumChannels)>0
-            fclose(fid);
-            error('number of data points not OK');
-        end
-        tmp=1e-6*h.lActualAcqLength*h.fADCSampleInterval;
-        
-        % recording start and stop times in seconds from midnight
-        h.recTime=h.lFileStartTime;
-        h.recTime=[h.recTime h.recTime+tmp];
-        if fseek(fid,startPt*dataSz+headOffset,'bof')~=0,
-            fclose(fid);
-            error('something went wrong positioning file pointer (too few data points ?)');
-        end
         
         % read in some data
+        fseek(fid,startPt*dataSz+headOffset,'bof');
         d = fread(fid,h.dataPts,precision);
         
         % separate channels..
