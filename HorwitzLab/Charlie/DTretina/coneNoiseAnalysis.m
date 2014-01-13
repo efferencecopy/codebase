@@ -266,7 +266,7 @@ clear fpar_monkey
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
-        %load Kali_fpar_072113.mat % fits to monkey surfaces
+        load Kali_fpar_072113.mat % fits to monkey surfaces
     case 'sedna'
         load Sedna_DTNT_072113.mat % monkey data
         load Sedna_fpar_072113.mat % fits to monkey surfaces
@@ -1518,8 +1518,8 @@ PERFRANGE = 0.10; %
 RG = 1;          % column that has the L-M data
 LUM = 2;         % column that has the LUM data
 humanFile = '/Users/charliehass/LabStuff/NexFiles/Charlie/CharliePsychophysics/Text Files/charlieHighTF.txt';
-monkeyFile = '/Users/charliehass/LabStuff/NexFiles/Charlie/Nut/NutDTspot_cosyne.txt';
-modelFiles = '/Users/charliehass/LabStuff/DTcones/tCSF_monk_vs_model.txt';
+monkeyFile = '/Users/charliehass/LabStuff/Huskies/NexFiles/Charlie/Nut/NutDTspot_cosyne.txt';
+modelFiles = '/Users/charliehass/LabStuff/Huskies/DTcones/tCSF_monk_vs_model.txt';
 
 
 fnames = fnamesFromTxt2(monkeyFile);
@@ -1625,7 +1625,7 @@ retinaFiles = fnamesFromTxt2(modelFiles);
 
 for a = 1:numel(retinaFiles)
     
-    fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/DTcones/Data', '.mat');
+    fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/Huskies/DTcones/Data', '.mat');
     load(fpath)
     gab.contrasts{1}
     [gab.nSd, gab.driftRate, gab.rf_x, gab.rf_y, gab.sd, gab.sf, gab.theta]

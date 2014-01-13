@@ -34,7 +34,7 @@ if (~strcmpi(inname(1,end-length(suffix)+1:end),suffix))
 end
 
 if (nargin == 1)
-    optpath = '/Users/charliehass/LabStuff/NexFiles';
+    optpath = '/Users/charliehass/LabStuff/Huskies/NexFiles';
 end
 
 a = dir(optpath);
