@@ -7,6 +7,7 @@
 fin
 
 tempFreqs = [0, logspace(log10(0.2), log10(40), 35)];
+tempFreqs = [3]; % for the comparison with Nut
 
 for tf = tempFreqs;
     
@@ -15,28 +16,28 @@ for tf = tempFreqs;
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
-    params.obsMethod = 'obsMethod_phaseInvariant';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
+    params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
     params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-    params.monCalFile = 'DTcals_825Hz_framerate.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+    params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
     params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
     params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
     params.enableScones = true;                      % should the S-cones contribute to the pooled response?
     params.eyeType = 'monkey';                       % 'monkey' or 'human'
     params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-    params.colorselection = 'specific';              % could be: 'lots', 'specific', 'guniso'
+    params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
     
     % define some helpful text files (if necessary), and the paramaters for
     % parallel operations
     params.DTNT_fname = '';                       % will be created at run time and dynamically on each loop
     params.saveDir = '';                          % modified below;
-    params.parallelOperations = true;             % needs to be true for this script so that DTcones knows how to save temporary files
+    params.parallelOperations = true;             % needs to be true for this script (even if parfor is unavailable) so that DTcones knows how to save temporary files
     
     % enable some debugging options if necesary
     params.unitTest = false;             % true or false
     params.eqMosaic = false;             % for debugging. true or false
     
     % make some notes...
-    params.notes = 'This is a re-run of the 6D phase invariant idlOb.\n Only this time, the results are not latency corrected. \n m=75, c=825. \n';       % notes that should be associated the data file?
+    params.notes = 'isodetection surface at 0.5 cyc/deg using the filtered wt fxn.';       % notes that should be associated the data file?
     
     
     
@@ -47,15 +48,15 @@ for tf = tempFreqs;
     % hijack DTcones ability to import all the relavent gabor parameters.
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dtnt.rf_x = 50;     % in tenths of dva
-    dtnt.rf_y = 0;       % in tenths of dva
-    dtnt.sigma = 2;    % in tenths of dva
-    dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
+    dtnt.rf_x = -50;     % in tenths of dva
+    dtnt.rf_y = -35;       % in tenths of dva
+    dtnt.sigma = 4;    % in tenths of dva
+    dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
     dtnt.theta = 0;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
     dtnt.speed = tf;
-    dtnt.sfs = 3;
+    dtnt.sfs = 0.5;
     dtnt.alphas = []; % gets filled in later
     dtnt.colorDirs = []; % gets filled in later
     
@@ -78,7 +79,7 @@ for tf = tempFreqs;
         colorDirs(abs(colorDirs)<1e-14) = 0;
         colorDirs = unique(colorDirs, 'rows'); %remove the duplicates
         nColors = size(colorDirs,1);
-        alphas = ones(nColors,1) .* 0.15; % all the same alpha estimate
+        alphas = ones(nColors,1) .* .5; % all the same alpha estimate
         
     elseif strcmpi(params.colorselection , 'specific')
         
@@ -104,11 +105,10 @@ for tf = tempFreqs;
     
     % create a temporary directory to hold all the data files that will get
     % stored as a result of the parfor operation
-    switch license
-        case '359028' % charlie's laptop
+    if ismac
             params.saveDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data/tmpBatchData_DTNT/';
-        otherwise
-            params.saveDir = '~/Dropbox/Charlie/coneNoiseData/tmpBatchData_DTNT/';
+    elseif ispc
+            params.saveDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\tmpBatchData_DTNT\';
     end
     mkdir(params.saveDir);
     cd(params.saveDir);
@@ -146,27 +146,23 @@ for tf = tempFreqs;
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-%     %open a matlabpool
-%     if exist('matlabpool', 'file') == 2;
-%        matlabpool
-%        pause(2)
-%        maxWorkers = 2;
-%        nWorkers = min(size(colorDirs,1), maxWorkers);
-%        matlabpool('open', nWorkers)
-%        fprintf(' *** Using parallel operations *** \n')
-%     end
-    
-    for a = 1:nColors
-        disp(a)
-        % run the simulation
-        DTcones(pstructs{a})
-        clc
+    %open a matlabpool
+    if exist('matlabpool', 'file') == 2;
+       poolObj = parpool('local', 4);
+       pause(2)
+       fprintf(' *** Using parallel operations *** \n')
     end
     
-%     % close the workers
-%     if exist('matlabpool', 'file') == 2;
-%        matlabpool close?
-%     end
+    parfor a = 1:nColors
+        disp([a, tf]);
+        % run the simulation
+        DTcones(pstructs{a})
+    end
+    
+    % close the workers
+    if exist('matlabpool', 'file') == 2;
+       delete(poolObj);
+    end
     
     
     
@@ -179,7 +175,17 @@ for tf = tempFreqs;
     % Cycle through the data files and concatenate them into a single set of
     % structures.
     dataFilePath = [params.saveDir, 'dtnt_batch', '_%d', filesep, 'out_', 'dtnt_batch', '_%d.mat'];
-    load(sprintf(dataFilePath,1,1));
+    
+    % A hack to make things work on PCs (PS: Fileseps on PC are annoying)
+    idx = regexp(dataFilePath, filesep);
+    tmpPath = dataFilePath;
+    tmpPath(idx) = '&'; %changing to a nonsense character that will go through the sprintf statement....
+    tmpPath = sprintf(tmpPath, 1, 1);
+    idx = regexp(tmpPath, '&');
+    tmpPath(idx) = filesep;
+    % END HACK
+        
+    load(tmpPath);
     nContrasts = numel(gab.contrasts{1});
     tmp_colorDirs = [];
     tmp_contrasts = repmat({nan(1,nContrasts)}, 1, nColors);
@@ -197,7 +203,17 @@ for tf = tempFreqs;
     
     
     for a = 1:nColors
-        load(sprintf(dataFilePath,a,a));
+        
+        % A hack to make things work on PCs (PS: Fileseps on PC are annoying)
+        idx = regexp(dataFilePath, filesep);
+        tmpPath = dataFilePath;
+        tmpPath(idx) = '&'; %changing to a nonsense character that will go through the sprintf statement....
+        tmpPath = sprintf(tmpPath, a, a);
+        idx = regexp(tmpPath, '&');
+        tmpPath(idx) = filesep;
+        % END HACK
+        
+        load(tmpPath);
         tmp_analyticMean(a,:) = idlob.analyticMean;
         tmp_analyticVar(a,:) = idlob.analyticVar;
         tmp_resp(a,:,:) = idlob.resp;
@@ -236,11 +252,10 @@ for tf = tempFreqs;
     
     %cd to where the data should be stored
     originalDir = pwd;
-    switch license
-        case '380245' % charlie's laptop
-            newDir = '/Users/charliehass/LabStuff/DTcones/Data';
-        otherwise
-            newDir = '~/Dropbox/Charlie/coneNoiseData';
+    if ismac
+            newDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data';
+    elseif ispc
+            newDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\Data';
     end
     cd(newDir)
     

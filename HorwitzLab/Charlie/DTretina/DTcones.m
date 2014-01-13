@@ -100,7 +100,7 @@ end
 function [gab, params] = initGabor(params)
     
     % common to both methods:
-    nContrasts = 15;
+    nContrasts = 22;
     gab.nTrials = 0;
     
     switch lower(params.runType)
