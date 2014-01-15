@@ -80,37 +80,41 @@ function mdb = initMouseDB(option)
         idx = numel(mdb)+1;
         
         % build mdb entry
-        mdb(idx) = build_DB_entry(d(a));
+        try
+        mdb.mice(idx) = build_DB_entry(d(a));
+        catch
+            keyboard
+        end
 
     end
     
     
     
     
-    % figure out which files in the DOCUBASE are newer than the ones in
-    % matlab's Mouse Database
-    if numel(mdb) == 0
-        l_new = true(numel(WBnames),1);
-    else
-        % for each entry in the DB, determine which file it corresponds to
-        % in the DocuBase directory. Then compare the modDates for the
-        % workbook and the MDB entry.
-        WBnames = cellfun(@(x) x(1:regexp(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
-        l_new = false(numel(WBnames), 1);
-        for a = 1:numel(mdb)
-            
-            idx = find(strcmpi(mdb_names{a}, WBnames));
-            if numel(idx) == 0; warning('Entry <%s> exists in the Mouse Database but there is no workbook in the DocuBase', mdb_names{a}); continue; end
-            if numel(idx) > 1; error('Entry <%s> from the MDB has multiple workbooks in the DocuBase', mdb_names{a}); end
-            
-            % compare the modification date
-            datestr(mdb(a).modDate)
-            datestr(d(idx).datenum)
-            l_new(a) = mdb(a).modDate ~= d(idx).datenum;
-            
-        end
-        
-    end
+%     % figure out which files in the DOCUBASE are newer than the ones in
+%     % matlab's Mouse Database
+%     if numel(mdb) == 0
+%         l_new = true(numel(WBnames),1);
+%     else
+%         % for each entry in the DB, determine which file it corresponds to
+%         % in the DocuBase directory. Then compare the modDates for the
+%         % workbook and the MDB entry.
+%         WBnames = cellfun(@(x) x(1:regexp(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
+%         l_new = false(numel(WBnames), 1);
+%         for a = 1:numel(mdb)
+%             
+%             idx = find(strcmpi(mdb_names{a}, WBnames));
+%             if numel(idx) == 0; warning('Entry <%s> exists in the Mouse Database but there is no workbook in the DocuBase', mdb_names{a}); continue; end
+%             if numel(idx) > 1; error('Entry <%s> from the MDB has multiple workbooks in the DocuBase', mdb_names{a}); end
+%             
+%             % compare the modification date
+%             datestr(mdb(a).modDate)
+%             datestr(d(idx).datenum)
+%             l_new(a) = mdb(a).modDate ~= d(idx).datenum;
+%             
+%         end
+%         
+%     end
 
     % save the database!
     save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
@@ -119,7 +123,7 @@ function mdb = initMouseDB(option)
 end
 
 function out = build_DB_entry(fileInfo)
-
+        
         % pull out the name and the date the file was modified.
         name = regexp(fileInfo.name, '\.\w+', 'split');
         out.name = name{1};

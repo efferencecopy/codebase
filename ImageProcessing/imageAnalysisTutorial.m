@@ -135,7 +135,7 @@ cd([GL_DATPATH, filesep, mouse, filesep, 'Histology', filesep, 'Raw Images']);
 d = dir;
 
 % load in (and update) the mouseDB
-mdb = initMouseDB();
+mdb = initMouseDB('new');
 
 % initialize the structure of images
 [img.green, img.red, img.blue] = deal({});
@@ -233,10 +233,10 @@ for p = 1:numPlates
         
         % figure out where the slice was in the brain based off of the
         % slice thickness and the slice number
-        mdbidx = regexp({mdb(:).name}', mouse);
+        mdbidx = regexp({mdb.mice(:).name}', mouse);
         mdbidx = ~cellfun(@isempty, mdbidx);
-        thickness = mdb(mdbidx).histo.thickness;
-        slicesPerPlate = mdb(mdbidx).histo.slicesPerPlate;
+        thickness = mdb.mice(mdbidx).histo.thickness;
+        slicesPerPlate = mdb.mice(mdbidx).histo.slicesPerPlate;
         stack.loc(idx) = sum(slicesPerPlate(1:p-1).*thickness) + ((sl-1).*thickness);
 
         % update the index
