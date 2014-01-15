@@ -16,7 +16,7 @@ elseif isunix % charlie's desktop linux machine
     defaultpath = '~/Crash/';
     
 elseif ispc
-    GL_DOCUPATH = 'C:\Users\glickfeld_lab\Desktop\CharlieDocs';
+    GL_DOCUPATH = 'C:\Users\glickfeld_lab\Documents\GitHub\docubase\';
     defaultpath = 'C:\Users\glickfeld_lab\Documents\MATLAB';
     GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
 end

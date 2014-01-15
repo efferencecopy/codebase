@@ -50,8 +50,8 @@ for tf = tempFreqs;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dtnt.rf_x = -50;     % in tenths of dva
     dtnt.rf_y = -35;       % in tenths of dva
-    dtnt.sigma = 4;    % in tenths of dva
-    dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
+    dtnt.sigma = 2;    % in tenths of dva
+    dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
     dtnt.theta = 0;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
@@ -65,7 +65,7 @@ for tf = tempFreqs;
         
         
         % define the color directions.... just putting points on a sphere for now
-        nColors = 200;
+        nColors = 2;
         tmp = ceil(sqrt(nColors));
         az = linspace(0, 2*pi, tmp);
         el = linspace(0, pi/2, tmp);
@@ -231,7 +231,7 @@ for tf = tempFreqs;
     
     % delete all the temporary files and folders
     cd([params.saveDir, '/../']) % cd one level up
-    rmdir(params.saveDir, 's')
+    % rmdir(params.saveDir, 's') % doesn't work on the glick lab PC
     
     
     
