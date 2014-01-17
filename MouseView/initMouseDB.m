@@ -55,11 +55,11 @@ function mdb = initMouseDB(option)
     WBnames = {d(:).name}; % up-date this variable after deleting some entries from the dir tree
     
     % figure out which files are absent from the existing MDB
-    if numel(mdb) == 0
+    if ~DBavailable || OVERWRITE
         l_absent = true(numel(WBnames),1);
     else
         % pull out the names of things in the DB
-        mdb_names = {mdb.name};
+        mdb_names = {mdb.mice.name};
         
         % find the Workbooks that are already present in the database
         l_present = cellfun(@(x,y) regexpi(x,y), WBnames, repmat({mdb_names}, 1, numel(WBnames)), 'uniformoutput', false);
@@ -74,17 +74,17 @@ function mdb = initMouseDB(option)
     for a = find(l_absent)'
         
         % display the name of the file about to get added
-        fprintf('    d(a).name\n')
+        fprintf('    %s\n', d(a).name)
 
         % where in the mouse db should the new stuff go?
-        idx = numel(mdb)+1;
+        if isfield(mdb, 'mice')
+            idx = numel(mdb.mice)+1;
+        else
+            idx = 1; % happens the first time, or on overwrites...
+        end
         
         % build mdb entry
-        try
         mdb.mice(idx) = build_DB_entry(d(a));
-        catch
-            keyboard
-        end
 
     end
     

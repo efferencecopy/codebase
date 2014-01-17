@@ -2,8 +2,8 @@
 
 fin
 
-fileName = '13d20006';
-mouse = 'EMX_3';
+fileName = '13d13003.abf';
+mouse = 'EMX_2';
 datPath = [GL_DATPATH, mouse, filesep, 'Physiology'];
 filePath = findfile(fileName, datPath, '.abf');
 
@@ -22,16 +22,19 @@ sampRate = 1/(h.si.*10^(-6));
 N = size(dat,1);
 tt = [0:N-1]./sampRate;
 
-sweep = 8;
+
+for sw = 1:size(dat,3)
 figure
 nplts = numel(h.recChNames);
-for a = 1:nplts;
-    subplot(nplts, 1, a)
-    plot(tt, dat(:,a,sweep))
-    ylabel(h.recChNames{a})
+idx = [2,6];
+for a = 1:2;
+    subplot(2, 1, a)
+    plot(tt, dat(:,idx(a),sw))
+    ylabel(h.recChNames{idx(a)})
     if a == 1
         xlabel('Time (ms)')
     end
+end
 end
 
 
