@@ -43,7 +43,7 @@ function mdb = initMouseDB(option)
     if DBavailable && ~OVERWRITE
         load('mouseDB.mat');
     else
-        mdb = []; % 'mouse data base' structure
+        mdb = {}; % 'mouse data base' structure
     end
     
     % eliminate the hidden files (and other files that we should ignore)
@@ -59,7 +59,9 @@ function mdb = initMouseDB(option)
         l_absent = true(numel(WBnames),1);
     else
         % pull out the names of things in the DB
-        mdb_names = {mdb.mice.name};
+        disp('Need to deal with this section')
+        keyboard
+        mdb_names = {mdb{:}.name};
         
         % find the Workbooks that are already present in the database
         l_present = cellfun(@(x,y) regexpi(x,y), WBnames, repmat({mdb_names}, 1, numel(WBnames)), 'uniformoutput', false);
@@ -77,14 +79,11 @@ function mdb = initMouseDB(option)
         fprintf('    %s\n', d(a).name)
 
         % where in the mouse db should the new stuff go?
-        if isfield(mdb, 'mice')
-            idx = numel(mdb.mice)+1;
-        else
-            idx = 1; % happens the first time, or on overwrites...
-        end
+        idx = numel(mdb)+1;
+        
         
         % build mdb entry
-        mdb.mice(idx) = build_DB_entry(d(a));
+        mdb{1,idx} = build_DB_entry(d(a)); % make a column of structures.
 
     end
     

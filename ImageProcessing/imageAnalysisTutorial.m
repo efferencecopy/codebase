@@ -125,7 +125,7 @@ plotimg(img_merge_simple, info);
 
 
 
-mouse = 'CH_112613_A';
+mouse = 'EMX_1';
 objective = '2x';
 contrastMethod = 'none';
 NPIX = 0;
