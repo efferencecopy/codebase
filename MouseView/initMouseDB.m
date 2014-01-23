@@ -4,17 +4,6 @@ function mdb = initMouseDB(option)
  %
  % to do
  %
- % I need to make sure there is a one to one match between files in the
- % DocuBase dir and entries in the MBD. For each file there should be only
- % one entry, and vice versa. Do this error checking b/4 doing anything
- % else.
- %
- % Then add workbooks that do not exist in the directory
- %
- % Then update MDB entries that are out of date. At this point in the code,
- % the number of entries in the MDB and the dir should be identical (after
- % ignoring the excluded files).
- %
  % Add functionality to import the other work sheets.
  %
  % Start making GUI to visualize data and to text searches.
@@ -43,7 +32,7 @@ function mdb = initMouseDB(option)
     if DBavailable && ~OVERWRITE
         load('mouseDB.mat');
     else
-        mdb = {}; % 'mouse data base' structure
+        mdb = []; % 'mouse data base' structure
     end
     
     % eliminate the hidden files (and other files that we should ignore)
@@ -54,14 +43,27 @@ function mdb = initMouseDB(option)
     d(l_exclude) = [];
     WBnames = {d(:).name}; % up-date this variable after deleting some entries from the dir tree
     
-    % figure out which files are absent from the existing MDB
+    
+    
+    %
+    % MAKE SURE THERE ARE NO DUPLICATES IN THE
+    % MOUSE DATA BASE
+    %
+    %%%%%%%%%%%%%%%%%%%%
+    uniqueNames = unique(WBnames');
+    assert(numel(uniqueNames) <= numel(WBnames), 'Duplicate entries exist in the MDB');
+    
+    
+    
+    %
+    % ADD FILES THAT ARE ABSENT FROM THE DATABASE
+    %
+    %%%%%%%%%%%%%%%%%%%%
     if ~DBavailable || OVERWRITE
         l_absent = true(numel(WBnames),1);
     else
         % pull out the names of things in the DB
-        disp('Need to deal with this section')
-        keyboard
-        mdb_names = {mdb{:}.name};
+        mdb_names = {mdb.mice(:).name};
         
         % find the Workbooks that are already present in the database
         l_present = cellfun(@(x,y) regexpi(x,y), WBnames, repmat({mdb_names}, 1, numel(WBnames)), 'uniformoutput', false);
@@ -69,56 +71,58 @@ function mdb = initMouseDB(option)
     end
 
 
-    % add the missing files
-    if any(l_absent); 
-        fprintf('  Adding new files:\n');
-    end
-    for a = find(l_absent)'
+    % add the missing files 
+    fprintf('  Adding %d files:\n', sum(l_absent));
+    for a = find(l_absent(:))'
         
         % display the name of the file about to get added
         fprintf('    %s\n', d(a).name)
 
         % where in the mouse db should the new stuff go?
-        idx = numel(mdb)+1;
+        if (OVERWRITE || ~DBavailable) && (a==1)
+            idx = 1;
+        else
+            idx = numel(mdb.mice)+1;
+        end
         
         
         % build mdb entry
-        mdb{1,idx} = build_DB_entry(d(a)); % make a column of structures.
+        mdb.mice(idx) = build_DB_entry(d(a)); % make a column of structures.
 
     end
     
     
     
+    %
+    % UPDATE FILES IN THE MDB THAT HAVE NEWER VERSIONS ON THE HARDDRIVE.
+    %
+    %%%%%%%%%%%%%%%%%%%%
+    fprintf('  Updating modified files:\n') 
+    WBnames = cellfun(@(x) x(1:regexp(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
+    for a = 1:numel(mdb.mice)
+        
+        % find the MDB entry in the file directory
+        idx = find(strcmpi(mdb.mice(a).name, WBnames));
+        assert(numel(idx)==1, 'Number of matches ~= 1');
+        
+        % update the mdb if the version in the directory is newer        
+        if d(idx).datenum > mdb.mice(a).modDate
+            fprintf('    %s\n', d(idx).name)
+            mdb.mice(a) = build_DB_entry(d(idx));
+        end        
+    end
     
-%     % figure out which files in the DOCUBASE are newer than the ones in
-%     % matlab's Mouse Database
-%     if numel(mdb) == 0
-%         l_new = true(numel(WBnames),1);
-%     else
-%         % for each entry in the DB, determine which file it corresponds to
-%         % in the DocuBase directory. Then compare the modDates for the
-%         % workbook and the MDB entry.
-%         WBnames = cellfun(@(x) x(1:regexp(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
-%         l_new = false(numel(WBnames), 1);
-%         for a = 1:numel(mdb)
-%             
-%             idx = find(strcmpi(mdb_names{a}, WBnames));
-%             if numel(idx) == 0; warning('Entry <%s> exists in the Mouse Database but there is no workbook in the DocuBase', mdb_names{a}); continue; end
-%             if numel(idx) > 1; error('Entry <%s> from the MDB has multiple workbooks in the DocuBase', mdb_names{a}); end
-%             
-%             % compare the modification date
-%             datestr(mdb(a).modDate)
-%             datestr(d(idx).datenum)
-%             l_new(a) = mdb(a).modDate ~= d(idx).datenum;
-%             
-%         end
-%         
-%     end
 
-    % save the database!
+    
+    %
+    % SAVE THE DATABASE
+    %
+    %%%%%%%%%%%%%%%%%%%%
     save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
     fprintf('Initialization complete\n')
     cd(presDir)
+    
+    
 end
 
 function out = build_DB_entry(fileInfo)
