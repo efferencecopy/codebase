@@ -1,4 +1,4 @@
-function imgAlign(stack, info)
+function stackViewer(stack, info)
 
 % roll over the stacks and make sure the images are all in the correct
 % orientation
