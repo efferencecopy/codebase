@@ -68,6 +68,12 @@ end
 
 
 
+% figure out some histology parameters for this mouse (used below):
+mdbidx = regexpi({mdb.mice(:).name}', params.mouse);
+mdbidx = ~cellfun(@isempty, mdbidx);
+thickness = mdb.mice(mdbidx).histo.thickness;
+slicesPerPlate = mdb.mice(mdbidx).histo.slicesPerPlate;
+
 
 % combine the images into a merged truecolor RGB. Arrange them in a stack.
 idx = 1;
@@ -114,10 +120,6 @@ for p = 1:numPlates
         
         % figure out where the slice was in the brain based off of the
         % slice thickness and the slice number
-        mdbidx = regexp({mdb.mice(:).name}', params.mouse);
-        mdbidx = ~cellfun(@isempty, mdbidx);
-        thickness = mdb.mice(mdbidx).histo.thickness;
-        slicesPerPlate = mdb.mice(mdbidx).histo.slicesPerPlate;
         stack.loc(idx) = sum(slicesPerPlate(1:p-1).*thickness) + ((sl-1).*thickness);
 
         % update the index

@@ -37,7 +37,7 @@ function mdb = initMouseDB(option)
     
     % eliminate the hidden files (and other files that we should ignore)
     % from the directory tree.
-    exclude = {'^[\.]', '^[-*]', '^[~]', '^[$]', 'mouseDB.mat'};
+    exclude = {'^[\.]', '^[-*]', '^[~]', '^[$]', 'mouseDB.mat', 'SyncToy'};
     l_exclude = cellfun(@(x,y) regexpi(x,y), {d.name}, repmat({exclude}, 1, numel(d)), 'uniformoutput', false);
     l_exclude = cellfun(@(x) any(cell2mat(x)), l_exclude);
     d(l_exclude) = [];
@@ -97,7 +97,7 @@ function mdb = initMouseDB(option)
     %
     %%%%%%%%%%%%%%%%%%%%
     fprintf('  Updating modified files:\n') 
-    WBnames = cellfun(@(x) x(1:regexp(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
+    WBnames = cellfun(@(x) x(1:regexpi(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
     for a = 1:numel(mdb.mice)
         
         % find the MDB entry in the file directory
@@ -127,7 +127,7 @@ end
 function out = build_DB_entry(fileInfo)
         
         % pull out the name and the date the file was modified.
-        name = regexp(fileInfo.name, '\.\w+', 'split');
+        name = regexpi(fileInfo.name, '\.\w+', 'split');
         out.name = name{1};
         out.modDate = fileInfo.datenum;
 
@@ -209,7 +209,7 @@ function out = assignFields(keys, xls)
     for a = 1:size(keys,1)
         % find the row where the keyword appears, and then grab the actual
         % data from the appropriate column
-        row = regexp({xls{:,1}}', keys{a,1}, 'ignorecase'); % returns a cell array
+        row = regexpi({xls{:,1}}', keys{a,1}, 'ignorecase'); % returns a cell array
         row = ~cellfun(@isempty, row); % now a logical vector (notice the 'not')
         col = keys{a,4};
         
@@ -217,7 +217,7 @@ function out = assignFields(keys, xls)
         % the structure
         tmp = xls{row, col};
         if strcmpi(keys{a,3}, 'num')
-            tmp = str2double(tmp);
+            tmp = str2num(tmp);
         end
         out.(keys{a,2}) = tmp;
         
@@ -260,16 +260,17 @@ function newDate = convertDate(oldDate)
         newDate = datestr([mm, '/', dd, '/', yy], 23);
         
         
-    else
+    elseif numel(oldDate)<=5 && ismac
         
         % excel on the PC specifies datenums from 12/30/1899. So add an
         % offset to bring things into alignment with the mac.
-        if numel(oldDate)<=5 && ismac
-            offset = datenum('12/30/1899');
-            tmp = str2double(oldDate)+offset;
-            newDate = datestr(tmp, 23); % for some reason, things seem to be better if I subtract one?!?!
-        end
+        offset = datenum('12/30/1899');
+        tmp = str2double(oldDate)+offset;
+        newDate = datestr(tmp, 23); % for some reason, things seem to be better if I subtract one?!?!
+        
+    else
+        warning('need to verify datestrings on PC and Linux!')
+        keyboard
     end
-    
 end
 
