@@ -127,7 +127,7 @@ plotimg(img_merge_simple, info);
 
 mouse = 'CH_112613_B';
 objective = '2x';
-contrastMethod = 'adapthisteq';
+contrastMethod = 'none';
 NPIX = 0;
 
 % cd to where the images are
