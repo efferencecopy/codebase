@@ -2,9 +2,11 @@ function mac_add = getmacaddr()
 
 % this should be a multi-platform way of obtaining the mac address so that
 % I can easily identify which computer I'm at. I stole the code from this
-% blog:
+% blog (with a minor modification)
 %
 % http://undocumentedmatlab.com/blog/unique-computer-id/
+%
+% C.HASS 01/25/2014
 
 switch computer('arch')
     case {'maci','maci64'}

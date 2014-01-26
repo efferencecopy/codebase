@@ -50,13 +50,13 @@ for tf = tempFreqs;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dtnt.rf_x = -50;     % in tenths of dva
     dtnt.rf_y = -35;       % in tenths of dva
-    dtnt.sigma = 2;    % in tenths of dva
-    dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
+    dtnt.sigma = 4;    % in tenths of dva
+    dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
     dtnt.theta = 0;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
     dtnt.speed = tf;
-    dtnt.sfs = 0.5;
+    dtnt.sfs = 4;
     dtnt.alphas = []; % gets filled in later
     dtnt.colorDirs = []; % gets filled in later
     
@@ -65,7 +65,7 @@ for tf = tempFreqs;
         
         
         % define the color directions.... just putting points on a sphere for now
-        nColors = 2;
+        nColors = 200;
         tmp = ceil(sqrt(nColors));
         az = linspace(0, 2*pi, tmp);
         el = linspace(0, pi/2, tmp);
@@ -105,9 +105,10 @@ for tf = tempFreqs;
     
     % create a temporary directory to hold all the data files that will get
     % stored as a result of the parfor operation
-    if ismac
+    switch whoami
+        case 'hass_mbp'
             params.saveDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data/tmpBatchData_DTNT/';
-    elseif ispc
+        case 'glick_rig1'
             params.saveDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\tmpBatchData_DTNT\';
     end
     mkdir(params.saveDir);
@@ -191,6 +192,7 @@ for tf = tempFreqs;
     tmp_contrasts = repmat({nan(1,nContrasts)}, 1, nColors);
     
     % define the dimensionality of the temporary arrays
+    warning('need to deal with this!')
     switch params.obsMethod
         case 'obsMethod_all'
             [tmp_analyticMean, tmp_analyticVar] = deal(nan(nColors, nContrasts)); % dimensionality will be nColors x nContrasts
@@ -252,9 +254,10 @@ for tf = tempFreqs;
     
     %cd to where the data should be stored
     originalDir = pwd;
-    if ismac
+    switch whoami
+        case 'hass_mbp'
             newDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data';
-    elseif ispc
+        case 'glick_rig1'
             newDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\Data';
     end
     cd(newDir)
