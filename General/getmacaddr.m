@@ -27,10 +27,7 @@ switch computer('arch')
         
         [~,a]=system('getmac');
         b=strfind(a,'=');
-        mac_add=a(b(end):b(end)+19);
-        
-        % might need to be this line:
-        mac_add = a(b(end)+1:b(end)+19);
+        mac_add = a(b(end)+2:b(end)+18);
         
     case {'glnx86','glnxa64'}
         [~,a]=system('ifconfig');
