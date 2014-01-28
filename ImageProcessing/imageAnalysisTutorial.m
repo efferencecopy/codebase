@@ -122,7 +122,7 @@ plotimg(img_merge_simple, info);
 %% VIEW A STACK OF IMAGES
 
 
-params.mouse = 'CH_112613_a';
+params.mouse = 'CH_112613_B';
 params.objective = '2x';
 params.contrastMethod = 'none';
 params.npix = 0;

@@ -28,7 +28,8 @@ for a = 1:numel(d);
         fprintf('%d more images to unpack\n', numel(d)-(a-1));
     end
     
-    if ~any(strcmp(d(a).name, {'.', '..'})) % skip the hidden files
+    if ~any(regexpi(d(a).name, '^[\.]|thumbs')) % skip the hidden files
+
         
         % make sure the objective used is correct
         sliceObjective = regexpi(d(a).name , '_\d+x', 'match');
@@ -46,7 +47,7 @@ for a = 1:numel(d);
             
             
             % red? or green?
-            if regexp(d(a).name, '_red');   color = 'red'; end
+            if regexp(d(a).name, '_red'); color = 'red'; end
             if regexp(d(a).name, '_green'); color = 'green'; end
             if regexp(d(a).name, '_blue');   color = 'blue'; end
             if regexp(d(a).name, '_white');   continue; end

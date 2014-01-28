@@ -260,17 +260,14 @@ function newDate = convertDate(oldDate)
         newDate = datestr([mm, '/', dd, '/', yy], 23);
         
         
-    elseif numel(oldDate)<=5 && ismac
+    elseif numel(oldDate)<=5
         
         % excel on the PC specifies datenums from 12/30/1899. So add an
         % offset to bring things into alignment with the mac.
         offset = datenum('12/30/1899');
         tmp = str2double(oldDate)+offset;
         newDate = datestr(tmp, 23); % for some reason, things seem to be better if I subtract one?!?!
-        
-    else
-        warning('need to verify datestrings on PC and Linux!')
-        keyboard
+
     end
 end
 
