@@ -8,7 +8,7 @@ switch getmacaddr
     case 'c4:2c:03:2a:29:3e'
         ID = 'hass_mbp';
         
-    case '123'
+    case '00:21:70:43:5b:83'
         ID = 'hass_linux';
         
     case '00-25-90-C1-B6-C2'

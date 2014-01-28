@@ -56,7 +56,7 @@ for tf = tempFreqs;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
     dtnt.speed = tf;
-    dtnt.sfs = 1;
+    dtnt.sfs = 2;
     dtnt.alphas = []; % gets filled in later
     dtnt.colorDirs = []; % gets filled in later
     
@@ -110,6 +110,8 @@ for tf = tempFreqs;
             params.saveDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data/tmpBatchData_DTNT/';
         case 'glick_rig1'
             params.saveDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\tmpBatchData_DTNT\';
+            case 'nuke'
+            params.saveDir = 'C:\Users\charlie\Desktop\Local Data\DTcones\tmpBatchData_DTNT\';
     end
     mkdir(params.saveDir);
     cd(params.saveDir);
@@ -149,7 +151,8 @@ for tf = tempFreqs;
     
     %open a matlabpool
     if exist('matlabpool', 'file') == 2;
-       poolObj = parpool('local', 4);
+       %poolObj = parpool('local', 4);
+       matlabpool open 6
        pause(2)
        fprintf(' *** Using parallel operations *** \n')
     end
@@ -162,7 +165,8 @@ for tf = tempFreqs;
     
     % close the workers
     if exist('matlabpool', 'file') == 2;
-       delete(poolObj);
+        matlabpool('close')
+       %delete(poolObj);
     end
     
     
@@ -177,7 +181,7 @@ for tf = tempFreqs;
     % structures.
     dataFilePath = [params.saveDir, 'dtnt_batch', '_%d', filesep, 'out_', 'dtnt_batch', '_%d.mat'];
     
-    % A hack to make things work on PCs (PS: Fileseps on PC are annoying)
+    % A hack to make things work on PCs (also, Fileseps on PC are annoying)
     idx = regexp(dataFilePath, filesep);
     tmpPath = dataFilePath;
     tmpPath(idx) = '&'; %changing to a nonsense character that will go through the sprintf statement....
@@ -206,7 +210,7 @@ for tf = tempFreqs;
     
     for a = 1:nColors
         
-        % A hack to make things work on PCs (PS: Fileseps on PC are annoying)
+        % A hack to make things work on PCs (also, Fileseps on PC are annoying)
         idx = regexp(dataFilePath, filesep);
         tmpPath = dataFilePath;
         tmpPath(idx) = '&'; %changing to a nonsense character that will go through the sprintf statement....
@@ -259,6 +263,8 @@ for tf = tempFreqs;
             newDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data';
         case 'glick_rig1'
             newDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\Data';
+        case 'nuke'
+            newDir = 'C:\Users\charlie\Desktop\Local Data\DTcones\Data';
     end
     cd(newDir)
     
