@@ -56,7 +56,7 @@ for tf = tempFreqs;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
     dtnt.speed = tf;
-    dtnt.sfs = 4;
+    dtnt.sfs = 1;
     dtnt.alphas = []; % gets filled in later
     dtnt.colorDirs = []; % gets filled in later
     
