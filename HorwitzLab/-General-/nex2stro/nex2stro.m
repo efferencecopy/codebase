@@ -16,7 +16,7 @@ function stro = nex2stro(fileName)
     
     %start the wait dialog and, initialize all the appropriate structures,
     %then open a .nex file if no input argument was given.
-    waitdlg = waitbar(0, 'Opening a .nex file');
+    %waitdlg = waitbar(0, 'Opening a .nex file');
     [stro, ecodes, spikes, anlg, waves, events] = setupStructures();
 
     if (nargin == 0 || isempty(fileName))
@@ -84,19 +84,19 @@ function stro = nex2stro(fileName)
         end
 
         if ~(rem(b, 3)) %update the waitdlg every three trials
-            waitbar(b./nTrials, waitdlg,  '   ...Processing trials');
+            %waitbar(b./nTrials, waitdlg,  '   ...Processing trials');
         end
     end
 
     %now cleanup the bad trials (empty rows) of stro.trial, stro.ras, and
     %stro.sum.absTrialNum
-    waitbar(1, waitdlg,  '   ... cleaning up');
+    %waitbar(1, waitdlg,  '   ... cleaning up');
     stro.ras((goodTrial+1):end, :) = [];
     stro.trial((goodTrial+1):end, :) = [];
     stro.sum.absTrialNum(goodTrial+1:end) = [];
 
     %close up the wait dialog
-    close(waitdlg);
+    %close(waitdlg);
 
     %****************************************%
     %  END OF MAIN LOOP. SUBFUNCTIONS BELOW  %
@@ -214,7 +214,7 @@ function stro = nex2stro(fileName)
 
             switch type
                 case 0 % neuron
-                    waitbar(0, waitdlg,'  ...adding spike data');
+                    %waitbar(0, waitdlg,'  ...adding spike data');
                     neuronCount = neuronCount+1;
                     spikes.names(neuronCount) = {name};
                     fseek(fid, offset, 'bof');
@@ -223,7 +223,7 @@ function stro = nex2stro(fileName)
                     fseek(fid, filePosition, 'bof');
 
                 case 1 % event (start/stop)
-                    waitbar(0, waitdlg, sprintf('  ...adding %s times', name));
+                    %waitbar(0, waitdlg, sprintf('  ...adding %s times', name));
                     fseek(fid, offset, 'bof');
                     ts = fread(fid, [n 1], 'int32')./freq;
 %                     events = setfield(events, lower(name), ts);
@@ -250,7 +250,7 @@ function stro = nex2stro(fileName)
                     fprintf('Ignoring the ''population vector'' type \n');
 
                 case 5 % continuous variable (i.e. eye signals)
-                    waitbar(0, waitdlg, sprintf('  ...adding analog data: %s', name));
+                    %waitbar(0, waitdlg, sprintf('  ...adding analog data: %s', name));
                     contSigCount = contSigCount+1;
                     anlg.names(contSigCount) = {name};
                     anlg.ADtoMV(contSigCount) = {ADtoMV};
@@ -270,7 +270,7 @@ function stro = nex2stro(fileName)
                     fseek(fid, filePosition, 'bof'); 
 
                 case 6 % marker (i.e. ecodes)
-                    waitbar(0, waitdlg, '  ...adding ecodes');
+                    %waitbar(0, waitdlg, '  ...adding ecodes');
                     fseek(fid, offset, 'bof');
                     timeStamps = fread(fid, [n 1], 'int32') ./ freq;
 

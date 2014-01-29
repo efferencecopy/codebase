@@ -110,7 +110,7 @@ for tf = tempFreqs;
             params.saveDir = '/Users/charliehass/LabStuff/Huskies/DTcones/Data/tmpBatchData_DTNT/';
         case 'glick_rig1'
             params.saveDir = 'C:\Users\glickfeld_lab\Desktop\Local Data Files\DTcones\tmpBatchData_DTNT\';
-            case 'nuke'
+        case 'nuke'
             params.saveDir = 'C:\Users\charlie\Desktop\Local Data\DTcones\tmpBatchData_DTNT\';
     end
     mkdir(params.saveDir);

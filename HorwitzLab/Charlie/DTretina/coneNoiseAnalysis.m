@@ -6,9 +6,11 @@ fin
 
 
 presdir = pwd;
-switch license
-    case '359028' % charlie's laptop
+switch whoami
+    case 'hass_mbp' % charlie's laptop
         cd '/Users/charliehass/LabStuff/Huskies/DTcones/Data/';
+    otherwise
+        % do nothing
 end
 [fname, fpath] = uigetfile('Pick a text file');
 load([fpath, fname]);

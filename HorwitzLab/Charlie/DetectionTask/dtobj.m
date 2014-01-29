@@ -30,20 +30,15 @@ classdef dtobj
                 if ~isempty(tmppath) && strcmpi(tmpext, '.nex'); % the user supplied a valid absolute path
                     filepath = fileName;
                 else
-                    if strcmp(license, '367516')
-                        load 'C:\NO BACKUP\NexFiles\Charlie\Batch Data And Text Files\nexPaths.mat';
-                        filepath = findNexPath(nexPaths, fileName);
-                    elseif ispc %the non-server lab PCs
-                        load 'N:\NexFiles\Charlie\Batch Data And Text Files\nexPaths.mat';
-                        filepath = findNexPath(nexPaths, fileName);
-                    elseif strcmpi(license, '380245') %charlie's laptop
-                        load '/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files/nexPaths.mat';
-                        filepath = findNexPath(nexPaths, fileName);
-                    elseif strcmpi(license, '633208') || strcmpi(license, '377705') % rig 2/3 mac (psycho)
-                        load '~/Desktop/Charlie Cone Model Stuff/nexPaths.mat';
-                        filepath = findNexPath(nexPaths, fileName);
-                    else
-                        filepath = findfile(fileName);
+                    switch whoami
+                        case 'hass_mbp'
+                            load '/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files/nexPaths.mat';
+                            filepath = findNexPath(nexPaths, fileName);
+                        case 'nuke'
+                            load '\\crash.dhe.duke.edu\charlie\DTcones\Files for server\nexPaths.mat'
+                            filepath = findNexPath(nexPaths, fileName);
+                        otherwise
+                            filepath = findfile(fileName);
                     end
                 end
             end

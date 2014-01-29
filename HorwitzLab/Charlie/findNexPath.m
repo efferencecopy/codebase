@@ -15,15 +15,21 @@ function filepath = findNexPath(nexPaths, fname)
             fprintf('File <%s> has none or more than one entry in NexFiles directory\n', fname);
         else
             filepath = strrep(nexPaths.paths{idx}, '$:$', filesep);
-            if strcmp(license, '367516') % lab server
-                filepath = ['C:\NO BACKUP' filepath];
-            elseif ispc % all other lab pc's
-                filepath = ['N:' filepath];
-            elseif strcmp(license, '380245') % charlie's laptop
-                filepath = ['/Users/charliehass/LabStuff' filepath];
-            elseif isunix && ~ismac %shadlen cluster
-                filepath = filepath;                
+            switch whoami
+                case 'nuke'
+                    filepath = filepath(2:end); % kinda dumb that the switch/case doesn't do anything...
             end
+            
+            %%% OLD VERSION %%%
+%             if strcmp(license, '367516') % lab server
+%                 filepath = ['C:\NO BACKUP' filepath];
+%             elseif ispc % all other lab pc's
+%                 filepath = ['N:' filepath];
+%             elseif strcmp(license, '380245') % charlie's laptop
+%                 filepath = ['/Users/charliehass/LabStuff' filepath];
+%             elseif isunix && ~ismac %shadlen cluster
+%                 filepath = filepath;                
+%             end
         end
     else
         fprintf('    ******  The experiment library needs to be updated!!!  ******\n');

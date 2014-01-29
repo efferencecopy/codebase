@@ -48,14 +48,11 @@ for i = find(directories);
 end
 
 %be nice and cd back to the original directory
-if strcmpi(license, '380245') % charlie's laptop
+switch whoami
+    case 'hass_mbp'
     cd('/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files');
-elseif strcmpi(license, '633208') % rig 3 mac
-    cd '~/Desktop/Charlie Cone Model Stuff'
-elseif strcmp(license, '367516') %lab server
-    cd('C:\NO BACKUP\NexFiles\Charlie\Batch Data And Text Files');
-elseif ispc
-    cd('N:\NexFiles\Charlie\Batch Data And Text Files');
+    case 'nuke'
+    cd('\\crash.dhe.duke.edu\charlie\DTcones\Files for server\');
 end
 save 'nexPaths.mat' nexPaths
 cd(currentDir)
