@@ -5,10 +5,12 @@
  % some stuff for the analysis
  snpLength = 1;     % in sec
  idx = 0;
- fileName = 'noiseTest_directComp';
+ fileName = 'modelCell_noIso';
  
  % go to the data directory and pull out the available file names
- cd([PHYSPATH, 'Rig_Noise', filesep, fileName])
+ cd(GL_DATPATH);
+ cd('../')
+ cd(['./Rig_Noise', filesep, fileName])
  d = dir;
 
  
