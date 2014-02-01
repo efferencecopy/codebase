@@ -48,7 +48,9 @@ function [fpar, fval] = fitDetectionSurface(colors, alphas, initparams, npsoiter
         fpars_pso = nan(npsoiters, 10);
         fvals_pso = nan(npsoiters,1);
         for a = 1:npsoiters
-            [fpars_pso(a,:), fvals_pso(a)] = pso(problem);
+            %[fpars_pso(a,:), fvals_pso(a)] = pso(problem);
+            options = optimoptions('pso', 'TolFun', 1e-10, 'MaxIter', 10e5, 'SelfRecognitionCoefficient', 0.5, 'SocialRecognitionCoefficient', 0.3, 'NumParticles', 200);
+            [fpars_pso(a,:), fvals_pso(a)] = pso(@coleFitErr_local, 10, [1; repmat(-100, 9, 1)], [3; repmat(100, 9, 1)], options);
             fvals_pso(a)
         end
         
