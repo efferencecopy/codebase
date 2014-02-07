@@ -228,7 +228,7 @@ end
 function newDate = convertDate(oldDate)
 
     % don't do anything if the date wasn't already specified.
-    if strcmpi(oldDate, 'nan')
+    if any(strcmpi(oldDate, {'nan', 'mm/dd/yyyy'}))
         newDate = NaN;
         return
     end
@@ -241,8 +241,8 @@ function newDate = convertDate(oldDate)
         % parse the unique parts of the date string.
         seps = [1, seps, numel(oldDate)];
         assert(~isempty(seps), 'Date string improperly specified')
-        for a = 1:seps-1
-            tmp{a} = oldDate(seps(a):seps(a+1));
+        for a = 1:numel(seps)-1
+            tmp{a} = oldDate(seps(a):seps(a+1)-1);
         end
         
         % figure out what to do with the parsed args
