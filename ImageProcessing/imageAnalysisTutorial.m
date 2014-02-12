@@ -122,7 +122,7 @@ plotimg(img_merge_simple, info);
 %% VIEW A STACK OF IMAGES
 
 
-params.mouse = 'EMX_2';
+params.mouse = 'EMX_1';
 params.objective = '2x';
 params.contrastMethod = 'none';
 params.npix = 0;
