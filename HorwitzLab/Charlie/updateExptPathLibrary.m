@@ -19,19 +19,25 @@ cd(startDir);
 d = dir;
 
 %append any .nex files into the exptPathLibrary.
-%keyboard
 names = {d(:).name}';
 pat = repmat({'\.nex'}, size(names));
 l_nexFiles = cellfun(@(x,y) numel(regexpi(x,y)), names, pat);
 nexInDirNames = names(logical(l_nexFiles));
 trunc_pwd = pwd;
-parent_path_idx = strfind(trunc_pwd, 'NexFiles');
-if any(l_nexFiles) && ~isempty(parent_path_idx)
-    trunc_pwd(1:parent_path_idx-1) = [];
-end
+% parent_path_idx = strfind(trunc_pwd, 'NexFiles');
+% if any(l_nexFiles) && ~isempty(parent_path_idx)
+%     trunc_pwd(1:parent_path_idx-1) = []
+% end
+
 % store relative paths and replace file separator characters with a bogus sequence
 % the bogus sequence will be undone when a user polls the nexPaths structure via findNexPath -- Zack
-nexInDirPaths = cellfun(@(x) strrep([filesep trunc_pwd filesep x], filesep, '$:$'), nexInDirNames, 'uniformoutput', 0);
+
+% Zach's old line to make relative paths.
+%nexInDirPaths = cellfun(@(x) strrep([filesep trunc_pwd filesep x], filesep, '$:$'), nexInDirNames, 'uniformoutput', 0);
+
+% my fix for absolute paths.
+nexInDirPaths = cellfun(@(x) strrep([trunc_pwd filesep x], filesep, '$:$'), nexInDirNames, 'uniformoutput', 0);
+
 nexPaths.names = [nexPaths.names; [nexInDirNames(:)]];
 nexPaths.paths = [nexPaths.paths; [nexInDirPaths(:)]];
 
@@ -50,7 +56,7 @@ end
 %be nice and cd back to the original directory
 switch whoami
     case 'hass_mbp'
-    cd('/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files');
+    cd('/Users/charliehass/LabStuff/Huskies/NexFiles/Charlie/Batch Data And Text Files');
     case 'nuke'
     cd('\\crash.dhe.duke.edu\charlie\DTcones\Files for server\');
 end

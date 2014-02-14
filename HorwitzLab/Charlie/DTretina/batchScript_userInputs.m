@@ -6,10 +6,9 @@
 % clear out the work space
 fin
 
-tempFreqs = [0, logspace(log10(0.2), log10(40), 35)];
-tempFreqs = [3]; % for the comparison with Nut
+ecc = 5:5:70;
 
-for tf = tempFreqs;
+for a = 1:numel(ecc);
     
     %
     % define the necessary parameters for the DTcones simulation
@@ -18,17 +17,18 @@ for tf = tempFreqs;
     params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
     params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
     params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-    params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+    params.monCalFile = 'DTcals_apollo_macpig.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
     params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
     params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
-    params.enableScones = true;                      % should the S-cones contribute to the pooled response?
+    params.enableScones = false;                      % should the S-cones contribute to the pooled response?
     params.eyeType = 'monkey';                       % 'monkey' or 'human'
     params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-    params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
+    params.colorselection = 'guniso';              % could be: 'lots', 'specific', 'guniso'
     
     % define some helpful text files (if necessary), and the paramaters for
     % parallel operations
     params.DTNT_fname = '';                       % will be created at run time and dynamically on each loop
+    params.aperatureMosaic = false;               % only for DTV1 experiments
     params.saveDir = '';                          % modified below;
     params.parallelOperations = true;             % needs to be true for this script (even if parfor is unavailable) so that DTcones knows how to save temporary files
     
@@ -37,7 +37,7 @@ for tf = tempFreqs;
     params.eqMosaic = false;             % for debugging. true or false
     
     % make some notes...
-    params.notes = 'isodetection surface at 0.5 cyc/deg using the filtered wt fxn.';       % notes that should be associated the data file?
+    params.notes = 'high TF macpig stuff for comparison with Apollo data at 15 Hz';       % notes that should be associated the data file?
     
     
     
@@ -48,15 +48,15 @@ for tf = tempFreqs;
     % hijack DTcones ability to import all the relavent gabor parameters.
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dtnt.rf_x = -50;     % in tenths of dva
-    dtnt.rf_y = -35;       % in tenths of dva
-    dtnt.sigma = 4;    % in tenths of dva
-    dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
+    dtnt.rf_x = ecc(a);     % in tenths of dva
+    dtnt.rf_y = 0;       % in tenths of dva
+    dtnt.sigma = 1.5;    % in tenths of dva
+    dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
     dtnt.theta = 0;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
-    dtnt.speed = tf;
-    dtnt.sfs = 2;
+    dtnt.speed = 25;
+    dtnt.sfs = 3;
     dtnt.alphas = []; % gets filled in later
     dtnt.colorDirs = []; % gets filled in later
     
@@ -93,7 +93,7 @@ for tf = tempFreqs;
         
         % In case I want to test the gun-iso color directions
         colorDirs = ['ggun'; 'bgun'];
-        alphas = [0.9, 0.9];
+        alphas = [0.98, 0.98];
         nColors = size(colorDirs,1);
     end
     
@@ -149,25 +149,24 @@ for tf = tempFreqs;
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    %open a matlabpool
-    if exist('matlabpool', 'file') == 2;
-       %poolObj = parpool('local', 4);
-       matlabpool open 6
-       pause(2)
-       fprintf(' *** Using parallel operations *** \n')
-    end
+%     %open a matlabpool
+%     if exist('matlabpool', 'file') == 2;
+%        %poolObj = parpool('local', 4);
+%        matlabpool open 6
+%        pause(2)
+%        fprintf(' *** Using parallel operations *** \n')
+%     end
     
-    parfor a = 1:nColors
-        disp([a, tf]);
+    for a = 1:nColors
         % run the simulation
         DTcones(pstructs{a})
     end
     
-    % close the workers
-    if exist('matlabpool', 'file') == 2;
-        matlabpool('close')
-       %delete(poolObj);
-    end
+%     % close the workers
+%     if exist('matlabpool', 'file') == 2;
+%         matlabpool('close')
+%        %delete(poolObj);
+%     end
     
     
     

@@ -37,13 +37,20 @@ function DTcones(params)
         [cones, mon] = setupAbsThreshParams(cones, mon, params); 
     end 
     
+    % for comparisons to V1 neurophysiology, one option is to modify the
+    % cone mosaic to fit the RF size of the V1 neuron. Restrict the cone
+    % mosaic here:
+    if isfield(params, 'aperatureMosaic') && params.aperatureMosaic
+        cones = aperatureConeMosaic(params, cones, mon);
+    end
+    
    
     %stop here and perform some testing routines if desired
     if params.unitTest
         callAllTestingSubfunctions(gab, mon, cones, params, idlob);
         return %exit DTcones
     elseif params.eqMosaic
-        [~,cones] = feval(idlob.method, 'equate_mosaic', idlob, gab, cones);ba
+        [~,cones] = feval(idlob.method, 'equate_mosaic', idlob, gab, cones);
     end
 
     %loop through each color direction specified. Make a gabor stimulus and
@@ -68,7 +75,10 @@ function DTcones(params)
             
 
             % sythesize multipule trials by adding noise to the linear
-            % response and then performing the ideal observer analysis
+            % response and then performing the ideal observer analysis.
+            % This is the old (Monte-Carlo) style. If gab.nTrials is set to
+            % zero, then no Monte-Carlo trials will be calculated and only
+            % the analytic solution will be derived...
             for trl = 1:gab.nTrials;
                 if ~rem(trl, 100); fprintf('Trial %d \n', trl); end
                 
@@ -76,8 +86,8 @@ function DTcones(params)
                 [idlob, cones] = feval(idlob.method, 'compute', idlob, gab, cones, mon, clr, cnt, trl, params); %computes the ideal observer response
             end
 
-            % A new non-MonteCarlo method of determining the variance of
-            % the ideal observer.
+            % Now compute the variance of the mosaic's population response
+            % using the analytic method
             [idlob, cones] = feval(idlob.method, 'analytic_solution', idlob, gab, cones, mon, clr, cnt, trl, params);
         end
     end
@@ -86,7 +96,7 @@ function DTcones(params)
     %should contain the results, all relavant simulation structures, AND an
     %exact copy of the code that was run to produce the results. Time stamp
     %the directory name. Re-name the .m file, or add a different extension
-    %so that it is identifiable as the actual code run.
+    %so that it is identifiable as the actual code ran.
     saveDataToDisk(gab, cones, mon, idlob, params)
 
 end
@@ -670,6 +680,37 @@ function cones = initConeMosaic(gab, mon, eyes)
     
 end
 
+function cones = aperatureConeMosaic(params, cones, mon)
+    % used only for cones/V1 comparisions. This function limits the size of
+    % the cone mosaic to be roughly the size of a V1 RF. This function will
+    % not change the dimensionality of the stimulus (which is not
+    % computationally effecient) but will allow the rest of the code to run
+    % un-modified. I'll just put zeros in the cone mosaic where there
+    % should be no cones.
+    
+    
+    % load in the GT data file
+    out = getGratingTuning(nex2stro(findfile(params.GTV1_fname)));
+    cones.aptDiam = out.areasummation.prefsize;
+    
+    
+    % make the aperature
+    halfSize = size(cones.num_L, 1)/2;
+    row = (-halfSize:halfSize-1) ./ mon.pixperdeg;
+    col = (-halfSize:halfSize-1) ./ mon.pixperdeg;
+    [X, Y] = meshgrid(row, col);
+    aptur = (X.^2+Y.^2);
+    idx = aptur>cones.aptDiam;
+    aptur(idx) = 0; % set the flanks to zero.
+    aptur(~idx) = 1; % set everything else to 1.
+    
+    % clear out the cone mosaic outside of the V1 RF.
+    cones.num_L = cones.num_L .* aptur;
+    cones.num_M = cones.num_M .* aptur;
+    cones.num_S = cones.num_S .* aptur;
+
+end
+
 function [cones, gab] = makeConeLinearFilter(params, cones, mon, gab)
     %
     %Stealing code from juan to make the linear filter for the cones. I'll
@@ -1250,7 +1291,7 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
             % filter the wt fxn through the cone IRF
             [wt_spaceTime, ~] = coneVolution_FFT(wt_spaceTime, gab, cones, [0 0 0]);
             
-            % the function that convolves the wtFxn also adjust the output
+            % the function that convolves the wtFxn also adjusted the output
             % according to the cone gain. This is a hack to undo this
             % normalization so that the wt fxn peaks/troughs at ±1.
             scaleFact = max(max(max(abs(wt_spaceTime),[],1),[],2),[],3);
@@ -1425,90 +1466,6 @@ function [idlob, cones] = obsMethod_phaseInvariant(command, idlob, gab, cones, m
             cones.num_S = cones.num_L;
     end
     
-end
-
-function [idlob, cones] = obsMethod_freqInvariant(command, idlob, gab, cones, mon, clr, cnt, trl, params)
-
-    switch lower(command)
-        case 'initialize'
-            nColors = size(gab.colorDirs,1);
-            nContrasts = size(gab.contrasts{1},2);
-            nTrials = gab.nTrials;
-
-            % dimensionality will be (nColors x nContrasts x nTrials) for
-            % the monte carlo method, and (nColors x nContrasts) for the
-            % analytic solution. Each entry will be a CELL ARRAY of three
-            % numbers, one for each cone type. I'm doing this so that the
-            % arrays have the same dimensionality as obsMethod_all and so I
-            % can use the same offline analysis scripts.
-            [idlob.resp(1:nColors, 1:nContrasts, 1:nTrials)] = deal({nan(1,3)});
-            [idlob.analyticMean(1:nColors, 1:nContrasts), idlob.analyticVar(1:nColors, 1:nContrasts)] = deal({nan(1,3)});
-
-        case 'compute'
-            
-            % subtract off the mean from the linear response, then square
-            % the values.
-            zeroMeanLinResp = bsxfun(@minus, cones.linresp, permute(mon.bkgndlms_pA, [3, 2, 4, 1])); %make the linear response zero mean.
-            
-            % add the noise to the signal, and then square the result
-            sigPlusNoiseSquared = zeroMeanLinResp.^2 + pooledNoise_average(cones.noise.^2, cones.num_L, cones.num_M, cones.num_S);
-            clear zeroMeanLinResp %kill to save ram
-
-            % weight the sigPlusNoise by a template based on the gabor
-            % stimulus. The template will peak at +/- 1 instead
-            % of the peak Rstar. The template cone mosaics are all IN PHASE
-            % despite the fact that the stimulus may not be.
-            switch params.enableScones
-                case true
-                    wt = makeGaborMovie([1,1,1], gab, mon, 'idlob template', cones, params, 0);
-                case false
-                    wt = makeGaborMovie([1,1,0], gab, mon, 'idlob template', cones, params, 0);
-            end
-            [wt, ~] = upsampleAndBookend(wt, cones, [0 0 0]);
-            tRange = (cones.nFrontPad+1) : (size(wt,3) - cones.nBackPad);
-            wt = wt(:,:, tRange, :); %hack off the bookends.
-
-            dotWithLinResp = sum(sigPlusNoise .* wt, 3); %sum across the 'time' dimension
-            idealObsResp = sum(sum(dotWithLinResp,1),2); %sum across the spatial dimensions.
-            idlob.resp{clr, cnt, trl} = squeeze(idealObsResp);
-
-        case 'analytic_solution'
-            % compute the mean and variance independently. This will mean
-            % incorporating the wt fxns seperately for the mean and variance.
-
-            % (1) make a spatiotemporal wt fxn. The template will peak at
-            % +/- 1 instead of the peak Rstar.
-            switch params.enableScones
-                case true
-                    wt_spaceTime = makeGaborMovie([1,1,1], gab, mon, 'idlob template', cones, params, 0);
-                case false
-                    wt_spaceTime = makeGaborMovie([1,1,0], gab, mon, 'idlob template', cones, params, 0);
-            end
-            [wt_spaceTime, ~] = upsampleAndBookend(wt_spaceTime, cones, [0 0 0]);
-            tRange = (cones.nFrontPad+1) : (size(wt_spaceTime,3) - cones.nBackPad);
-            wt_spaceTime = wt_spaceTime(:,:, tRange, :); %hack off the bookends.
-
-
-            % (2) calculate the mean response of the ideal observer
-            idlOb_mean = bsxfun(@minus, cones.linresp, permute(mon.bkgndlms_pA, [3, 2, 4, 1])); %make the linear response zero mean.
-            idlOb_mean = idlOb_mean .* wt_spaceTime;
-            idlOb_mean = sum(sum(sum(idlOb_mean,1),2),3); %sum across space. The sum over time is actually part of the dot product with the wt. fxn...
-            idlob.analyticMean{clr, cnt} = squeeze(idlOb_mean);
-
-            % (3) calculate the variance of the ideal observer. This
-            % should be the same for each contrast (within color
-            % directions) so just calculate it on the first trial and then
-            % carry it forward for the other contrasts
-
-
-        case 'equate_mosaic'
-
-            % For cone isolating stimuli, the ideal observer should produce
-            % the identical responses if the cone mosaics are ths same. Use
-            % this functionality to run some debugging code.
-            cones.num_M = cones.num_L;
-            cones.num_S = cones.num_L;
-    end
 end
 
 function [idlob, cones] = obsMethod_absThresh(command, idlob, gab, cones, mon, clr, cnt, trl, params)

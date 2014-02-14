@@ -8,8 +8,8 @@ fin
 
 
 % define the experiment parameters
-params.runType = 'dtv1';                      % 'DTVT', 'DTNT', 'absThresh' or 'default'
-params.obsMethod = 'obsMethod_filteredWtFxn';     % obsMethod_noClrEqSpace or obsMethod_absThresh
+params.runType = 'dtv1';                         % 'DTVT', 'DTNT', 'absThresh' or 'default'
+params.obsMethod = 'obsMethod_filteredWtFxn';    % obsMethod_noClrEqSpace or obsMethod_absThresh
 params.Ncones = nan;                             % set to NaN, except when using the absThresh functionality
 params.monCalFile = '';                          % DTcones will use the calibration provided by DTV1 files.
 params.impulseResponse = 'rieke';                % params.impulseResponse    => 'rieke', or 'deltafxn'
@@ -25,6 +25,7 @@ params.coneSampRate = 825;                       % good candidates: [525 600 675
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
 params.DTV1_fname = '';             % will be created at run time and dynamically on each loop
+params.aperatureMosaic = true;     % only for DTV1 experiments
 params.saveDir = '';                % will be created at run time
 params.parallelOperations = true;
 
@@ -61,6 +62,7 @@ nExpts = numel(DTfnames);
 for a = 1:nExpts;
     % make and save a temp params struct (save in a cell array)
     pstructs{a}.DTV1_fname = DTfnames{a}{1};
+    pstructs{a}.GTV1_fname = DTfnames{a}{2}; % for aperaturing the cone mosaic according to RF size
 end
 
 
@@ -78,15 +80,15 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%open a matlabpool
-if exist('matlabpool', 'file') == 2;
-    %poolObj = parpool('local', 4);
-    matlabpool open 6
-    pause(2)
-    fprintf(' *** Using parallel operations *** \n')
-end
+% %open a matlabpool
+% if exist('matlabpool', 'file') == 2;
+%     %poolObj = parpool('local', 4);
+%     matlabpool open 6
+%     pause(2)
+%     fprintf(' *** Using parallel operations *** \n')
+% end
 
-parfor a = 1:nExpts
+for a = 1:nExpts
     disp(a)
     
     % run the simulation
@@ -96,11 +98,11 @@ parfor a = 1:nExpts
     clc
 end
 
-% close the workers
-if exist('matlabpool', 'file') == 2;
-    matlabpool('close')
-    %delete(poolObj);
-end
+% % close the workers
+% if exist('matlabpool', 'file') == 2;
+%     matlabpool('close')
+%     %delete(poolObj);
+% end
 
 % 
 % Repackage the data in a way that is similar to the way DTV1 data is

@@ -775,7 +775,7 @@ fin
 % (1) load in the batch data file
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-cd /Users/charliehass/LabStuff/DTcones/Data/
+cd /Users/charliehass/LabStuff/Huskies/DTcones/Data/
 [fname, fpath] = uigetfile();
 load([fpath, fname])
 
@@ -1205,8 +1205,8 @@ end
 %% TEMPORAL FREQUENCY AND APOLLO G VS B GUN DETECTION
 
 fin
-modelData = '/Users/charliehass/LabStuff/DTcones/HighTF_Simulation_noScones.txt';
-behavioralData = '/Users/charliehass/LabStuff/DTcones/ApolloMacPig_CH.txt';
+modelData = '/Users/charliehass/LabStuff/Huskies/DTcones/HighTF_Simulation_noScones.txt';
+behavioralData = '/Users/charliehass/LabStuff/Huskies/DTcones/ApolloMacPig_CH.txt';
 
 % determine what parameters change across all these data files.
 % p = paramsCheck(behavioralData);
@@ -1226,10 +1226,15 @@ gunColors = [0.62671      0.77467     0.084372;...
 [monk_15.colors, monk_25.colors] = deal([]);
 monkFiles = fnamesFromTxt2(behavioralData);
 
+missing = [];
 for a = 1: numel(monkFiles)
     
     % extract the data
-    fpath = findfile(monkFiles{a}, '/Volumes/NO BACKUP/NexFiles/Greg/Apollo')
+    fpath = findfile(monkFiles{a})
+    if isempty(fpath);
+        missing = [missing, a];
+        continue
+    end
     DT = dtobj(fpath);
     [t, c, sfs] = DTquestUnpack(DT, 'mode'); close % close the figure that gets printed by default
     t = t ./ 100; % so that %CC is b/w 0 and 1;
@@ -1292,7 +1297,7 @@ end
 retinaFiles = fnamesFromTxt2(modelData);
 
 for a = 1:numel(retinaFiles)
-    fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/DTcones/Data', '.mat')
+    fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/Huskies/DTcones/Data', '.mat')
     load(fpath)
     [gab.nSd, gab.driftRate, gab.rf_x, gab.rf_y, gab.sd, gab.sf, gab.theta]
     [idlob, cones] = coneNoiseROC(params, idlob, cones, gab); % do the ROC analysis and fit neurometric fxns
@@ -1360,7 +1365,7 @@ set(gca, 'fontsize', 16)
 tmpData = [nanmean(sim_15.thresh,3); nanmean(sim_25.thresh,3)];
 for a = 1:size(tmpData,1)
     inds = ~isnan(tmpData(a,:));
-    plot(pltEcc(inds), tmpData(a,inds), '-', 'linewidth', 3, 'color', pltColors(a,:))
+    plot(pltEcc(inds), tmpData(a,inds), '--', 'linewidth', 3, 'color', pltColors(a,:))
 end
 title('Model Thresholds')
 xlabel('Eccentricity (dva)')
@@ -1710,8 +1715,8 @@ set([h_yy, ax],...
 set(h_yy(2),...
     'ycolor', 'b',...
     'linewidth', 2,...
-    'ylim', [42, 330],...
-    'ytick', linspace(42, 330, 10))
+    'ylim', [33, 330],...
+    'ytick', linspace(33, 330, 10))
 
 set(h_line2,...
     'color', 'b',...

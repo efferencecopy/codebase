@@ -32,7 +32,7 @@ classdef dtobj
                 else
                     switch whoami
                         case 'hass_mbp'
-                            load '/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files/nexPaths.mat';
+                            load '/Users/charliehass/LabStuff/Huskies/NexFiles/Charlie/Batch Data And Text Files/nexPaths.mat';
                             filepath = findNexPath(nexPaths, fileName);
                         case 'nuke'
                             load '\\crash.dhe.duke.edu\charlie\DTcones\Files for server\nexPaths.mat'
