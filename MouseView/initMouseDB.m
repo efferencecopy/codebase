@@ -88,6 +88,7 @@ function mdb = initMouseDB(option)
         
         % build mdb entry
         mdb.mice(idx) = build_DB_entry(d(a)); % make a column of structures.
+        mdb.searchText{idx} = build_DB_text(mdb.mice(idx));
 
     end
     
@@ -108,6 +109,7 @@ function mdb = initMouseDB(option)
         if d(idx).datenum > mdb.mice(a).modDate
             fprintf('    %s\n', d(idx).name)
             mdb.mice(a) = build_DB_entry(d(idx));
+            
         end        
     end
     
@@ -201,7 +203,38 @@ function phys = getPhysInfo(fName)
     % convert everyting to text.
     raw = cellfun(@num2str, raw, 'uniformoutput', false); % force everything to be strings
     
-    phys = [];
+    % Compile the data
+    phys.int.type = raw{1,3};
+    phys.int.osm = raw{1,8};
+    psys.acsf.type = raw{2,3};
+    phys.acsf.osm = raw{2,8};
+    phys.temp = str2double(raw{3,3});
+    phys.notes = raw{4,3};
+    
+    % pull out the files and notes partaining to each cell/file
+    tmp = regexpi({raw{:,1}}', 'Cell #');
+    firstFileIdx = ~cellfun(@isempty, tmp); % now a logical vector (notice the 'not');
+    firstFileIdx = find(firstFileIdx, 1, 'first') + 1;
+    keys = raw(firstFileIdx-1,:);
+    for a = 1:numel(keys) % remove the spaces
+        keys{a}(keys{a}==' ')=[];
+    end
+    key_col = find(~strcmpi(keys, 'nan'));
+    
+    % assign the values for each cell to the mouse database
+    neuronNums = cellfun(@str2double, raw(firstFileIdx:end, 1));
+    uniqueNeurons = unique(neuronNums);
+    for a = 1:numel(uniqueNeurons);
+        l_cell = find(neuronNums == uniqueNeurons(a)) + firstFileIdx-1; % index to rows after firstFileIdx
+        
+        for i = 1:numel(l_cell)
+            for k = 2:numel(key_col) % skip the first keyword
+                phys.cell(a).file(i).(keys{k}) = raw{l_cell(i), key_col(k)};
+            end
+        end
+    end
+    
+    
 end
 
 function out = assignFields(keys, xls)
@@ -212,6 +245,7 @@ function out = assignFields(keys, xls)
         row = regexpi({xls{:,1}}', keys{a,1}, 'ignorecase'); % returns a cell array
         row = ~cellfun(@isempty, row); % now a logical vector (notice the 'not')
         col = keys{a,4};
+        
         
         % pull out the raw info, and assign it to the apprpriate field in
         % the structure
@@ -271,3 +305,35 @@ function newDate = convertDate(oldDate)
     end
 end
 
+
+function out = build_DB_text(in)
+    
+    % concatenate the easy ones
+    out = [in.info.generalNotes, ' ', in.histo.notes, ' ', in.phys.notes];
+    
+    % now loop over the phys files pulling out the notes and stuffing them
+    % in with the others.
+    if isfield(in.phys, 'cell')
+        for c = 1:numel(in.phys.cell)
+            for f = 1:numel(in.phys.cell(c).file)
+                out = [out, ' ', in.phys.cell(c).file(f).Notes];
+            end            
+        end
+    end
+           
+end
+
+
+% 
+% % some code to search a cell array of text:
+%
+% if the search string is simple:
+%
+% match = cellfun(@regexpi, txt, repmat({searchString}, 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
+% match = cellfun(@(x) ~isempty(x), match);
+%
+% if the search string is a cell array of strings:
+%
+% match = cellfun(@regexpi, txt, repmat({searchString}, 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
+% match = cellfun(@(x) ~isempty(cell2mat(x)), match);
+% ind_cellfun = find(match)
