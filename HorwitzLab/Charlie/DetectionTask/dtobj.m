@@ -45,6 +45,7 @@ classdef dtobj
             
             
             %unpack the nexfile
+            fprintf('filepath: %s\n', filepath);
             stro = nex2stro(filepath);
             if stro.sum.paradigmID ~= 210;
                 error('The selected .nex file is not a DT expt')

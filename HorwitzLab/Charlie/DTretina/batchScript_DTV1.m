@@ -25,7 +25,7 @@ params.coneSampRate = 825;                       % good candidates: [525 600 675
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
 params.DTV1_fname = '';             % will be created at run time and dynamically on each loop
-params.aperatureMosaic = true;     % only for DTV1 experiments
+params.aperatureMosaic = true;      % only for DTV1 experiments
 params.saveDir = '';                % will be created at run time
 params.parallelOperations = true;
 
@@ -80,15 +80,15 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-% %open a matlabpool
-% if exist('matlabpool', 'file') == 2;
-%     %poolObj = parpool('local', 4);
-%     matlabpool open 6
-%     pause(2)
-%     fprintf(' *** Using parallel operations *** \n')
-% end
+%open a matlabpool
+if exist('matlabpool', 'file') == 2;
+    %poolObj = parpool('local', 4);
+    matlabpool open 6
+    pause(2)
+    fprintf(' *** Using parallel operations *** \n')
+end
 
-for a = 1:nExpts
+parfor a = 1:nExpts
     disp(a)
     
     % run the simulation
@@ -98,11 +98,11 @@ for a = 1:nExpts
     clc
 end
 
-% % close the workers
-% if exist('matlabpool', 'file') == 2;
-%     matlabpool('close')
-%     %delete(poolObj);
-% end
+% close the workers
+if exist('matlabpool', 'file') == 2;
+    matlabpool('close')
+    %delete(poolObj);
+end
 
 % 
 % Repackage the data in a way that is similar to the way DTV1 data is
@@ -136,11 +136,18 @@ for a = 1:numel(out.dat)
     ret.dat(a).respVar = idlob.analyticVar;
     
     % Compute the ROC values for each color/contrast
+    try
     nContrasts = size(idlob.resp,2);
     nColors = size(idlob.resp,1);
     idlob = coneNoiseROC(pstructs{a}, idlob, cones, gab);
     ret.dat(a).roc = idlob.roc;
     ret.dat(a).roc_analytic = idlob.roc_analytic;
+    catch
+        clc
+        a
+        expt
+        error('Problem with something...')
+    end
     
     % Fit the neurometric functions with a cumulative Weibull. Store the
     % retinometric thresholds and slopes.

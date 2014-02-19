@@ -690,17 +690,19 @@ function cones = aperatureConeMosaic(params, cones, mon)
     
     
     % load in the GT data file
-    out = getGratingTuning(nex2stro(findfile(params.GTV1_fname)));
-    cones.aptDiam = out.areasummation.prefsize;
+    GT = gtobj(params.GTV1_fname);
+    spikenum = strcmp(GT.sum.rasterCells(1,:),getSpikenum(GT, 'first'));
+    out = getGratingTuning(GT, spikenum);
+    cones.aptDiam = out.areasummation.prefsize;    
     
-    
-    % make the aperature
-    halfSize = size(cones.num_L, 1)/2;
-    row = (-halfSize:halfSize-1) ./ mon.pixperdeg;
+    % make the aperature. The aperature size is in units of DVA, so work in
+    % DVA...
+    halfSize = size(cones.num_L, 1)/2; % in pix
+    row = (-halfSize:halfSize-1) ./ mon.pixperdeg; % now in DVA
     col = (-halfSize:halfSize-1) ./ mon.pixperdeg;
     [X, Y] = meshgrid(row, col);
-    aptur = (X.^2+Y.^2);
-    idx = aptur>cones.aptDiam;
+    aptur = sqrt((X.^2+Y.^2)); % the distance of each pixel from the center of the stim (in DVA)
+    idx = aptur>(cones.aptDiam/2); % extend the aperature one radius out.
     aptur(idx) = 0; % set the flanks to zero.
     aptur(~idx) = 1; % set everything else to 1.
     

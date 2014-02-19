@@ -15,10 +15,10 @@ function filepath = findNexPath(nexPaths, fname)
             fprintf('File <%s> has none or more than one entry in NexFiles directory\n', fname);
         else
             filepath = strrep(nexPaths.paths{idx}, '$:$', filesep);
-            switch whoami
-                case 'nuke'
-                    filepath = filepath(2:end); % kinda dumb that the switch/case doesn't do anything...
-            end
+%             switch whoami
+%                 case 'nuke'
+%                     filepath = filepath(2:end); % kinda dumb that the switch/case doesn't do anything...
+%             end
             
             %%% OLD VERSION %%%
 %             if strcmp(license, '367516') % lab server

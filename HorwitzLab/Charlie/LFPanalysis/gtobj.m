@@ -24,15 +24,23 @@ classdef gtobj
                 file_path = [file_path file_name];
                 cd(currentDir);
             else
-                if ismac
-                    load('/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files/nexPaths.mat');
-                elseif strcmpi(license, '367516')
-                    load('C:\NO BACKUP\NexFiles\Charlie\Batch Data And Text Files\nexPaths.mat');
-                elseif ispc
-                    load('N:\NexFiles\Charlie\Batch Data And Text Files\nexPaths.mat');
+                [tmppath, ~, tmpext] = fileparts(fileName);
+                if ~isempty(tmppath) && strcmpi(tmpext, '.nex'); % the user supplied a valid absolute path
+                    file_path = fileName;
+                else
+                    switch whoami
+                        case 'hass_mbp'
+                            load '/Users/charliehass/LabStuff/Huskies/NexFiles/Charlie/Batch Data And Text Files/nexPaths.mat';
+                            file_path = findNexPath(nexPaths, fileName);
+                        case 'nuke'
+                            load '\\crash.dhe.duke.edu\charlie\DTcones\Files for server\nexPaths.mat'
+                            file_path = findNexPath(nexPaths, fileName);
+                        otherwise
+                            file_path = findfile(fileName);
+                    end
                 end
-                file_path = findNexPath(nexPaths, fileName);
             end
+            
             
             %unpack the nexfile
             stro = nex2stro(file_path);
