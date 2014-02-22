@@ -1299,6 +1299,18 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
             scaleFact = max(max(max(abs(wt_spaceTime),[],1),[],2),[],3);
             wt_spaceTime = bsxfun(@rdivide, wt_spaceTime, scaleFact);
             
+            % (1) Ignore the retinal locations with no cones. These retinal
+            % locations should not contribute to the model's mean or
+            % variance. This shouldn't matter for most things, but when the
+            % retina is aperatured for V1 RF's it will definitely matter;
+            L_mask = cones.num_L >0;
+            M_mask = cones.num_M >0;
+            S_mask = cones.num_S >0;
+            
+            % next, iterate through the cone types and calculate the mean
+            % across all retinal locations for which there are cones... Do
+            % the same basic thing with the variance calculation.
+            
             
             % (2) calculate the mean response of the ideal observer
             idlOb_mean = bsxfun(@minus, cones.linresp, permute(mon.bkgndlms_pA, [3, 2, 4, 1])); %make the linear response zero mean.
