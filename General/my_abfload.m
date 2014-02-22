@@ -1,4 +1,4 @@
-function [d,h, wf] = my_abfload(fn)
+function [d,h] = my_abfload(fn)
 
 % **  [data, header] = abfload(filename)
 %
@@ -107,13 +107,6 @@ numOfParams=size(headPar,1);
 Sections=define_Sections;
 ProtocolInfo=define_ProtocolInfo;
 ADCInfo=define_ADCInfo;
-TagInfo=define_TagInfo;
-
-
-
-% -------------------------------------------------------------------------
-%      read parameters of interest
-% -------------------------------------------------------------------------
 
 
 % read values from header
@@ -123,10 +116,6 @@ for g=1:numOfParams
     h.(headPar(g).name) = fread(fid, sz, headPar(g).numType); % use dynamic field names
 end
  
-h.fFileSignature = h.fFileSignature'; % transposed
-h.fFileVersionNumber = double(h.fFileVersionNumber)' * [0.0001; 0.001; 0.1; 1];
-h.lFileStartTime = h.uFileStartTimeMS*.001;  % convert ms to s
-
 
 % -----------------------------------------------------------------------
 % *** read file information that has moved from the header section to
@@ -148,26 +137,30 @@ end
 fseek(fid,StringsSection.uBlockIndex*BLOCKSIZE,'bof');
 BigString=fread(fid,StringsSection.uBytes,'char');
 
-% this is a hack: determine where either of strings begin
-progString='clampex';
-goodstart= regexpi(char(BigString)',progString);
-if isempty(goodstart); warning('problems in StringsSection'); end
-BigString=BigString(goodstart(1):end)';
-stringends=find(BigString==0);
+BigString = char(BigString)';
+goodstart= regexpi(BigString, 'clampex', 'once');
+assert(~isempty(goodstart), 'LOADABF ERROR: problem in strings section');
+
+BigString=BigString(goodstart:end);
+stringends=regexpi(BigString, char(0));
 stringends=[0 stringends];
 for i=1:length(stringends)-1
-    Strings{i}=char(BigString(stringends(i)+1:stringends(i+1)-1));
+    Strings{i}=BigString(stringends(i)+1:stringends(i+1)-1);
 end
 
+% retrieve the protocol name
+fseps = regexpi(Strings{2}, filesep);
+h.protocolName = Strings{2}(fseps(end)+1:end);
 
-h.recChNames=[];
-h.recChUnits=[];
+
 
 % --- read in the ADCSection & copy some values to header h
+h.recChNames=[];
+h.recChUnits=[];
 for i=1:ADCSection.llNumEntries
     ADCsec=ReadSection(fid,ADCSection.uBlockIndex*BLOCKSIZE+ADCSection.uBytes*(i-1),ADCInfo);
     ii=ADCsec.nADCNum+1;
-    h.nADCSamplingSeq(i)=ADCsec.nADCNum;
+    nADCSamplingSeq(i)=ADCsec.nADCNum;
     h.recChNames=strvcat(h.recChNames, Strings{ADCsec.lADCChannelNameIndex});
     unitsIndex=ADCsec.lADCUnitsIndex;
     if unitsIndex>0
@@ -175,9 +168,9 @@ for i=1:ADCSection.llNumEntries
     else
         h.recChUnits=strvcat(h.recChUnits,'');
     end
-    h.nTelegraphEnable(ii)=ADCsec.nTelegraphEnable;
-    h.fTelegraphAdditGain(ii)=ADCsec.fTelegraphAdditGain;
-    h.fInstrumentScaleFactor(ii)=ADCsec.fInstrumentScaleFactor;
+    nTelegraphEnable(ii)=ADCsec.nTelegraphEnable;
+    fTelegraphAdditGain(ii)=ADCsec.fTelegraphAdditGain;
+    fInstrumentScaleFactor(ii)=ADCsec.fInstrumentScaleFactor;
     h.fSignalGain(ii)=ADCsec.fSignalGain;
     h.fADCProgrammableGain(ii)=ADCsec.fADCProgrammableGain;
     h.fInstrumentOffset(ii)=ADCsec.fInstrumentOffset;
@@ -190,21 +183,17 @@ end
 
 % --- read in the protocol section & copy some values to header h
 ProtocolSec=ReadSection(fid,ProtocolSection.uBlockIndex*BLOCKSIZE,ProtocolInfo);
-h.nOperationMode=ProtocolSec.nOperationMode;
-h.fSynchTimeUnit=ProtocolSec.fSynchTimeUnit;
+fSynchTimeUnit=ProtocolSec.fSynchTimeUnit;
 h.nExperimentType = ProtocolSec.nExperimentType;
-h.nADCNumChannels=ADCSection.llNumEntries;
-h.lActualAcqLength=DataSection.llNumEntries;
-h.lDataSectionPtr=DataSection.uBlockIndex;
-h.nNumPointsIgnored=0;
+nADCNumChannels=ADCSection.llNumEntries;
+lActualAcqLength=DataSection.llNumEntries;
+nNumPointsIgnored=0;
 
-% in ABF version < 2.0 h.fADCSampleInterval is the sampling interval
+% in ABF version < 2.0 fADCSampleInterval is the sampling interval
 % defined as
 %     1/(sampling freq*number_of_channels)
 % so divide ProtocolSec.fADCSequenceInterval by the number of channels
-h.fADCSampleInterval=ProtocolSec.fADCSequenceInterval/h.nADCNumChannels;
-h.fADCRange=ProtocolSec.fADCRange;
-h.lADCResolution=ProtocolSec.lADCResolution;
+fADCSampleInterval=ProtocolSec.fADCSequenceInterval/nADCNumChannels;
 
 % --- in contrast to procedures with all other sections do not read the
 % sync array section but rather copy the values of its fields to the
@@ -218,12 +207,12 @@ lSynchArraySize=SynchArraySection.llNumEntries;
 % -------------------------------------------------------------------------
 %     groom parameters & perform some plausibility checks
 % -------------------------------------------------------------------------
-if h.lActualAcqLength<h.nADCNumChannels,
+if lActualAcqLength<nADCNumChannels,
     fclose(fid);
     error('less data points than sampled channels in file');
 end
 % the numerical value of all recorded channels (numbers 0..15)
-recChIdx=h.nADCSamplingSeq(1:h.nADCNumChannels);
+recChIdx=nADCSamplingSeq(1:nADCNumChannels);
 % the corresponding indices into loaded data d
 recChInd=1:length(recChIdx);
 
@@ -233,7 +222,7 @@ h.recChUnits=deblank(cellstr(h.recChUnits));
 
 
 % gain of telegraphed instruments, if any
-addGain=h.nTelegraphEnable.*h.fTelegraphAdditGain;
+addGain=nTelegraphEnable.*fTelegraphAdditGain;
 addGain(addGain==0)=1;
 
 
@@ -249,44 +238,29 @@ switch h.nDataFormat
         fclose(fid);
         error('invalid number format');
 end
-headOffset=h.lDataSectionPtr*BLOCKSIZE+h.nNumPointsIgnored*dataSz;
+headOffset=DataSection.uBlockIndex*BLOCKSIZE+nNumPointsIgnored*dataSz;
 
-% h.fADCSampleInterval is the TOTAL samp interval for a single channel (?)
+% fADCSampleInterval is the TOTAL samp interval for a single channel (?)
 % not the time between samples for a single channel... Define the sample
 % interval accordingly
-h.si=h.fADCSampleInterval*h.nADCNumChannels;
+sampInt=fADCSampleInterval*nADCNumChannels;
 
 nSweeps=h.lActualEpisodes;
-sweeps=1:h.lActualEpisodes;
+sweeps=1:nSweeps;
 
 % determine time unit in synch array section
-switch h.fSynchTimeUnit
+switch fSynchTimeUnit
     case 0
         % time information in synch array section is in terms of ticks
-        h.synchArrTimeBase=1;
+        synchArrTimeBase=1;
     otherwise
         % time information in synch array section is in terms of usec
-        h.synchArrTimeBase=h.fSynchTimeUnit;
-end
-
-% read in the TagSection, do a few computations & write to h.tags
-h.tags=[];
-for i=1:TagSection.llNumEntries
-    tmp=ReadSection(fid,TagSection.uBlockIndex*BLOCKSIZE+TagSection.uBytes*(i-1),TagInfo);
-    % time of tag entry from start of experiment in s (corresponding expisode
-    % number, if applicable, will be determined later)
-    h.tags(i).timeSinceRecStart=tmp.lTagTime*h.synchArrTimeBase/1e6;
-    h.tags(i).comment=char(tmp.sComment)';
+        synchArrTimeBase=fSynchTimeUnit;
 end
 
 
 
-
-% -------------------------------------------------------------------------
-%     read data (note: from here on code is generic and abf version
-%    should not matter)
-% -------------------------------------------------------------------------
-switch h.nOperationMode
+switch ProtocolSec.nOperationMode
         
     case {2,4,5}  % 2=> event-driven fixed-length; 4=> high speed osciliscope 5=> waveform fixed-length
 
@@ -319,25 +293,25 @@ switch h.nOperationMode
         % the length of sweeps in sample points (**note: parameter lLength of
         % the ABF synch section is expressed in samples (ticks) whereas
         % parameter lStart is given in synchArrTimeBase units)
-        h.sweepLengthInPts=synchArr(1,2)/h.nADCNumChannels;
+        sweepLengthInPts=synchArr(1,2)/nADCNumChannels;
         
         % the starting ticks of episodes in sample points (t0=1=beginning of
         % recording)
-        h.sweepStartInPts=synchArr(:,1)*(h.synchArrTimeBase/h.fADCSampleInterval/h.nADCNumChannels);
+        sweepStartInPts=synchArr(:,1)*(synchArrTimeBase/fADCSampleInterval/nADCNumChannels);
         
         
         % determine first point and number of points to be read
         startPt=0;
-        h.dataPts=h.lActualAcqLength;
-        h.dataPtsPerChan=h.dataPts/h.nADCNumChannels;
-        if rem(h.dataPts,h.nADCNumChannels)>0 || rem(h.dataPtsPerChan,h.lActualEpisodes)>0
+        nDataPts=lActualAcqLength;
+        nDataPtsPerChan=nDataPts/nADCNumChannels;
+        if rem(nDataPts,nADCNumChannels)>0 || rem(nDataPtsPerChan,h.lActualEpisodes)>0
             fclose(fid);
             error('number of data points not OK');
         end
         
         % temporary helper var
-        dataPtsPerSweep=h.sweepLengthInPts*h.nADCNumChannels;
-        d=zeros(h.sweepLengthInPts,length(recChInd),nSweeps);
+        dataPtsPerSweep=sweepLengthInPts*nADCNumChannels;
+        d=zeros(sweepLengthInPts,length(recChInd),nSweeps);
         
         % the starting ticks of episodes in sample points WITHIN THE DATA FILE
         selectedSegStartInPts=((sweeps-1)*dataPtsPerSweep)*dataSz+headOffset;
@@ -347,22 +321,22 @@ switch h.nOperationMode
         for i=1:nSweeps,
             fseek(fid,selectedSegStartInPts(i),'bof');
             [tmpd,n]=fread(fid,dataPtsPerSweep,precision);
-            h.dataPtsPerChan=n/h.nADCNumChannels;
-            if rem(n,h.nADCNumChannels)>0
+            nDataPtsPerChan=n/nADCNumChannels;
+            if rem(n,nADCNumChannels)>0
                 fclose(fid);
                 error('number of data points in episode not OK');
             end
             
             % separate channels..
-            tmpd=reshape(tmpd,h.nADCNumChannels,h.dataPtsPerChan);
+            tmpd=reshape(tmpd,nADCNumChannels,nDataPtsPerChan);
             tmpd=tmpd';
             
             % if data format is integer, scale appropriately; if it's float, d is fine
             if ~h.nDataFormat
                 for j=1:length(recChInd),
                     ch=recChIdx(recChInd(j))+1;
-                    tmpd(:,j)=tmpd(:,j)/(h.fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
-                        *h.fADCRange/h.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
+                    tmpd(:,j)=tmpd(:,j)/(fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
+                        *ProtocolSec.fADCRange/ProtocolSec.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
                 end
             end
             
@@ -370,67 +344,22 @@ switch h.nOperationMode
             d(:,:,i)=tmpd;
         end
         
-        %
-        % now load the waveforms (CAH added this section)
-        %
-        % This part doesn't quite work. For the one example file it looks
-        % like the command waveform comes after the analog wave form....
-        % It's almost like I'm reading the same data but with a small
-        % delay. Maybe the 'headOffset_wf' is wrong...
-        %
-        wf = nan(size(d));
-        headOffset_wf = DACSection.uBlockIndex*BLOCKSIZE+h.nNumPointsIgnored*dataSz;
-        selectedSegStartInPts=((sweeps-1)*dataPtsPerSweep)*dataSz+headOffset_wf;
-        fseek(fid,startPt*dataSz+headOffset_wf,'bof'); 
-        for i=1:nSweeps,
-            fseek(fid,selectedSegStartInPts(i),'bof');
-            [tmpd,n]=fread(fid,dataPtsPerSweep,precision);
-            h.dataPtsPerChan=n/h.nADCNumChannels;
-            if rem(n,h.nADCNumChannels)>0
-                fclose(fid);
-                error('number of data points in episode not OK');
-            end
-            
-            % separate channels..
-            tmpd=reshape(tmpd,h.nADCNumChannels,h.dataPtsPerChan);
-            tmpd=tmpd';
-            
-            % if data format is integer, scale appropriately; if it's float, d is fine
-            if ~h.nDataFormat
-                if i==1
-                    warning('DAC section probably not being scaled appropriately')
-                end
-                for j=1:length(recChInd),
-                    ch=recChIdx(recChInd(j))+1;
-                    tmpd(:,j)=tmpd(:,j)/(h.fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
-                        *h.fADCRange/h.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
-                end
-            end
-            
-            % now fill 3d array
-            wf(:,:,i)=tmpd;
-        end
-        %
-        % END CH ADDITIONS
-        %
-        
-        
-        
+               
     case 3
         % start at the beginning
         startPt = 0;
         
         % define the stop point (take all the data)
-        h.dataPtsPerChan=h.lActualAcqLength/h.nADCNumChannels;
-        h.dataPts=h.dataPtsPerChan*h.nADCNumChannels;
+        nDataPtsPerChan=lActualAcqLength/nADCNumChannels;
+        nDataPts=nDataPtsPerChan*nADCNumChannels;
 
         
         % read in some data
         fseek(fid,startPt*dataSz+headOffset,'bof');
-        d = fread(fid,h.dataPts,precision);
+        d = fread(fid,nDataPts,precision);
         
         % separate channels..
-        d = reshape(d, h.nADCNumChannels, h.dataPtsPerChan);
+        d = reshape(d, nADCNumChannels, nDataPtsPerChan);
         d = d';
         
         
@@ -438,25 +367,21 @@ switch h.nOperationMode
         if ~h.nDataFormat
             for j=1:length(recChInd),
                 ch=recChIdx(recChInd(j))+1;
-                d(:,j)=d(:,j)/(h.fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
-                    *h.fADCRange/h.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
+                d(:,j)=d(:,j)/(fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
+                    *ProtocolSec.fADCRange/ProtocolSec.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
             end
         end
         
     otherwise
         disp('unknown recording mode -- returning empty matrix');
         d=[];
-        h.si=[];
+        h=[];
 end
-fclose(fid);
 
-% finally, possibly add information on episode number to tags
-if ~isempty(h.tags) && isfield(h,'sweepStartInPts')
-    for i=1:numel(h.tags)
-        tmp=find(h.tags(i).timeSinceRecStart>=h.sweepStartInPts/1e6*h.si);
-        h.tags(i).episodeIndex=tmp(end);
-    end
-end
+% technically I could just close fid, but closing 'all' avoids there being
+% open files unbeknownst to the user, which could interfere with the
+% ability to open them simultaneously in matlab and clampfit.
+fclose('all');
 
 end % function
 
@@ -466,25 +391,30 @@ end % function
 % ########################################################################
 
 function out=define_header
+    
+    % NOTE: C.Hass commented out most of the options below because I don't
+    % know what they do, they don't seem to be productive, and I find them
+    % annoying (2/20/2014)
+    
     headPar={
-        'fFileSignature',0,'*char',[-1 -1 -1 -1];
-        'fFileVersionNumber',4,'bit8=>int',[-1 -1 -1 -1];
-        'uFileInfoSize',8,'uint32',-1;
+        %'fFileSignature',0,'*char',[-1 -1 -1 -1];
+        %'fFileVersionNumber',4,'bit8=>int',[-1 -1 -1 -1];
+        %'uFileInfoSize',8,'uint32',-1;
         'lActualEpisodes',12,'uint32',-1;
-        'uFileStartDate',16','uint32',-1;
-        'uFileStartTimeMS',20,'uint32',-1;
-        'uStopwatchTime',24,'uint32',-1;
-        'nFileType',28,'int16',-1;
+        %'uFileStartDate',16','uint32',-1;
+        %'uFileStartTimeMS',20,'uint32',-1;
+        %'uStopwatchTime',24,'uint32',-1;
+        %'nFileType',28,'int16',-1;
         'nDataFormat',30,'int16',-1;
-        'nSimultaneousScan',32,'int16',-1;
-        'nCRCEnable',34,'int16',-1;
-        'uFileCRC',36,'uint32',-1;
-        'FileGUID',40,'uint32',-1;
-        'uCreatorVersion',56,'uint32',-1;
-        'uCreatorNameIndex',60,'uint32',-1;
-        'uModifierVersion',64,'uint32',-1;
-        'uModifierNameIndex',68,'uint32',-1;
-        'uProtocolPathIndex',72,'uint32',-1;
+        %'nSimultaneousScan',32,'int16',-1;
+        %'nCRCEnable',34,'int16',-1;
+        %'uFileCRC',36,'uint32',-1;
+        %'FileGUID',40,'uint32',-1;
+        %'uCreatorVersion',56,'uint32',-1;
+        %'uCreatorNameIndex',60,'uint32',-1;
+        %'uModifierVersion',64,'uint32',-1;
+        %'uModifierNameIndex',68,'uint32',-1;
+        %'uProtocolPathIndex',72,'uint32',-1;
         };
     out = cell2struct(headPar,{'name','offs','numType','value'},2);
 end
@@ -620,13 +550,28 @@ function ADCInfo=define_ADCInfo
         };
 end
 
-function TagInfo=define_TagInfo
-    TagInfo={
-        'lTagTime','int32',1;
-        'sComment','char',56;
-        'nTagType','int16',1;
-        'nVoiceTagNumber_or_AnnotationIndex','int16',1;
-        };
+function EpochInfo = define_EpochInfo
+
+EpochInfoPerDACDescription = {
+       'nEpochNum', 'int16', 1;
+       'nDACNum', 'int16', 1;
+       'nEpochType', 'int16', 1;
+       'fEpochInitLevel' ,'float', 1;
+       'fEpochLevelInc', 'float', 1;
+       'lEpochInitDuration', 'uint32', 1;
+       'lEpochDurationInc', 'uint32', 1;
+       'lEpochPulsePeriod', 'uint32', 1;
+       'lEpochPulseWidth', 'uint32', 1;
+       'sUnused', 'char', 18};
+
+EpochInfoDescription = {
+       'nEpochNum','int16', 1;
+       'nDigitalValue','int16', 1;
+       'nDigitalTrainValue','int16', 1;
+       'nAlternateDigitalValue','int16', 1;
+       'nAlternateDigitalTrainValue','int16', 1;
+       'bEpochCompression','bit1', 1;
+       'sUnused','char', 21};
 end
 
 function Section=ReadSection(fid,offset,Format)
@@ -645,4 +590,291 @@ function SectionInfo=ReadSectionInfo(fid,offset)
     fseek(fid,offset+8,'bof');
     SectionInfo.llNumEntries=fread(fid,1,'int64');
 end
+
+
+%#### SOME PYTHON CODE I GRABBED ONLINE. EPOCH RELATED THINGS MIGHT CONTAIN
+%#### WAVEFORMS, BUT I'LL NEED TO USE OTHER SECTIONS AS A ROSETTA STONE TO
+%#### FIURE OUT DATA TYPES...
+%#### More details here: https://github.com/NeuralEnsemble/python-neo/blob/master/neo/io/axonio.py
+
+% % headerDescriptionV1= [
+% %          ('fFileSignature',0,'4s'),
+% %          ('fFileVersionNumber',4,'f' ),
+% %          ('nOperationMode',8,'h' ),
+% %          ('lActualAcqLength',10,'i' ),
+% %          ('nNumPointsIgnored',14,'h' ),
+% %          ('lActualEpisodes',16,'i' ),
+% %          ('lFileStartTime',24,'i' ),
+% %          ('lDataSectionPtr',40,'i' ),
+% %          ('lTagSectionPtr',44,'i' ),
+% %          ('lNumTagEntries',48,'i' ),
+% %          ('lSynchArrayPtr',92,'i' ),
+% %          ('lSynchArraySize',96,'i' ),
+% %          ('nDataFormat',100,'h' ),
+% %          ('nADCNumChannels', 120, 'h'),
+% %          ('fADCSampleInterval',122,'f'),
+% %          ('fSynchTimeUnit',130,'f' ),
+% %          ('lNumSamplesPerEpisode',138,'i' ),
+% %          ('lPreTriggerSamples',142,'i' ),
+% %          ('lEpisodesPerRun',146,'i' ),
+% %          ('fADCRange', 244, 'f' ),
+% %          ('lADCResolution', 252, 'i'),
+% %          ('nFileStartMillisecs', 366, 'h'),
+% %          ('nADCPtoLChannelMap', 378, '16h'),
+% %          ('nADCSamplingSeq', 410, '16h'),
+% %          ('sADCChannelName',442, '10s'*16),
+% %          ('sADCUnits',602, '8s'*16) ,
+% %          ('fADCProgrammableGain', 730, '16f'),
+% %          ('fInstrumentScaleFactor', 922, '16f'),
+% %          ('fInstrumentOffset', 986, '16f'),
+% %          ('fSignalGain', 1050, '16f'),
+% %          ('fSignalOffset', 1114, '16f'),
+% %          ('nTelegraphEnable',4512, '16h'),
+% %          ('fTelegraphAdditGain',4576,'16f'),
+% %          ]
+% % 
+% % 
+% % headerDescriptionV2 =[
+% %          ('fFileSignature',0,'4s' ),
+% %          ('fFileVersionNumber',4,'4b') ,
+% %          ('uFileInfoSize',8,'I' ) ,
+% %          ('lActualEpisodes',12,'I' ) ,
+% %          ('uFileStartDate',16,'I' ) ,
+% %          ('uFileStartTimeMS',20,'I' ) ,
+% %          ('uStopwatchTime',24,'I' ) ,
+% %          ('nFileType',28,'H' ) ,
+% %          ('nDataFormat',30,'H' ) ,
+% %          ('nSimultaneousScan',32,'H' ) ,
+% %          ('nCRCEnable',34,'H' ) ,
+% %          ('uFileCRC',36,'I' ) ,
+% %          ('FileGUID',40,'I' ) ,
+% %          ('uCreatorVersion',56,'I' ) ,
+% %          ('uCreatorNameIndex',60,'I' ) ,
+% %          ('uModifierVersion',64,'I' ) ,
+% %          ('uModifierNameIndex',68,'I' ) ,
+% %          ('uProtocolPathIndex',72,'I' ) ,
+% %          ]
+% % 
+% % 
+% % sectionNames= ['ProtocolSection',
+% %              'ADCSection',
+% %              'DACSection',
+% %              'EpochSection',
+% %              'ADCPerDACSection',
+% %              'EpochPerDACSection',
+% %              'UserListSection',
+% %              'StatsRegionSection',
+% %              'MathSection',
+% %              'StringsSection',
+% %              'DataSection',
+% %              'TagSection',
+% %              'ScopeSection',
+% %              'DeltaSection',
+% %              'VoiceTagSection',
+% %              'SynchArraySection',
+% %              'AnnotationSection',
+% %              'StatsSection',
+% %              ]
+% % 
+% % 
+% % protocolInfoDescription = [
+% %          ('nOperationMode','h'),
+% %          ('fADCSequenceInterval','f'),
+% %          ('bEnableFileCompression','b'),
+% %          ('sUnused1','3s'),
+% %          ('uFileCompressionRatio','I'),
+% %          ('fSynchTimeUnit','f'),
+% %          ('fSecondsPerRun','f'),
+% %          ('lNumSamplesPerEpisode','i'),
+% %          ('lPreTriggerSamples','i'),
+% %          ('lEpisodesPerRun','i'),
+% %          ('lRunsPerTrial','i'),
+% %          ('lNumberOfTrials','i'),
+% %          ('nAveragingMode','h'),
+% %          ('nUndoRunCount','h'),
+% %          ('nFirstEpisodeInRun','h'),
+% %          ('fTriggerThreshold','f'),
+% %          ('nTriggerSource','h'),
+% %          ('nTriggerAction','h'),
+% %          ('nTriggerPolarity','h'),
+% %          ('fScopeOutputInterval','f'),
+% %          ('fEpisodeStartToStart','f'),
+% %          ('fRunStartToStart','f'),
+% %          ('lAverageCount','i'),
+% %          ('fTrialStartToStart','f'),
+% %          ('nAutoTriggerStrategy','h'),
+% %          ('fFirstRunDelayS','f'),
+% %          ('nChannelStatsStrategy','h'),
+% %          ('lSamplesPerTrace','i'),
+% %          ('lStartDisplayNum','i'),
+% %          ('lFinishDisplayNum','i'),
+% %          ('nShowPNRawData','h'),
+% %          ('fStatisticsPeriod','f'),
+% %          ('lStatisticsMeasurements','i'),
+% %          ('nStatisticsSaveStrategy','h'),
+% %          ('fADCRange','f'),
+% %          ('fDACRange','f'),
+% %          ('lADCResolution','i'),
+% %          ('lDACResolution','i'),
+% %          ('nExperimentType','h'),
+% %          ('nManualInfoStrategy','h'),
+% %          ('nCommentsEnable','h'),
+% %          ('lFileCommentIndex','i'),
+% %          ('nAutoAnalyseEnable','h'),
+% %          ('nSignalType','h'),
+% %          ('nDigitalEnable','h'),
+% %          ('nActiveDACChannel','h'),
+% %          ('nDigitalHolding','h'),
+% %          ('nDigitalInterEpisode','h'),
+% %          ('nDigitalDACChannel','h'),
+% %          ('nDigitalTrainActiveLogic','h'),
+% %          ('nStatsEnable','h'),
+% %          ('nStatisticsClearStrategy','h'),
+% %          ('nLevelHysteresis','h'),
+% %          ('lTimeHysteresis','i'),
+% %          ('nAllowExternalTags','h'),
+% %          ('nAverageAlgorithm','h'),
+% %          ('fAverageWeighting','f'),
+% %          ('nUndoPromptStrategy','h'),
+% %          ('nTrialTriggerSource','h'),
+% %          ('nStatisticsDisplayStrategy','h'),
+% %          ('nExternalTagType','h'),
+% %          ('nScopeTriggerOut','h'),
+% %          ('nLTPType','h'),
+% %          ('nAlternateDACOutputState','h'),
+% %          ('nAlternateDigitalOutputState','h'),
+% %          ('fCellID','3f'),
+% %          ('nDigitizerADCs','h'),
+% %          ('nDigitizerDACs','h'),
+% %          ('nDigitizerTotalDigitalOuts','h'),
+% %          ('nDigitizerSynchDigitalOuts','h'),
+% %          ('nDigitizerType','h'),
+% %          ]
+% % 
+% % 
+% % ADCInfoDescription = [
+% %          ('nADCNum','h'),
+% %          ('nTelegraphEnable','h'),
+% %          ('nTelegraphInstrument','h'),
+% %          ('fTelegraphAdditGain','f'),
+% %          ('fTelegraphFilter','f'),
+% %          ('fTelegraphMembraneCap','f'),
+% %          ('nTelegraphMode','h'),
+% %          ('fTelegraphAccessResistance','f'),
+% %          ('nADCPtoLChannelMap','h'),
+% %          ('nADCSamplingSeq','h'),
+% %          ('fADCProgrammableGain','f'),
+% %          ('fADCDisplayAmplification','f'),
+% %          ('fADCDisplayOffset','f'),
+% %          ('fInstrumentScaleFactor','f'),
+% %          ('fInstrumentOffset','f'),
+% %          ('fSignalGain','f'),
+% %          ('fSignalOffset','f'),
+% %          ('fSignalLowpassFilter','f'),
+% %          ('fSignalHighpassFilter','f'),
+% %          ('nLowpassFilterType','b'),
+% %          ('nHighpassFilterType','b'),
+% %          ('fPostProcessLowpassFilter','f'),
+% %          ('nPostProcessLowpassFilterType','c'),
+% %          ('bEnabledDuringPN','b'),
+% %          ('nStatsChannelPolarity','h'),
+% %          ('lADCChannelNameIndex','i'),
+% %          ('lADCUnitsIndex','i'),
+% %          ]
+% % 
+% % TagInfoDescription = [
+% %        ('lTagTime','i'),
+% %        ('sComment','56s'),
+% %        ('nTagType','h'),
+% %        ('nVoiceTagNumber_or_AnnotationIndex','h'),
+% %        ]
+% % 
+% % DACInfoDescription = [
+% %        ('nDACNum','h'),
+% %        ('nTelegraphDACScaleFactorEnable','h'),
+% %        ('fInstrumentHoldingLevel', 'f'),
+% %        ('fDACScaleFactor','f'),
+% %        ('fDACHoldingLevel','f'),
+% %        ('fDACCalibrationFactor','f'),
+% %        ('fDACCalibrationOffset','f'),
+% %        ('lDACChannelNameIndex','i'),
+% %        ('lDACChannelUnitsIndex','i'),
+% %        ('lDACFilePtr','i'),
+% %        ('lDACFileNumEpisodes','i'),
+% %        ('nWaveformEnable','h'),
+% %        ('nWaveformSource','h'),
+% %        ('nInterEpisodeLevel','h'),
+% %        ('fDACFileScale','f'),
+% %        ('fDACFileOffset','f'),
+% %        ('lDACFileEpisodeNum','i'),
+% %        ('nDACFileADCNum','h'),
+% %        ('nConditEnable','h'),
+% %        ('lConditNumPulses','i'),
+% %        ('fBaselineDuration','f'),
+% %        ('fBaselineLevel','f'),
+% %        ('fStepDuration','f'),
+% %        ('fStepLevel','f'),
+% %        ('fPostTrainPeriod','f'),
+% %        ('fPostTrainLevel','f'),
+% %        ('nMembTestEnable','h'),
+% %        ('nLeakSubtractType','h'),
+% %        ('nPNPolarity','h'),
+% %        ('fPNHoldingLevel','f'),
+% %        ('nPNNumADCChannels','h'),
+% %        ('nPNPosition','h'),
+% %        ('nPNNumPulses','h'),
+% %        ('fPNSettlingTime','f'),
+% %        ('fPNInterpulse','f'),
+% %        ('nLTPUsageOfDAC','h'),
+% %        ('nLTPPresynapticPulses','h'),
+% %        ('lDACFilePathIndex','i'),
+% %        ('fMembTestPreSettlingTimeMS','f'),
+% %        ('fMembTestPostSettlingTimeMS','f'),
+% %        ('nLeakSubtractADCIndex','h'),
+% %        ('sUnused','124s'),
+% %        ]
+% % 
+% % EpochInfoPerDACDescription = [
+% %        ('nEpochNum','h'),
+% %        ('nDACNum','h'),
+% %        ('nEpochType','h'),
+% %        ('fEpochInitLevel','f'),
+% %        ('fEpochLevelInc','f'),
+% %        ('lEpochInitDuration','i'),
+% %        ('lEpochDurationInc','i'),
+% %        ('lEpochPulsePeriod','i'),
+% %        ('lEpochPulseWidth','i'),
+% %        ('sUnused','18s'),
+% %        ]
+% % 
+% % EpochInfoDescription = [
+% %        ('nEpochNum','h'),
+% %        ('nDigitalValue','h'),
+% %        ('nDigitalTrainValue','h'),
+% %        ('nAlternateDigitalValue','h'),
+% %        ('nAlternateDigitalTrainValue','h'),
+% %        ('bEpochCompression','b'),
+% %        ('sUnused','21s'),
+% %        ]
+
+% % % #### from abf header:
+% % 
+% % //
+% % // Constants for nEpochType
+% % //
+% % #define ABF_EPOCHDISABLED           0     // disabled epoch
+% % #define ABF_EPOCHSTEPPED            1     // stepped waveform
+% % #define ABF_EPOCHRAMPED             2     // ramp waveform
+% % #define ABF_EPOCH_TYPE_RECTANGLE    3     // rectangular pulse train
+% % #define ABF_EPOCH_TYPE_TRIANGLE     4     // triangular waveform
+% % #define ABF_EPOCH_TYPE_COSINE       5     // cosinusoidal waveform
+% % #define ABF_EPOCH_TYPE_UNUSED       6     // was ABF_EPOCH_TYPE_RESISTANCE
+% % #define ABF_EPOCH_TYPE_BIPHASIC     7     // biphasic pulse train
+% % #define ABF_EPOCHSLOPE              8     // IonWorks style ramp waveform
+% % 
+% % % code to extract waveform information:
+% % for i=1:EpochPerDACSection.llNumEntries
+% %     epoch=ReadSection(fid,EpochPerDACSection.uBlockIndex*BLOCKSIZE+EpochPerDACSection.uBytes*(i-1),EpochInfoPerDACDescription);
+% %     epoch
+% % end
 

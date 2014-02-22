@@ -4,9 +4,9 @@ function mdb = initMouseDB(option)
  %
  % to do
  %
- % Add functionality to import the other work sheets.
- %
  % Start making GUI to visualize data and to text searches.
+ %
+ % Add surgery info to mdb.
  %
  % %%%%%%%%%%%%%%%%%%%%%
  
@@ -206,9 +206,9 @@ function phys = getPhysInfo(fName)
     % Compile the data
     phys.int.type = raw{1,3};
     phys.int.osm = raw{1,8};
-    psys.acsf.type = raw{2,3};
+    phys.acsf.type = raw{2,3};
     phys.acsf.osm = raw{2,8};
-    phys.temp = str2double(raw{3,3});
+    phys.temp = (raw{3,3});
     phys.notes = raw{4,3};
     
     % pull out the files and notes partaining to each cell/file
@@ -309,14 +309,22 @@ end
 function out = build_DB_text(in)
     
     % concatenate the easy ones
-    out = [in.info.generalNotes, ' ', in.histo.notes, ' ', in.phys.notes];
+    out = [in.name, ' ',...
+           in.info.generalNotes, ' ',...
+           in.info.sex, ' ',...
+           in.info.strain, ' ',...
+           in.histo.notes, ' ',...
+           in.phys.notes, ' ',...
+           in.phys.acsf.type, ' ',...
+           in.phys.temp, ' ',...
+           in.phys.int.type];
     
     % now loop over the phys files pulling out the notes and stuffing them
     % in with the others.
     if isfield(in.phys, 'cell')
         for c = 1:numel(in.phys.cell)
             for f = 1:numel(in.phys.cell(c).file)
-                out = [out, ' ', in.phys.cell(c).file(f).Notes];
+                out = [out, ' ', in.phys.cell(c).file(f).Notes, ' ', in.phys.cell(c).file(f).FileName];
             end            
         end
     end
@@ -324,16 +332,3 @@ function out = build_DB_text(in)
 end
 
 
-% 
-% % some code to search a cell array of text:
-%
-% if the search string is simple:
-%
-% match = cellfun(@regexpi, txt, repmat({searchString}, 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
-% match = cellfun(@(x) ~isempty(x), match);
-%
-% if the search string is a cell array of strings:
-%
-% match = cellfun(@regexpi, txt, repmat({searchString}, 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
-% match = cellfun(@(x) ~isempty(cell2mat(x)), match);
-% ind_cellfun = find(match)
