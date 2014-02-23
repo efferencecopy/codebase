@@ -80,15 +80,15 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%open a matlabpool
-if exist('matlabpool', 'file') == 2;
-    %poolObj = parpool('local', 4);
-    matlabpool open 6
-    pause(2)
-    fprintf(' *** Using parallel operations *** \n')
-end
+% %open a matlabpool
+% if exist('matlabpool', 'file') == 2;
+%     %poolObj = parpool('local', 4);
+%     matlabpool open 6
+%     pause(2)
+%     fprintf(' *** Using parallel operations *** \n')
+% end
 
-parfor a = 1:nExpts
+for a = 1:nExpts
     disp(a)
     
     % run the simulation
@@ -98,11 +98,11 @@ parfor a = 1:nExpts
     clc
 end
 
-% close the workers
-if exist('matlabpool', 'file') == 2;
-    matlabpool('close')
-    %delete(poolObj);
-end
+% % close the workers
+% if exist('matlabpool', 'file') == 2;
+%     matlabpool('close')
+%     %delete(poolObj);
+% end
 
 % 
 % Repackage the data in a way that is similar to the way DTV1 data is

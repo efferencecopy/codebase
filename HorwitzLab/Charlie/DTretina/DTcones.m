@@ -688,6 +688,11 @@ function cones = aperatureConeMosaic(params, cones, mon)
     % un-modified. I'll just put zeros in the cone mosaic where there
     % should be no cones.
     
+    % right now, the aperature module is only available for the filtered
+    % weight function ideal observer. I'll need to update the other ideal
+    % observer modules following the methodology used in
+    % 'obsMethod_filteredWtFxn'.
+    assert(strcmpi(params.obsMethod, 'obsMethod_filteredWtFxn'), 'ERROR: aperature setting is currently only available for the ''filtered weight function'' observer');
     
     % load in the GT data file
     GT = gtobj(params.GTV1_fname);
@@ -1111,7 +1116,7 @@ function [idlob, cones] = obsMethod_noClrEqSpace(command, idlob, gab, cones, mon
     %
     % This ideal observer only has access to the spatiotemporal weighting
     % function. Also, the space/time wt function is a gabor stimulus that
-    % peaks/troughs at ±1. All the cones in the wt fxn are in phase with
+    % peaks/troughs at ï¿½1. All the cones in the wt fxn are in phase with
     % eachother. The result is a 3 vector for each trial. I'll have to do
     % linear discriminant inorder to determine the neurometric threshold.
     
@@ -1225,7 +1230,7 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
     %
     % This ideal observer only has access to the spatiotemporal weighting
     % function. Also, the space/time wt function is a gabor stimulus that
-    % peaks/troughs at ±1. All the cones in the wt fxn are in phase with
+    % peaks/troughs at ï¿½1. All the cones in the wt fxn are in phase with
     % eachother. The result is a 3 vector for each trial. I'll have to do
     % linear discriminant inorder to determine the neurometric threshold.
     
@@ -1268,7 +1273,7 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
             
             % the function that convolves the wtFxn also adjust the output
             % according to the cone gain. This is a hack to undo this
-            % normalization so that the wt fxn peaks/troughs at ±1.
+            % normalization so that the wt fxn peaks/troughs at ï¿½1.
             scaleFact = max(max(max(abs(wt_spaceTime),[],1),[],2),[],3);
             wt_spaceTime = bsxfun(@rdivide, wt_spaceTime, scaleFact);
             
@@ -1295,7 +1300,7 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
             
             % the function that convolves the wtFxn also adjusted the output
             % according to the cone gain. This is a hack to undo this
-            % normalization so that the wt fxn peaks/troughs at ±1.
+            % normalization so that the wt fxn peaks/troughs at ï¿½1.
             scaleFact = max(max(max(abs(wt_spaceTime),[],1),[],2),[],3);
             wt_spaceTime = bsxfun(@rdivide, wt_spaceTime, scaleFact);
             
@@ -1486,7 +1491,7 @@ function [idlob, cones] = obsMethod_absThresh(command, idlob, gab, cones, mon, c
     %
     % This ideal observer only has access to the spatiotemporal weighting
     % function. Also, the space/time wt function is a gabor stimulus that
-    % peaks/troughs at ±1. All the cones in the wt fxn are in phase with
+    % peaks/troughs at ï¿½1. All the cones in the wt fxn are in phase with
     % eachother. The result is a 3 vector for each trial. I'll have to do
     % linear discriminant inorder to determine the neurometric threshold.
     
