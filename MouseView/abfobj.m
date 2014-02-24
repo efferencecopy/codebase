@@ -62,7 +62,11 @@ classdef abfobj
             % inputs?
         end
         
-        function out = grabdDta(obj, ch, timeStart, timeEnd)
+        function out = getvals(obj, ch, sweep, timeStart, timeEnd)
+            
+            idx = (obj.tt >= timeStart) & (obj.tt < timeEnd);
+            out = obj.dat(idx,ch,sweep);
+            
         end
         
         function [idx, time] = threshold(obj, thresh, ch, sweep, direction)

@@ -1,5 +1,9 @@
 function out = abfcat(varargin)
 
+% parse the arguments
+if numel(varargin) == 1 && iscell(varargin)
+    varargin = varargin{1};
+end
 
 for a = 1:numel(varargin)
     ax{a} = abfobj(varargin{a});
@@ -16,9 +20,9 @@ for a = 2:numel(ax)
     protocolMatch = strcmpi(out.head.protocolName, ax{a}.head.protocolName); %protocol names should match
     chUnitsMatch = all(strcmpi(out.head.recChUnits, ax{a}.head.recChUnits)); % recorded channel units should match
     chNamesMatch =  all(strcmpi(out.head.recChNames, ax{a}.head.recChNames)); % recorded channel units should match
-    waveformMatch = all(out.wf(:) == ax{a}.wf(:));% the waveforms should be identical
+    %waveformMatch = all(out.wf(:) == ax{a}.wf(:));% the waveforms should be identical
     
-    if all([protocolMatch, chUnitsMatch, chNamesMatch, waveformMatch])
+    if all([protocolMatch, chUnitsMatch, chNamesMatch])
         
         % the file in question passed the initial test, but no consider
         % holding potential:
@@ -42,7 +46,7 @@ for a = 2:numel(ax)
         end
     end
     
-    if ~all([protocolMatch, chUnitsMatch, chNamesMatch, waveformMatch]) || ~all(holdingMatch)
+    if ~all([protocolMatch, chUnitsMatch, chNamesMatch]) || ~all(holdingMatch)
         fprintf('File <%s> was not included \n', varargin{a})
     end
 end
