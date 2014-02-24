@@ -1,4 +1,4 @@
-function [d,h] = my_abfload(fn)
+function [d,h, wf] = my_abfload(fn)
 
 % **  [data, header] = abfload(filename)
 %
@@ -183,17 +183,17 @@ end
 
 % --- read in the protocol section & copy some values to header h
 ProtocolSec=ReadSection(fid,ProtocolSection.uBlockIndex*BLOCKSIZE,ProtocolInfo);
-fSynchTimeUnit=ProtocolSec.fSynchTimeUnit;
+% % % fSynchTimeUnit=ProtocolSec.fSynchTimeUnit;
 h.nExperimentType = ProtocolSec.nExperimentType;
 nADCNumChannels=ADCSection.llNumEntries;
 lActualAcqLength=DataSection.llNumEntries;
 nNumPointsIgnored=0;
 
-% in ABF version < 2.0 fADCSampleInterval is the sampling interval
-% defined as
-%     1/(sampling freq*number_of_channels)
-% so divide ProtocolSec.fADCSequenceInterval by the number of channels
-fADCSampleInterval=ProtocolSec.fADCSequenceInterval/nADCNumChannels;
+% % % in ABF version < 2.0 fADCSampleInterval is the sampling interval
+% % % defined as
+% % %     1/(sampling freq*number_of_channels)
+% % % so divide ProtocolSec.fADCSequenceInterval by the number of channels
+% % fADCSampleInterval=ProtocolSec.fADCSequenceInterval/nADCNumChannels;
 
 % --- in contrast to procedures with all other sections do not read the
 % sync array section but rather copy the values of its fields to the
@@ -243,20 +243,22 @@ headOffset=DataSection.uBlockIndex*BLOCKSIZE+nNumPointsIgnored*dataSz;
 % fADCSampleInterval is the TOTAL samp interval for a single channel (?)
 % not the time between samples for a single channel... Define the sample
 % interval accordingly
-sampInt=fADCSampleInterval*nADCNumChannels;
+fADCSampleInterval=ProtocolSec.fADCSequenceInterval/nADCNumChannels;
+sampInt=fADCSampleInterval*nADCNumChannels; % in microseconds
+h.sampRate = 1./(sampInt.*1e-6);
 
 nSweeps=h.lActualEpisodes;
 sweeps=1:nSweeps;
 
-% determine time unit in synch array section
-switch fSynchTimeUnit
-    case 0
-        % time information in synch array section is in terms of ticks
-        synchArrTimeBase=1;
-    otherwise
-        % time information in synch array section is in terms of usec
-        synchArrTimeBase=fSynchTimeUnit;
-end
+% % % % determine time unit in synch array section
+% % % switch fSynchTimeUnit
+% % %     case 0
+% % %         % time information in synch array section is in terms of ticks
+% % %         synchArrTimeBase=1;
+% % %     otherwise
+% % %         % time information in synch array section is in terms of usec
+% % %         synchArrTimeBase=fSynchTimeUnit;
+% % % end
 
 
 
@@ -297,7 +299,7 @@ switch ProtocolSec.nOperationMode
         
         % the starting ticks of episodes in sample points (t0=1=beginning of
         % recording)
-        sweepStartInPts=synchArr(:,1)*(synchArrTimeBase/fADCSampleInterval/nADCNumChannels);
+        %sweepStartInPts=synchArr(:,1)*(synchArrTimeBase/fADCSampleInterval/nADCNumChannels);
         
         
         % determine first point and number of points to be read
@@ -377,6 +379,102 @@ switch ProtocolSec.nOperationMode
         d=[];
         h=[];
 end
+
+% Bring in the waveforms. These are all C.Hass's additions. 
+% TODO: I need to bring in the names of each analog out channel, and index
+% them appropriately in the output matrix...
+if  ProtocolSec.nOperationMode ~= 5
+    wf = [];
+else
+    
+    % unpack the epoch info.
+    ch = {};
+    EpochInfoPerDACDescription  = define_EpochInfo;
+    for i=1:EpochPerDACSection.llNumEntries
+        tmp=ReadSection(fid,EpochPerDACSection.uBlockIndex*BLOCKSIZE+EpochPerDACSection.uBytes*(i-1),EpochInfoPerDACDescription);
+        
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.type = tmp.nEpochType;
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.initLevel = tmp.fEpochInitLevel;
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.levelInc = tmp.fEpochLevelInc;
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.initTime = tmp.lEpochInitDuration;
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.timeInc = tmp.lEpochDurationInc;
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.trainPeriod = tmp.lEpochPulsePeriod; % temporal period of pulse trains.
+        ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.trainPulseWidth = tmp.lEpochPulseWidth;
+    end
+    
+    % get the DAC channel names and units
+    DACInfo = define_DACInfo;
+    for i = 1:DACSection.llNumEntries;
+        
+        tmp = ReadSection(fid,DACSection.uBlockIndex*BLOCKSIZE+DACSection.uBytes*(i-1),DACInfo);
+        DACchName{tmp.nDACNum+1} = Strings{tmp.lDACChannelNameIndex};
+        
+        % determine if the channel was used.
+        ch_enabled(tmp.nDACNum+1) = tmp.nWaveformEnable;
+        
+        % some times the units idx is zero. this is bad, and perhaps this
+        % means it was undefined in clampex. deal accordingly:
+        if tmp.lDACChannelUnitsIndex<1
+            DACchUnits{tmp.nDACNum+1} = 'undf';
+        else
+            DACchUnits{tmp.nDACNum+1} = Strings{tmp.lDACChannelUnitsIndex};
+        end
+    end
+    
+    % create the header content for the DAC channel names and units
+    h.DACchNames = deblank(DACchName(logical(ch_enabled)));
+    h.DACchUnits = deblank(DACchUnits(logical(ch_enabled)));
+    
+    
+    % clampex uses the first 1/64th of the sweep length to twiddle its
+    % thumbs. Adjust all the indicies off of this value. This value is only
+    % for pCLAMP 10 files...
+    firstHoldingInPts = ceil(sweepLengthInPts ./ 64);
+    
+    
+    % make the waveforms: channel by channel and epoch by epoch and
+    % sweep by sweep
+    wf = zeros(sweepLengthInPts, sum(ch_enabled), nSweeps);
+    validChannels = find(ch_enabled);
+    for a = 1:numel(validChannels)
+        
+        chInd = validChannels(a);
+        
+        % loop over sweeps
+        for swp = 1:nSweeps
+            idx = firstHoldingInPts;
+            %loop over epochs
+            for ep = 1:numel(ch{chInd}.epoch)
+                
+                val = ch{chInd}.epoch{ep}.initLevel + (ch{chInd}.epoch{ep}.levelInc*(swp-1));
+                N = ch{chInd}.epoch{ep}.initTime + (ch{chInd}.epoch{ep}.timeInc*(swp-1));
+                time_inds = idx:(idx+N-1);
+                
+                switch ch{chInd}.epoch{ep}.type
+                    case 1 % a simple step
+                        wf(time_inds,a,swp) = val;
+                        idx = idx+N+1;
+                        
+                    case 3 % a pulse train
+                        nPulses = ceil(N ./ ch{chInd}.epoch{ep}.trainPeriod);
+                        pulse = zeros(ch{chInd}.epoch{ep}.trainPeriod,1);
+                        pulse(1:ch{chInd}.epoch{ep}.trainPulseWidth) = val;
+                        pulse = repmat(pulse, nPulses, 1);
+                        pulse(N+1:end) = [];
+                        
+                        wf(time_inds,a,swp) = pulse;
+                        idx = idx+N+1;
+                        
+                    otherwise
+                        fclose(fid);
+                        error('The selected waveform type is not yet supported')
+                end
+            end % loop over epoch
+            
+        end % loop over sweeps
+    end %loop over channel
+end % bring in waveforms
+
 
 % technically I could just close fid, but closing 'all' avoids there being
 % open files unbeknownst to the user, which could interfere with the
@@ -550,7 +648,7 @@ function ADCInfo=define_ADCInfo
         };
 end
 
-function EpochInfo = define_EpochInfo
+function  EpochInfoPerDACDescription  = define_EpochInfo
 
 EpochInfoPerDACDescription = {
        'nEpochNum', 'int16', 1;
@@ -572,6 +670,54 @@ EpochInfoDescription = {
        'nAlternateDigitalTrainValue','int16', 1;
        'bEpochCompression','bit1', 1;
        'sUnused','char', 21};
+end
+
+function DACInfo = define_DACInfo
+
+DACInfo = {
+       'nDACNum','int16', 1;
+       'nTelegraphDACScaleFactorEnable','int16', 1;
+       'fInstrumentHoldingLevel', 'float', 1;
+       'fDACScaleFactor','float', 1;
+       'fDACHoldingLevel','float', 1;
+       'fDACCalibrationFactor','float', 1;
+       'fDACCalibrationOffset','float', 1;
+       'lDACChannelNameIndex','uint32', 1;
+       'lDACChannelUnitsIndex','uint32', 1;
+       'lDACFilePtr','uint32', 1;
+       'lDACFileNumEpisodes','uint32', 1;
+       'nWaveformEnable','int16', 1;
+       'nWaveformSource','int16', 1;
+       'nInterEpisodeLevel','int16', 1;
+       'fDACFileScale','float', 1;
+       'fDACFileOffset','float', 1;
+       'lDACFileEpisodeNum','uint32', 1;
+       'nDACFileADCNum','int16', 1;
+       'nConditEnable','int16', 1;
+       'lConditNumPulses','uint32', 1;
+       'fBaselineDuration','float', 1;
+       'fBaselineLevel','float', 1;
+       'fStepDuration','float', 1;
+       'fStepLevel','float', 1;
+       'fPostTrainPeriod','float', 1;
+       'fPostTrainLevel','float', 1;
+       'nMembTestEnable','int16', 1;
+       'nLeakSubtractType','int16', 1;
+       'nPNPolarity','int16', 1;
+       'fPNHoldingLevel','float', 1;
+       'nPNNumADCChannels','int16', 1;
+       'nPNPosition','int16', 1;
+       'nPNNumPulses','int16', 1;
+       'fPNSettlingTime','float', 1;
+       'fPNInterpulse','float', 1;
+       'nLTPUsageOfDAC','int16', 1;
+       'nLTPPresynapticPulses','int16', 1;
+       'lDACFilePathIndex','uint32', 1;
+       'fMembTestPreSettlingTimeMS','float', 1;
+       'fMembTestPostSettlingTimeMS','float', 1;
+       'nLeakSubtractADCIndex','int16', 1;
+       'sUnused','char', 124;
+       };
 end
 
 function Section=ReadSection(fid,offset,Format)
@@ -597,265 +743,7 @@ end
 %#### FIURE OUT DATA TYPES...
 %#### More details here: https://github.com/NeuralEnsemble/python-neo/blob/master/neo/io/axonio.py
 
-% % headerDescriptionV1= [
-% %          ('fFileSignature',0,'4s'),
-% %          ('fFileVersionNumber',4,'f' ),
-% %          ('nOperationMode',8,'h' ),
-% %          ('lActualAcqLength',10,'i' ),
-% %          ('nNumPointsIgnored',14,'h' ),
-% %          ('lActualEpisodes',16,'i' ),
-% %          ('lFileStartTime',24,'i' ),
-% %          ('lDataSectionPtr',40,'i' ),
-% %          ('lTagSectionPtr',44,'i' ),
-% %          ('lNumTagEntries',48,'i' ),
-% %          ('lSynchArrayPtr',92,'i' ),
-% %          ('lSynchArraySize',96,'i' ),
-% %          ('nDataFormat',100,'h' ),
-% %          ('nADCNumChannels', 120, 'h'),
-% %          ('fADCSampleInterval',122,'f'),
-% %          ('fSynchTimeUnit',130,'f' ),
-% %          ('lNumSamplesPerEpisode',138,'i' ),
-% %          ('lPreTriggerSamples',142,'i' ),
-% %          ('lEpisodesPerRun',146,'i' ),
-% %          ('fADCRange', 244, 'f' ),
-% %          ('lADCResolution', 252, 'i'),
-% %          ('nFileStartMillisecs', 366, 'h'),
-% %          ('nADCPtoLChannelMap', 378, '16h'),
-% %          ('nADCSamplingSeq', 410, '16h'),
-% %          ('sADCChannelName',442, '10s'*16),
-% %          ('sADCUnits',602, '8s'*16) ,
-% %          ('fADCProgrammableGain', 730, '16f'),
-% %          ('fInstrumentScaleFactor', 922, '16f'),
-% %          ('fInstrumentOffset', 986, '16f'),
-% %          ('fSignalGain', 1050, '16f'),
-% %          ('fSignalOffset', 1114, '16f'),
-% %          ('nTelegraphEnable',4512, '16h'),
-% %          ('fTelegraphAdditGain',4576,'16f'),
-% %          ]
-% % 
-% % 
-% % headerDescriptionV2 =[
-% %          ('fFileSignature',0,'4s' ),
-% %          ('fFileVersionNumber',4,'4b') ,
-% %          ('uFileInfoSize',8,'I' ) ,
-% %          ('lActualEpisodes',12,'I' ) ,
-% %          ('uFileStartDate',16,'I' ) ,
-% %          ('uFileStartTimeMS',20,'I' ) ,
-% %          ('uStopwatchTime',24,'I' ) ,
-% %          ('nFileType',28,'H' ) ,
-% %          ('nDataFormat',30,'H' ) ,
-% %          ('nSimultaneousScan',32,'H' ) ,
-% %          ('nCRCEnable',34,'H' ) ,
-% %          ('uFileCRC',36,'I' ) ,
-% %          ('FileGUID',40,'I' ) ,
-% %          ('uCreatorVersion',56,'I' ) ,
-% %          ('uCreatorNameIndex',60,'I' ) ,
-% %          ('uModifierVersion',64,'I' ) ,
-% %          ('uModifierNameIndex',68,'I' ) ,
-% %          ('uProtocolPathIndex',72,'I' ) ,
-% %          ]
-% % 
-% % 
-% % sectionNames= ['ProtocolSection',
-% %              'ADCSection',
-% %              'DACSection',
-% %              'EpochSection',
-% %              'ADCPerDACSection',
-% %              'EpochPerDACSection',
-% %              'UserListSection',
-% %              'StatsRegionSection',
-% %              'MathSection',
-% %              'StringsSection',
-% %              'DataSection',
-% %              'TagSection',
-% %              'ScopeSection',
-% %              'DeltaSection',
-% %              'VoiceTagSection',
-% %              'SynchArraySection',
-% %              'AnnotationSection',
-% %              'StatsSection',
-% %              ]
-% % 
-% % 
-% % protocolInfoDescription = [
-% %          ('nOperationMode','h'),
-% %          ('fADCSequenceInterval','f'),
-% %          ('bEnableFileCompression','b'),
-% %          ('sUnused1','3s'),
-% %          ('uFileCompressionRatio','I'),
-% %          ('fSynchTimeUnit','f'),
-% %          ('fSecondsPerRun','f'),
-% %          ('lNumSamplesPerEpisode','i'),
-% %          ('lPreTriggerSamples','i'),
-% %          ('lEpisodesPerRun','i'),
-% %          ('lRunsPerTrial','i'),
-% %          ('lNumberOfTrials','i'),
-% %          ('nAveragingMode','h'),
-% %          ('nUndoRunCount','h'),
-% %          ('nFirstEpisodeInRun','h'),
-% %          ('fTriggerThreshold','f'),
-% %          ('nTriggerSource','h'),
-% %          ('nTriggerAction','h'),
-% %          ('nTriggerPolarity','h'),
-% %          ('fScopeOutputInterval','f'),
-% %          ('fEpisodeStartToStart','f'),
-% %          ('fRunStartToStart','f'),
-% %          ('lAverageCount','i'),
-% %          ('fTrialStartToStart','f'),
-% %          ('nAutoTriggerStrategy','h'),
-% %          ('fFirstRunDelayS','f'),
-% %          ('nChannelStatsStrategy','h'),
-% %          ('lSamplesPerTrace','i'),
-% %          ('lStartDisplayNum','i'),
-% %          ('lFinishDisplayNum','i'),
-% %          ('nShowPNRawData','h'),
-% %          ('fStatisticsPeriod','f'),
-% %          ('lStatisticsMeasurements','i'),
-% %          ('nStatisticsSaveStrategy','h'),
-% %          ('fADCRange','f'),
-% %          ('fDACRange','f'),
-% %          ('lADCResolution','i'),
-% %          ('lDACResolution','i'),
-% %          ('nExperimentType','h'),
-% %          ('nManualInfoStrategy','h'),
-% %          ('nCommentsEnable','h'),
-% %          ('lFileCommentIndex','i'),
-% %          ('nAutoAnalyseEnable','h'),
-% %          ('nSignalType','h'),
-% %          ('nDigitalEnable','h'),
-% %          ('nActiveDACChannel','h'),
-% %          ('nDigitalHolding','h'),
-% %          ('nDigitalInterEpisode','h'),
-% %          ('nDigitalDACChannel','h'),
-% %          ('nDigitalTrainActiveLogic','h'),
-% %          ('nStatsEnable','h'),
-% %          ('nStatisticsClearStrategy','h'),
-% %          ('nLevelHysteresis','h'),
-% %          ('lTimeHysteresis','i'),
-% %          ('nAllowExternalTags','h'),
-% %          ('nAverageAlgorithm','h'),
-% %          ('fAverageWeighting','f'),
-% %          ('nUndoPromptStrategy','h'),
-% %          ('nTrialTriggerSource','h'),
-% %          ('nStatisticsDisplayStrategy','h'),
-% %          ('nExternalTagType','h'),
-% %          ('nScopeTriggerOut','h'),
-% %          ('nLTPType','h'),
-% %          ('nAlternateDACOutputState','h'),
-% %          ('nAlternateDigitalOutputState','h'),
-% %          ('fCellID','3f'),
-% %          ('nDigitizerADCs','h'),
-% %          ('nDigitizerDACs','h'),
-% %          ('nDigitizerTotalDigitalOuts','h'),
-% %          ('nDigitizerSynchDigitalOuts','h'),
-% %          ('nDigitizerType','h'),
-% %          ]
-% % 
-% % 
-% % ADCInfoDescription = [
-% %          ('nADCNum','h'),
-% %          ('nTelegraphEnable','h'),
-% %          ('nTelegraphInstrument','h'),
-% %          ('fTelegraphAdditGain','f'),
-% %          ('fTelegraphFilter','f'),
-% %          ('fTelegraphMembraneCap','f'),
-% %          ('nTelegraphMode','h'),
-% %          ('fTelegraphAccessResistance','f'),
-% %          ('nADCPtoLChannelMap','h'),
-% %          ('nADCSamplingSeq','h'),
-% %          ('fADCProgrammableGain','f'),
-% %          ('fADCDisplayAmplification','f'),
-% %          ('fADCDisplayOffset','f'),
-% %          ('fInstrumentScaleFactor','f'),
-% %          ('fInstrumentOffset','f'),
-% %          ('fSignalGain','f'),
-% %          ('fSignalOffset','f'),
-% %          ('fSignalLowpassFilter','f'),
-% %          ('fSignalHighpassFilter','f'),
-% %          ('nLowpassFilterType','b'),
-% %          ('nHighpassFilterType','b'),
-% %          ('fPostProcessLowpassFilter','f'),
-% %          ('nPostProcessLowpassFilterType','c'),
-% %          ('bEnabledDuringPN','b'),
-% %          ('nStatsChannelPolarity','h'),
-% %          ('lADCChannelNameIndex','i'),
-% %          ('lADCUnitsIndex','i'),
-% %          ]
-% % 
-% % TagInfoDescription = [
-% %        ('lTagTime','i'),
-% %        ('sComment','56s'),
-% %        ('nTagType','h'),
-% %        ('nVoiceTagNumber_or_AnnotationIndex','h'),
-% %        ]
-% % 
-% % DACInfoDescription = [
-% %        ('nDACNum','h'),
-% %        ('nTelegraphDACScaleFactorEnable','h'),
-% %        ('fInstrumentHoldingLevel', 'f'),
-% %        ('fDACScaleFactor','f'),
-% %        ('fDACHoldingLevel','f'),
-% %        ('fDACCalibrationFactor','f'),
-% %        ('fDACCalibrationOffset','f'),
-% %        ('lDACChannelNameIndex','i'),
-% %        ('lDACChannelUnitsIndex','i'),
-% %        ('lDACFilePtr','i'),
-% %        ('lDACFileNumEpisodes','i'),
-% %        ('nWaveformEnable','h'),
-% %        ('nWaveformSource','h'),
-% %        ('nInterEpisodeLevel','h'),
-% %        ('fDACFileScale','f'),
-% %        ('fDACFileOffset','f'),
-% %        ('lDACFileEpisodeNum','i'),
-% %        ('nDACFileADCNum','h'),
-% %        ('nConditEnable','h'),
-% %        ('lConditNumPulses','i'),
-% %        ('fBaselineDuration','f'),
-% %        ('fBaselineLevel','f'),
-% %        ('fStepDuration','f'),
-% %        ('fStepLevel','f'),
-% %        ('fPostTrainPeriod','f'),
-% %        ('fPostTrainLevel','f'),
-% %        ('nMembTestEnable','h'),
-% %        ('nLeakSubtractType','h'),
-% %        ('nPNPolarity','h'),
-% %        ('fPNHoldingLevel','f'),
-% %        ('nPNNumADCChannels','h'),
-% %        ('nPNPosition','h'),
-% %        ('nPNNumPulses','h'),
-% %        ('fPNSettlingTime','f'),
-% %        ('fPNInterpulse','f'),
-% %        ('nLTPUsageOfDAC','h'),
-% %        ('nLTPPresynapticPulses','h'),
-% %        ('lDACFilePathIndex','i'),
-% %        ('fMembTestPreSettlingTimeMS','f'),
-% %        ('fMembTestPostSettlingTimeMS','f'),
-% %        ('nLeakSubtractADCIndex','h'),
-% %        ('sUnused','124s'),
-% %        ]
-% % 
-% % EpochInfoPerDACDescription = [
-% %        ('nEpochNum','h'),
-% %        ('nDACNum','h'),
-% %        ('nEpochType','h'),
-% %        ('fEpochInitLevel','f'),
-% %        ('fEpochLevelInc','f'),
-% %        ('lEpochInitDuration','i'),
-% %        ('lEpochDurationInc','i'),
-% %        ('lEpochPulsePeriod','i'),
-% %        ('lEpochPulseWidth','i'),
-% %        ('sUnused','18s'),
-% %        ]
-% % 
-% % EpochInfoDescription = [
-% %        ('nEpochNum','h'),
-% %        ('nDigitalValue','h'),
-% %        ('nDigitalTrainValue','h'),
-% %        ('nAlternateDigitalValue','h'),
-% %        ('nAlternateDigitalTrainValue','h'),
-% %        ('bEpochCompression','b'),
-% %        ('sUnused','21s'),
-% %        ]
+
 
 % % % #### from abf header:
 % % 

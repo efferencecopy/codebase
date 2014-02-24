@@ -1,4 +1,4 @@
-function mdb = initMouseDB(option)
+function mdb = initMouseDB(overwrite, suppressOutput)
  
  % %%%%%%%%%%%%%%%%%%
  %
@@ -12,14 +12,20 @@ function mdb = initMouseDB(option)
  
     global GL_DOCUPATH
 
-    % tell the user what's happening
-    fprintf('Initializing the mouseView data base\n')
-
-    % deal with the optional input
-    if ~exist('option', 'var')
-        option = '';
+    % deal with the optional input #1
+    if ~exist('overwrite', 'var')
+        overwrite = false;
     end
-    OVERWRITE = strcmpi(option, 'new');
+    
+    % deal with optional input #2
+    if ~exist('suppressOutput', 'var')
+        suppressOutput = false;
+    end
+    
+    % tell the user what's happening
+    if ~suppressOutput
+        fprintf('Initializing the mouseView data base\n')
+    end
 
     % grab all the excel files
     presDir = pwd; % cd back to this at the end of the routing...
@@ -29,10 +35,10 @@ function mdb = initMouseDB(option)
     % determine if the database is already available
     WBnames = {d(:).name};
     DBavailable = any(strcmpi('mouseDB.mat', WBnames));
-    if DBavailable && ~OVERWRITE
+    if DBavailable && ~overwrite
         load('mouseDB.mat');
     else
-        mdb = []; % 'mouse data base' structure
+        mdb = mdbobj; % 'mouse data base' object
     end
     
     % eliminate the hidden files (and other files that we should ignore)
@@ -59,11 +65,11 @@ function mdb = initMouseDB(option)
     % ADD FILES THAT ARE ABSENT FROM THE DATABASE
     %
     %%%%%%%%%%%%%%%%%%%%
-    if ~DBavailable || OVERWRITE
+    if ~DBavailable || overwrite
         l_absent = true(numel(WBnames),1);
     else
         % pull out the names of things in the DB
-        mdb_names = {mdb.mice(:).name};
+        mdb_names = mdb.mouseNames;
         
         % find the Workbooks that are already present in the database
         l_present = cellfun(@(x,y) regexpi(x,y), WBnames, repmat({mdb_names}, 1, numel(WBnames)), 'uniformoutput', false);
@@ -71,24 +77,30 @@ function mdb = initMouseDB(option)
     end
 
 
-    % add the missing files 
-    fprintf('  Adding %d files:\n', sum(l_absent));
+    % add the missing files
+    if ~suppressOutput
+        fprintf('  Adding %d files:\n', sum(l_absent));
+    end
     for a = find(l_absent(:))'
         
         % display the name of the file about to get added
-        fprintf('    %s\n', d(a).name)
+        if ~ suppressOutput
+            fprintf('    %s\n', d(a).name)
+        end
 
         % where in the mouse db should the new stuff go?
-        if (OVERWRITE || ~DBavailable) && (a==1)
+        if (overwrite || ~DBavailable) && (a==1)
             idx = 1;
         else
             idx = numel(mdb.mice)+1;
         end
         
         
-        % build mdb entry
-        mdb.mice(idx) = build_DB_entry(d(a)); % make a column of structures.
-        mdb.searchText{idx} = build_DB_text(mdb.mice(idx));
+        % build mdb entry. I'm using set field b/c the mdbobj construct
+        % defines things as vectors at first, and matlab complains about
+        % conversion from struct to double if I don't use setfield.
+        mdb = setfield(mdb, 'mice',{idx},  {build_DB_entry(d(a))});
+        mdb = setfield(mdb, 'searchText', {idx}, {build_DB_text(mdb.mice{idx})});
 
     end
     
@@ -97,20 +109,23 @@ function mdb = initMouseDB(option)
     % UPDATE FILES IN THE MDB THAT HAVE NEWER VERSIONS ON THE HARDDRIVE.
     %
     %%%%%%%%%%%%%%%%%%%%
-    fprintf('  Updating modified files:\n') 
+    if ~suppressOutput
+        fprintf('  Updating modified files:\n')
+    end
+    
     WBnames = cellfun(@(x) x(1:regexpi(x, '.\.', 'once')), WBnames, 'uniformoutput', false); % removing the file extension
     for a = 1:numel(mdb.mice)
         
         % find the MDB entry in the file directory
-        idx = find(strcmpi(mdb.mice(a).name, WBnames));
+        idx = find(strcmpi(mdb.mice{a}.name, WBnames));
         assert(numel(idx)==1, 'Number of matches ~= 1');
         
-        % update the mdb if the version in the directory is newer        
-        if d(idx).datenum > mdb.mice(a).modDate
+        % update the mdb if the version in the directory is newer
+        if d(idx).datenum > mdb.mice{a}.modDate
             fprintf('    %s\n', d(idx).name)
-            mdb.mice(a) = build_DB_entry(d(idx));
-            
-        end        
+            mdb = setfield(mdb, 'mice',{a},  {build_DB_entry(d(idx))});
+            mdb = setfield(mdb, 'searchText', {a}, {build_DB_text(mdb.mice{a})});
+        end
     end
     
 
@@ -120,7 +135,9 @@ function mdb = initMouseDB(option)
     %
     %%%%%%%%%%%%%%%%%%%%
     save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
-    fprintf('Initialization complete\n')
+    if ~suppressOutput
+        fprintf('Initialization complete\n')
+    end
     cd(presDir)
     
     

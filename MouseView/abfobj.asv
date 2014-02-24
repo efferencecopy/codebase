@@ -65,17 +65,15 @@ classdef abfobj
         function out = grabdDta(obj, ch, timeStart, timeEnd)
         end
         
-        function [idx, time] = threshold(obj, thresh, ch, sweep, direction)
+        function crossings = threshold(obj, thresh, ch, sweep, direction)
             
             above = obj.wf(:,ch,sweep) > thresh;
             change = [0; diff(above)];
             
             if ~exist('direction', 'var') || strcmpi(direction, 'pos')
-                idx = change == 1;
-                time = obj.tt(idx);
+                crossings = obj.tt(change == 1);
             else
-                idx = change == -1;
-                time = obj.tt(idx);
+                crossings = obj.tt(change == -1);
             end
         end
         
