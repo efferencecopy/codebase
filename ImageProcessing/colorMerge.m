@@ -24,7 +24,7 @@ mdb = initMouseDB();
 for a = 1:numel(d);
     
     % display the progress
-    if ~rem(a,5)
+    if a == 1 || ~rem(a,5)
         fprintf('%d more images to unpack\n', numel(d)-(a-1));
     end
     
@@ -56,7 +56,12 @@ for a = 1:numel(d);
             % unpack the images
             img_tmp = imread(d(a).name);
             info_tmp = imfinfo(d(a).name);
-            img_tmp = preProcessImg(img_tmp, info_tmp, params.npix, params.contrastMethod);
+            switch info_tmp.ColorType
+                case 'truecolor'
+                    img_tmp = preProcessImg(img_tmp, info_tmp, params.npix, params.contrastMethod);
+                case 'grayscale'
+                    % no need to do anything, already in grayscale
+            end
             
             
             % put the image in a structure according to it's position in
