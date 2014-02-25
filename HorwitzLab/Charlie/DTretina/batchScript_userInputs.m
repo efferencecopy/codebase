@@ -37,7 +37,7 @@ for a = 1:numel(ecc);
     params.eqMosaic = false;             % for debugging. true or false
     
     % make some notes...
-    params.notes = 'high TF macpig stuff for comparison with Apollo data at 15 Hz';       % notes that should be associated the data file?
+    params.notes = 'apollo macpig stuff';       % notes that should be associated the data file?
     
     
     

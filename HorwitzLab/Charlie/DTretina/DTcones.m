@@ -1250,6 +1250,12 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
             [idlob.analyticMean(1:nColors, 1:nContrasts), idlob.analyticVar(1:nColors, 1:nContrasts)] = deal({nan(1,3)});
             
         case 'compute'
+            
+            % make sure the user doesn't trust the results when the cone
+            % mosaic is aperatured and the user wants monte carlo trials
+            % too.
+            assert(~params.aperatureMosaic, 'ERROR: Monte carlo trials are not supported when the cone aperature setting is activated')
+            
             % subtract off the mean from the linear response
             zeroMeanLinResp = bsxfun(@minus, cones.linresp, permute(mon.bkgndlms_pA, [3, 2, 4, 1])); %make the linear response zero mean.
             
@@ -1300,28 +1306,31 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
             
             % the function that convolves the wtFxn also adjusted the output
             % according to the cone gain. This is a hack to undo this
-            % normalization so that the wt fxn peaks/troughs at �1.
+            % normalization so that the wt fxn peaks/troughs at +/-1.for
+            % each cone type.
             scaleFact = max(max(max(abs(wt_spaceTime),[],1),[],2),[],3);
-            wt_spaceTime = bsxfun(@rdivide, wt_spaceTime, scaleFact);
+            wt_spaceTime = bsxfun(@rdivide, wt_spaceTime, scaleFact);         
             
-            % (1) Ignore the retinal locations with no cones. These retinal
-            % locations should not contribute to the model's mean or
-            % variance. This shouldn't matter for most things, but when the
-            % retina is aperatured for V1 RF's it will definitely matter;
-            L_mask = cones.num_L >0;
-            M_mask = cones.num_M >0;
-            S_mask = cones.num_S >0;
-            
-            % next, iterate through the cone types and calculate the mean
-            % across all retinal locations for which there are cones... Do
-            % the same basic thing with the variance calculation.
-            
-            
-            % (2) calculate the mean response of the ideal observer
+            % (2) calculate the mean response of the ideal observer for a
+            % prototypical cone in each pixel location. Since the model
+            % averages signals across cones with in the same pixel, the
+            % 'average' response is identical to the 1 cone prototypical
+            % response.
             idlOb_mean = bsxfun(@minus, cones.linresp, permute(mon.bkgndlms_pA, [3, 2, 4, 1])); %make the linear response zero mean.
             idlOb_mean = idlOb_mean .* wt_spaceTime;
-            idlOb_mean = sum(sum(sum(idlOb_mean,1),2),3); %sum across space. The sum over time is actually part of the dot product with the wt. fxn...
-            idlob.analyticMean{clr, cnt} = squeeze(idlOb_mean);
+            idlOb_mean = sum(idlOb_mean,3); % summing across time is part of the 'dot product' with the weight functin
+            
+            % (2.5) Sum signals across retinal locations (i.e., pixels).
+            % Exclude pixels that are aperatured. Normally, none of the
+            % pixels are aperatured, but for some comparisons with V1,
+            % there are a few pixels missing.
+            cone_mask{1} = cones.num_L > 0;
+            cone_mask{2} = cones.num_M > 0;
+            cone_mask{3} = cones.num_S > 0; 
+            for a = 1:3
+                tmp = squeeze(idlOb_mean(:,:,:,a)); % X by Y for a single cone type (the 'time' dim was summed across above).;
+                idlob.analyticMean{clr, cnt}(1,a) = reshape(tmp, 1, []) * cone_mask{a}(:); % a row vector times a column vector.
+            end
             
             
             % (3) calculate the variance of the ideal observer. This
@@ -1340,15 +1349,25 @@ function [idlob, cones] = obsMethod_filteredWtFxn(command, idlob, gab, cones, mo
                 
                 % finish the 'dot product' in the fourier domain by summing
                 % across frequencies
-                noise_fft = sum(abs(noise_fft).^2, 3); % variance of a single pixel across time
-                noise_fft = squeeze(noise_fft); % remove the (singelton) time dimension
+                noise_fft = sum(abs(noise_fft).^2, 3); % variance of a single pixel across freqs
+                noise_fft = squeeze(noise_fft); % remove the (singelton) freq dimension
                 
-                % pool across cones (within a pixel) and then across pixels
-                numCones = cat(3, cones.num_L, cones.num_M, cones.num_S);
-                noise_fft = noise_fft ./ numCones; % the noise is independent from cone to cone (within pixels) so the average var = var(x)/numCones
-                noise_fft = sum(sum(noise_fft,1),2); % ideal observer sums signals from adjecent pix, so variances add.
-                
-                idlob.analyticVar{clr, cnt} = squeeze(noise_fft);
+                % pool across cones (within a pixel) and then across
+                % pixels. Exclude pixels due to the aperature (when
+                % present). The ideal observer sums signals from adjecent
+                % pix, so variances add. This is accomplished in the code
+                % by summing across pixel locations. Lastly, the noise is
+                % independent from cone to cone (within pixels) so the
+                % average var = var(x)/numCones
+                numCones{1} = cones.num_L;
+                numCones{2} = cones.num_M;
+                numCones{3} = cones.num_S;
+                for a = 1:3
+                    tmp_noise = reshape(noise_fft(:,:,a), [], 1);
+                    tmp_num = numCones{a}(:);
+                    idx = cone_mask{a}(:);
+                    idlob.analyticVar{clr, cnt}(1,a) = sum(tmp_noise(idx) ./ tmp_num(idx)); % noise is independent, so just divide by the number of cones.
+                end
                 
             else
                 idlob.analyticVar{clr, cnt} = idlob.analyticVar{clr, 1};
