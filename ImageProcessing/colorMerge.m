@@ -75,7 +75,7 @@ end
 
 
 % figure out some histology parameters for this mouse (used below):
-mdbidx = regexpi({mdb.mice(:).name}', params.mouse);
+mdbidx = regexpi({mdb.mice{:}.name}', params.mouse);
 mdbidx = ~cellfun(@isempty, mdbidx);
 thickness = mdb.mice(mdbidx).histo.thickness;
 slicesPerPlate = mdb.mice(mdbidx).histo.slicesPerPlate;
