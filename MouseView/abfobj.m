@@ -48,6 +48,16 @@ classdef abfobj
             obj.tt = [0:size(obj.dat,1)-1]./obj.head.sampRate;
             
             
+            % define the indices into the columns of the aquired signals (obj.dat)
+            for a = 1:numel(obj.head.recChNames)
+                obj.idx.(obj.head.recChNames{a}) = a;
+            end
+            
+            % define the indices into the columns of the waveforms (obj.wf)
+            for a = 1:numel(obj.head.DACchNames)
+                obj.idx.(obj.head.DACchNames{a}) = a;
+            end
+            
         end
         
         function obj = removeSweeps(obj, idx)
@@ -74,12 +84,15 @@ classdef abfobj
             above = obj.wf(:,ch,sweep) > thresh;
             change = [0; diff(above)];
             
-            if ~exist('direction', 'var') || strcmpi(direction, 'pos')
-                idx = change == 1;
-                time = obj.tt(idx);
-            else
-                idx = change == -1;
-                time = obj.tt(idx);
+            switch direction
+                case 'u'
+                    idx = change == 1;
+                    time = obj.tt(idx);
+                case 'd'
+                    idx = change == -1;
+                    time = obj.tt(idx);
+                otherwise
+                    error('ABFOBJ: Threshold crossing direction not specified')
             end
         end
         

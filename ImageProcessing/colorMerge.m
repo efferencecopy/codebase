@@ -75,10 +75,9 @@ end
 
 
 % figure out some histology parameters for this mouse (used below):
-mdbidx = regexpi({mdb.mice{:}.name}', params.mouse);
-mdbidx = ~cellfun(@isempty, mdbidx);
-thickness = mdb.mice(mdbidx).histo.thickness;
-slicesPerPlate = mdb.mice(mdbidx).histo.slicesPerPlate;
+[~, mdbidx] = mdb.search(params.mouse);
+thickness = mdb.mice{mdbidx}.histo.thickness;
+slicesPerPlate = mdb.mice{mdbidx}.histo.slicesPerPlate;
 
 
 % combine the images into a merged truecolor RGB. Arrange them in a stack.
