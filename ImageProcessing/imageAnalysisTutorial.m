@@ -123,7 +123,7 @@ plotimg(img_merge_simple, info);
 
 fin
 
-params.mouse = 'EB_013114_B';
+params.mouse = 'CH_020314_C';
 params.objective = '2x';
 params.contrastMethod = 'none';
 params.npix = 0;

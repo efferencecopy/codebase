@@ -5,7 +5,7 @@
  % some stuff for the analysis
  snpLength = 1;     % in sec
  idx = 0;
- fileName = 'noiseTest_directComp';
+ fileName = 'withAndWithoutIsolator';
  
  % go to the data directory and pull out the available file names
  cd(GL_DATPATH);
@@ -76,7 +76,7 @@
      set(gca, 'xscale', 'log', 'yscale', 'log')
  end
  axis tight
- legend('Sampling rate = 20 kHz', 'Sampling rate = 40 kHz')
+ legend(leg)
  ylabel('pA^2 per Hz')
  
  % PS individually
