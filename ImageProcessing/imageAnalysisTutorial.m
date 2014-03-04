@@ -121,8 +121,6 @@ plotimg(img_merge_simple, info);
 
 %% VIEW A STACK OF IMAGES
 
-fin
-
 params.mouse = 'EB_013114_B';
 params.objective = '2x';
 params.contrastMethod = 'none';

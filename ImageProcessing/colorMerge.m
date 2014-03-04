@@ -47,10 +47,10 @@ for a = 1:numel(d);
             
             
             % red? or green?
-            if regexp(d(a).name, '_red'); color = 'red'; end
-            if regexp(d(a).name, '_green'); color = 'green'; end
-            if regexp(d(a).name, '_blue');   color = 'blue'; end
-            if regexp(d(a).name, '_white');   continue; end
+            if regexpi(d(a).name, '_red'); color = 'red'; end
+            if regexpi(d(a).name, '_green'); color = 'green'; end
+            if regexpi(d(a).name, '_blue');   color = 'blue'; end
+            if regexpi(d(a).name, '_white'); continue; end
             
             
             % unpack the images
@@ -73,21 +73,23 @@ for a = 1:numel(d);
 end
 
 
-
-% figure out some histology parameters for this mouse (used below):
-[~, mdbidx] = mdb.search(params.mouse);
-thickness = mdb.mice{mdbidx}.histo.thickness;
-slicesPerPlate = mdb.mice{mdbidx}.histo.slicesPerPlate;
-
-
 % combine the images into a merged truecolor RGB. Arrange them in a stack.
 idx = 1;
 numPlates = max([size(img.red,1), size(img.green,1), size(img.blue,1)]);
 numSlices = max([size(img.red,2), size(img.green,2), size(img.blue,2)]);
 
+% figure out some histology parameters for this mouse (used below):
+[~, mdbidx] = mdb.search(params.mouse);
+thickness = mdb.mice{mdbidx}.histo.thickness;
+slicesPerPlate = mdb.mice{mdbidx}.histo.slicesPerPlate;
+if isnan(slicesPerPlate); slicesPerPlate = 6; warning('hardcoding ssp'); end
+if isscalar(slicesPerPlate);
+    slicesPerPlate = repmat(slicesPerPlate, 1, numPlates);
+end
+
+
 for p = 1:numPlates
     for sl = 1:numSlices
-        
         % find the appropriate images
         if ((size(img.red,1)>=p) && (size(img.red,2)>=sl)) && ~isempty(img.red{p,sl})
             ch_red = img.red{p, sl};
