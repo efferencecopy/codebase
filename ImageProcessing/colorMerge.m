@@ -82,7 +82,7 @@ numSlices = max([size(img.red,2), size(img.green,2), size(img.blue,2)]);
 [~, mdbidx] = mdb.search(params.mouse);
 thickness = mdb.mice{mdbidx}.histo.thickness;
 slicesPerPlate = mdb.mice{mdbidx}.histo.slicesPerPlate;
-if isnan(slicesPerPlate); slicesPerPlate = 6; warning('hardcoding ssp'); end
+if isnan(slicesPerPlate); slicesPerPlate = 6; warning('hardcoding s/p'); end
 if isscalar(slicesPerPlate);
     slicesPerPlate = repmat(slicesPerPlate, 1, numPlates);
 end
