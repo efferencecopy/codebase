@@ -2,9 +2,6 @@ function stackMaker(mName, objective)
 
 %   stackMaker(mname, objective)
 %
-% Example of what the input structure ('stack') should contain:
-%   stack.mouse = 'CH_112613_B';
-%   stack.objective = '2x';
 
 % Flow of ideas:
 %
@@ -37,6 +34,16 @@ function stackMaker(mName, objective)
 % a "raw" image to make it "active". The active image should be outlined in
 % red or something...
 %
+% 6) So that I don't make duplicate copies of the "raw" images, just save
+% the details of the LUT in a new structure:
+%    udat.merge{1}.red.lut_hi
+%    udat.merge{1}.red.lut_low
+%    udat.merge{1}.red.lut_slope
+%    udat.merge{1}.red.lut_yint
+%
+% 7) The LUT can be evaluated for each channel. The LUT should be peice
+% wise linear over the domain of interest (lut_low to lut_hi). And, the LUT
+% should be rectified so that vals >= 0 and <= maxdac-1.
 
 
 
@@ -48,11 +55,197 @@ function stackMaker(mName, objective)
 % pull in the raw images. put the raw images in the userData structure
 udat.raw = img_getRaw(mName, objective);
 
+% initialize the LUTs for the merged image
+udat.merge = merge_initLUT(udat);
+
 % Initalize the GUI
 udat = gui_init(udat);
 
 
 
+end
+
+
+
+function udat = gui_init(udat)
+
+    % Initialize the GUI, plot the first images to the RGB preview pannels,
+    % then plot the merge. By default, the histos will contain the first
+    % available channel (likely red or green)
+
+    %
+    % open figure
+    %
+    udat.h.fig = figure;
+    set(udat.h.fig, 'units', 'normalized', 'position', [0.0708    0.0044    0.8146    0.8900])
+
+    %
+    % initialize three axes for the 'raw' images
+    %
+    tmp_img = udat.raw{1}.blue.img;
+    lims = [udat.raw{1}.blue.info.MinSampleValue, udat.raw{1}.blue.info.MaxSampleValue];
+    udat.h.axBlue = axes('position', [0.02, 0.02, .31, .31]);
+    udat.h.imgBlue = imshow(tmp_img, lims, 'parent', udat.h.axBlue);
+    set(udat.h.imgBlue, 'ButtonDownFcn', {@gui_selectChannel});
+    set(udat.h.axBlue, 'visible', 'on',...
+                       'xtick', [],...
+                       'ytick', [],...
+                       'box', 'on');
+
+    
+    tmp_img = udat.raw{1}.green.img;
+    lims = [udat.raw{1}.green.info.MinSampleValue, udat.raw{1}.green.info.MaxSampleValue];
+    udat.h.axGreen = axes('position', [0.02, 0.35, .31, .31]);
+    udat.h.imgGreen = imshow(tmp_img, lims, 'parent', udat.h.axGreen);
+    set(udat.h.imgGreen, 'ButtonDownFcn', {@gui_selectChannel});
+    set(udat.h.axGreen, 'visible', 'on',...
+                        'xtick', [],...
+                        'ytick', [],...
+                        'box', 'on');
+                   
+                   
+    tmp_img = udat.raw{1}.green.img;
+    lims = [udat.raw{1}.green.info.MinSampleValue, udat.raw{1}.green.info.MaxSampleValue];
+    udat.h.axRed = axes('position', [0.02, 0.68, .31, .31]);
+    udat.h.imgRed = imshow(tmp_img, lims, 'parent', udat.h.axRed);
+    set(udat.h.imgRed, 'ButtonDownFcn', {@gui_selectChannel});
+    set(udat.h.axRed,  'visible', 'on',...
+                       'xtick', [],...
+                       'ytick', [],...
+                       'box', 'on');
+                   
+                   
+    
+    %
+    % initialize the axis for the RGB merged image
+    %
+    udat.h.axMerge = axes('position', [0.4, 0.48, .5, .5]);
+    set(udat.h.axMerge, 'xtick', [], 'ytick', [], 'box', 'on')
+    udat.h.imgMerge = imshow(tmp_img, lims, 'parent', udat.h.axMerge);
+    
+    
+    %
+    % initialize the UI controls for various other things
+    %
+    udat.h.fliplr = uicontrol('style', 'togglebutton',...
+                         'units', 'normalized',...
+                         'string', 'FLIP L/R',...
+                         'Position', [0.72, 0.265, 0.10, 0.05],...
+                         'Callback', {@img_flip});
+                     
+    udat.h.flipud = uicontrol('style', 'togglebutton',...
+                         'units', 'normalized',...
+                         'string', 'FLIP U/D',...
+                         'Position', [0.85, 0.265, 0.10, 0.05],...
+                         'Callback', {@img_flip});
+                     
+    udat.h.slider = uicontrol('style', 'slider',...
+                         'units', 'normalized',...
+                         'position', [0.73, 0.4, 0.2, 0.03],...
+                         'Callback', {@gui_slider},...
+                         'Value', 1,...
+                         'max', numel(udat.raw),...
+                         'min', 1,...
+                         'SliderStep', [1./numel(udat.raw), 1./numel(udat.raw).*10]);
+                         
+    udat.h.textbox = uicontrol('style', 'edit',...
+                          'units', 'normalized',...
+                          'string', sprintf('1 of %d', numel(udat.raw)),...
+                          'position', [0.76, 0.34, 0.15, 0.05],...
+                          'callback', {@gui_txtUpdate});
+
+
+
+    % Put the udat structure in the UserData field.
+    set(udat.h.fig, 'UserData', udat);
+    
+    % plot the first set of images
+    img_updateAxes()    
+    gui_selectChannel(udat.h.imgRed)
+    
+end
+
+
+function gui_selectChannel(hand, ~)
+    
+    % grab the user data
+    udat = get(gcf, 'userdata');
+    
+    % make all the boxes narrow lines (will bold the current ax later)
+    set([udat.h.axRed, udat.h.axGreen, udat.h.axBlue],...
+        'ycolor', 'k',...
+        'xcolor', 'k',...
+        'linewidth', 0.25)
+    
+    % select the channel when the user clicks on an axis.
+    switch hand
+        case {udat.h.axRed, udat.h.imgRed}
+            set(udat.h.axRed, 'ycolor', 'r', 'xcolor','r', 'linewidth', 3)
+            udat.currentColor = 'red';
+        case {udat.h.axGreen, udat.h.imgGreen}
+            set(udat.h.axGreen, 'ycolor', 'g', 'xcolor','g', 'linewidth', 3)
+            udat.currentColor = 'green';
+        case {udat.h.axBlue, udat.h.imgBlue}
+            set(udat.h.axBlue, 'ycolor', 'b', 'xcolor','b', 'linewidth', 3)
+            udat.currentColor = 'blue';
+    end
+    
+    
+    % re-set the user data
+    set(gcf, 'UserData', udat)
+    
+end
+
+
+function gui_slider(varargin)
+    
+    % grab the data
+    udat = get(gcf, 'userdata');
+    
+    % figure out the value of the slider
+    sliceNum = round(get(udat.h.slider, 'Value'));
+    
+    % update the text field of the textbox
+    set(udat.h.textbox, 'String', sprintf('%d of %d', sliceNum, numel(udat.raw)));
+        
+    % set the user data
+    set(gcf, 'userdata', udat);
+    
+    % update the image
+    img_updateAxes
+    
+end
+
+
+function gui_txtUpdate(varargin)
+    
+
+    % grab the data
+    udat = get(gcf, 'userdata');
+    
+    % grab the value indicated in the text box
+    txtString = get(udat.h.textbox, 'String');
+    txtString = regexp(txtString, '[\d]+', 'match'); % find the number in the text string
+    txtString = txtString{1}; % only consider the first (b/c the second entry could be the total number of slices)
+    sliceNum = str2double(txtString);
+    
+    % do some error checking
+    if sliceNum <= 0 || sliceNum > numel(udat.raw)
+        oldSliceNum = get(udat.h.slider, 'value');
+        set(udat.h.textbox, 'String', sprintf('%d of %d', oldSliceNum, numel(udat.raw)));
+        return
+    end
+    
+    % update the slider position and the text of the text box
+    set(udat.h.slider, 'Value', sliceNum)
+    set(udat.h.textbox, 'String', sprintf('%d of %d', sliceNum, numel(udat.raw)));
+    
+    % set the user data
+    set(gcf, 'userdata', udat);
+    
+    % update the image
+    img_updateAxes
+    
 end
 
 
@@ -127,6 +320,7 @@ function raw = img_getRaw(mname, objective)
     
     % Kill the plate/slice indexing, b/c it isn't necessary anymore, and
     % creates headaches later
+    raw = raw';
     raw = raw(:);
     
     % Roll through the raw images, and create blank entries for the
@@ -142,178 +336,6 @@ function raw = img_getRaw(mname, objective)
     end
     
 end
-
-
-
-
-function udat = gui_init(udat)
-
-    % Initialize the GUI, plot the first images to the RGB preview pannels,
-    % then plot the merge. By default, the histos will contain the first
-    % available channel (likely red or green)
-
-    %
-    % open figure
-    %
-    udat.h.fig = figure;
-    set(udat.h.fig, 'units', 'normalized', 'position', [0.0708    0.0044    0.8146    0.8900])
-
-    %
-    % initialize three axes for the 'raw' images
-    %
-    udat.h.axBlue = axes('position', [0.02, 0.02, .31, .31]);
-    set(udat.h.axBlue, 'xtick', [],...
-                       'ytick', [],...
-                       'box', 'on');
-    udat.h.imgBlue = imshow(ones(size(udat.raw{1}.blue.img)), 'parent', udat.h.axBlue);
-    set(udat.h.imgBlue, 'ButtonDownFcn', {@gui_selectChannel});
-
-
-    udat.h.axGreen = axes('position', [0.02, 0.35, .31, .31]);
-    set(udat.h.axGreen, 'xtick', [],...
-                       'ytick', [],...
-                       'box', 'on');
-    udat.h.imgGreen = imshow(ones(size(udat.raw{1}.green.img)), 'parent', udat.h.axGreen);
-    set(udat.h.imgGreen, 'ButtonDownFcn', {@gui_selectChannel});
-
-                   
-                   
-    udat.h.axRed = axes('position', [0.02, 0.68, .31, .31]);
-    set(udat.h.axRed, 'xtick', [],...
-                       'ytick', [],...
-                       'box', 'on');
-    udat.h.imgRed = imshow(ones(size(udat.raw{1}.red.img)), 'parent', udat.h.axRed);
-    set(udat.h.imgRed, 'ButtonDownFcn', {@gui_selectChannel});
-
-                   
-                   
-    
-    %
-    % initialize the axis for the RGB merged image
-    %
-    udat.h.axMerge = axes('position', [0.4, 0.48, .5, .5]);
-    set(udat.h.axMerge, 'xtick', [], 'ytick', [], 'box', 'on')
-    udat.h.imgMerge = imshow(ones(size(udat.raw{1}.red.img)), 'parent', udat.h.axMerge);
-    
-    
-    %
-    % initialize the UI controls for various other things
-    %
-    udat.h.fliplr = uicontrol('style', 'togglebutton',...
-                         'units', 'normalized',...
-                         'string', 'FLIP L/R',...
-                         'Position', [0.72, 0.30, 0.10, 0.05],...
-                         'Callback', {@img_flip});
-                     
-    udat.h.flipud = uicontrol('style', 'togglebutton',...
-                         'units', 'normalized',...
-                         'string', 'FLIP U/D',...
-                         'Position', [0.85, 0.30, 0.10, 0.05],...
-                         'Callback', {@img_flip});
-                     
-    udat.h.slider = uicontrol('style', 'slider',...
-                         'units', 'normalized',...
-                         'position', [0.73, 0.4, 0.2, 0.05],...
-                         'Callback', {@gui_slider},...
-                         'Value', 1,...
-                         'max', numel(udat.raw),...
-                         'min', 1,...
-                         'SliderStep', [1./numel(udat.raw), 1./numel(udat.raw).*10]);
-                         
-    udat.h.textbox = uicontrol('style', 'edit',...
-                          'units', 'normalized',...
-                          'string', sprintf('1 of %d', numel(udat.raw)),...
-                          'position', [0.76, 0.36, 0.15, 0.055],...
-                          'callback', {@gui_txtUpdate});
-
-
-
-    % Put the udat structure in the UserData field.
-    set(udat.h.fig, 'UserData', udat);
-
-
-end
-
-
-function gui_selectChannel(hand, ~)
-    
-    % grab the user data
-    udat = get(gcf, 'userdata');
-    
-    % make all the boxes narrow lines (will bold the current ax later)
-    set([udat.h.axRed, udat.h.axGreen, udat.h.axBlue], 'linewidth', 0.5)
-    
-    % select the channel when the user clicks on an axis.
-    switch hand
-        case udat.h.axRed
-            set(udat.h.axRed, 'linewidth', 12)
-            udat.currentColor = 'red';
-        case udat.h.axGreen
-            set(udat.h.axGreen, 'linewidth', 12)
-            udat.currentColor = 'green';
-        case udat.h.axBlue
-            set(udat.h.axBlue, 'linewidth', 12)
-            udat.currentColor = 'blue';
-    end
-    
-    
-    % re-set the user data
-    set(gcf, 'UserData', udat)
-    
-end
-
-
-function gui_slider(varargin)
-    
-    % grab the data
-    udat = get(gcf, 'userdata');
-    
-    % figure out the value of the slider
-    sliceNum = round(get(udat.h.slider, 'Value'));
-    
-    % update the text field of the textbox
-    set(udat.h.textbox, 'String', sprintf('%d of %d', sliceNum, numel(udat.raw)));
-        
-    % set the user data
-    set(gcf, 'userdata', udat);
-    
-    % update the image
-    img_updateAxes
-    
-end
-
-
-function gui_txtUpdate(varargin)
-    
-
-    % grab the data
-    udat = get(gcf, 'userdata');
-    
-    % grab the value indicated in the text box
-    txtString = get(udat.h.textbox, 'String');
-    txtString = regexp(txtString, '[\d]+', 'match'); % find the number in the text string
-    txtString = txtString{1}; % only consider the first (b/c the second entry could be the total number of slices)
-    sliceNum = str2double(txtString);
-    
-    % do some error checking
-    if sliceNum <= 0 || sliceNum > numel(udat.raw)
-        oldSliceNum = get(udat.h.slider, 'value');
-        set(udat.h.textbox, 'String', sprintf('%d of %d', oldSliceNum, numel(udat.raw)));
-        return
-    end
-    
-    % update the slider position and the text of the text box
-    set(udat.h.slider, 'Value', sliceNum)
-    set(udat.h.textbox, 'String', sprintf('%d of %d', sliceNum, numel(udat.raw)));
-    
-    % set the user data
-    set(gcf, 'userdata', udat);
-    
-    % update the image
-    img_updateAxes
-    
-end
-
 
 
 
@@ -362,12 +384,49 @@ function img_updateAxes()
     sliceNum = round(get(udat.h.slider, 'Value'));
     
     % update each raw axis
-    set(udat.h.axRed, 'CData', udat.raw{sliceNum}.red.img)
-    set(udat.h.axGreen, 'CData', udat.raw{sliceNum}.green.img)
-    set(udat.h.axBlue, 'CData', udat.raw{sliceNum}.blue.img)
+    set(udat.h.imgRed, 'CData', img_applyLUT(udat.raw{sliceNum}.red, udat.merge{sliceNum}.red))
+    set(udat.h.imgGreen, 'CData', img_applyLUT(udat.raw{sliceNum}.green, udat.merge{sliceNum}.green))
+    set(udat.h.imgBlue, 'CData', img_applyLUT(udat.raw{sliceNum}.blue, udat.merge{sliceNum}.blue))
 
-
+    % update the merged image
+    tmp_cat = cat(3, get(udat.h.imgRed, 'CData'), get(udat.h.imgGreen, 'CData'), get(udat.h.imgBlue, 'CData'));
+    set(udat.h.imgMerge, 'CData', uint16(tmp_cat)); % needs to be uint16 inorder for imshow to deal with it appropriately
+                                     
 end
 
+
+function out = img_applyLUT(raw, merge)
+    
+    % apply the LUT
+    xx = merge.lut_low : merge.lut_hi;
+    LUT = merge.lut_slope .* xx + merge.lut_yint;
+    idx = raw.img(:) + 1; % adding one so that indicies go from [1 to maxdac] and can be used as actual indicies
+    out = LUT(idx);
+    
+    % make sure the values are positvie, and not greater than maxdac
+    out(out<0) = 0;
+    out(out>merge.lut_hi) = merge.lut_hi;
+    
+    % reshape to original dims
+    out = reshape(out, size(raw.img));
+    
+end
+
+
+function merge = merge_initLUT(udat)
+
+    for a = 1:numel(udat.raw)
+        for color = {'red', 'green', 'blue'}
+            merge{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
+            merge{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
+            merge{a}.(color{1}).lut_slope = 1;
+            merge{a}.(color{1}).lut_yint = 0;
+        end
+    end
+    
+    % make it a column vector
+    merge = merge(:);
+    
+end
 
 

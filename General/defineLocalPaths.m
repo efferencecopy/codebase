@@ -25,7 +25,7 @@ switch whoami
         defaultpath = '~/Crash/';
         
     case 'glick_rig1'
-        GL_DOCUPATH = 'C:\Users\glickfeld_lab\Documents\GitHub\docubase\';
+        GL_DOCUPATH = 'C:\Users\glickfeld_lab\Documents\docubase\';
         GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
         defaultpath = 'C:\Users\glickfeld_lab\Documents\MATLAB';
         
