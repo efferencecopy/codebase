@@ -167,6 +167,7 @@ function udat = gui_init(udat)
     set(udat.h.axHist, 'children', bar(1:10, ones(1,10))); % initialize the histogram as a child of the axis
     udat.h.barHist = get(udat.h.axHist, 'children');
     
+        
     % add a second axis on top of the histo, for the LUT, make this axis
     % have no linewidth or background.
     udat.h.axLUT = axes('position', get(udat.h.axHist, 'position'));
@@ -176,6 +177,19 @@ function udat = gui_init(udat)
                       'xtick', [],...
                       'ytick', [],...
                       'color', 'none')
+    
+    udat.h.cntMaxSlider = uicontrol('style', 'slider',...
+                         'units', 'normalized',...
+                         'position', [0.37, 0.20, 0.27, 0.02],...
+                         'Callback', {@img_adjustLUTvals},...
+                         'Value', 1,...
+                         'max', 10,...
+                         'min', 1,...
+                         'SliderStep', [1,1]);
+
+                  
+                  
+                  
 
                       
     % Put the udat structure in the UserData field.
@@ -216,8 +230,9 @@ function gui_selectChannel(hand, ~)
     % re-set the user data
     set(gcf, 'UserData', udat)
     
-    % update the histogram of DAC values and the LUT. 
+    % update the histogram of DAC values and the LUT.
     img_updateLUT
+    gui_updateContrastSliders
     
 end
 
@@ -239,6 +254,7 @@ function gui_slider(varargin)
     % update the raw images and the histogram viewer. Do this by calling
     % img_updateLUT (which calls img_updateAxes after updating the LUT).
     img_updateLUT
+    gui_updateContrastSliders()
     
 end
 
@@ -272,9 +288,38 @@ function gui_txtUpdate(varargin)
     % update the raw images and the histogram viewer. Do this by calling
     % img_updateLUT (which calls img_updateAxes after updating the LUT).
     img_updateLUT
+    gui_updateContrastSliders()
     
 end
 
+function gui_updateContrastSliders(varargin)
+    % updates the position of the contrast sliders based off the
+    % udat.merge.lut values (which are set by the uicallback function)
+    
+    % grab the userdata, and some other useful info
+    udat = get(gcf, 'userdata');
+    sliceNum = round(get(udat.h.slider, 'Value'));
+    color = udat.currentColor;
+    
+    % max val slider
+    ch_setVal = udat.merge{sliceNum}.(color).lut_hi;
+    ch_maxdac = udat.raw{sliceNum}.(color).info.MaxSampleValue;
+    ch_mindac = udat.raw{sliceNum}.(color).info.MinSampleValue;
+    set(udat.h.cntMaxSlider, 'Value', ch_setVal,...
+                         'max', ch_maxdac,...
+                         'min', ch_mindac,...
+                         'SliderStep', [1./ch_maxdac.*10, (1/ch_maxdac).*25]);
+                     
+%     % min val slider
+%     ch_setVal = udat.merge{sliceNum}.(color).lut_low;
+%     ch_maxdac = udat.raw{sliceNum}.(color).info.MaxSampleValue;
+%     ch_mindac = udat.raw{sliceNum}.(color).info.MinSampleValue;
+%     set(udat.h.cntMinSlider, 'Value', ch_setVal,...
+%                              'max', ch_maxdac,...
+%                              'min', ch_mindac,...
+%                              'SliderStep', [1./ch_maxdac, (1/ch_maxdac).*10]);
+    
+end
 
 
 function raw = img_getRaw(mname, objective)
@@ -364,6 +409,27 @@ function raw = img_getRaw(mname, objective)
     
 end
 
+
+function img_adjustLUTvals(hand, ~)
+
+    % grab the userData
+    udat = get(gcf, 'userdata');
+    
+    % gets called when the user toggles a contrast UI slider
+    switch hand
+        case udat.h.cntMaxSlider
+        case udat.h.cntMinSlider
+        case udat.h.cntYIntSlider
+        case udat.h.cntSlopeSlider
+    end
+    
+    % re-set the user data field
+    set(gcf, 'userdata', udat);
+    
+    % update the histogram and LUT, and then show the new (adjusted) images
+    img_updateLUT
+    
+end
 
 
 function img_flip(varargin)
