@@ -155,13 +155,35 @@ function udat = gui_init(udat)
                           'callback', {@gui_txtUpdate});
 
 
+    %
+    % Create the GUI controls for the contrast adjustments and the
+    % histogram viewer
+    %
+    udat.h.axHist = axes('position', [0.38, 0.29, .25, .15]);
+    set(udat.h.axHist, 'tickDir', 'out',...
+                       'ytick', [],...
+                       'box', 'off')
+    set(get(udat.h.axHist, 'title'), 'string', 'Histogram of RAW DAC values')
+    set(udat.h.axHist, 'children', bar(1:10, ones(1,10))); % initialize the histogram as a child of the axis
+    udat.h.barHist = get(udat.h.axHist, 'children');
+    
+    % add a second axis on top of the histo, for the LUT, make this axis
+    % have no linewidth or background.
+    udat.h.axLUT = axes('position', get(udat.h.axHist, 'position'));
+    set(udat.h.axLUT, 'children', plot(1:10, 1:10, 'b', 'linewidth', 2)); % initialize the histogram as a child of the axis
+    udat.h.lineLUT = get(udat.h.axLUT, 'children');
+    set(udat.h.axLUT, 'box', 'off',...
+                      'xtick', [],...
+                      'ytick', [],...
+                      'color', 'none')
 
+                      
     % Put the udat structure in the UserData field.
     set(udat.h.fig, 'UserData', udat);
     
     % plot the first set of images
-    img_updateAxes()    
     gui_selectChannel(udat.h.imgRed)
+    img_updateLUT % also updates the raw/merged images by calling img_updateAxes
     
 end
 
@@ -194,6 +216,9 @@ function gui_selectChannel(hand, ~)
     % re-set the user data
     set(gcf, 'UserData', udat)
     
+    % update the histogram of DAC values and the LUT. 
+    img_updateLUT
+    
 end
 
 
@@ -211,8 +236,9 @@ function gui_slider(varargin)
     % set the user data
     set(gcf, 'userdata', udat);
     
-    % update the image
-    img_updateAxes
+    % update the raw images and the histogram viewer. Do this by calling
+    % img_updateLUT (which calls img_updateAxes after updating the LUT).
+    img_updateLUT
     
 end
 
@@ -231,7 +257,7 @@ function gui_txtUpdate(varargin)
     
     % do some error checking
     if sliceNum <= 0 || sliceNum > numel(udat.raw)
-        oldSliceNum = get(udat.h.slider, 'value');
+        oldSliceNum = round(get(udat.h.slider, 'value'));
         set(udat.h.textbox, 'String', sprintf('%d of %d', oldSliceNum, numel(udat.raw)));
         return
     end
@@ -243,8 +269,9 @@ function gui_txtUpdate(varargin)
     % set the user data
     set(gcf, 'userdata', udat);
     
-    % update the image
-    img_updateAxes
+    % update the raw images and the histogram viewer. Do this by calling
+    % img_updateLUT (which calls img_updateAxes after updating the LUT).
+    img_updateLUT
     
 end
 
@@ -392,6 +419,51 @@ function img_updateAxes()
     tmp_cat = cat(3, get(udat.h.imgRed, 'CData'), get(udat.h.imgGreen, 'CData'), get(udat.h.imgBlue, 'CData'));
     set(udat.h.imgMerge, 'CData', uint16(tmp_cat)); % needs to be uint16 inorder for imshow to deal with it appropriately
                                      
+end
+
+function img_updateLUT()
+    
+    % grab the userdat, the slice number, and the color channel
+    udat = get(gcf, 'userdata');
+    sliceNum = round(get(udat.h.slider, 'Value'));
+    color = udat.currentColor;
+    
+    % set the new LUT values based on the GUI controls
+    
+    % prepare the histogram
+    raw = udat.raw{sliceNum}.(color).img(:);
+    minval = udat.merge{sliceNum}.(color).lut_low;
+    maxval = udat.merge{sliceNum}.(color).lut_hi;
+    edges = linspace(minval, maxval, 150);
+    counts = histc(raw, edges);
+    
+    % display the histogram
+    set(udat.h.barHist, 'xdata', edges, 'ydata', counts);
+    set(udat.h.axHist, 'Xlim', [minval-10 maxval],...
+                       'Ylim', [0 max(counts)],...
+                       'ytick', [],...
+                       'box', 'on')
+    set(get(udat.h.axHist, 'title'), 'string', 'Histogram of RAW DAC values')
+    
+    % display the LUT
+    xx = minval:maxval;
+    m = udat.merge{sliceNum}.(color).lut_slope;
+    b = udat.merge{sliceNum}.(color).lut_yint;
+    yy = m.*xx+b;
+    yy(yy<0) = 0;
+    yy(yy>maxval) = maxval;
+    set(udat.h.lineLUT, 'xdata', xx, 'ydata', yy)
+    set(udat.h.axLUT, 'box', 'off',...
+                      'xtick', [],...
+                      'ytick', [],...
+                      'color', 'none',...
+                      'Xlim', [minval-10 maxval],...
+                      'Ylim', [0 maxval])
+                  
+  
+    % update the images (raw and merged) using the new LUT
+    img_updateAxes
+    
 end
 
 
