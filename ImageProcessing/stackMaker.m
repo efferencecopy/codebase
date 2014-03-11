@@ -176,17 +176,35 @@ function udat = gui_init(udat)
     set(udat.h.axLUT, 'box', 'off',...
                       'xtick', [],...
                       'ytick', [],...
-                      'color', 'none')
+                      'color', 'none',...
+                      'ButtonDownFcn', {@img_resetLUT})
     
-    udat.h.cntMaxSlider = uicontrol('style', 'slider',...
+    udat.h.lutMaxSlider = uicontrol('style', 'slider',...
                          'units', 'normalized',...
                          'position', [0.37, 0.20, 0.27, 0.02],...
                          'Callback', {@img_adjustLUTvals},...
                          'Value', 1,...
                          'max', 10,...
                          'min', 1,...
-                         'SliderStep', [1,1]);
+                         'SliderStep', [0.01, 0.1]);
+                     
+    udat.h.lutMinSlider = uicontrol('style', 'slider',...
+                         'units', 'normalized',...
+                         'position', [0.37, 0.15, 0.27, 0.02],...
+                         'Callback', {@img_adjustLUTvals},...
+                         'Value', 1,...
+                         'max', 10,...
+                         'min', 1,...
+                         'SliderStep', [0.01, 0.1]);
 
+    udat.h.lutDRangeSlider = uicontrol('style', 'slider',...
+                         'units', 'normalized',...
+                         'position', [0.37, 0.10, 0.27, 0.02],...
+                         'Callback', {@img_adjustLUTvals},...
+                         'Value', 1,...
+                         'max', 10,...
+                         'min', 1,...
+                         'SliderStep', [0.01, 0.1]);
                   
                   
                   
@@ -197,7 +215,7 @@ function udat = gui_init(udat)
     
     % plot the first set of images
     gui_selectChannel(udat.h.imgRed)
-    img_updateLUT % also updates the raw/merged images by calling img_updateAxes
+    img_updateHistogram % also updates the raw/merged images by calling img_updateImages
     
 end
 
@@ -231,7 +249,7 @@ function gui_selectChannel(hand, ~)
     set(gcf, 'UserData', udat)
     
     % update the histogram of DAC values and the LUT.
-    img_updateLUT
+    img_updateHistogram
     gui_updateContrastSliders
     
 end
@@ -252,8 +270,8 @@ function gui_slider(varargin)
     set(gcf, 'userdata', udat);
     
     % update the raw images and the histogram viewer. Do this by calling
-    % img_updateLUT (which calls img_updateAxes after updating the LUT).
-    img_updateLUT
+    % img_updateHistogram (which calls img_updateImages after updating the LUT).
+    img_updateHistogram
     gui_updateContrastSliders()
     
 end
@@ -286,8 +304,8 @@ function gui_txtUpdate(varargin)
     set(gcf, 'userdata', udat);
     
     % update the raw images and the histogram viewer. Do this by calling
-    % img_updateLUT (which calls img_updateAxes after updating the LUT).
-    img_updateLUT
+    % img_updateHistogram (which calls img_updateImages after updating the LUT).
+    img_updateHistogram
     gui_updateContrastSliders()
     
 end
@@ -300,24 +318,43 @@ function gui_updateContrastSliders(varargin)
     udat = get(gcf, 'userdata');
     sliceNum = round(get(udat.h.slider, 'Value'));
     color = udat.currentColor;
-    
-    % max val slider
-    ch_setVal = udat.merge{sliceNum}.(color).lut_hi;
     ch_maxdac = udat.raw{sliceNum}.(color).info.MaxSampleValue;
     ch_mindac = udat.raw{sliceNum}.(color).info.MinSampleValue;
-    set(udat.h.cntMaxSlider, 'Value', ch_setVal,...
-                         'max', ch_maxdac,...
+    
+    
+    % dynamic range slider will be centered in the middle of the LUT
+    lut_max = udat.merge{sliceNum}.(color).lut_hi;
+    lut_min = udat.merge{sliceNum}.(color).lut_low;
+    halfwidth = round(((lut_max-lut_min)/2));
+    dRangeVal = halfwidth+lut_min;
+    set(udat.h.lutDRangeSlider, 'Value', dRangeVal,...
+                                'max', ch_maxdac+halfwidth,...
+                                'min', ch_mindac-halfwidth,...
+                                'SliderStep', [0.01, 0.15]);
+    
+    
+    % max val slider
+    maxval = max(ch_maxdac, dRangeVal+halfwidth);
+    ch_setVal = udat.merge{sliceNum}.(color).lut_hi;
+    set(udat.h.lutMaxSlider, 'Value', ch_setVal,...
+                         'max', maxval,...
                          'min', ch_mindac,...
-                         'SliderStep', [1./ch_maxdac.*10, (1/ch_maxdac).*25]);
+                         'SliderStep', [0.005, 0.15]);
                      
-%     % min val slider
-%     ch_setVal = udat.merge{sliceNum}.(color).lut_low;
-%     ch_maxdac = udat.raw{sliceNum}.(color).info.MaxSampleValue;
-%     ch_mindac = udat.raw{sliceNum}.(color).info.MinSampleValue;
-%     set(udat.h.cntMinSlider, 'Value', ch_setVal,...
-%                              'max', ch_maxdac,...
-%                              'min', ch_mindac,...
-%                              'SliderStep', [1./ch_maxdac, (1/ch_maxdac).*10]);
+    % min val slider
+    minval = min(ch_mindac, dRangeVal-halfwidth);
+    ch_setVal = udat.merge{sliceNum}.(color).lut_low;
+    set(udat.h.lutMinSlider, 'Value', ch_setVal,...
+                             'max', ch_maxdac,...
+                             'min', minval,...
+                             'SliderStep', [0.005, 0.15]);
+                         
+ 
+
+    
+    
+    
+    
     
 end
 
@@ -414,12 +451,94 @@ function img_adjustLUTvals(hand, ~)
 
     % grab the userData
     udat = get(gcf, 'userdata');
+    sliceNum = round(get(udat.h.slider, 'Value'));
+    color = udat.currentColor;
     
     % gets called when the user toggles a contrast UI slider
     switch hand
-        case udat.h.cntMaxSlider
-        case udat.h.cntMinSlider
-        case udat.h.cntYIntSlider
+        case udat.h.lutMaxSlider
+            % grab the desired value
+            setVal = get(udat.h.lutMaxSlider, 'value');
+            setVal = round(setVal);
+            
+            % don't let the lut_high val be less than the low val
+            if setVal <= udat.merge{sliceNum}.(color).lut_low
+                gui_updateContrastSliders
+                return
+            end
+            
+            % set the new lut_high value
+            udat.merge{sliceNum}.(color).lut_hi = setVal;            
+            
+            % linear algebra solution to the new slope and yint
+            x1 = udat.merge{sliceNum}.(color).lut_low;
+            x2 = udat.merge{sliceNum}.(color).lut_hi;            
+            y1 = udat.raw{sliceNum}.(color).info.MinSampleValue;
+            y2 = udat.raw{sliceNum}.(color).info.MaxSampleValue;
+            pred = [x1, 1; x2, 1];
+            resp = [y1;y2];
+            betas = pred\resp;
+            udat.merge{sliceNum}.(color).lut_slope = betas(1);
+            udat.merge{sliceNum}.(color).lut_yint = betas(2);
+            
+            
+        case udat.h.lutMinSlider
+            
+            %grab the desired value
+            setVal = get(udat.h.lutMinSlider, 'value');
+            setVal = round(setVal);
+            
+            % make sure that the lut_low val is less than the high val
+            if setVal >= udat.merge{sliceNum}.(color).lut_hi
+                gui_updateContrastSliders % set things back the way they were
+                return
+            end
+            
+            % assign the new value
+            udat.merge{sliceNum}.(color).lut_low = setVal;
+                       
+            % linear algebra solution to the new slope and yint
+            x1 = udat.merge{sliceNum}.(color).lut_low;
+            x2 = udat.merge{sliceNum}.(color).lut_hi;
+            y1 = udat.raw{sliceNum}.(color).info.MinSampleValue;
+            y2 = udat.raw{sliceNum}.(color).info.MaxSampleValue;
+            pred = [x1, 1; x2, 1];
+            resp = [y1;y2];
+            betas = pred\resp;
+            udat.merge{sliceNum}.(color).lut_slope = betas(1);
+            udat.merge{sliceNum}.(color).lut_yint = betas(2);
+            
+        case udat.h.lutDRangeSlider
+            
+            % where is the slider now?
+            currentPos = round(get(udat.h.lutDRangeSlider, 'value'));
+            
+            % where was it b/4 the user changed things?
+            maxlut = udat.merge{sliceNum}.(color).lut_hi;
+            minlut = udat.merge{sliceNum}.(color).lut_low;
+            assert(maxlut>minlut, 'LUT ERROR: max val must be greater than min val');
+            halfwidth = round(((maxlut-minlut)/2));
+            oldval = halfwidth+minlut;
+            
+            % figure out how much things moved, then adjust the LUT values
+            delta = oldval - currentPos;
+            maxlut_new = maxlut - delta;
+            minlut_new = minlut - delta;
+            udat.merge{sliceNum}.(color).lut_hi = maxlut_new;
+            udat.merge{sliceNum}.(color).lut_low = minlut_new;
+            
+            % linear algebra solution to the new slope and yint
+            x1 = udat.merge{sliceNum}.(color).lut_low;
+            x2 = udat.merge{sliceNum}.(color).lut_hi;
+            y1 = udat.raw{sliceNum}.(color).info.MinSampleValue;
+            y2 = udat.raw{sliceNum}.(color).info.MaxSampleValue;
+            pred = [x1, 1; x2, 1];
+            resp = [y1;y2];
+            betas = pred\resp;
+            udat.merge{sliceNum}.(color).lut_slope = betas(1);
+            udat.merge{sliceNum}.(color).lut_yint = betas(2);
+            
+            
         case udat.h.cntSlopeSlider
     end
     
@@ -427,7 +546,11 @@ function img_adjustLUTvals(hand, ~)
     set(gcf, 'userdata', udat);
     
     % update the histogram and LUT, and then show the new (adjusted) images
-    img_updateLUT
+    img_updateHistogram
+    
+    % if you change one of the contrast sliders, you could effect the value
+    % of the others... Update accordingly.
+    gui_updateContrastSliders
     
 end
 
@@ -463,12 +586,12 @@ function img_flip(varargin)
     set(gcf, 'userdata', udat);
     
     % update the image
-    img_updateAxes
+    img_updateImages
     
 end
 
 
-function img_updateAxes()
+function img_updateImages()
 
     % grab the data
     udat = get(gcf, 'userdata');
@@ -487,7 +610,7 @@ function img_updateAxes()
                                      
 end
 
-function img_updateLUT()
+function img_updateHistogram()
     
     % grab the userdat, the slice number, and the color channel
     udat = get(gcf, 'userdata');
@@ -498,8 +621,8 @@ function img_updateLUT()
     
     % prepare the histogram
     raw = udat.raw{sliceNum}.(color).img(:);
-    minval = udat.merge{sliceNum}.(color).lut_low;
-    maxval = udat.merge{sliceNum}.(color).lut_hi;
+    minval = udat.raw{sliceNum}.(color).info.MinSampleValue;
+    maxval = udat.raw{sliceNum}.(color).info.MaxSampleValue;
     edges = linspace(minval, maxval, 150);
     counts = histc(raw, edges);
     
@@ -527,8 +650,11 @@ function img_updateLUT()
                       'Ylim', [0 maxval])
                   
   
+    % store the userdata
+    set(gcf, 'userdata', udat);
+    
     % update the images (raw and merged) using the new LUT
-    img_updateAxes
+    img_updateImages
     
 end
 
@@ -536,19 +662,57 @@ end
 function out = img_applyLUT(raw, merge)
     
     % apply the LUT
-    xx = merge.lut_low : merge.lut_hi;
+    xx = raw.info.MinSampleValue : raw.info.MaxSampleValue;
     LUT = merge.lut_slope .* xx + merge.lut_yint;
     idx = raw.img(:) + 1; % adding one so that indicies go from [1 to maxdac] and can be used as actual indicies
     out = LUT(idx);
     
     % make sure the values are positvie, and not greater than maxdac
     out(out<0) = 0;
-    out(out>merge.lut_hi) = merge.lut_hi;
+    out(out>raw.info.MaxSampleValue) = raw.info.MaxSampleValue;
     
     % reshape to original dims
     out = reshape(out, size(raw.img));
     
 end
+
+
+function img_resetLUT(varargin)
+
+    % check for double clicks
+    persistent chk
+    
+    if isempty(chk)
+        chk = 1;
+        pause(0.3)
+        if chk==1 % single click
+            chk = [];
+        end
+    else %double click
+        chk = [];
+        
+        % grab the userdata
+        udat = get(gcf, 'userdata');
+        sliceNum = round(get(udat.h.slider, 'Value'));
+        color = udat.currentColor;
+        
+        % reset the LUT values for this color only
+        udat.merge{sliceNum}.(color).lut_hi = udat.raw{sliceNum}.(color).info.MaxSampleValue;
+        udat.merge{sliceNum}.(color).lut_low = udat.raw{sliceNum}.(color).info.MinSampleValue;
+        udat.merge{sliceNum}.(color).lut_slope = 1;
+        udat.merge{sliceNum}.(color).lut_yint = 0;
+        
+        % reset the userdata
+        set(gcf, 'userdata', udat);
+        
+        % reset the sliders, and adjust the images
+        img_updateHistogram
+        gui_updateContrastSliders
+        
+    end
+    
+end
+
 
 
 function merge = merge_initLUT(udat)
