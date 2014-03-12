@@ -15,11 +15,25 @@ function mdb = initMouseDB(overwrite, suppressOutput)
     % deal with the optional input #1
     if ~exist('overwrite', 'var')
         overwrite = false;
+    else
+        switch overwrite
+            case {'new', true}
+                overwrite = true;
+            case {'update', false}
+                overwrite = false;
+        end
     end
     
     % deal with optional input #2
     if ~exist('suppressOutput', 'var')
         suppressOutput = false;
+    else
+        switch suppressOutput
+            case {true, 'notext'}
+                suppressOutput = true;
+            case {false, 'verbose'}
+                suppressOutput = false;
+        end
     end
     
     % tell the user what's happening

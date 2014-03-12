@@ -3,18 +3,8 @@ function stackMaker(mName, objective)
 %   stackMaker(mname, objective)
 %
 
-% Flow of ideas:
-%
-% 1) grab all of the monochrome images. Put them in temporary structure
-% ("raw"). Have different arrays for the RGB channels. If one channel was
-% not aquired, than just shove a bunch of zeros in the array.
-%       raw{1}.red.info => one for each channel
-%       raw{1}.red.img
-%
-% 2) Display: 3 columns on the left (one for each RGB channel). In the
-% middle, put all the contrast controls. On the right, put the merged
-% image, and buttons to advance to the previous/next image. Add buttons for
-% flips (UD and LR). Add a button to save export
+
+%  TO DO
 %
 % 3) Save/export should make a .mat struct that can be read in easily by
 % other matlab scripts, and should save a tiff for things like imageJ.
@@ -30,21 +20,18 @@ function stackMaker(mName, objective)
 %    ** down the line I could make some auto adjusters (imadjust,
 %       adapthisteq, etc) as radio buttons.
 %
-% 5) Since there's only one set of contrast controls, I'll need to click on
-% a "raw" image to make it "active". The active image should be outlined in
-% red or something...
-%
-% 6) So that I don't make duplicate copies of the "raw" images, just save
-% the details of the LUT in a new structure:
-%    udat.merge{1}.red.lut_hi
-%    udat.merge{1}.red.lut_low
-%    udat.merge{1}.red.lut_slope
-%    udat.merge{1}.red.lut_yint
-%
-% 7) The LUT can be evaluated for each channel. The LUT should be peice
-% wise linear over the domain of interest (lut_low to lut_hi). And, the LUT
-% should be rectified so that vals >= 0 and <= maxdac-1.
+% 5) Output a mapping between image number and position in the brain (plate
+% and slice)
 
+
+% KNOWN ISSUES
+%
+% 1) the images from the Nikon camera don't come through, but I'm not sure
+% why... 
+%
+% 2) When a slice does not exist (or there's no picture from that slice) I
+% need to omit that 'raw' and 'merge' cell from the analysis.
+%
 
 
 %
@@ -407,17 +394,20 @@ function raw = img_getRaw(mname, objective)
 
                 % unpack the images
                 img = imread(d(a).name);
-                img = rot90(img, 2); % rotate the image back from the inverted microscope image
                 info = imfinfo(d(a).name);
                 switch info.ColorType
                     case 'truecolor'
                         npix = 0;
                         img = preProcessImg(img, info, npix, 'none');
+                        info.MaxSampleValue = info.MaxSampleValue(1);
+                        info.MinSampleValue = info.MinSampleValue(1);
                     case 'grayscale'
                         % no need to do anything, already in grayscale
                 end
 
-
+                %rotate the image back from the inverted microscope image
+                img = rot90(img, 2);
+                
                 % put the image in a structure according to it's position in
                 % the brain, and the color channel
                 raw{plate, slice}.(color).img = img;
