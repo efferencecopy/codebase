@@ -306,7 +306,7 @@ end
 
 
 %% CRUNCH THE NUMBERS
-
+dat = [];
 for fl = 1:size(files,1)
     
     % condition the inputs
@@ -387,7 +387,43 @@ for fl = 1:size(files,1)
     subplot(3,1,3)
     plot(psc{fl}./psc{fl}(1), 'o-')
     set(gcf, 'position', [53    20   560   791], 'name', [num2str(files{fl, 4}), ' Hz'])
+    
+    % fot comparision with all the other TFs
+    TFs(fl) = files{fl,4};
+    TF_leg{fl} = num2str(TFs(fl));
 end % files
 
 
+% all the data together
+colors = {'k', 'r', 'b', 'g', 'c', 'm'};
+figure, hold on,
+for a = 1:numel(TFs)
+    plot(psc{a}./psc{a}(1), 'color', colors{a}, 'linewidth', 3)
+end
+set(gca, 'yscale', 'log')
+set(gca, 'fontSize', 26)
+xlabel('Pulse number')
+ylabel('PN / P1')
+legend(TF_leg)
+
+
+
+% p1/p2 acrss TF
+[~, idx] = sort(TFs);
+p1p2 = cellfun(@(x) x(2)/x(1), psc);
+p1p2 = p1p2(idx);
+p1pend = cellfun(@(x) x(end)/x(1), psc)
+p1pend = p1pend(idx);
+
+figure, hold on,
+plot(TFs(idx), p1p2, 'k', 'linewidth', 3)
+plot(TFs(idx), p1pend, 'b', 'linewidth', 3)
+set(gca, 'xscale', 'log', 'yscale', 'log')
+ylim([min([p1p2, p1pend]).*.9, max([p1p2, p1pend]).*1.1])
+xlim([min(TFs).*.9, max(TFs).*1.1])
+set(gca, 'xtick', [5, 10, 20, 40])
+set(gca, 'fontSize', 26)
+
+
+    
 
