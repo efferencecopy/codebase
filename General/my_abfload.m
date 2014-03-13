@@ -412,7 +412,7 @@ else
         % determine if the channel was used.
         ch_enabled(tmp.nDACNum+1) = tmp.nWaveformEnable;
         
-        % some times the units idx is zero. this is bad, and perhaps this
+        % sometimes the units idx is zero. this is bad, and perhaps this
         % means it was undefined in clampex. deal accordingly:
         if tmp.lDACChannelUnitsIndex<1
             DACchUnits{tmp.nDACNum+1} = 'undf';

@@ -29,7 +29,7 @@ classdef abfobj
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
-                    mdb = initMouseDB(false, true);
+                    mdb = initMouseDB('update', 'notext');
                 end
                 mouseName = mdb.search(fileName);
                 assert(~isempty(mouseName), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
