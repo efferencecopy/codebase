@@ -20,27 +20,22 @@ function stackMaker(mName, objective)
 %    ** down the line I could make some auto adjusters (imadjust,
 %       adapthisteq, etc) as radio buttons.
 %
-% 5) Output a mapping between image number and position in the brain (plate
-% and slice)
 
 
 % KNOWN ISSUES
 %
 % 1) the images from the Nikon camera don't come through, but I'm not sure
 % why... 
-%
-% 2) When a slice does not exist (or there's no picture from that slice) I
-% need to omit that 'raw' and 'merge' cell from the analysis.
-%
 
 
-%
-%  LOAD IN THE RAW IMAGES
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% store everything in a structure called 'udat' which will live in the
+% userdata field. 
+udat.mouseName = mName;
+udat.objective = objective;
 
 % pull in the raw images. put the raw images in the userData structure
-udat.raw = img_getRaw(mName, objective);
+udat = img_getRaw(udat);
 
 % initialize the LUTs for the merged image
 udat.merge = merge_initLUT(udat);
@@ -69,6 +64,7 @@ function udat = gui_init(udat)
     %
     % initialize three axes for the 'raw' images
     %
+    %%%%%%%%%%%%%%%%%%
     tmp_img = udat.raw{1}.blue.img;
     lims = [udat.raw{1}.blue.info.MinSampleValue, udat.raw{1}.blue.info.MaxSampleValue];
     udat.h.axBlue = axes('position', [0.02, 0.02, .31, .31]);
@@ -106,14 +102,16 @@ function udat = gui_init(udat)
     %
     % initialize the axis for the RGB merged image
     %
+    %%%%%%%%%%%%%%%%%%%%%%
     udat.h.axMerge = axes('position', [0.4, 0.48, .5, .5]);
     set(udat.h.axMerge, 'xtick', [], 'ytick', [], 'box', 'on')
-    udat.h.imgMerge = imshow(tmp_img, lims, 'parent', udat.h.axMerge);
+    udat.h.imgMerge = imshow(uint16(tmp_img), lims, 'parent', udat.h.axMerge);
     
     
     %
     % initialize the UI controls for various other things
     %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
     udat.h.fliplr = uicontrol('style', 'togglebutton',...
                          'units', 'normalized',...
                          'string', 'FLIP L/R',...
@@ -146,6 +144,7 @@ function udat = gui_init(udat)
     % Create the GUI controls for the contrast adjustments and the
     % histogram viewer
     %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     udat.h.axHist = axes('position', [0.38, 0.29, .25, .15]);
     set(udat.h.axHist, 'tickDir', 'out',...
                        'ytick', [],...
@@ -194,9 +193,17 @@ function udat = gui_init(udat)
                          'SliderStep', [0.01, 0.1]);
                   
                   
-                  
-
-                      
+    %
+    % ADD A BUTTON TO EXPORT THE MERGED IMAGES AS TIFFS
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+    udat.h.export = uicontrol('style', 'togglebutton',...
+                              'units', 'normalized',...
+                              'string', 'Export to TIFF',...
+                              'Position',  [0.78, 0.19, 0.10, 0.05],...
+                              'Callback', {@merge_exportAsTIFF});
+    
+    
     % Put the udat structure in the UserData field.
     set(udat.h.fig, 'UserData', udat);
     
@@ -346,11 +353,11 @@ function gui_updateContrastSliders(varargin)
 end
 
 
-function raw = img_getRaw(mname, objective)
+function udat = img_getRaw(udat)
 
     % cd to where the images are
     global GL_DATPATH
-    cd([GL_DATPATH, filesep, mname, filesep, 'Histology', filesep, 'Raw Images']);
+    cd([GL_DATPATH, filesep, udat.mouseName, filesep, 'Histology', filesep, 'Raw Images']);
 
     % grab the names in the directory
     d = dir;
@@ -358,6 +365,13 @@ function raw = img_getRaw(mname, objective)
 
     % initialize the structure of images. "raw" will be nPlates x nSlices
     raw = {};
+    
+    % initialize a matrix that will keep track of which plate/slices have
+    % images. Make a second matrix to keep track of where each slice is in
+    % the brain (which will only be used when the user exports images as
+    % .tiff stacks 
+    valid = logical([]);
+    mapping = {};
 
 
     for a = 1:numel(d);
@@ -373,7 +387,7 @@ function raw = img_getRaw(mname, objective)
             % make sure the objective used is correct
             sliceObjective = regexpi(d(a).name , '_\d+x', 'match');
             sliceObjective = sliceObjective{1}(2:end);
-            if strcmpi(sliceObjective, objective)
+            if strcmpi(sliceObjective, udat.objective)
 
 
                 % id the plate number
@@ -412,16 +426,22 @@ function raw = img_getRaw(mname, objective)
                 % the brain, and the color channel
                 raw{plate, slice}.(color).img = img;
                 raw{plate, slice}.(color).info = info;
+                valid(plate, slice) = true;
+                mapping{plate, slice} = [plate slice];
             end
         end
     end % loop over directory contents
     
     
     % Kill the plate/slice indexing, b/c it isn't necessary anymore, and
-    % creates headaches later
-    raw = raw';
-    raw = raw(:);
-    
+    % creates headaches later. Next cull the "raw" array based off of which
+    % plate/slices actually contain images
+    raw = reshape(raw', [] ,1);
+    valid = reshape(valid', [], 1);
+    mapping = reshape(mapping', [], 1);
+    mapping = cell2mat(mapping(valid));
+    raw = raw(valid); 
+     
     % Roll through the raw images, and create blank entries for the
     % non-existant color channels
     for a = 1:numel(raw)
@@ -433,6 +453,11 @@ function raw = img_getRaw(mname, objective)
             end
         end
     end
+    
+    
+    % set the output variables
+    udat.slicePos = mapping;
+    udat.raw = raw;
     
 end
 
@@ -593,10 +618,21 @@ function img_updateImages()
     set(udat.h.imgRed, 'CData', img_applyLUT(udat.raw{sliceNum}.red, udat.merge{sliceNum}.red))
     set(udat.h.imgGreen, 'CData', img_applyLUT(udat.raw{sliceNum}.green, udat.merge{sliceNum}.green))
     set(udat.h.imgBlue, 'CData', img_applyLUT(udat.raw{sliceNum}.blue, udat.merge{sliceNum}.blue))
-
-    % update the merged image
+    
+    % create the merged image
     tmp_cat = cat(3, get(udat.h.imgRed, 'CData'), get(udat.h.imgGreen, 'CData'), get(udat.h.imgBlue, 'CData'));
-    set(udat.h.imgMerge, 'CData', uint16(tmp_cat)); % needs to be uint16 inorder for imshow to deal with it appropriately
+    
+    % make sure the class of the merged image is correct
+    if 8 == udat.raw{sliceNum}.red.info.BitsPerSample(1)
+        tmp_cat = uint8(tmp_cat);
+    elseif 16 == udat.raw{sliceNum}.red.info.BitsPerSample(1)
+        tmp_cat = uint16(tmp_cat);
+    else
+        error('Unknown image resolution')
+    end
+    
+    % update the merged image
+    set(udat.h.imgMerge, 'CData', tmp_cat); % needs to be uint16 inorder for imshow to deal with it appropriately
                                      
 end
 
@@ -721,4 +757,75 @@ function merge = merge_initLUT(udat)
     
 end
 
+
+function merge_exportAsTIFF(varargin)
+
+   % grab the uData
+   udat = get(gcf, 'userdata');
+   
+   % iterate over the raw images creating merges according to the LUTs for
+   % each raw image. Save each merged image as a .tiff file in the same
+   % directory. name the directory something standardized that down stream
+   % functions can recognize.
+   
+   % CD to the directory where the stack will get saved
+   global GL_DATPATH
+   
+   %
+   % figure out what the name of the stack should be
+   %
+   %%%%%%%%%%%%%%%%%%%%%%%%
+   cd ([GL_DATPATH, filesep, udat.mouseName, filesep, 'Histology'])
+   d = dir;
+   names = {d.name}';
+   existingStacks_idx = cellfun(@(x,y) any(regexp(x,y)), names, repmat({'stack_'}, numel(d), 1));
+   existingNames = names(existingStacks_idx);
+   
+   if ~isempty(existingNames)
+       existingVersions = cellfun(@(x,y) str2num(x(regexp(x,y, 'end')+1:end)), existingNames, repmat({'_ver'}, numel(existingNames), 1));
+       newVersion = num2str(max(existingVersions)+1);
+   else
+       newVersion = '1';
+   end
+   
+   stackDirName = ['stack_', udat.mouseName, '_ver', newVersion];
+   stackDir = ([GL_DATPATH, filesep, udat.mouseName, filesep, 'Histology', filesep, stackDirName]);
+   mkdir(stackDir)
+   cd(stackDir);
+   
+   
+   %
+   % Iterate over all of the raw images. Turn them into merged images, and
+   % then save them as .tiffs using the _p..._s name convention for
+   % plate/slice
+   %
+   %%%%%%%%%%%%%%%%%%%%%%
+   for a = 1:numel(udat.raw)
+       % apply the LUT to each channel
+       tmp_R = img_applyLUT(udat.raw{a}.red, udat.merge{a}.red);
+       tmp_G = img_applyLUT(udat.raw{a}.green, udat.merge{a}.green);
+       tmp_B= img_applyLUT(udat.raw{a}.blue, udat.merge{a}.blue);
+       
+       % update the merged image, and convert to the correct class type
+       merged = cat(3, tmp_R, tmp_G, tmp_B);
+       if 8 == udat.raw{a}.red.info.BitsPerSample(1)
+           merged = uint8(merged);
+       elseif 16 == udat.raw{a}.red.info.BitsPerSample(1)
+           merged = uint16(merged);
+       else
+           error('Unknown image resolution')
+       end
+       
+       % turn it into a tiff
+       tiffName = [udat.mouseName, '_merge_p', num2str(udat.slicePos(a,1)), '_s', num2str(udat.slicePos(a,2)), '.tif'];
+       imwrite(merged, tiffName)
+       
+       % verbose output:
+       fprintf('Writing merged image <%d> \n', a);
+       
+   end
+   
+   fprintf('Images saved to the file path: \n    %s \n', stackDir);
+
+end
 

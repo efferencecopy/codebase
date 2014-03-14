@@ -1,4 +1,4 @@
 
-clearvars -EXCEPT GL_*
+clearvars -EXCEPT GL_DOCUPATH GL_DATPATH
 close all hidden
 clc
