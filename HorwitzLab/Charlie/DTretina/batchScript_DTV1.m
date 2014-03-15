@@ -135,18 +135,11 @@ for a = 1:numel(out.dat)
     ret.dat(a).respVar = idlob.analyticVar;
     
     % Compute the ROC values for each color/contrast
-    try
     nContrasts = size(idlob.resp,2);
     nColors = size(idlob.resp,1);
     idlob = coneNoiseROC(pstructs{a}, idlob, cones, gab);
     ret.dat(a).roc = idlob.roc;
     ret.dat(a).roc_analytic = idlob.roc_analytic;
-    catch
-        clc
-        a
-        expt
-        error('Problem with something...')
-    end
     
     % Fit the neurometric functions with a cumulative Weibull. Store the
     % retinometric thresholds and slopes.
