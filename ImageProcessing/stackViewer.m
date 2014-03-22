@@ -186,7 +186,7 @@ function img_flipud(varargin)
     drawnow
     
     % save the new data
-    set(udat.h.fig, 'userdata', dat);
+    set(udat.h.fig, 'userdata', udat);
 
 end
 
@@ -208,7 +208,7 @@ function img_fliplr(varargin)
     drawnow
     
     % save the new data
-    set(udat.h.fig, 'userdata', dat);
+    set(udat.h.fig, 'userdata', udat);
 
 
 end
