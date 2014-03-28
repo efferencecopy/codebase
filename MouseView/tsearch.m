@@ -18,15 +18,41 @@ function  [match, names] = tsearch(in, searchString, attribute)
 %
 % C.Hass 02/2014
 
-
 N = numel(in);
-match = cellfun(@regexpi, in, repmat({searchString}, 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
-if iscell(searchString) % complex searches with multiple search targets
-    match = cellfun(@(x) ~isempty(cell2mat(x)), match);
-else % simple, one word searchString
-    match = cellfun(@(x) ~isempty(x), match);
-end
+bool_AND = ~isempty(regexp(searchString, 'AND', 'once'));
+bool_OR = ~isempty(regexp(searchString, 'OR', 'once'));
 
+% figure out if it's a boolean search, parse the string terms, and then do
+% the search
+if bool_AND || bool_OR
+    terms = strsplit(searchString);
+    
+    % remove the boolean terms
+    idx_and = cellfun(@(x) ~isempty(regexp(x, 'AND', 'once')), terms);
+    idx_or = cellfun(@(x) ~isempty(regexp(x, 'OR', 'once')), terms);
+    terms(idx_and | idx_or) = [];
+    
+    % run the search
+    match = false(N, numel(terms));
+    for a = 1:numel(terms)
+        tmp = cellfun(@regexpi, in, repmat(terms(a), 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
+        tmp = cellfun(@(x) ~isempty((x)), tmp);
+        match(:,a) = tmp;
+    end
+    
+    % perform the boolean operation
+    if bool_AND
+        match = sum(match,2) == numel(terms);
+    elseif bool_OR
+        match = sum(match,2)>0;
+    end
+    
+else %simple non-boolean searches
+    
+    match = cellfun(@regexpi, in, repmat({searchString}, 1, N), repmat({'once'}, 1, N), 'uniformoutput', false);
+    match = cellfun(@(x) ~isempty(x), match);
+    match = match(:);
+end
 
 
 
