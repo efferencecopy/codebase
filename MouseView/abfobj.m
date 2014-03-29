@@ -40,7 +40,7 @@ classdef abfobj
                 assert(~isempty(fpath), 'ABFOBJ ERROR: could not locate <%s> in directory <%s>', fileName, mouseName{1})
                 
             end
-            
+            fpath
             % convert the .abf file to a matlab structure. Define a few
             % other things.
             [obj.dat, obj.head, obj.wf] = my_abfload(fpath);
