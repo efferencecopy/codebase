@@ -67,12 +67,6 @@ classdef abfobj
             obj.dat(:,:,idx) = [];
         end
         
-        function out = fitexp(raw)
-            % do this as a cell fun type of thing?
-            % Operate separately for cell inputs (cellfun) vs simple
-            % inputs?
-        end
-        
         function out = getvals(obj, ch, sweep, timeStart, timeEnd)
             
             idx = (obj.tt >= timeStart) & (obj.tt < timeEnd);
@@ -97,7 +91,7 @@ classdef abfobj
             end
         end
         
-        function [Ra, Rin] = getRaRin(obj, method)
+        function Ra = getRa(obj, method)
 
             
             [idx_Im, idx_Vclamp] = deal([]);
@@ -121,15 +115,14 @@ classdef abfobj
                 
             end
             
-            % figure out which fitting method to use
+            % figure out which fitting method to use. Once exponential fits
+            % are up and running, than I could institute exp fits for cases
+            % where the sampling rate was slow, or there was a filter that
+            % slows the kinetics. Until then, just make the most negative
+            % value the estimate. This likely overestimates Ra, but that's
+            % not such a bad thing...
             if ~exist('method', 'var')
-                lowSampRate = obj.head.sampRate < 40e3;
-                slowFilter = any(obj.head.fSignalLowpassFilter(idx_Im)<10e3);
-                if lowSampRate || slowFilter
-                    method = 'linear';
-                else
                     method = 'quick';
-                end
             end
             
             % loop over the valid channels and sweeps. Calculate the Ra as

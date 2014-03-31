@@ -2,24 +2,12 @@ function stackMaker(mName, objective)
 
 %   stackMaker(mname, objective)
 %
-
-
-%  TO DO
+% Initializes a GUI that allows the user to adjust the contrast of images
+% and to make merges between the R, G, B color channels. This funtion will
+% also save all the modifications to a directory of .tiffs specified by the
+% mouse's name.
 %
-% 3) Save/export should make a .mat struct that can be read in easily by
-% other matlab scripts, and should save a tiff for things like imageJ.
-% Alternatively, I could write a stand alone script to do this conversion
-% (e.g., matStack2Tiff.m)
-%
-% 4) contrast controls should include:
-%    ** adjust peak value (adjust the highest value on the LUT)
-%    ** adjust minimum value (adjusts the lowest value of the LUT)
-%    ** adjust the "brightness" of the LUT (moves the position of the LUT)
-%    ** adjust the "contrast" of the LUT (piviots the LUT around some point
-%       and changes the LUT slope)
-%    ** down the line I could make some auto adjusters (imadjust,
-%       adapthisteq, etc) as radio buttons.
-%
+% C.Hass 3/2014
 
 
 % does that mouse exist?

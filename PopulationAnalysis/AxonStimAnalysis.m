@@ -18,7 +18,6 @@ expts = {'2014_03_28_0009', 'distal pos 1 FS closed', [-179 -48];...
 
 Vhold = -85;
 validCh = 'HS2_';
-pixperum = 131.746 ./ 329.6195;
 
 
 
@@ -42,7 +41,6 @@ expts = {'2014_03_28_0026', 'soma FS open', [0 0];...
 
 Vhold = -85;
 validCh = 'HS1_';
-pixperum = 131.746 ./ 329.6195;
 
 
 
@@ -69,7 +67,6 @@ expts = {'2014_03_25_0007', 'Cortex 1', [-257 201];...
 
 Vhold = -85;
 validCh = 'HS2_';
-pixperum = 131.746 ./ 329.6195;
 
 
 %% EB_031014_E Cell 3: Pulse trains
@@ -89,7 +86,6 @@ expts = {'2014_03_25_0016', 'Cortex 3 Half Moon', [-302 29];...
 
 Vhold = -85;
 validCh = 'HS2_';
-pixperum = 131.746 ./ 329.6195;
 %% Run the analysis
 
 
@@ -100,10 +96,7 @@ clrIdx = round(linspace(1,size(map,1), size(expts,1)));
 
 % plot the DC steps routine
 ax = abfobj(file_DCsteps);
-idx_Vm = eval(['ax.idx.',validCh,'Vm']);
-idx_Iclamp = eval(['ax.idx.',validCh,'Iclamp']);
-figure
-plot(ax.tt, permute(ax.dat(:, idx_Vm,:), [1,3,2]))
+ax.quickPlot
 
 % show an image of the slice
 img = imread(photoPath);
@@ -111,10 +104,9 @@ figure
 imshow(img);
 centPos = round(ginput(1));
 stimPoints = cell2mat([expts(:,3)]);
+pixperum = pixPerMicron(size(img,1), size(img,2));
 stimPoints = round(stimPoints .* pixperum); %now in pix
 stimPoints = bsxfun(@plus, stimPoints, centPos); % pix relative to neuron
-%stimPoints = fliplr(stimPoints); % swap x,y and r,c notation
-%stimPoints(:,1) = size(img, 1) - stimPoints(:,1);
 hold on,
 for a = 1:size(stimPoints,1)
     plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:))
