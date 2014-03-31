@@ -17,7 +17,10 @@ function out = pixPerMicron(xdim, ydim)
             out = 570 ./ 1000;
             
         case char([1040 1392])
-            error('Regita calibration unknown');            
+            error('Regita calibration unknown');
+        otherwise
+            out = 191 ./ 1000;
+            warning('unknown camera')
     end
 
 
