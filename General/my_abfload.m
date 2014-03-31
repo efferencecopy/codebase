@@ -149,7 +149,7 @@ for i=1:length(stringends)-1
 end
 
 % retrieve the protocol name
-fseps = regexpi(Strings{2}, filesep);
+fseps = regexpi(Strings{2}, '\'); % the data are aquired on a PC, so hard code the filesep
 h.protocolName = Strings{2}(fseps(end)+1:end);
 
 
@@ -171,11 +171,11 @@ for i=1:ADCSection.llNumEntries
     nTelegraphEnable(ii)=ADCsec.nTelegraphEnable;
     fTelegraphAdditGain(ii)=ADCsec.fTelegraphAdditGain;
     fInstrumentScaleFactor(ii)=ADCsec.fInstrumentScaleFactor;
-    h.fSignalGain(ii)=ADCsec.fSignalGain;
-    h.fADCProgrammableGain(ii)=ADCsec.fADCProgrammableGain;
-    h.fInstrumentOffset(ii)=ADCsec.fInstrumentOffset;
-    h.fSignalOffset(ii)=ADCsec.fSignalOffset;
-    h.fTelegraphFilter(ii) = ADCsec.fTelegraphFilter;
+    fSignalGain(ii)=ADCsec.fSignalGain;
+    fADCProgrammableGain(ii)=ADCsec.fADCProgrammableGain;
+    fInstrumentOffset(ii)=ADCsec.fInstrumentOffset;
+    fSignalOffset(ii)=ADCsec.fSignalOffset;
+    %h.fTelegraphFilter(ii) = ADCsec.fTelegraphFilter;
     h.fSignalLowpassFilter(ii) = ADCsec.fSignalLowpassFilter;
     h.fSignalHighpassFilter(ii) = ADCsec.fSignalHighpassFilter;
 end
@@ -220,6 +220,11 @@ recChInd=1:length(recChIdx);
 h.recChNames=deblank(cellstr(h.recChNames));
 h.recChUnits=deblank(cellstr(h.recChUnits));
 
+% ditch the header info for unused channels. Adding 1 to the recChIdx
+% because channel zero is technically the first channel, but matlab can't
+% index the zeroth element (CAH)
+h.fSignalLowpassFilter = h.fSignalLowpassFilter(recChIdx+1);
+h.fSignalHighpassFilter = h.fSignalHighpassFilter(recChIdx+1);
 
 % gain of telegraphed instruments, if any
 addGain=nTelegraphEnable.*fTelegraphAdditGain;
@@ -337,8 +342,8 @@ switch ProtocolSec.nOperationMode
             if ~h.nDataFormat
                 for j=1:length(recChInd),
                     ch=recChIdx(recChInd(j))+1;
-                    tmpd(:,j)=tmpd(:,j)/(fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
-                        *ProtocolSec.fADCRange/ProtocolSec.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
+                    tmpd(:,j)=tmpd(:,j)/(fInstrumentScaleFactor(ch)*fSignalGain(ch)*fADCProgrammableGain(ch)*addGain(ch))...
+                        *ProtocolSec.fADCRange/ProtocolSec.lADCResolution+fInstrumentOffset(ch)-fSignalOffset(ch);
                 end
             end
             
@@ -369,8 +374,8 @@ switch ProtocolSec.nOperationMode
         if ~h.nDataFormat
             for j=1:length(recChInd),
                 ch=recChIdx(recChInd(j))+1;
-                d(:,j)=d(:,j)/(fInstrumentScaleFactor(ch)*h.fSignalGain(ch)*h.fADCProgrammableGain(ch)*addGain(ch))...
-                    *ProtocolSec.fADCRange/ProtocolSec.lADCResolution+h.fInstrumentOffset(ch)-h.fSignalOffset(ch);
+                d(:,j)=d(:,j)/(fInstrumentScaleFactor(ch)*fSignalGain(ch)*fADCProgrammableGain(ch)*addGain(ch))...
+                    *ProtocolSec.fADCRange/ProtocolSec.lADCResolution+fInstrumentOffset(ch)-fSignalOffset(ch);
             end
         end
         
@@ -381,8 +386,6 @@ switch ProtocolSec.nOperationMode
 end
 
 % Bring in the waveforms. These are all C.Hass's additions. 
-% TODO: I need to bring in the names of each analog out channel, and index
-% them appropriately in the output matrix...
 if  ProtocolSec.nOperationMode ~= 5
     wf = [];
 else
@@ -402,15 +405,17 @@ else
         ch{tmp.nDACNum+1}.epoch{tmp.nEpochNum+1}.trainPulseWidth = tmp.lEpochPulseWidth;
     end
     
+    
+    % determine if the channel was used.
+    ch_enabled = cellfun(@(x) ~isempty(x), ch);
+    
+    
     % get the DAC channel names and units
     DACInfo = define_DACInfo;
     for i = 1:DACSection.llNumEntries;
         
         tmp = ReadSection(fid,DACSection.uBlockIndex*BLOCKSIZE+DACSection.uBytes*(i-1),DACInfo);
         DACchName{tmp.nDACNum+1} = Strings{tmp.lDACChannelNameIndex};
-        
-        % determine if the channel was used.
-        ch_enabled(tmp.nDACNum+1) = tmp.nWaveformEnable;
         
         % sometimes the units idx is zero. this is bad, and perhaps this
         % means it was undefined in clampex. deal accordingly:
@@ -422,8 +427,8 @@ else
     end
     
     % create the header content for the DAC channel names and units
-    h.DACchNames = deblank(DACchName(logical(ch_enabled)));
-    h.DACchUnits = deblank(DACchUnits(logical(ch_enabled)));
+    h.DACchNames = deblank(DACchName(ch_enabled));
+    h.DACchUnits = deblank(DACchUnits(ch_enabled));
     
     
     % clampex uses the first 1/64th of the sweep length to twiddle its
