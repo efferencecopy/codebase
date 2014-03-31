@@ -3,6 +3,10 @@ function stackViewer(mouseName, scalebar)
 % TO DO
 
 %  Change the call to plotimg to a direct call to imshow
+%
+%  Deal with Regita
+%
+%  Figure out when no raw photos exist (ditto for stackMaker)
 
 % deal with optional inputs
 if ~exist('scalebar', 'var')

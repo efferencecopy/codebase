@@ -741,19 +741,19 @@ end
 
 
 
-function merge = merge_initLUT(udat)
+function mergeImg = merge_initLUT(udat)
 
     for a = 1:numel(udat.raw)
         for color = {'red', 'green', 'blue'}
-            merge{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
-            merge{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
-            merge{a}.(color{1}).lut_slope = 1;
-            merge{a}.(color{1}).lut_yint = 0;
+            mergeImg{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
+            mergeImg{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
+            mergeImg{a}.(color{1}).lut_slope = 1;
+            mergeImg{a}.(color{1}).lut_yint = 0;
         end
     end
     
     % make it a column vector
-    merge = merge(:);
+    mergeImg = mergeImg(:);
     
 end
 
