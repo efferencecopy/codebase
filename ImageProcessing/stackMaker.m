@@ -22,17 +22,18 @@ function stackMaker(mName, objective)
 %
 
 
-% KNOWN ISSUES
-%
-% 1) the images from the Nikon camera don't come through, but I'm not sure
-% why... 
-
-
+% does that mouse exist?
+mdb = initMouseDB('update');
+avail = mdb.search(mName);
+assert(numel(avail)>0, 'STACK MAKER: This mouse is not in the MDB');
 
 % store everything in a structure called 'udat' which will live in the
 % userdata field. 
 udat.mouseName = mName;
 udat.objective = objective;
+
+% check that there are raw images to work with. If not, throw an error
+img_checkForRawImages(udat)
 
 % pull in the raw images. put the raw images in the userData structure
 udat = img_getRaw(udat);
@@ -351,6 +352,28 @@ function gui_updateContrastSliders(varargin)
     
     
 end
+
+
+function img_checkForRawImages(udat)
+
+    % cd to where the images are
+    global GL_DATPATH
+    cd([GL_DATPATH, filesep, udat.mouseName, filesep, 'Histology', filesep, 'Raw Images']);
+
+    % grab the names in the directory
+    d = dir;
+    
+    names = [d(:).name]; % a long string with no spaces
+    rawAvailable = regexpi(names, {'tif', 'tiff', 'jpg'});
+    rawAvailable = cellfun(@any, rawAvailable);
+    
+    % error if no raw images available
+    assert(any(rawAvailable), 'STACK MAKER: No raw images available')
+    
+    
+end
+
+
 
 
 function udat = img_getRaw(udat)
@@ -741,19 +764,19 @@ end
 
 
 
-function merge = merge_initLUT(udat)
+function mergeImg = merge_initLUT(udat)
 
     for a = 1:numel(udat.raw)
         for color = {'red', 'green', 'blue'}
-            merge{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
-            merge{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
-            merge{a}.(color{1}).lut_slope = 1;
-            merge{a}.(color{1}).lut_yint = 0;
+            mergeImg{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
+            mergeImg{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
+            mergeImg{a}.(color{1}).lut_slope = 1;
+            mergeImg{a}.(color{1}).lut_yint = 0;
         end
     end
     
     % make it a column vector
-    merge = merge(:);
+    mergeImg = mergeImg(:);
     
 end
 
