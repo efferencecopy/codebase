@@ -181,7 +181,7 @@ classdef abfobj
                             delta_na = delta_pa ./ 1000;
                             Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
                             
-%                             % plot everything
+                            % plot everything
 %                             figure,
 %                             subplot(2,1,1), hold on,
 %                             plot(obj.tt, obj.dat(:, idx_Im(ch), swp), 'k')

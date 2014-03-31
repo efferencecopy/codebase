@@ -5,7 +5,7 @@
  % some stuff for the analysis
  snpLength = 1;     % in sec
  idx = 0;
- fileName = 'withAndWithoutIsolator';
+ fileName = 'directComparison';
  
  % go to the data directory and pull out the available file names
  cd(GL_DATPATH);
