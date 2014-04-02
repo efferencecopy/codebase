@@ -86,6 +86,52 @@ expts = {'2014_03_25_0016', 'Cortex 3 Half Moon', [-302 29];...
 
 Vhold = -85;
 validCh = 'HS2_';
+
+
+
+%% EB_031014_D Cell 2: 20 Hz trains
+
+% check to make sure none of the files analyzed use a broad range of LED
+% volatages
+
+fin
+
+
+file_DCsteps = '2014_04_01_0012';
+photo = 'cell_2_tdTomato';
+photoPath = findfile(photo, [GL_DATPATH, filesep, 'EB_031014_D'], '.jpg');
+
+expts = {'2014_04_01_0017', 'Soma FS Open', [0 0];...
+         '2014_04_01_0020', 'Cortex 1', [-81 290];...
+         '2014_04_01_0029', 'Cortex 2 4.5 volts', [-183 451];...
+         '2014_04_01_0030', 'Cortex 2 3 volts', [-183 451];...
+         '2014_04_01_0032', 'Cortex 2 10 volts', [-183 451];...
+         '2014_04_01_0035', 'Cortex 3 ', [-473 437];...
+         '2014_04_01_0039', 'Soma repeat FS open', [0 0]};
+
+Vhold = -85;
+validCh = 'HS2_';
+
+
+%% EB_031014_D Cell 1: 20 Hz trains
+
+% check to make sure none of the files analyzed use a broad range of LED
+% volatages
+
+fin
+
+
+file_DCsteps = '2014_04_01_0000';
+photo = 'cell_1_tdTomato';
+photoPath = findfile(photo, [GL_DATPATH, filesep, 'EB_031014_D'], '.jpg');
+
+expts = {'2014_04_01_0002', 'Soma FS Closed', [0 0];...
+         '2014_04_01_0005', 'Cortex 2', [-12 109];...
+         '2014_04_01_0007', 'Cortex 3', [-178 286];...
+         '2014_04_01_0009', 'Cortex 4', [-504 257]};
+
+Vhold = -85;
+validCh = 'HS2_';
 %% Run the analysis
 
 
@@ -117,7 +163,8 @@ drawnow
 
 % iterate over the whole cell recordings. check to make sure it's at the
 % correct holding potential, then save the average
-avgCurrent = [];
+avgCurrent = {};
+tt = {}; % unique tvec for each file in case there are diffs in acquisition length
 avgCmd = [];
 access = [];
 for a = 1:size(expts,1)
@@ -138,17 +185,22 @@ for a = 1:size(expts,1)
     % pull out the data
     raw = mean(ax.dat(:,idx_Im,:),3);
     raw = raw - mean(raw(1:100));
-    avgCurrent(:,a) = raw;
+    avgCurrent{a} = raw;
+    
+    % change the tt (time vector) so that time=0 is the onset of the first
+    % pulse
+    idx_pulseOn = find(ax.threshold(0.5, ax.idx.LEDcmd_470, 1, 'u'), 1, 'first');
+    tt{a} = ax.tt-ax.tt(idx_pulseOn);
 
     % get the series resistanc
-    Ra = ax.getRaRin('linear');
+    Ra = ax.getRa('linear');
     access = cat(1, access, Ra(:));
 end
 
 
 figure, hold on
 for a = 1:size(expts,1)
-    plot(ax.tt,  avgCurrent(:,a), 'color', map(clrIdx(a),:), 'linewidth', 2)
+    plot(tt{a},  avgCurrent{a}, 'color', map(clrIdx(a),:), 'linewidth', 2)
 end
 leg = expts(:,2);
 legend(leg')
