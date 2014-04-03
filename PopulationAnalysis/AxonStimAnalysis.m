@@ -132,6 +132,29 @@ expts = {'2014_04_01_0002', 'Soma FS Closed', [0 0];...
 
 Vhold = -85;
 validCh = 'HS2_';
+
+
+%% EB_031714_A Cell 3: Single Pulses
+
+% NOTE: THE AVERAGE TRACES ARE BASICALLY MEANINGLESS BECAUSE I'M USING THE 
+
+% check to make sure none of the files analyzed use a broad range of LED
+% volatages
+
+fin
+
+
+file_DCsteps = '';
+photo = '';
+photoPath = findfile(photo, [GL_DATPATH, filesep, 'EB_031714_A'], '.jpg');
+
+expts = {'', '  ', [];...
+         '', ' ', [];...
+         '', ' ', [];...
+         '', ' ', []};
+
+Vhold = -85;
+validCh = 'HS2_';
 %% Run the analysis
 
 
