@@ -134,27 +134,19 @@ Vhold = -85;
 validCh = 'HS2_';
 
 
-%% EB_031714_A Cell 3: Single Pulses
-
-% NOTE: THE AVERAGE TRACES ARE BASICALLY MEANINGLESS BECAUSE I'M USING THE 
-
-% check to make sure none of the files analyzed use a broad range of LED
-% volatages
+%% TEMPLATE VERSION
 
 fin
 
+params.mouse = '';      % The mouse's name
+params.DCsteps = '';    % DC steps for Rin and cell identification
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.vHold = nan;     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.validCh = '';    % 'HS2_' or 'HS1_'
+params.files = {};      % File names of the raw data. <Nx1> cell array
+params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 
-file_DCsteps = '';
-photo = '';
-photoPath = findfile(photo, [GL_DATPATH, filesep, 'EB_031714_A'], '.jpg');
-
-expts = {'', '  ', [];...
-         '', ' ', [];...
-         '', ' ', [];...
-         '', ' ', []};
-
-Vhold = -85;
-validCh = 'HS2_';
 %% Run the analysis
 
 
