@@ -16,9 +16,13 @@ avail = mdb.search(mName);
 assert(numel(avail)>0, 'STACK MAKER: This mouse is not in the MDB');
 
 % store everything in a structure called 'udat' which will live in the
-% userdata field. 
+% userdata field.
 udat.mouseName = mName;
-udat.objective = objective;
+if ~exist('objective', 'var')
+    udat.objective = '2x';
+else
+    udat.objective = objective;
+end
 
 % check that there are raw images to work with. If not, throw an error
 img_checkForRawImages(udat)
