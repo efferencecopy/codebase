@@ -24,15 +24,17 @@ if ~isempty(params.photo)
     % highlight the stimulation locations
     if size(params.stimLoc, 1) > 0
         centPos = round(ginput(1));
-        stimPoints = params.stimLoc;
-        pixperum = pixPerMicron(size(img,1), size(img,2));
-        stimPoints = round(stimPoints .* pixperum); %now in pix
-        stimPoints = bsxfun(@plus, stimPoints, centPos); % pix relative to neuron
-        hold on,
-        for a = 1:size(stimPoints,1)
-            plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:))
+        if ~isempty(centPos) % the user can press return quickly to avoid this part, which will result in an empty vector.
+            stimPoints = params.stimLoc;
+            pixperum = pixPerMicron(size(img,1), size(img,2));
+            stimPoints = round(stimPoints .* pixperum); %now in pix
+            stimPoints = bsxfun(@plus, stimPoints, centPos); % pix relative to neuron
+            hold on,
+            for a = 1:size(stimPoints,1)
+                plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:))
+            end
+            drawnow
         end
-        drawnow
     end
     
 end
@@ -96,6 +98,25 @@ if numel(params.files)>0
     xlabel('Sweep Number')
     ylabel('Series Resistance (MOhms)')
 end
+
+
+%
+% PERFORM ALL ADDITIONAL ANALYSES
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+params.ax = ax; % package the raw data so that I don't have to load the abf files multiple times.
+for a = 1:numel(params.fxns)
+    feval(params.fxns{a}, params)
+end
+
+
+
+
+
+
+
+
+
 
 
 
