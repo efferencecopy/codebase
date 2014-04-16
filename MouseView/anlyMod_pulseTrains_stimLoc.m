@@ -66,7 +66,7 @@ for i = a:numel(params.files)
     % find the pulse onsets
     thresh = 0.02;
     sweep = size(params.ax{i}.wf,3);
-    cross_idx = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'u');
+    [~, cross_time] = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'u');
     
     % find the peaks
     isi = mean(diff(cross_time)) - 0.010;
@@ -76,10 +76,10 @@ for i = a:numel(params.files)
         
         timeStart = cross_time(a);
         timeEnd = timeStart + isi;
-        idx = (ax.tt >= timeStart) & (ax.tt < timeEnd);
+        idx = (params.ax{i}.tt >= timeStart) & (params.ax{i}.tt < timeEnd);
         
         % find the max
-        vals = avgCurrent(idx, dataChIdx);
+        vals = avgCurrent{i}(idx);
         [~, minIdx] = min(vals);
         
         % compute the average
