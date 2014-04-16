@@ -44,6 +44,7 @@ figure, hold on,
 set(gcf, 'position', [212 51 1067 758])
 for a = 1:size(params.files,1)
     plot(tt{a},  avgCurrent{a}, 'color', map(clrIdx(a),:), 'linewidth', 2)
+    drawnow
 end
 leg = params.legTxt;
 legend(leg')
@@ -58,7 +59,7 @@ ylabel('Baseline subtracted current (pA)')
 
 % iterate over the average traces, pull out the data between each pulse,
 % and calculate the magnitude of the PSC
-for i = a:numel(params.files)
+for i = 1:numel(params.files)
     
     trigChIdx = params.ax{i}.idx.LEDcmd_470;
     dataChIdx = eval(['params.ax{a}.idx.',params.validCh,'Im']);
@@ -66,32 +67,27 @@ for i = a:numel(params.files)
     % find the pulse onsets
     thresh = 0.02;
     sweep = size(params.ax{i}.wf,3);
-    cross_idx = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'u');
+    [cross_idx, cross_time] = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'd');
     
     % find the peaks
-    isi = mean(diff(cross_time)) - 0.010;
+    isi = mean(diff(cross_time)) - 2e-3;
     window = .5e-3; % seconds on either side of the peak
     ptsPerWindow = ceil(window .* params.ax{i}.head.sampRate);
+    
     for a = 1:numel(cross_time)
         
-        timeStart = cross_time(a);
-        timeEnd = timeStart + isi;
-        idx = (ax.tt >= timeStart) & (ax.tt < timeEnd);
+        timeStart = cross_time(a) + 1e-3;
+        timeEnd = timeStart - isi;
+        idx = (params.ax{i}.tt >= timeStart) & (params.ax{i}.tt < timeEnd);
         
         % find the max
-        vals = avgCurrent(idx, dataChIdx);
+        vals = avgCurrent{i}(idx);
         [~, minIdx] = min(vals);
         
         % compute the average
         idx = [minIdx-ptsPerWindow : minIdx+ptsPerWindow];
-        amp = mean(vals(idx));
-        
-        % deal with the background
-        timeEnd = cross_time(a);
-        timeStart = timeEnd - window;
-        idx = (ax.tt >= timeStart) & (ax.tt < timeEnd);
-        bkgnd = mean(avg(idx, dataChIdx));
-        psc{fl}(a) = amp - bkgnd;
+        amp{i}(a) = mean(vals(idx));
+
     end
 end
 
