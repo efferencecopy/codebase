@@ -4,8 +4,8 @@ function invitroAnalysisOverview(params)
 global GL_DATPATH
 
 % define a few other things
-map = colormap('jet'); close;
-clrIdx = round(linspace(1,size(map,1), size(params.files,1))); % colors for various plots
+f = figure; map = colormap('jet'); close(f);
+clrIdx = round(linspace(1,size(map,1), numel(params.files))); % colors for various plots
 
 
 
@@ -20,6 +20,7 @@ if ~isempty(params.photo)
     img = imread(photoPath);
     figure
     imshow(img);
+    set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
     
     % highlight the stimulation locations
     if size(params.stimLoc, 1) > 0
@@ -47,6 +48,7 @@ end
 if ~isempty(params.DCsteps)
     ax_dc = abfobj(params.DCsteps);
     ax_dc.quickPlot
+    set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
     drawnow
 end
 
@@ -61,7 +63,7 @@ for a = 1:numel(params.files)
     ax{a} = abfobj(params.files{a});
     
     % remove unwanted sweeps
-    if numel(params.skipSweeps) >= numel(params.files)
+    if (numel(params.skipSweeps) >= a) && ~isempty(params.skipSweeps{a});
         disp('removing sweeps')
         ax{a} = ax{a}.removeSweeps(params.skipSweeps{a});
     end        
@@ -98,7 +100,6 @@ if numel(params.files)>0
     xlabel('Sweep Number')
     ylabel('Series Resistance (MOhms)')
 end
-
 
 %
 % PERFORM ALL ADDITIONAL ANALYSES

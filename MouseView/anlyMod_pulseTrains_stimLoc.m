@@ -14,7 +14,7 @@ function anlyMod_pulseTrains_stimLoc(params)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 avgCurrent = {};
 tt = {}; % unique tvec for each file in case there are diffs in acquisition length
-for a = 1:size(params.files ,1)
+for a = 1:numel(params.files)
     idx_Im = eval(['params.ax{a}.idx.',params.validCh,'Im']);
     idx_Vclamp = eval(['params.ax{a}.idx.',params.validCh,'Vclamp']);
     idx_SecVm = eval(['params.ax{a}.idx.',params.validCh,'secVm']);
@@ -38,18 +38,18 @@ for a = 1:size(params.files ,1)
 end
 
 
-map = colormap('jet'); close;
-clrIdx = round(linspace(1,size(map,1), size(params.files,1)));
+f = figure; map = colormap('jet'); close(f);
+clrIdx = round(linspace(1,size(map,1), numel(params.files)));
 figure, hold on,
-set(gcf, 'position', [212 51 1067 758])
-for a = 1:size(params.files,1)
+set(gcf, 'position', [212 51 1067 758], 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
+for a = 1:numel(params.files)
     plot(tt{a},  avgCurrent{a}, 'color', map(clrIdx(a),:), 'linewidth', 2)
-    drawnow
 end
-leg = params.legTxt;
-legend(leg')
+hold off,
+legend(params.legTxt, 'location', 'southeast')
 xlabel('Time (sec)')
 ylabel('Baseline subtracted current (pA)')
+drawnow
 
 
 
@@ -62,22 +62,22 @@ ylabel('Baseline subtracted current (pA)')
 for i = 1:numel(params.files)
     
     trigChIdx = params.ax{i}.idx.LEDcmd_470;
-    dataChIdx = eval(['params.ax{a}.idx.',params.validCh,'Im']);
     
-    % find the pulse onsets
+    % find the pulse offsets. Using the off sets so that I don't include
+    % the light onset/offset artifact when looking for the max/min current
     thresh = 0.02;
     sweep = size(params.ax{i}.wf,3);
-    [cross_idx, cross_time] = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'd');
+    [~, cross_time] = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'd');
     
     % find the peaks
-    isi = mean(diff(cross_time)) - 2e-3;
+    isi = mean(diff(cross_time));
     window = .5e-3; % seconds on either side of the peak
     ptsPerWindow = ceil(window .* params.ax{i}.head.sampRate);
     
     for a = 1:numel(cross_time)
         
-        timeStart = cross_time(a) + 1e-3;
-        timeEnd = timeStart - isi;
+        timeStart = cross_time(a) + 1e-3; % add a little to avoid the LED artifact
+        timeEnd = timeStart + isi - 2e-3; % subtract a little to avoid the next pulse's LED artifact
         idx = (params.ax{i}.tt >= timeStart) & (params.ax{i}.tt < timeEnd);
         
         % find the max
@@ -90,6 +90,36 @@ for i = 1:numel(params.files)
 
     end
 end
+
+
+% plot a summary of the pulse train data (the peak inward current), both
+% normalized and un-normalized. The un-normalized version serves as a
+% sanity check for the automated routine to calculate PSC. Only plot when
+% there was more than one pulse
+if numel(cross_time)>1
+    figure, hold on,
+    for a = 1:numel(amp)
+        plot(1:numel(amp{a}), amp{a}, 'o-', 'color', map(clrIdx(a),:), 'linewidth', 2, 'markerfacecolor', map(clrIdx(a),:))
+    end
+    hold off
+    legend(params.legTxt, 'location', 'southeast')
+    set(gcf, 'name', sprintf('%s cell %d: TF = %.3f', params.mouse, params.cellNum, 1/isi), 'position', [440   307   683   491])
+    set(gca, 'xtick', [1:numel(amp{a})], 'xlim', [0.75 numel(amp{a})+.25])
+    xlabel('Pulse Number')
+    ylabel('Raw PSC (pA)')
+    
+    figure, hold on,
+    for a = 1:numel(amp)
+        plot(1:numel(amp{a}), amp{a}./amp{a}(1), 'o-', 'color', map(clrIdx(a),:), 'linewidth', 2, 'markerfacecolor', map(clrIdx(a),:))
+    end
+    hold off
+    legend(params.legTxt, 'location', 'northeast')
+    set(gcf, 'name', sprintf('%s cell %d: TF = %.3f', params.mouse, params.cellNum, 1/isi), 'position', [440   307   683   491])
+    set(gca, 'xtick', [1:numel(amp{a})], 'xlim', [0.75 numel(amp{a})+.25])
+    xlabel('Pulse Number')
+    ylabel('Normalized PSC')
+end
+
 
 
 
