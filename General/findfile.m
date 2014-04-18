@@ -45,7 +45,7 @@ for i = 1:size(a,1)
     end
     if (~a(i).isdir)
         if (strcmpi(a(i).name,inname))
-            outname = [optpath,'/',a(i).name];
+            outname = [optpath, filesep ,a(i).name];
             return;
         end
     end
@@ -54,6 +54,6 @@ end
 % Recursive part
 for i = 1:length(tmppathlist)
     if (isempty(outname))
-        outname = findfile(inname, [optpath,'/',tmppathlist{i}.name], suffix);
+        outname = findfile(inname, [optpath, filesep ,tmppathlist{i}.name], suffix);
     end
 end

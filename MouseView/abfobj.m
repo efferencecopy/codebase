@@ -97,6 +97,12 @@ classdef abfobj
             [idx_Im, idx_Vclamp] = deal([]);
             for a = 1:numel(obj.head.recChNames);
                 
+                % only consider the primary channel (for example, the
+                % secondary channel will record pA when in Current Clamp)
+                secCh = regexp(obj.head.recChNames{a}, '_sec', 'match');
+                if ~isempty(secCh); continue; end
+                
+                
                 % bail if the channel is non-neural
                 validChName = regexp(obj.head.recChNames{a}, 'HS\d_', 'match');                
                 if isempty(validChName); continue; end
@@ -130,7 +136,7 @@ classdef abfobj
             % convention as obj.dat (time x channels x sweeps);
             Nsweeps = size(obj.dat, 3);
             Nchannels = numel(idx_Im);
-            [Ra, Rin] = deal(nan(1, Nchannels, Nsweeps));
+            Ra = nan(1, Nchannels, Nsweeps);
             for ch = 1:numel(idx_Im)
                 for swp = 1:Nsweeps;
                     

@@ -36,3 +36,9 @@ switch whoami
 end
 
 cd(defaultpath)
+
+% modest error checking
+assert(~isempty(dir(GL_DATPATH)), '\n*********\n ERROR: %s is poorly defined. Sign into Crash, and re-run startup.m \n*********\n', 'GL_DATPATH')
+
+
+
