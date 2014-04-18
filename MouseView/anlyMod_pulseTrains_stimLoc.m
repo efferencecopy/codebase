@@ -16,13 +16,17 @@ avgCurrent = {};
 tt = {}; % unique tvec for each file in case there are diffs in acquisition length
 for a = 1:numel(params.files)
     idx_Im = eval(['params.ax{a}.idx.',params.validCh,'Im']);
-    idx_Vclamp = eval(['params.ax{a}.idx.',params.validCh,'Vclamp']);
-    idx_SecVm = eval(['params.ax{a}.idx.',params.validCh,'secVm']);
+    idx_SecVm = regexpi(params.ax{a}.head.recChUnits, 'mV', 'match');
+    idx_SecVm = cellfun(@(x) ~isempty(x), idx_SecVm);
     
     % check the Vhold
-    actVhold = params.ax{a}.dat(1:100, idx_SecVm, :);
-    actVhold = mean(mean(actVhold, 3));
-    if (actVhold-params.vHold(a)) > 1; error('Vhold is wrong'); end
+    if sum(idx_SecVm) == 1;
+        actVhold = params.ax{a}.dat(1:100, idx_SecVm, :);
+        actVhold = mean(mean(actVhold, 3));
+        if (actVhold-params.vHold(a)) > 1; error('Vhold is wrong'); end
+    else
+        warning('Holding potential could not be verified on file %s', params.files{a})
+    end
     
     % pull out the data
     raw = mean(params.ax{a}.dat(:,idx_Im,:),3);
@@ -41,7 +45,7 @@ end
 f = figure; map = colormap('jet'); close(f);
 clrIdx = round(linspace(1,size(map,1), numel(params.files)));
 figure, hold on,
-set(gcf, 'position', [212 51 1067 758], 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
+set(gcf, 'position', [1621 181 1020 589], 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
 for a = 1:numel(params.files)
     plot(tt{a},  avgCurrent{a}, 'color', map(clrIdx(a),:), 'linewidth', 2)
 end
@@ -103,7 +107,7 @@ if numel(cross_time)>1
     end
     hold off
     legend(params.legTxt, 'location', 'southeast')
-    set(gcf, 'name', sprintf('%s cell %d: TF = %.3f', params.mouse, params.cellNum, 1/isi), 'position', [440   307   683   491])
+    set(gcf, 'name', sprintf('%s cell %d: TF = %.3f', params.mouse, params.cellNum, 1/isi), 'position', [2186 296 683 491])
     set(gca, 'xtick', [1:numel(amp{a})], 'xlim', [0.75 numel(amp{a})+.25])
     xlabel('Pulse Number')
     ylabel('Raw PSC (pA)')
@@ -114,7 +118,7 @@ if numel(cross_time)>1
     end
     hold off
     legend(params.legTxt, 'location', 'northeast')
-    set(gcf, 'name', sprintf('%s cell %d: TF = %.3f', params.mouse, params.cellNum, 1/isi), 'position', [440   307   683   491])
+    set(gcf, 'name', sprintf('%s cell %d: TF = %.3f', params.mouse, params.cellNum, 1/isi), 'position', [1471 276 683 491])
     set(gca, 'xtick', [1:numel(amp{a})], 'xlim', [0.75 numel(amp{a})+.25])
     xlabel('Pulse Number')
     ylabel('Normalized PSC')

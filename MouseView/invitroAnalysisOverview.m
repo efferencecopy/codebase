@@ -21,6 +21,7 @@ if ~isempty(params.photo)
     figure
     imshow(img);
     set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
+    set(gcf, 'position', [582    17   847   598]);
     
     % highlight the stimulation locations
     if size(params.stimLoc, 1) > 0
@@ -49,6 +50,7 @@ if ~isempty(params.DCsteps)
     ax_dc = abfobj(params.DCsteps);
     ax_dc.quickPlot
     set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
+    set(gcf, 'position', [12     0   560   420])
     drawnow
 end
 
@@ -76,6 +78,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 if numel(params.files)>0
     figure, hold on,
+    set(gcf, 'position', [15   394   560   420]);
     idx = 1;
     for a = 1:numel(ax)
         % pull out the series resistance
