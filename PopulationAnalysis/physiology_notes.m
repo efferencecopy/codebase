@@ -865,7 +865,7 @@ if exist('ADD_TO_MDB', 'var')
 end
 
 
-%% %% EB_031714_A Cell 3
+%% EB_031714_A Cell 3
 
 %
 % NOTES (cell type, location, experiment type, etc).
@@ -1100,7 +1100,7 @@ params.stimLoc = [0 0;...
                   -16 301;...
                   -16 301];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma: TF = 20', 'Soma: TF = 5', 'Soma: TF = 40', 'Pos1: TF = 20', 'Pos1: TF = 5', 'Pos1: TF = 40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.tags = {'TTX};
+params.tags = {'TTX'};
 
 
 %
