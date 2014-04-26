@@ -18,7 +18,7 @@ while (strapNum <= nstraps)
     idx = unidrnd(N, N, 1); % resampling with replacement! 
     alphas_bt = mod_thresh_emp .* exp(log_residual(idx)); % bootstraped thresholds
     
-    % run the fit using the three typical methods
+    % run the fit using the two typical methods
     [fpar_default, fval_default] = fitDetectionSurface(colors, alphas_bt, 'ellipsoid');
     [fpar_initParam, fval_initParam] = fitDetectionSurface(colors, alphas_bt, fpar_emp);
     
