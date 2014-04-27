@@ -409,7 +409,7 @@ clc; close all;
 
 % Set the parameters of the analysis
 observer = 'kali';              % 'kali' or 'sedna'
-theseSFToBootstrap = [0,0,0,0]; % generate bootstrap estimates for only a subset of the SFs 
+theseSFToBootstrap = [1 1 1 1]; % generate bootstrap estimates for only a subset of the SFs 
 nstraps = 4000;
 
 
@@ -418,10 +418,10 @@ clear fpar_monkey fpar_bootstrap
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
-        %load Kali_fpar_072113.mat % fits to monkey surfaces
-        %load Kali_boot_072113.mat % bootstraps for kali
-        %existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
-        %existingBootstraps = fpar_bootstrap;
+        load Kali_fpar_072113.mat % fits to monkey surfaces
+        load Kali_boot_072113.mat % bootstraps for kali
+        existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
+        existingBootstraps = fpar_bootstrap;
     case 'sedna'
         load Sedna_DTNT_072113.mat % monkey data
 %         load Sedna_fpar_072113.mat % fits to monkey surfaces
