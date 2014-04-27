@@ -410,11 +410,7 @@ clc; close all;
 % Set the parameters of the analysis
 observer = 'kali';              % 'kali' or 'sedna'
 theseSFToBootstrap = [1 1 1 1]; % generate bootstrap estimates for only a subset of the SFs 
-<<<<<<< .merge_file_hNjWgX
-nstraps = 4000;
-=======
 nstraps = 5000;
->>>>>>> .merge_file_FyNmVJ
 
 
 % load the data
