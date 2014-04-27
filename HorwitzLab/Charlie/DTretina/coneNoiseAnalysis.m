@@ -9,8 +9,8 @@ presdir = pwd;
 switch whoami
     case 'hass_mbp' % charlie's laptop
         cd '/Users/charliehass/LabStuff/Huskies/DTcones/Data/';
-    otherwise
-        % do nothing
+    case 'nuke'
+        cd 'C:\Users\charlie\Desktop\Local Data\DTcones\Data';
 end
 [fname, fpath] = uigetfile('Pick a text file');
 load([fpath, fname]);
@@ -410,11 +410,15 @@ clc; close all;
 % Set the parameters of the analysis
 observer = 'kali';              % 'kali' or 'sedna'
 theseSFToBootstrap = [1 1 1 1]; % generate bootstrap estimates for only a subset of the SFs 
+<<<<<<< .merge_file_hNjWgX
 nstraps = 4000;
+=======
+nstraps = 5000;
+>>>>>>> .merge_file_FyNmVJ
 
 
 % load the data
-clear fpar_monkey fpar_bootstrap
+clear fpar_monkey fpar_bootstrap existingBootstraps existingParams % makes auto detection of existing params work
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
