@@ -91,6 +91,14 @@ for i = 1:numel(params.files)
         % compute the average
         idx = [minIdx-ptsPerWindow : minIdx+ptsPerWindow];
         amp{i}(a) = mean(vals(idx));
+        
+        % subtract off the decaying current from this PSC from the average
+        % trace so that subsequent currents are judged from the correct
+        % baseline.
+        params.subtractexp = true;
+        if params.subtractexp
+            fittedCurve = fitexp(vals)
+        end
 
     end
 end
