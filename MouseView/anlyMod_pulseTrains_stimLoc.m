@@ -28,17 +28,17 @@ for a = 1:numel(params.files)
         warning('Holding potential could not be verified on file %s', params.files{a})
     end
     
-    % pull out the data
-    raw = mean(params.ax{a}.dat(:,idx_Im,:),3);
-    raw = raw - mean(raw(1:100));
-    avgCurrent{a} = raw;
-    
     % change the tt (time vector) so that time=0 is the onset of the first
     % pulse
     idx_pulseOn = params.ax{a}.threshold(0.5, params.ax{a}.idx.LEDcmd_470, size(params.ax{a}.dat,3), 'u');
     idx_pulseOn = find(idx_pulseOn, 1, 'first');
     tt{a} = params.ax{a}.tt-params.ax{a}.tt(idx_pulseOn);
 
+    
+    % pull out the data
+    raw = mean(params.ax{a}.dat(:,idx_Im,:),3);
+    raw = raw - mean(raw((idx_pulseOn-4e3):idx_pulseOn));
+    avgCurrent{a} = raw;
 end
 
 
@@ -97,7 +97,12 @@ for i = 1:numel(params.files)
         % baseline.
         params.subtractexp = true;
         if params.subtractexp
-            fittedCurve = fitexp(vals)
+            
+            if a == 1;
+                %keyboard
+            end
+            
+            fittedCurve = fitexp(vals, 0);
         end
 
     end
