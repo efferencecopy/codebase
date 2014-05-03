@@ -589,7 +589,7 @@ params.tags = {'distal stim, latency, room temp'};
 % ANALYZE OR ADD TO MDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('SUPPRESS_ANALYSIS', 'var')
-    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params.fxns = {};
     invitroAnalysisOverview(params)
 end
 
@@ -974,7 +974,7 @@ end
 % This is an FS cell from L2/3 in what is likely AL. The axon field is
 % quite anterior. The callosum has fused.
 
-
+fin
 %
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
@@ -1006,9 +1006,13 @@ end
 
 
 %% EB_031714_D Cell 1
+
+
 %
 % NOTES (cell type, location, experiment type, etc).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 % LED light trains at a few locations in the cortex. Strong depression at
 % the soma, less so at the other locaitons. I washed in TTX on this cell,
 % which has the effect of suppressing evoked PSC when the light is targeted
