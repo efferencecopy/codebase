@@ -1,7 +1,7 @@
-function invitroAnalysisOverview(params)
+function params = invitroAnalysisOverview(params)
 
 % specify useful globals
-global GL_DATPATH
+global GL_DATPATH GL_ADD_TO_MDB
 
 % define a few other things
 f = figure; map = colormap('jet'); close(f);
@@ -13,7 +13,7 @@ clrIdx = round(linspace(1,size(map,1), numel(params.files))); % colors for vario
 %  IMAGE OF SLICE (if present)
 %
 %%%%%%%%%%%%%%%%%%%%
-if ~isempty(params.photo)
+if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the physiology_notes script is auto-running
     
     % plot the photo
     photoPath = findfile(params.photo, [GL_DATPATH, params.mouse], '.jpg');
@@ -60,8 +60,9 @@ end
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ax = {};
+fprintf('**** Unpacking %d files:\n', numel(params.files));
 for a = 1:numel(params.files)
-    disp(params.files{a})
+    fprintf('file %d: %s \n', a, params.files{a})
     ax{a} = abfobj(params.files{a});
     
     % remove unwanted sweeps
@@ -110,7 +111,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 params.ax = ax; % package the raw data so that I don't have to load the abf files multiple times.
 for a = 1:numel(params.fxns)
-    feval(params.fxns{a}, params)
+    params = feval(params.fxns{a}, params)
 end
 
 

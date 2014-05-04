@@ -1,4 +1,4 @@
-function [fit, startIdx] = fitexp(in, bkgnd)
+function [fit, startIdx] = fitexp(in, bkgnd, params)
 
 %
 % FUNCTION fitexp
@@ -57,32 +57,32 @@ else
 end
 
 % do the fit   
-[params, ~, exitflag] = fminsearch(@exp_sse, guesses, options);
+[coeffs, ~, exitflag] = fminsearch(@exp_sse, guesses, options);
 
 
 
 % construct the return argument
-fit = @(yy) (params(1) * exp((-yy+params(3))/params(2))) + ...
-      (params(4) * exp((-yy+params(6))/params(5))) + ...
-      (params(7) * exp((-yy+params(9))/params(8)));
+fit = @(yy) (coeffs(1) * exp((-yy+coeffs(3))/coeffs(2))) + ...
+      (coeffs(4) * exp((-yy+coeffs(6))/coeffs(5))) + ...
+      (coeffs(7) * exp((-yy+coeffs(9))/coeffs(8)));
           
 
-
-% figure
-% subplot(2,1,1)
-% hold on,
-% plot(raw, 'b', 'linewidth', 2)
-% plot(fit(xx), 'r', 'linewidth', 2)
-% hold off
-% title(num2str(params))
-% subplot(2,1,2)
-% hold on,
-% plot(raw-fit(xx))
-% plot([0 numel(raw)], [0 0], 'k', 'linewidth', 2)
-% set(gcf, 'position', [689    19   685   787]);
-% drawnow
-
-
+  if isfield(params, 'debug') && params.debug
+      figure
+      subplot(2,1,1)
+      hold on,
+      plot(raw, 'b', 'linewidth', 2)
+      plot(fit(xx), 'r', 'linewidth', 2)
+      hold off
+      title(num2str(coeffs))
+      subplot(2,1,2)
+      hold on,
+      plot(raw-fit(xx))
+      plot([0 numel(raw)], [0 0], 'k', 'linewidth', 2)
+      set(gcf, 'position', [689    19   685   787]);
+      drawnow
+  end
+  
 
 
 %

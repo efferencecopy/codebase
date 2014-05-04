@@ -1,4 +1,4 @@
-function anlyMod_pulseTrains_stimLoc(params)
+function params = anlyMod_pulseTrains_stimLoc(params)
 
 % An analysis module that gets called by 'invitroAnalysisOverview' and can
 % be referenced in the 'physiology_notes.m' script
@@ -65,8 +65,10 @@ drawnow
 
 % iterate over the average traces, pull out the data between each pulse,
 % and calculate the magnitude of the PSC
+fprintf('**** Calculating PSCs for %d files:\n', numel(params.files));
 for i = 1:numel(params.files)
     
+    fprintf(' Analyzing file %d: %s \n', i,  params.files{i})
     trigChIdx = params.ax{i}.idx.LEDcmd_470;
     
     % find the pulse offsets. Using the off sets so that I don't include
@@ -102,8 +104,8 @@ for i = 1:numel(params.files)
         % subtracted from directly before the first pulse. This is because
         % the exponential fits are constrained to asympote at zero.
         params.subtractexp = true;
-        if params.subtractexp
-            [fitfun, startidx] = fitexp(vals, 0);
+        if params.subtractexp && Npulses>1
+            [fitfun, startidx] = fitexp(vals, 0, params);
             
             % define the new time "zero", which needs to be identical to
             % the one used in fitexp.m
@@ -123,27 +125,28 @@ for i = 1:numel(params.files)
             % update the average trace to reflect the subtracted waveform
             tmp_avg = tmp_avg - fitted(:);
             
-            
-% %             % plot the results for debugging
-% %             if ~exist('dbFig', 'var')
-% %                 dbFig = figure;
-% %             end
-% %             figure(dbFig);
-% %             subplot(Npulses, 2, a+(a-1))
-% %             hold on,
-% %             plot(tmp_avg, 'b')
-% %             plot(fitted, 'r', 'linewidth', 2)
-% %             xmin = find(params.ax{i}.tt == cross_time(1))-100;
-% %             xmax = find(params.ax{i}.tt == cross_time(end))+(isi .* params.ax{i}.head.sampRate)+100;
-% %             xlim([xmin, xmax])
-% %             hold off
-% %             
-% %             subplot(Npulses, 2, a.*2)
-% %             hold on,
-% %             plot(avgCurrent{i}, 'k', 'linewidth', 2)
-% %             plot(tmp_avg, 'r')
-% %             xlim([xmin, xmax])
-% %             hold off
+            if isfield(params, 'debug') && params.debug
+                % plot the results for debugging
+                if ~exist('dbFig', 'var')
+                    dbFig = figure;
+                end
+                figure(dbFig);
+                subplot(Npulses, 2, a+(a-1))
+                hold on,
+                plot(tmp_avg, 'b')
+                plot(fitted, 'r', 'linewidth', 2)
+                xmin = find(params.ax{i}.tt == cross_time(1))-100;
+                xmax = find(params.ax{i}.tt == cross_time(end))+(isi .* params.ax{i}.head.sampRate)+100;
+                xlim([xmin, xmax])
+                hold off
+                
+                subplot(Npulses, 2, a.*2)
+                hold on,
+                plot(avgCurrent{i}, 'k', 'linewidth', 2)
+                plot(tmp_avg, 'r')
+                xlim([xmin, xmax])
+                hold off
+            end
         end
 
     end
@@ -180,6 +183,7 @@ if numel(cross_time)>1
 end
 
 
-
+% as a final step, package the PSC amplitudes into the output argument
+params.pscamp = amp;
 
 
