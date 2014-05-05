@@ -64,7 +64,7 @@ attribute.layer = '2/3';
 %attribute.multiple = 1;
 
 % other parameters
-pulsenumber = 3; % which pulse to compare with the first for PP_ratio
+pulsenumber = 2; % which pulse to compare with the first for PP_ratio
 pltclr = 'k';
 newfig = 1;
 
@@ -79,15 +79,21 @@ newfig = 1;
 dist = 50:100:650;
 binedges = dist-50;
 TFs = [5,10,20,40];
-popdat = nan(numel(TFs), numel(dist), numel(mdbidx));
-pltTF = repmat(TFs(:), 1, size(popdat,2));
-pltDist = repmat(binedges, size(popdat,1), 1);
+popdat_pp = nan(numel(TFs), numel(dist), numel(mdbidx));
+popdat_sum = nan(numel(TFs), numel(dist), numel(mdbidx));
+pltTF = repmat(TFs(:), 1, size(popdat_pp,2));
+pltDist = repmat(binedges, size(popdat_pp,1), 1);
 
 
 % iterate over the data files and compile the PPratios according to the TF
 % and the distance of the objective to the soma.
 mdb = initMouseDB(0, true);
-if newfig; f = figure; hold on, end
+if newfig; 
+    f_pp = figure; hold on,
+    set(f_pp, 'name', 'Paired Pulse Ratio')
+    f_sum = figure; hold on,
+    set(f_sum, 'name', 'Pulse Sum Value')
+end
 for neuron = 1:numel(mdbidx);
     
     % grab the data
@@ -96,45 +102,75 @@ for neuron = 1:numel(mdbidx);
     % each neuron has several files. Iterate through these and assign the
     % PPratio to the appropriate row and col idx for the popdat matrix
     for fl = 1:numel(celldat.files)
+        % deal with the PP ratio analysis
         rowIdx = softEq(TFs, celldat.TF(fl), 5);
         assert(~isempty(rowIdx), 'ERROR: could not find TF');
         [~, colIdx] = min(abs(dist - norm(celldat.stimLoc(fl,:))));       
         PP_ratio = celldat.pscamp{fl}(pulsenumber) ./ celldat.pscamp{fl}(1);
-        popdat(rowIdx, colIdx, neuron) = PP_ratio;
+        popdat_pp(rowIdx, colIdx, neuron) = PP_ratio;
+        
+        % now calculate the kooky thing across pulses
+        normpsc = celldat.pscamp{fl} ./ celldat.pscamp{fl}(1);
+        normpsc = normpsc(1:5); % just take the first 5
+        popdat_sum(rowIdx, colIdx, neuron) = sum(normpsc)./5;
+        
         
     end
     
-    % plot the raw data
-    figure(f)
-    tmp = popdat(:, :, neuron);
+    % plot the raw PP ratio data
+    figure(f_pp)
+    tmp = popdat_pp(:, :, neuron);
     plot3(pltTF(:), pltDist(:), tmp(:), 'o', 'markeredgecolor', pltclr)
+    
+    % plot the raw PP_sum data
+    figure(f_sum)
+    tmp = popdat_sum(:, :, neuron);
+    plot3(pltTF(:), pltDist(:), tmp(:), 'o', 'markeredgecolor', pltclr)
+    
     
 end
 
 
 % now plot the average across cells, in a different color, and connect the
 % lines.
-avg = exp(nanmean(log(popdat),3));
-figure(f)
-plot3(pltTF(:), pltDist(:), avg(:), [pltclr,'o'], 'markerfacecolor', pltclr)
+avg_pp = exp(nanmean(log(popdat_pp),3));
+avg_sum = exp(nanmean(log(popdat_sum),3));
+figure(f_pp)
 
 % connect things acquired at the same eccentricity
 for a = 1:numel(binedges)
-    l_valid = ~isnan(avg(:,a));
-    figure(f)
-    plot3(TFs(l_valid)', repmat(binedges(a), sum(l_valid), 1), avg(l_valid, a)', [pltclr,'-'])
+    l_valid = ~isnan(avg_pp(:,a));
+    
+    figure(f_pp)
+    plot3(TFs(l_valid)', repmat(binedges(a), sum(l_valid), 1), avg_pp(l_valid, a)', [pltclr,'-'])
+
+    figure(f_sum)
+    plot3(TFs(l_valid)', repmat(binedges(a), sum(l_valid), 1), avg_sum(l_valid, a)', [pltclr,'-'])
 end
 
 % connect things acquired at the same TF
 for a = 1:numel(TFs)    
-    l_valid = ~isnan(avg(a,:));
-    figure(f)
-    plot3(repmat(TFs(a), 1, sum(l_valid)), binedges(l_valid), avg(a, l_valid)', [pltclr,'-'])
+    l_valid = ~isnan(avg_pp(a,:));
+    
+    figure(f_pp)
+    plot3(repmat(TFs(a), 1, sum(l_valid)), binedges(l_valid), avg_pp(a, l_valid)', [pltclr,'-'])
+    
+    figure(f_sum)
+    plot3(repmat(TFs(a), 1, sum(l_valid)), binedges(l_valid), avg_sum(a, l_valid)', [pltclr,'-'])
+        
 end
 
 
 
-% tidy up the plot
+% tidy up the plots
+figure(f_pp)
+set(gca,'view', [-74    14], 'zscale', 'log', 'xscale', 'log', 'xtick', TFs)
+axis tight
+xlabel('Temporal Frequency')
+ylabel('Distance')
+zlabel('Paired Pulse Ratio')
+
+figure(f_sum)
 set(gca,'view', [-74    14], 'zscale', 'log', 'xscale', 'log', 'xtick', TFs)
 axis tight
 xlabel('Temporal Frequency')
