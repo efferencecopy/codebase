@@ -418,10 +418,10 @@ clear fpar_monkey fpar_bootstrap existingBootstraps existingParams % makes auto 
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
-        %load Kali_fpar_072113.mat % fits to monkey surfaces
-        %load Kali_boot_072113.mat % bootstraps for kali
-        %existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
-        %existingBootstraps = fpar_bootstrap;
+        load Kali_fpar_050514.mat % fits to monkey surfaces 050514 for more straps or 072113 for fewer
+        load Kali_boot_050514.mat % bootstraps for kali 050514 or 072113
+        existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
+        existingBootstraps = fpar_bootstrap;
     case 'sedna'
         load Sedna_DTNT_072113.mat % monkey data
 %         load Sedna_fpar_072113.mat % fits to monkey surfaces
