@@ -15,4 +15,4 @@ assert(strcmpi(mdb.mice{idx}.name, params.mouse), 'ERROR saving to mdb, there wa
 
 % save the popParams information to the mdb. 
 mdb.mice{idx}.popAnly{params.cellNum} = params;
-save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
+save([GL_DOCUPATH, 'Mouse_workbooks', filesep, 'mouseDB.mat'], 'mdb')

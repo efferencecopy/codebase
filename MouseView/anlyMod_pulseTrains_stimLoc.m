@@ -81,6 +81,7 @@ for i = 1:numel(params.files)
     isi = mean(diff(cross_time));
     window = .5e-3; % seconds on either side of the peak
     ptsPerWindow = ceil(window .* params.ax{i}.head.sampRate);
+    params.TF(i) = 1/isi;
     
     tmp_avg = avgCurrent{i};
     Npulses = numel(cross_time);

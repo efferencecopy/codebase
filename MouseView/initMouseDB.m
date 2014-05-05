@@ -42,8 +42,8 @@ function mdb = initMouseDB(overwrite, suppressOutput)
     end
 
     % grab all the excel files
-    presDir = pwd; % cd back to this at the end of the routing...
-    cd(GL_DOCUPATH)
+    presDir = pwd; % cd back to this at the end of the routine...
+    cd([GL_DOCUPATH, filesep, 'Mouse_workbooks'])
     d = dir;
     
     % determine if the database is already available
@@ -148,7 +148,7 @@ function mdb = initMouseDB(overwrite, suppressOutput)
     % SAVE THE DATABASE
     %
     %%%%%%%%%%%%%%%%%%%%
-    save([GL_DOCUPATH, 'mouseDB.mat'], 'mdb')
+    save([GL_DOCUPATH, filesep, 'Mouse_workbooks', filesep , 'mouseDB.mat'], 'mdb')
     if ~suppressOutput
         fprintf('Initialization complete\n')
     end
