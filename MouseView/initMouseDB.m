@@ -43,7 +43,7 @@ function mdb = initMouseDB(overwrite, suppressOutput)
 
     % grab all the excel files
     presDir = pwd; % cd back to this at the end of the routine...
-    cd([GL_DOCUPATH, filesep, 'Mouse_workbooks'])
+    cd([GL_DOCUPATH, 'Mouse_workbooks'])
     d = dir;
     
     % determine if the database is already available
