@@ -88,7 +88,7 @@ params.files = {'2014_02_20_0025';...
                 '2014_02_20_0033'};      % File names of the raw data. <Nx1> cell array
 params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
-params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'5', '40', '60', '2', '20'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 
 
@@ -192,7 +192,7 @@ params.files = {'2014_02_22_0022';...
                 '2014_02_22_0027'};      % File names of the raw data. <Nx1> cell array
 params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85 .* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
-params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.stimLoc = zeros(3,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 
 
