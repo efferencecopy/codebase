@@ -30,7 +30,7 @@ switch whoami
         defaultpath = 'C:\Users\glickfeld_lab\Documents\MATLAB';
         
     case 'nuke'
-        GL_DOCUPATH = 'C:\Users\charlie\Documents\GitHub\docubase\';
+        GL_DOCUPATH = 'C:\Users\charlie\Documents\SourceTree_local\docubase\';
         GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
         defaultpath = 'C:\Users\charlie\Documents\MATLAB';
 end
