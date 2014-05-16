@@ -1664,8 +1664,8 @@ if GL_ADD_TO_MDB
 end
 
 
-
 %% EB_041414_A cell 1
+
 
 fin
 
@@ -1915,15 +1915,21 @@ fin
 %
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
-params.mouse = '';      % The mouse's name
-params.cellNum = nan;    % The neuron number that day
-params.DCsteps = '';    % DC steps for Rin and cell identification
-params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.mouse = 'EB_041414_D';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '2014_04_30_0001';    % DC steps for Rin and cell identification
+params.photo = 'cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
-params.files = {};      % File names of the raw data. <Nx1> cell array
+params.files = {'2014_04_30_0012';...
+                '2014_04_30_0013';...
+                '2014_04_30_0014';...
+                '2014_04_30_0015'};      % File names of the raw data. <Nx1> cell array
 params.skipSweeps = {}; % In case I need to ignore certain sweeps
-params.vHold = -85 .* ones(size(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
-params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.vHold = -85.*ones(size(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [-605 136;...
+                  -550 186
+                  -481 247
+                  -419 314];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
 
@@ -1939,8 +1945,6 @@ end
 if GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
-
-
 
 
 %% EB_041414_XX cell XX
@@ -2171,3 +2175,4 @@ end
 if GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
+

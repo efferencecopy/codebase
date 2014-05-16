@@ -678,6 +678,12 @@ function cones = initConeMosaic(gab, mon, eyes)
     cones.num_L = (conesPerPix_all - conesPerPix_S) ./ 2;
     cones.num_M = (conesPerPix_all - conesPerPix_S) ./ 2;
     
+    % give the model 2 eyess
+    warning('model has 2 eyes now')
+    cones.num_L = cones.num_L .* 2;
+    cones.num_M = cones.num_M .* 2;
+    cones.num_S = cones.num_S .* 2;
+    
 end
 
 function cones = aperatureConeMosaic(params, cones, mon)
