@@ -2140,7 +2140,7 @@ end
 
 
 
-%% EB_041414_XX cell XX
+%% CH_050614_B cell 2
 
 fin
 
@@ -2151,23 +2151,36 @@ fin
 %
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
-params.mouse = '';      % The mouse's name
-params.cellNum = nan;    % The neuron number that day
+params.mouse = 'CH_050614_B';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
 params.DCsteps = '';    % DC steps for Rin and cell identification
-params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.photo = 'CH_050614_B_cell_2_tdTomato_bright';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
-params.files = {};      % File names of the raw data. <Nx1> cell array
-params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.files = {'2014_05_19_0021';...
+                '2014_05_19_0022';...
+                '2014_05_19_0023';...
+                '2014_05_19_0024';...
+                '2014_05_19_0025';...
+                '2014_05_19_0026'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {[], [], [], [], [],[4]}; % In case I need to ignore certain sweeps
 params.vHold = -85 .* ones(size(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
-params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.stimLoc = [-91 330;
+                  -170 267;
+                  -226 221
+                  -272 161
+                  -298 104
+                  -315 40];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.tags = {};
+params.tags = {'spatial light spread'};
 
 
 %
 % ANALYZE OR ADD TO MDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~GL_SUPPRESS_ANALYSIS
+    params.subtractexp = false;
+    params.filter = 500;
+    
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end

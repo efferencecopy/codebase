@@ -8,7 +8,6 @@ f = figure; map = colormap('jet'); close(f);
 clrIdx = round(linspace(1,size(map,1), numel(params.files))); % colors for various plots
 
 
-
 %
 %  IMAGE OF SLICE (if present)
 %

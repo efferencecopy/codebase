@@ -41,6 +41,10 @@ for a = 1:numel(params.files)
     bkgndTimeInPts = params.ax{a}.head.sampRate .* 0.100; % 100 msec.
     raw = raw - mean(raw((idx_pulseOn-bkgndTimeInPts):idx_pulseOn));
     avgCurrent{a} = raw;
+    
+    if isnumeric(params.filter)
+       avgCurrent{a} = butterFilt(avgCurrent{a}, params.ax{a}.head.sampRate, params.filter, 'low');
+    end
 end
 
 
@@ -104,7 +108,6 @@ for i = 1:numel(params.files)
         % baseline. In order for this to work, the trace should be baseline
         % subtracted from directly before the first pulse. This is because
         % the exponential fits are constrained to asympote at zero.
-        params.subtractexp = true;
         if params.subtractexp && Npulses>1
             [fitfun, startidx] = fitexp(vals, 0, params);
             
