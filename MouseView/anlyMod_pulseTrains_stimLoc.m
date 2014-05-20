@@ -104,7 +104,7 @@ for i = 1:numel(params.files)
         % baseline. In order for this to work, the trace should be baseline
         % subtracted from directly before the first pulse. This is because
         % the exponential fits are constrained to asympote at zero.
-        params.subtractexp = true;
+        params.subtractexp = false;
         if params.subtractexp && Npulses>1
             [fitfun, startidx] = fitexp(vals, 0, params);
             
