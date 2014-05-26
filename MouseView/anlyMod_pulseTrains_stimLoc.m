@@ -42,7 +42,7 @@ for a = 1:numel(params.files)
     raw = raw - mean(raw((idx_pulseOn-bkgndTimeInPts):idx_pulseOn));
     avgCurrent{a} = raw;
     
-    if isnumeric(params.filter)
+    if ~isempty(params.filter)
        avgCurrent{a} = butterFilt(avgCurrent{a}, params.ax{a}.head.sampRate, params.filter, 'low');
     end
 end

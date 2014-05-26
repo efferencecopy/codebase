@@ -55,11 +55,11 @@
 
 %% TF vs PP ratio vs STIM LOCATION
 
-fin
+
 
 % specify which neurons you want to analyze
 attribute.area = 'PM';
-attribute.type = 'PY';
+attribute.type = 'FS';
 attribute.layer = '2/3';
 %attribute.multiple = 1;
 
