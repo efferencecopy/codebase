@@ -20,15 +20,15 @@ params.mouse = '';      % The mouse's name
 params.cellNum = nan;    % The neuron number that day
 params.DCsteps = '';    % DC steps for Rin and cell identification
 params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
-params.validCh = '';    % 'HS2_' or 'HS1_'
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
 params.files = {};      % File names of the raw data. <Nx1> cell array
 params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = nan;     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 % 
 % %
@@ -92,8 +92,8 @@ params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'5', '40', '60', '2', '20'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -135,8 +135,8 @@ params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '40', '5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -198,8 +198,8 @@ params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85 .* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = zeros(3,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -241,8 +241,8 @@ params.vHold = [-85 -85 -85];     % The holding potential for vClamp experiments
 params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -315,8 +315,8 @@ params.stimLoc = [0, 0;...
                   -151 178];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'40 soma', '20 soma', '5 soma', '40 dist', '20 dist', '5 dist'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'interneuron TTX'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -367,8 +367,8 @@ params.stimLoc = [0 0;...
                   -12 234];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20', 'dist 20', 'dist 5', 'dist 40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -430,8 +430,8 @@ params.stimLoc = [0,0;...
                   51,341];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma', 'Pos 1, TF =20','Pos 1, TF =5','Pos 1, TF =40','Pos 1, TF = 40, 400us','Pos 1, TF = 20, 400us','Pos 1, TF = 5, 400us', 'Pos 2, TF = 5, 400us', 'Pos 2, TF = 20, 400us', 'Pos 2, TF = 40, 400us'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'HOA, TF'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -447,11 +447,117 @@ end
 
 
 %% CH_042214_A cell 1
+
 fin
 
 %
 % NOTES (cell type, location, experiment type, etc).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% A L4 delayed onset IN. Possibly an FS cell. P2:P1 facilitation at the
+% soma for 20 Hz, but depression at the distal stim site. Adding to
+% population analysis.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_042214_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '2014_05_12_0001';    % DC steps for Rin and cell identification
+params.photo = 'cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_12_0004';...
+                '2014_05_12_0006';...
+                '2014_05_12_0007';...
+                '2014_05_12_0008'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  -130 238;...
+                  -130 238;...
+                  -130 238];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'axon stim'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% CH_042214_A cell 2 part 1
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% A L2/3 PY cell in PM (According to online notes.) Access resistance is
+% potentially a problem. Adding to pop list.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_042214_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.DCsteps = '2014_05_12_0010';    % DC steps for Rin and cell identification
+params.photo = 'cell_2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_12_0012';...
+               '2014_05_12_0014';...
+               '2014_05_12_0015';...
+               '2014_05_12_0016';...
+               '2014_05_12_0017'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  42 238;...
+                  107 394;...
+                  107 394;...
+                  107 394];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'Axon stim'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_042214_A cell 2 part 2
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% This is only for spatial light spread control. Good data for spatial
+% light spread. Looks like some places evoke responses but not others.
+
 
 %
 % PARAMETERS
@@ -481,9 +587,116 @@ params.stimLoc = [46 404;...
                   -46 404];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'Spatial light spread', 'control'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+%% CH_042214_D Cell 1
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Spatial light spread. Very nice example of light targets that are
+% equidistant but only some of the locations evoke responses.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_042214_D';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '2014_05_13_0000';    % DC steps for Rin and cell identification
+params.photo = 'CH_042214_D_cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_13_0001';...
+                '2014_05_13_0002';...
+                '2014_05_13_0003';...
+                '2014_05_13_0004';...
+                '2014_05_13_0005';...
+                '2014_05_13_0006';...
+                '2014_05_13_0007';...
+                '2014_05_13_0009';...
+                '2014_05_13_0010';...
+                '2014_05_13_0011';...
+                '2014_05_13_0012'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [50 408;...
+                  -29 410;...
+                  -83 401;...
+                  -133 388;...
+                  -185 366;...
+                  -240 331;...
+                  -290 290;...
+                  -330 244;...
+                  -363 191;...
+                  -387 137;...
+                  -402 80];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'Spatial light spread', 'control'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+
+%% CH_042214_D Cell 2
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Ok data, not great. L2/3 PY cell from AL (according to notes). Ra
+% increases... Facilitation at soma, depression otherwise, accept at high
+% TF. Some of the files have different first pulse heights despite being
+% stimuluated at the same site (non-stationarities?)
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_042214_D';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.DCsteps = '2014_05_13_0014';    % DC steps for Rin and cell identification
+params.photo = 'CH_042214_D_cell_2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_13_0017';...
+                '2014_05_13_0019';...
+                '2014_05_13_0020';...
+                '2014_05_13_0021';...
+                '2014_05_13_0022'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  -166 161;...
+                  -188 176;...
+                  -184 193;...
+                  -184 193];
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -499,14 +712,185 @@ if GL_ADD_TO_MDB
 end
 
 
-
-%% CH_050614_B cell 2
+%% CH_042214_E Cell 1
 
 fin
 
 %
 % NOTES (cell type, location, experiment type, etc).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Neuron from an FS cell in L2/3. There is a ton of voltage clamp break
+% down due to spiking. And this file has several repeats at each spatial
+% location using different voltages to the LED. There are subtle STP
+% differences for different voltages, but there are some differences too.
+% I'm not 100% sure where this neuron is from b/c it's in a sagital slice.
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_042214_E';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '2014_05_16_0001';    % DC steps for Rin and cell identification
+params.photo = 'CH_042214_E_cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_16_0003';...
+                '2014_05_16_0004';...
+                '2014_05_16_0006';...
+                '2014_05_16_0007';...
+                '2014_05_16_0009';...
+                '2014_05_16_0010';...
+                '2014_05_16_0011';...
+                '2014_05_16_0012';...
+                '2014_05_16_0013';...
+                '2014_05_16_0014';...
+                '2014_05_16_0015'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  0 0;...
+                  -33 250;...
+                  -33 250;...
+                  -40 407;...
+                  -40 407;...
+                  -40 407;...
+                  -40 407;...
+                  -40 407;...
+                  -40 407;...
+                  -40 407];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'control', 'multiple voltages'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+
+%% %% CH_050614_B cell 1
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Potentially interesting data. The 5Hz data shows strong depression
+% whereas all other TFs show facilitation (regardless of LED stim
+% location). Adding to pop anly list. L2/3 PY cell in AL.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_050614_B';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '2014_05_19_0001';    % DC steps for Rin and cell identification
+params.photo = 'CH_050614_B_cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_19_0003';...
+                '2014_05_19_0005';...
+                '2014_05_19_0006';...
+                '2014_05_19_0007';...
+                '2014_05_19_0008';...
+                '2014_05_19_0009';...
+                '2014_05_19_0010'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {[], [], [], [3], [], [], [21]}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  -110 254;...
+                  -110 254;...
+                  -110 254;...
+                  -211 312;...
+                  -211 312;...
+                  -211 312];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'axon stim'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% CH_050614_B cell 2 part 1
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Only marginal data. Responses are quite weak, and there are some problems
+% with series resistance. Otherwise, o.k. L2/3 PY cell from AL. Adding to
+% pop anly list as such.
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_050614_B';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.DCsteps = '2014_05_19_0014';    % DC steps for Rin and cell identification
+params.photo = 'CH_050614_B_cell_2_tdTomato_bright';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_19_0016';...
+                '2014_05_19_0017';...
+                '2014_05_19_0018';...
+                '2014_05_19_0019';...
+                '2014_05_19_0020'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(size(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;
+                  -78 218;
+                  -91 330
+                  -91 330
+                  -91 330];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'axon stim'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = [1000];
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+%% CH_050614_B cell 2 part 2
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Control experiment for spatial light spread. Looks good. Equidistant LED
+% stimulation sites.
 
 %
 % PARAMETERS
@@ -531,8 +915,8 @@ params.stimLoc = [-91 330;
                   -298 104
                   -315 40];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.tags = {'spatial light spread'};
-params.subtractexp = false;
+params.tags = {'spatial light spread', 'control'};
+params.subtractexp = GL_ADD_TO_MDB;
 params.filter = 500;
 
 
@@ -544,10 +928,9 @@ if ~GL_SUPPRESS_ANALYSIS
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
-    addPopAnlyParamsToMDB(params);
-end
 
+%% BOOKMARK FOR CH MICE
+% data added to population analyses up to here
 
 
 %% EB_031014_A cell 2
@@ -623,8 +1006,8 @@ params.legTxt = {'distal pos 1 FS closed';...
                  'distal pos 4 half moon';...
                  'distal pos 5 half moon'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -685,8 +1068,8 @@ params.legTxt = { 'soma FS open';...
                   'HalfMoon Incorrect';...
                   'HalfMoon Correct'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -747,8 +1130,8 @@ params.legTxt = {'Soma, 20 Hz';...
                  'Pos 4, 5 Hz';...
                  'Soma, 5 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp, TF, false depression'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -812,8 +1195,8 @@ params.legTxt = {'Soma';...
                  'Pos 3 ';...
                  'Soma'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp, false depression'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -876,8 +1259,8 @@ params.legTxt = {'Cortex 1';...
          'Cortex 3 Half Moon';...
          'Cortex 3 No Half Moon'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -951,8 +1334,8 @@ params.legTxt = {'Soma TF = 5',...
                  'Soma TF = 5',...
                  'Soma TF = 20'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'False depression, TF, trains, HOA'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1008,8 +1391,8 @@ params.stimLoc = [0 0;...
                   404 -170];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1053,8 +1436,8 @@ params.vHold = [-85 -85];     % The holding potential for vClamp experiments. On
 params.stimLoc = [0 0; 0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'False depression'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1097,8 +1480,8 @@ params.vHold = [-85 -85 -85];     % The holding potential for vClamp experiments
 params.stimLoc = [0 0; 0 0; 0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'HOA, TF'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1156,8 +1539,8 @@ params.stimLoc = [0 0;...
                   -232 175];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma 20', 'Soma 5', 'Pos 1 20 Hz', 'Pos 1: 5 Hz', 'Pos 2: 20 Hz', 'Pos 2: 5 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'TTX, false depression, HOA, TF'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1215,8 +1598,8 @@ params.stimLoc = [0 0;...
                   -16 301];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma: TF = 20', 'Soma: TF = 5', 'Soma: TF = 40', 'Pos1: TF = 20', 'Pos1: TF = 5', 'Pos1: TF = 40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'TTX'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1265,8 +1648,8 @@ params.stimLoc = [0 0;...
                   -153, 152];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20', 'pos 1 5 Hz', 'pos 1 20 Hz', 'pos 1 40 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1308,8 +1691,8 @@ params.vHold = -85.*ones(1,3);     % The holding potential for vClamp experiment
 params.stimLoc = [0 0; -275 -45; -275 -45;];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20 Hz', '20 Hz', '5 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1352,8 +1735,8 @@ params.vHold = -85.*ones(1,4);     % The holding potential for vClamp experiment
 params.stimLoc = [0 0; -300 -50; -300 -50; -300 -50;];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20 hz', '20', '40', '5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1417,8 +1800,8 @@ params.stimLoc = [0 0;...
                    0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'1 soma 20', '1 40', '1 20', '1 5', '2 20', '2 40', '2 5', '2 soma 20', '2 soma 40', '2 soma 5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1485,8 +1868,8 @@ params.legTxt = {'soma 20 Hz';...
                 'pos 2 10';...
                 'soma 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 %
 % ANALYZE OR ADD TO MDB
@@ -1543,8 +1926,8 @@ params.legTxt = {'soma';...
                 'pos 2 40 Hz';...
                 'pos 2 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1588,8 +1971,8 @@ params.vHold = [-85 -85 -85];     % The holding potential for vClamp experiments
 params.stimLoc = [0 0; -258 10; -258 10];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma' 'pos 1 40 Hz', 'pos1 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1657,8 +2040,8 @@ params.legTxt = {'soma 20';...
                 'pos2 5';...
                 'pos2 10'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1710,8 +2093,8 @@ params.stimLoc = [0 0;...
                   0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20 hz', 'soma 40 hz', 'soma 5 hz', 'soma 10 hz', };     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'FS cell, facilitation, TF STP'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1790,8 +2173,8 @@ params.legTxt = {'Soma 20 Hz';...
                 'Pos4 20 Hz';...
                 'Soma 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1805,13 +2188,6 @@ end
 if GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
-
-
-%%
-
-% Added to population analyses up to here
-
-
 
 
 %% EB_041414_A cell 1
@@ -1855,8 +2231,8 @@ params.stimLoc = [0 0;...
                   -358 372];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim', 'synaptic blockers'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1906,8 +2282,8 @@ params.stimLoc = [0 0;...
                   -133 104];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim', 'synaptic blockers', 'retro infect'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -1957,8 +2333,8 @@ params.stimLoc = [0 0;...
                   -341 227];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2011,8 +2387,8 @@ params.stimLoc = [0 0;...
                   -307 187];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim', 'retro infect'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2066,8 +2442,8 @@ params.stimLoc = [0 0;...
                   -188 154];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2124,8 +2500,8 @@ params.stimLoc = [0 0;...
                   -204 381];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2181,8 +2557,8 @@ params.stimLoc = [0 0;...
                   -370 288];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2225,8 +2601,8 @@ params.stimLoc = [-605 136;...
                   -419 314];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Light spread', 'control'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2275,8 +2651,8 @@ params.stimLoc = [0 0;...
                   -220 287];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2320,8 +2696,8 @@ params.stimLoc = [0 0;...
                   -204 170];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2364,8 +2740,8 @@ params.stimLoc = [0 0;...
                   -243 205];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2415,8 +2791,8 @@ params.stimLoc = [0 0;...
                   -356 241];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim', 'spatial slight spread', 'retro infect'};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2478,8 +2854,8 @@ params.stimLoc = [0 0;...
                   198 420];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2542,8 +2918,8 @@ params.stimLoc = [0 0;...
                   0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = false;
-params.filter = [];
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
 
 
 %
@@ -2557,5 +2933,10 @@ end
 if GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
+
+%% BOOKMARK FOR EB MICE
+% Added to population analyses up to here
+
+
 
 
