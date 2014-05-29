@@ -6,9 +6,9 @@
 % clear out the work space
 fin
 
-ecc = 5:5:70;
+TF = [1 5 25];
 
-for a = 1:numel(ecc);
+for a = 1:numel(TF);
     
     %
     % define the necessary parameters for the DTcones simulation
@@ -17,13 +17,13 @@ for a = 1:numel(ecc);
     params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
     params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
     params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-    params.monCalFile = 'DTcals_apollo_macpig.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+    params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
     params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
     params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
-    params.enableScones = false;                      % should the S-cones contribute to the pooled response?
+    params.enableScones = true;                      % should the S-cones contribute to the pooled response?
     params.eyeType = 'monkey';                       % 'monkey' or 'human'
     params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-    params.colorselection = 'guniso';              % could be: 'lots', 'specific', 'guniso'
+    params.colorselection = 'specific';              % could be: 'lots', 'specific', 'guniso'
     
     % define some helpful text files (if necessary), and the paramaters for
     % parallel operations
@@ -37,7 +37,7 @@ for a = 1:numel(ecc);
     params.eqMosaic = false;             % for debugging. true or false
     
     % make some notes...
-    params.notes = 'apollo macpig stuff';       % notes that should be associated the data file?
+    params.notes = 'multiplying nCones by 2 to verify sqrt(2) in manuscript';       % notes that should be associated the data file?
     
     
     
@@ -48,14 +48,14 @@ for a = 1:numel(ecc);
     % hijack DTcones ability to import all the relavent gabor parameters.
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dtnt.rf_x = ecc(a);     % in tenths of dva
+    dtnt.rf_x = 50;     % in tenths of dva
     dtnt.rf_y = 0;       % in tenths of dva
-    dtnt.sigma = 1.5;    % in tenths of dva
-    dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
+    dtnt.sigma = 4;    % in tenths of dva
+    dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
     dtnt.theta = 0;
     dtnt.gamma = 1;
     dtnt.length = .666;  % in seconds
-    dtnt.speed = 25;
+    dtnt.speed = TF(a);
     dtnt.sfs = 3;
     dtnt.alphas = []; % gets filled in later
     dtnt.colorDirs = []; % gets filled in later
