@@ -11,14 +11,14 @@ N = numel(alphas);
 
 % reassign the residuals to the model thresholds based on empirical data
 % and then re-run the fit. save the fparams as the bootstrap versions.
-starttime = GetSecs;
+tic;
 strapNum = 1;
 while (strapNum <= nstraps)
     
     idx = unidrnd(N, N, 1); % resampling with replacement! 
     alphas_bt = mod_thresh_emp .* exp(log_residual(idx)); % bootstraped thresholds
     
-    % run the fit using the three typical methods
+    % run the fit using the two typical methods
     [fpar_default, fval_default] = fitDetectionSurface(colors, alphas_bt, 'ellipsoid');
     [fpar_initParam, fval_initParam] = fitDetectionSurface(colors, alphas_bt, fpar_emp);
     
@@ -29,7 +29,7 @@ while (strapNum <= nstraps)
     [~, idx] = min(fvals_tmp)
     bestPars = fpars_tmp(idx,:);    
     
-    if bestPars(1)<50;
+    if bestPars(1)<50; % hack to exclude wonky fits to resampled data.
         fpars_bt{strapNum} = bestPars;
         strapNum = strapNum+1;
     end
@@ -37,7 +37,7 @@ while (strapNum <= nstraps)
     % alert the user to how much time things are taking.
     if rem(strapNum,100)==0
         clc
-        fprintf('bootstrap number: %d in %.3f seconds\n', strapNum, GetSecs-starttime)
+        fprintf('bootstrap number: %d in %.3f seconds\n', strapNum, toc)
     end
 end
 

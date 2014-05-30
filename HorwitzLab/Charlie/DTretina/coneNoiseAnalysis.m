@@ -9,8 +9,8 @@ presdir = pwd;
 switch whoami
     case 'hass_mbp' % charlie's laptop
         cd '/Users/charliehass/LabStuff/Huskies/DTcones/Data/';
-    otherwise
-        % do nothing
+    case 'nuke'
+        cd 'C:\Users\charlie\Desktop\Local Data\DTcones\Data';
 end
 [fname, fpath] = uigetfile('Pick a text file');
 load([fpath, fname]);
@@ -408,20 +408,20 @@ fprintf('Min Vec:   %.2f, %.2f, %.2f \n', minVec(1,1)/1.5, minVec(1,2)/1.5, minV
 clc; close all;
 
 % Set the parameters of the analysis
-observer = 'sedna';              % 'kali' or 'sedna'
-theseSFToBootstrap = [0,0,0,0]; % generate bootstrap estimates for only a subset of the SFs 
-nstraps = 4000;
+observer = 'kali';              % 'kali' or 'sedna'
+theseSFToBootstrap = [1 1 1 1]; % generate bootstrap estimates for only a subset of the SFs 
+nstraps = 5000;
 
 
 % load the data
-clear fpar_monkey fpar_bootstrap
+clear fpar_monkey fpar_bootstrap existingBootstraps existingParams % makes auto detection of existing params work
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
-        %load Kali_fpar_072113.mat % fits to monkey surfaces
-        %load Kali_boot_072113.mat % bootstraps for kali
-        %existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
-        %existingBootstraps = fpar_bootstrap;
+        load Kali_fpar_050514.mat % fits to monkey surfaces 050514 for more straps or 072113 for fewer
+        load Kali_boot_050514.mat % bootstraps for kali 050514 or 072113
+        existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
+        existingBootstraps = fpar_bootstrap;
     case 'sedna'
         load Sedna_DTNT_072113.mat % monkey data
 %         load Sedna_fpar_072113.mat % fits to monkey surfaces
@@ -1402,13 +1402,12 @@ ylim([0, 3])
 fin
 filename = 'sednaDTNT_ch.txt'; % kaliDTNT_ch or sednaDTNT_ch
 
-if islabcomputer && ismac
-    DTNT_txtfile = '~/Dropbox/Charlie/';
-elseif ismac && ~ispc
-    DTNT_txtfile = '~/Dropbox/Charlie (on horwitzlab)/';
-else 
-   DTNT_txtfile =  'C:\Users\horwitzlab\Dropbox\Charlie\';
+switch whoami
+    case 'hass_mbp'
+        DTNT_txtfile = '~/LabStuff/Huskies/DTcones/';
+    case 'nuke'
 end
+
 
 fnames = fnamesFromTxt2([DTNT_txtfile, filename]);
 
@@ -1420,27 +1419,23 @@ for a = 1:numel(fnames)
     end
     
     fprintf('Unpacking file %d of %d: <%s>\n', a, numel(fnames), fnames{a}{1})
-    try
-        if ismac
-            path = findfile(fnames{a}{1}, '/Volumes/NO BACKUP/NexFiles/');
-            DT = dtobj(path);
-        else
-            DT = dtobj(fnames{a}{1});
-        end
-                
-        [tmpAlpha, tmpColor] = DTquestUnpack(DT, 'mode'); close(gcf)        %thresholds in CC b/w 0 & 100%
-        [tmpBadThresh, ~] = DTquestUnpack(DT, 'mode', 15, 0.10); close(gcf)  % will return a NaN for bad estimates
-        
-        
-        for clr = 1:size(tmpColor,1)
-            tmp = sum(DT.trial(:, DT.idx.colorDir) == clr);
-            minTrials = min([minTrials, tmp])
-        end
-        
-    catch
-        fprintf('************ File <%s> failed **********\n', fnames{a}{1})
-        continue
+
+    if ismac
+        path = findfile(fnames{a}{1}, '/Volumes/NO BACKUP/NexFiles/');
+        DT = dtobj(path);
+    else
+        DT = dtobj(fnames{a}{1});
     end
+    
+    [tmpAlpha, tmpColor] = DTquestUnpack(DT, 'mode'); close(gcf)        %thresholds in CC b/w 0 & 100%
+    [tmpBadThresh, ~] = DTquestUnpack(DT, 'mode', 15, 0.10); close(gcf)  % will return a NaN for bad estimates
+    
+    
+    for clr = 1:size(tmpColor,1)
+        tmp = sum(DT.trial(:, DT.idx.colorDir) == clr);
+        minTrials = min([minTrials, tmp])
+    end
+        
     
     
     % extract the relavent parameters
