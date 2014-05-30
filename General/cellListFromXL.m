@@ -19,6 +19,8 @@ cd([GL_DOCUPATH, filesep, 'Other_workbooks'])
 
 % remove the first line and designate it as the header
 header = raw(1,:);
+l_nan = cellfun(@(x) all(isnan(x)), header, 'uniformoutput', true);
+header(l_nan) = [];
 raw(1,:) = [];
 
 % iterate over the optional inputs (varargin) and find the neurons that
