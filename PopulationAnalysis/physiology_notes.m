@@ -2,7 +2,7 @@
 
 global GL_ADD_TO_MDB GL_SUPPRESS_ANALYSIS
 
-GL_ADD_TO_MDB = false;
+GL_ADD_TO_MDB = true;
 GL_SUPPRESS_ANALYSIS = false;
 
 %% TEMPLATE VERSION (mouse name and cell num)
@@ -2755,6 +2755,109 @@ end
 if GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
+
+
+%% EB_042114_A Cell 1
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'EB_042114_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '2014_05_09_0001';    % DC steps for Rin and cell identification
+params.photo = 'cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_09_0003';...
+                '2014_05_09_0005';...
+                '2014_05_09_0006';...
+                '2014_05_09_0007';...
+                '2014_05_09_0008'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85.*ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  20 230;...
+                  20 230;...
+                  20 230;...
+                  50 384];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+%% EB_042114_A Cell 2
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'EB_042114_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.DCsteps = '2014_05_09_0013';    % DC steps for Rin and cell identification
+params.photo = 'cell_2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_05_09_0012';...
+                '2014_05_09_0015';...
+                '2014_05_09_0016';...
+                '2014_05_09_0017';...
+                '2014_05_09_0018';...
+                '2014_05_09_0019';...
+                '2014_05_09_0020';...
+                '2014_05_09_0021';...
+                '2014_05_09_0022'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85 .* ones(numel(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  -83 228;...
+                  -83 228;...
+                  -83 228;...
+                  -125 363;...
+                  -125 363;...
+                  -125 363;...
+                  -152 480;...
+                  -152 480];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
 
 
 
