@@ -2,7 +2,7 @@
 
 global GL_ADD_TO_MDB GL_SUPPRESS_ANALYSIS
 
-GL_ADD_TO_MDB = true;
+GL_ADD_TO_MDB = false;
 GL_SUPPRESS_ANALYSIS = false;
 
 %% TEMPLATE VERSION (mouse name and cell num)
@@ -2757,6 +2757,56 @@ if GL_ADD_TO_MDB
 end
 
 
+%% EB_041414_E Cell 3
+
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Very good and very stable Ra. FS cell from L2/3 in AL. Adding to pop
+% analysis
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'EB_041414_E';      % The mouse's name
+params.cellNum = 3;    % The neuron number that day
+params.DCsteps = '2014_04_29_0027';    % DC steps for Rin and cell identification
+params.photo = 'cell_3_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_04_29_0031';...
+                '2014_04_29_0034';...
+                '2014_04_29_0035';...
+                '2014_04_29_0036';...
+                '2014_04_29_0037'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85.*ones(size(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = [0 0;...
+                  -233 185;...
+                  -233 185;...
+                  -233 185;...
+                  -356 241];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.tags = {'axon stim', 'spatial slight spread', 'retro infect'};
+params.subtractexp = GL_ADD_TO_MDB;
+params.filter = 4000;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
 %% EB_042114_A Cell 1
 
 fin
@@ -2803,6 +2853,7 @@ if GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
+
 %% EB_042114_A Cell 2
 
 fin
@@ -2841,59 +2892,6 @@ params.stimLoc = [0 0;...
                   -152 480];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_ADD_TO_MDB;
-params.filter = 4000;
-
-
-%
-% ANALYZE OR ADD TO MDB
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_pulseTrains_stimLoc};
-    params = invitroAnalysisOverview(params);
-end
-
-if GL_ADD_TO_MDB
-    addPopAnlyParamsToMDB(params);
-end
-
-
-
-
-
-%% EB_041414_E Cell 3
-
-fin
-
-%
-% NOTES (cell type, location, experiment type, etc).
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% Very good and very stable Ra. FS cell from L2/3 in AL. Adding to pop
-% analysis
-
-%
-% PARAMETERS
-%%%%%%%%%%%%%%%%%%%
-params.mouse = 'EB_041414_E';      % The mouse's name
-params.cellNum = 3;    % The neuron number that day
-params.DCsteps = '2014_04_29_0027';    % DC steps for Rin and cell identification
-params.photo = 'cell_3_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
-params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
-params.files = {'2014_04_29_0031';...
-                '2014_04_29_0034';...
-                '2014_04_29_0035';...
-                '2014_04_29_0036';...
-                '2014_04_29_0037'};      % File names of the raw data. <Nx1> cell array
-params.skipSweeps = {}; % In case I need to ignore certain sweeps
-params.vHold = -85.*ones(size(params.files));     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
-params.stimLoc = [0 0;...
-                  -233 185;...
-                  -233 185;...
-                  -233 185;...
-                  -356 241];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
-params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.tags = {'axon stim', 'spatial slight spread', 'retro infect'};
 params.subtractexp = GL_ADD_TO_MDB;
 params.filter = 4000;
 
