@@ -259,7 +259,7 @@ clc; close all;
 
 % Set the parameters of the analysis
 observer = 'kali';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
-sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 3] for sedna
+sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
 viewSetting = 'isolum';   % could also be 'lm plane', 's vs l+m', 'isolum'
 plottype = '3D';
 
@@ -339,9 +339,9 @@ subplot(1,2,1); % behavioral data
 title(sprintf('Spatial Frequency = %.2f cpd', sfs(sfIdx)))
 threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
 
-subplot(1,2,2)% cone noise data
-title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
-threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
+% subplot(1,2,2)% cone noise data
+% title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
+% threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
 
 
 %
@@ -1371,7 +1371,7 @@ title('Model Thresholds')
 xlabel('Eccentricity (dva)')
 ylabel('Threshold (Lum contrast)')
 xlim([0 7.5])
-ylim([10^(-2.45) 10^(-0.95)])
+ylim([10^(-2.75) 10^(-1.25)])
 diff(log10(get(gca, 'ylim')))
 set(gca, 'yscale', 'log')
 
@@ -1389,8 +1389,11 @@ for a = 1:size(tmp_sim,1)
     inds = ~isnan(tmp_dat(a,:));
     plot(pltEcc(inds), tmp_dat(a,inds), 'linewidth', 3, 'color', pltColors(a,:))
 end
-%set(gca, 'yscale', 'log')
-ylim([0, 3])
+set(gca, 'yscale', 'log')
+ylim([1, 5])
+xlim([0, 7.5])
+ylabel('Monkey to Model ratio')
+xlabel('Eccentricity (deg)')
 
 
 
@@ -1629,7 +1632,6 @@ for a = 1:numel(retinaFiles)
     
     fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/Huskies/DTcones/Data', '.mat');
     load(fpath)
-    gab.contrasts{1}
     [gab.nSd, gab.driftRate, gab.rf_x, gab.rf_y, gab.sd, gab.sf, gab.theta]
     [idlob, cones] = coneNoiseROC(params, idlob, cones, gab); % do the ROC analysis and fit neurometric fxns
     
@@ -1710,8 +1712,8 @@ set([h_yy, ax],...
 set(h_yy(2),...
     'ycolor', 'b',...
     'linewidth', 2,...
-    'ylim', [33, 330],...
-    'ytick', linspace(33, 330, 10))
+    'ylim', [48, 480],...
+    'ytick', linspace(47, 470, 10))
 
 set(h_line2,...
     'color', 'b',...
