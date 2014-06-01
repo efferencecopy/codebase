@@ -43,7 +43,7 @@ for a = 1:numel(params.files)
     avgCurrent{a} = raw;
     
     if ~isempty(params.filter)
-       avgCurrent{a} = butterFilt(avgCurrent{a}, params.ax{a}.head.sampRate, params.filter, 'low');
+       avgCurrent{a} = butterfilt(avgCurrent{a}, params.filter, params.ax{a}.head.sampRate, 'low');
     end
 end
 
@@ -98,6 +98,12 @@ for i = 1:numel(params.files)
         % find the max
         vals = tmp_avg(idx_pulse);
         [~, minIdx] = min(vals);
+        
+        % check for out of bounds errors
+        if minIdx<ptsPerWindow
+            minIdx = ptsPerWindow+1;
+            warning('No valid start point located')
+        end
         
         % compute the average
         idx = [minIdx-ptsPerWindow : minIdx+ptsPerWindow];

@@ -55,16 +55,16 @@
 
 %% TF vs PP ratio vs STIM LOCATION
 
-
+fin
 
 % specify which neurons you want to analyze
-attribute.area = 'PM';
-attribute.type = 'FS';
+%attribute.area = 'PM';
+attribute.type = 'PY';
 attribute.layer = '2/3';
 %attribute.multiple = 1;
 
 % other parameters
-pulsenumber = 2; % which pulse to compare with the first for PP_ratio
+pulsenumber = 4; % which pulse to compare with the first for PP_ratio
 pltclr = 'k';
 newfig = 1;
 
@@ -102,6 +102,13 @@ for neuron = 1:numel(mdbidx);
     % each neuron has several files. Iterate through these and assign the
     % PPratio to the appropriate row and col idx for the popdat matrix
     for fl = 1:numel(celldat.files)
+        
+        % don't analyze if the TF is < 5;
+        if celldat.TF(fl) < 5-eps
+            fprintf('TF = %.3f discarded\n', celldat.TF(fl))
+            continue
+        end
+        
         % deal with the PP ratio analysis
         rowIdx = softEq(TFs, celldat.TF(fl), 5);
         assert(~isempty(rowIdx), 'ERROR: could not find TF');
