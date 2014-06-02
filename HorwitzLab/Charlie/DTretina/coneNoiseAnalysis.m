@@ -334,10 +334,11 @@ fpar_cones = fitDetectionSurface(gab.colorDirs, cones.alpha_analytic, 'ellipsoid
 
 % plot the raw data
 figure;
-set(gcf, 'position', [213 316 1089 490])
+set(gcf, 'position', [56 5 1377 801])
 subplot(1,2,1); % behavioral data
 title(sprintf('Spatial Frequency = %.2f cpd', sfs(sfIdx)))
 threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
+set(gca, 'view', [ 20.2000  -19.8390])
 
 % subplot(1,2,2)% cone noise data
 % title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
