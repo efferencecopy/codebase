@@ -53,7 +53,7 @@
 
 
 
-%% TF vs PP ratio vs STIM LOCATION
+%% 3D PLOT OF TF vs PP ratio vs STIM LOCATION
 
 fin
 
@@ -61,10 +61,10 @@ fin
 %attribute.area = 'PM';
 attribute.type = 'PY';
 attribute.layer = '2/3';
-%attribute.multiple = 1;
+attribute.multiple = 1;
 
 % other parameters
-pulsenumber = 4; % which pulse to compare with the first for PP_ratio
+pulsenumber = 2; % which pulse to compare with the first for PP_ratio
 pltclr = 'k';
 newfig = 1;
 
@@ -76,7 +76,7 @@ newfig = 1;
 % Ndists by Ntfs by Ncells. 'Dist' defines bin centers. So if the distance
 % from the objective to cell body is 75um than this data point will fall
 % in the first bin (the 0 to 100 bin).
-dist = 50:100:650;
+dist = 50:50:600;
 binedges = dist-50;
 TFs = [5,10,20,40];
 popdat_pp = nan(numel(TFs), numel(dist), numel(mdbidx));
@@ -185,6 +185,252 @@ ylabel('Distance')
 zlabel('Paired Pulse Ratio')
 
 
+
+
+%% PP VS. DISTANCE FOR A SINGLE TF
+
+fin
+
+
+% specify which neurons you want to analyze
+%attribute.area = 'PM';
+attribute.type = 'PY';
+attribute.layer = '2/3';
+%attribute.multiple = 1;
+
+% other parameters
+TF = 20;
+pulsenumber = 5; % which pulse to compare with the first for PP_ratio
+
+% locate the neurons in the mouseDB
+[mdbidx, cellnum] = cellListFromXL('Cell_Library', 1, attribute);
+
+% load the mdb
+mdb = initMouseDB(0, true);
+
+N = numel(cellnum);
+PPratio = {};
+stimLoc = {};
+for a = 1:N
+    
+   % grab the data
+    celldat = mdb.mice{mdbidx(a)}.popAnly{cellnum(a)}; 
+    
+    % look for files were the desired TF was actually tested
+    l_TF = softEq(TF, celldat.TF, 5);
+    if ~any(l_TF); continue; end
+    
+    %store the PPratio
+    pnum = repmat({pulsenumber}, size(celldat.TF));
+    tmp_ppratio = cellfun(@(x,y)  x(y)./x(1), celldat.pscamp, pnum);
+    
+    % store the stimulus position
+    tmp_dist = sqrt(sum(celldat.stimLoc.^2, 2));
+    
+    
+    % weed out the non-intended TFs,average across multiple instances of a
+    % particular distance
+    tmp_dist = tmp_dist(l_TF);
+    tmp_ppratio = tmp_ppratio(l_TF);
+    unique_dist = unique(tmp_dist);
+    unique_ppratio = [];
+    for i = 1:numel(unique_dist);
+        l_dist = tmp_dist == unique_dist(i);
+        unique_ppratio(i) = mean(tmp_ppratio(l_dist));
+    end   
+    
+    % package the unique distances (which should now be in ascending order
+    % of stimulus location)
+    stimLoc{a} = unique_dist;
+    if isempty(stimLoc{a});
+        keyboard
+    end
+    PPratio{a} = unique_ppratio;
+    
+    
+end
+
+% empty cells means that there was no data at that TF/dist combo. weed
+% these out
+l_empty = cellfun(@isempty, stimLoc);
+stimLoc(l_empty) = [];
+PPratio(l_empty) = [];
+N = numel(PPratio);
+
+
+% make a figure of all the data
+f = figure; hold on,
+for a = 1:N
+    plot(stimLoc{a}, PPratio{a}, '-k.')
+end
+hold off
+
+% plot the trend line (bined by distance)
+start = 100;
+delta = 50;
+maxDist = max(cellfun(@max,stimLoc));
+maxDist = 100 .* ceil(maxDist./100);
+binRedge = start:delta:maxDist
+binLedge = binRedge-delta;
+binLedge(1) = 0
+binned_ppratio = nan(N, size(binLedge,2));
+for a = 1:N
+    for i = 1:numel(PPratio{a})
+        % which bin does the PPratio live in?
+        bin_idx = (binLedge<=stimLoc{a}(i)) & (binRedge > stimLoc{a}(i));
+        binned_ppratio(a, bin_idx) = PPratio{a}(i);
+    end
+end
+
+figure(f), hold on,
+avg =  nanmean(binned_ppratio, 1);
+plot(binLedge, avg, '-bo', 'linewidth', 3, 'markerfacecolor', 'b');
+sem = nanstd(binned_ppratio, 1) ./ sqrt(sum(~isnan(binned_ppratio), 1));
+plot([binLedge; binLedge], [avg-sem; avg+sem], '-b', 'linewidth', 3)
+set(gca, 'yscale', 'log')
+axis tight
+xlim([binLedge(1)-30, binLedge(end)+30])
+
+datPts = sum(~isnan(binned_ppratio), 1);
+minY = min(cellfun(@min, PPratio)).*0.8;
+maxY = max(cellfun(@max, PPratio)).*1.05;
+for a = 1:numel(datPts)
+    text(binLedge(a), minY, ['(',num2str(datPts(a)),')'])
+end
+ylim([minY.*0.75 maxY])
+
+% add the labels
+set(gca, 'fontsize', 18)
+xlabel('LED location (um from soma)')
+ylabel(sprintf('P%d to P1 ratio', pulsenumber))
+title(sprintf('PPratio vs. Dist for %d Hz', TF))
+
+
+
+%% PP VS.TF FOR A SINGLE STIMULUS LOCATION
+
+fin
+
+% specify which neurons you want to analyze
+attribute.area = 'AL';
+attribute.type = 'IN';
+attribute.layer = '2/3';
+%attribute.multiple = 1;
+
+% other parameters
+distCrit = 300;
+pulsenumber = 2; % which pulse to compare with the first for PP_ratio
+
+% locate the neurons in the mouseDB
+[mdbidx, cellnum] = cellListFromXL('Cell_Library', 1, attribute);
+
+% load the mdb
+mdb = initMouseDB(0, true);
+
+N = numel(cellnum);
+PPratio = {};
+TFs = {};
+for a = 1:N
+    
+    % grap the data
+    celldat = mdb.mice{mdbidx(a)}.popAnly{cellnum(a)};
+    
+    % figure out what distances were tested. Grab the indicies to the first
+    % location that is greater than the distance criterion
+    tmp_dist = sqrt(sum(celldat.stimLoc.^2,2));
+    uniqueDists = unique(tmp_dist);
+    if ~any(uniqueDists >= distCrit)
+        continue
+    end
+    firstDistIdx = find(uniqueDists > distCrit, 1, 'first');
+    l_gtCrit = tmp_dist == uniqueDists(firstDistIdx);
+    
+    % determine the PPratio, and store it along with the TF. Do this in tmp
+    % arrays. Sort the tmp arrays by TF, and then store in a perminant
+    % array
+    TFs{a} = celldat.TF(l_gtCrit);
+    pnum = repmat({pulsenumber}, size(TFs{a}));
+    PPratio{a} = cellfun(@(x,y) x(y)./x(1), celldat.pscamp(l_gtCrit), pnum);
+    
+end
+
+
+% figure out the unique TFs tested across each file. Reorganize the data
+% into a big matrix of [Ncells x UniqueTFs]
+bigTFvector = cat(2, TFs{:});
+uniqueTFs = unique(round(bigTFvector));
+uniqueTFs = [5, 20, 40]
+N = numel(TFs);
+data = nan(N, numel(uniqueTFs));
+for a = 1:N
+    for i = 1:numel(TFs{a})
+        colIdx = uniqueTFs == round(TFs{a}(i));
+        data(a, colIdx) = PPratio{a}(i);
+    end
+end
+
+
+% Plot the PPratios as a function of TF. Once for all the data, and again
+% for the average +/- SEM
+avg = nanmean(data,1);
+N = sum(~isnan(data),1);
+sem = nanstd(data,[],1)./sqrt(N);
+if ~exist('fhand', 'var')
+    fhand = figure; hold on,
+end
+[clr_raw, clr_avg] = hvaPlotColor(attribute.area);
+plot(uniqueTFs', data', '-', 'color', clr_raw)
+plot(uniqueTFs, avg, '-o','color', clr_avg,  'linewidth', 3, 'markerfacecolor', clr_avg)
+set(gca, 'xscale', 'log', 'yscale', 'log')
+xlim([4 45])
+
+%% PPratio VS. PULSE MAGNITUDE AT THE SOMA
+
+% specify which neurons you want to analyze
+attribute.area = '.';
+attribute.type = 'PY';
+attribute.layer = '2/3';
+%attribute.multiple = 1;
+
+% a few other paramters
+pulsenumber = 2;
+
+% locate the neurons in the mouseDB
+[mdbidx, cellnum] = cellListFromXL('Cell_Library', 1, attribute);
+
+% load the mdb
+mdb = initMouseDB(0, true);
+
+PPratio = [];
+pulseMag = [];
+for a = 1:numel(mdbidx)
+    
+    % grab the data
+    celldat = mdb.mice{mdbidx(a)}.popAnly{cellnum(a)};
+    
+    % only consider things at the soma
+    tmpDist = sqrt(sum(celldat.stimLoc.^2, 2));
+    l_soma = find(round(tmpDist) == 0, 1, 'first');
+    
+    %only consider 20 Hz.
+    if round(celldat.TF(l_soma)) ~= 20;
+        continue
+    end
+    
+    % store the data
+    PPratio(end+1) = celldat.pscamp{l_soma}(pulsenumber) ./ celldat.pscamp{l_soma}(1);
+    pulseMag(end+1) = celldat.pscamp{l_soma}(1);
+    
+    
+end
+
+figure
+plot(pulseMag, PPratio, 'ko')
+xlabel('Pulse Magnitude')
+ylabel('P2 to P1 ratio')
+
+
+%% PPratio VS. pulse TIME for all TFs.
 
 
 
