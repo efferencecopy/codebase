@@ -32,7 +32,7 @@ if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the ph
             stimPoints = bsxfun(@plus, stimPoints, centPos); % pix relative to neuron
             hold on,
             for a = 1:size(stimPoints,1)
-                plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:))
+                plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:), 'markersize', 10)
             end
             drawnow
         end

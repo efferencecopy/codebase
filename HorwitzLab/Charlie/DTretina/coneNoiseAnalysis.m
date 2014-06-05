@@ -338,11 +338,12 @@ set(gcf, 'position', [56 5 1377 801])
 subplot(1,2,1); % behavioral data
 title(sprintf('Spatial Frequency = %.2f cpd', sfs(sfIdx)))
 threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
-set(gca, 'view', [ 20.2000  -19.8390])
 
-% subplot(1,2,2)% cone noise data
-% title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
-% threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
+subplot(1,2,2)% cone noise data
+title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
+threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
+
+
 
 
 %
@@ -371,10 +372,10 @@ conesThresh = coleThresh(reshape(fpar_cones(2:end),3,3), fpar_cones(1), colors);
 C = monkeyThresh ./ conesThresh;
 C = log10(C);
 C = reshape(C, size(X,1), size(X,2)); % for plotting
-minVal = min(C(:))
+minVal = min(C(:));
 minVec = [X(C(:) == minVal), Y(C(:) == minVal), Z(C(:) == minVal)] .* 1.5;
 if size(minVec,1) ==1; minVec = [minVec; -minVec]; end
-maxVal = max(C(:))
+maxVal = max(C(:));
 maxVec = [X(C(:) == maxVal), Y(C(:) == maxVal), Z(C(:) == maxVal)] .* 1.5;
 if size(maxVec,1) ==1; maxVec = [maxVec; -maxVec]; end
 
@@ -419,8 +420,8 @@ clear fpar_monkey fpar_bootstrap existingBootstraps existingParams % makes auto 
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
-        load Kali_fpar_050514.mat % fits to monkey surfaces 050514 for more straps or 072113 for fewer
-        load Kali_boot_050514.mat % bootstraps for kali 050514 or 072113
+        load Kali_fpar_072113.mat % fits to monkey surfaces 050514 for more straps or 072113 for fewer
+        load Kali_boot_072113.mat % bootstraps for kali 050514 or 072113
         existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
         existingBootstraps = fpar_bootstrap;
     case 'sedna'

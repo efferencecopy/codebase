@@ -58,14 +58,14 @@
 fin
 
 % specify which neurons you want to analyze
-%attribute.area = 'PM';
+attribute.area = '.';
 attribute.type = 'PY';
 attribute.layer = '2/3';
 attribute.multiple = 1;
 
 % other parameters
 pulsenumber = 2; % which pulse to compare with the first for PP_ratio
-pltclr = 'k';
+[~, pltclr] = hvaPlotColor(attribute.area);
 newfig = 1;
 
 % locate the neurons in the mouseDB
@@ -193,14 +193,14 @@ fin
 
 
 % specify which neurons you want to analyze
-%attribute.area = 'PM';
+attribute.area = '.';
 attribute.type = 'PY';
 attribute.layer = '2/3';
-%attribute.multiple = 1;
+attribute.multiple = 1;
 
 % other parameters
 TF = 20;
-pulsenumber = 5; % which pulse to compare with the first for PP_ratio
+pulsenumber = 2; % which pulse to compare with the first for PP_ratio
 
 % locate the neurons in the mouseDB
 [mdbidx, cellnum] = cellListFromXL('Cell_Library', 1, attribute);
@@ -260,14 +260,15 @@ N = numel(PPratio);
 
 % make a figure of all the data
 f = figure; hold on,
+set(gcf, 'position', [285     5   787   800])
 for a = 1:N
     plot(stimLoc{a}, PPratio{a}, '-k.')
 end
 hold off
 
 % plot the trend line (bined by distance)
-start = 100;
-delta = 50;
+start = 200;
+delta = 100;
 maxDist = max(cellfun(@max,stimLoc));
 maxDist = 100 .* ceil(maxDist./100);
 binRedge = start:delta:maxDist
@@ -282,25 +283,28 @@ for a = 1:N
     end
 end
 
+binCenter = [binLedge(1), binLedge(2:end)+(delta/2)]
+
 figure(f), hold on,
 avg =  nanmean(binned_ppratio, 1);
-plot(binLedge, avg, '-bo', 'linewidth', 3, 'markerfacecolor', 'b');
+plot(binCenter, avg, '-bo', 'linewidth', 4, 'markerfacecolor', 'b', 'markersize', 10);
 sem = nanstd(binned_ppratio, 1) ./ sqrt(sum(~isnan(binned_ppratio), 1));
-plot([binLedge; binLedge], [avg-sem; avg+sem], '-b', 'linewidth', 3)
-set(gca, 'yscale', 'log')
+plot([binCenter; binCenter], [avg-sem; avg+sem], '-b', 'linewidth', 4)
+set(gca, 'yscale', 'log', 'ytick', [0.01, [.2:.4:1.6]], 'yticklabel', [0.01, [.2:.2:1.2]])
 axis tight
-xlim([binLedge(1)-30, binLedge(end)+30])
+xlim([binCenter(1)-40, binCenter(end)+30])
 
 datPts = sum(~isnan(binned_ppratio), 1);
 minY = min(cellfun(@min, PPratio)).*0.8;
 maxY = max(cellfun(@max, PPratio)).*1.05;
 for a = 1:numel(datPts)
-    text(binLedge(a), minY, ['(',num2str(datPts(a)),')'])
+    t = text(binCenter(a)-20, minY, ['(',num2str(datPts(a)),')']);
+    set(t, 'Fontsize', 25)
 end
 ylim([minY.*0.75 maxY])
 
 % add the labels
-set(gca, 'fontsize', 18)
+set(gca, 'fontsize', 35, 'linewidth', 2)
 xlabel('LED location (um from soma)')
 ylabel(sprintf('P%d to P1 ratio', pulsenumber))
 title(sprintf('PPratio vs. Dist for %d Hz', TF))
@@ -309,16 +313,16 @@ title(sprintf('PPratio vs. Dist for %d Hz', TF))
 
 %% PP VS.TF FOR A SINGLE STIMULUS LOCATION
 
-fin
+
 
 % specify which neurons you want to analyze
 attribute.area = 'AL';
 attribute.type = 'IN';
 attribute.layer = '2/3';
-%attribute.multiple = 1;
+attribute.multiple = 1;
 
 % other parameters
-distCrit = 300;
+distCrit = 350;
 pulsenumber = 2; % which pulse to compare with the first for PP_ratio
 
 % locate the neurons in the mouseDB
@@ -377,12 +381,97 @@ N = sum(~isnan(data),1);
 sem = nanstd(data,[],1)./sqrt(N);
 if ~exist('fhand', 'var')
     fhand = figure; hold on,
+    set(gca, 'fontsize', 35)
+    xlabel('Temporal Frequency')
+    ylabel('Paired Pulse Ratio')
+else
+    figure(fhand); hold on,
+    set(gca, 'fontsize', 35)
+    xlabel('Temporal Frequency')
+    ylabel('Paired Pulse Ratio')
 end
 [clr_raw, clr_avg] = hvaPlotColor(attribute.area);
 plot(uniqueTFs', data', '-', 'color', clr_raw)
-plot(uniqueTFs, avg, '-o','color', clr_avg,  'linewidth', 3, 'markerfacecolor', clr_avg)
-set(gca, 'xscale', 'log', 'yscale', 'log')
+plot(uniqueTFs, avg, '-o','color', clr_avg,  'linewidth', 4, 'markerfacecolor', clr_avg, 'markersize', 10)
+set(gca, 'xscale', 'log', 'yscale', 'log', 'linewidth', 2, 'fontsize', 35)
 xlim([4 45])
+
+
+%% PPratio VS. pulse TIME for all TFs.
+
+% specify which neurons you want to analyze
+attribute.area = 'PM';
+attribute.type = 'PY';
+attribute.layer = '2/3';
+
+% other parameters
+distCrit = 350;
+defaultTFs = [5 20 40];
+
+% locate the neurons in the mouseDB
+[mdbidx, cellnum] = cellListFromXL('Cell_Library', 1, attribute);
+
+% load the mdb
+mdb = initMouseDB(0, true);
+
+
+N = numel(cellnum);
+PPratio = nan(numel(defaultTFs), 5, N);
+for a = 1:N
+    
+    % grap the data
+    celldat = mdb.mice{mdbidx(a)}.popAnly{cellnum(a)};
+    
+    % figure out what distances were tested. Grab the indicies to the first
+    % location that is greater than the distance criterion
+    tmp_dist = sqrt(sum(celldat.stimLoc.^2,2));
+    uniqueDists = unique(tmp_dist);
+    if ~any(uniqueDists >= distCrit)
+        continue
+    end
+    firstDistIdx = find(uniqueDists > distCrit, 1, 'first');
+    l_gtCrit = tmp_dist == uniqueDists(firstDistIdx);
+    
+    % determine the PPratio, and store it along with the TF. Do this in tmp
+    % arrays. Sort the tmp arrays by TF, and then store in a perminant
+    % array
+    TFs = celldat.TF(l_gtCrit);
+    tmp_ppratio = cellfun(@(x) x./x(1), celldat.pscamp(l_gtCrit), 'uniformoutput', false);
+    
+    % oder the PPratios by TF in the big array
+    for i = 1:numel(TFs)
+        rowIdx = round(TFs(i)) == defaultTFs;
+        if ~any(rowIdx)
+            continue
+        end
+        
+        PPratio(rowIdx, :, a) = tmp_ppratio{i}(1:5);
+    end
+    
+end
+
+
+% plot a surface of the PPratio
+if ~exist('fhand', 'var')
+    fhand = figure; hold on,
+    set(gca, 'fontsize', 35)
+%     ylabel('Temporal Frequency')
+%     xlabel('Pulse Number')
+else
+    figure(fhand); hold on,
+    set(gca, 'fontsize', 35)
+%     ylabel('Temporal Frequency')
+%     xlabel('Pulse Number')
+end
+
+[X,Y] = meshgrid(1:5,1:numel(defaultTFs));
+avg = nanmean(PPratio, 3);
+
+pHand = surf(X, Y, avg);
+[clr_raw, clr_avg] = hvaPlotColor(attribute.area);
+set(pHand, 'Facecolor', clr_avg, 'FaceAlpha', .2, 'EdgeColor', clr_avg, 'linewidth', 2)
+set(gca, 'YTick', [1:numel(defaultTFs)], 'YTickLabel', defaultTFs, 'view', [38 10])
+set(gca, 'linewidth', 2)
 
 %% PPratio VS. PULSE MAGNITUDE AT THE SOMA
 
@@ -428,12 +517,6 @@ figure
 plot(pulseMag, PPratio, 'ko')
 xlabel('Pulse Magnitude')
 ylabel('P2 to P1 ratio')
-
-
-%% PPratio VS. pulse TIME for all TFs.
-
-
-
 
 
 
