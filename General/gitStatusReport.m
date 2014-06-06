@@ -6,8 +6,6 @@ presdir = pwd;
 codeDir = which('fin');
 fsep = regexp(codeDir, filesep);
 codeDir = codeDir(1:fsep(end-1)-1);
-
-
 cd(codeDir)
 [~, stdOut] = system('git status');
 lineBreaks = regexpi(stdOut, '\n');
