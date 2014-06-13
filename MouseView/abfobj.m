@@ -22,13 +22,13 @@ classdef abfobj
             if ~exist('fileName', 'var') || isempty(fileName) % no file name supplied
                 currentDir = pwd;
                 cd(GL_DATPATH)
-                [fileName,fpath] = uigetfile('*.nex');
+                [fileName,fpath] = uigetfile('*.abf');
                 fpath = [fpath,fileName];
                 cd(currentDir);
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
-                    mdb = initMouseDB('update', 'notext');
+                    mdb = initMouseDB(false, false);
                 end
                 mouseName = mdb.search(fileName);
                 assert(~isempty(mouseName), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
