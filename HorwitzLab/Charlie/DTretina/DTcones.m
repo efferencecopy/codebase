@@ -457,7 +457,7 @@ function mon = initMonitorCalibration(params, gab, eyes)
     
     % generate a rod-absorPTance spectum and determine the rod R* due to the background
     rodActionSpectra = coneActionSpectra('rod',mon.monSpectWavelengths);
-    rod_OD =  0.45; % Rodieck estimate approx 0.47, Bowmaker et al (1978) estimates 0.475, Baylor (1984) 0.3 to 0.4;
+    rod_OD =  0.35; % Rodieck estimate approx 0.47, Bowmaker et al (1978) estimates 0.475, Baylor (1984) 0.3 to 0.4;
     rod_fund = 1 - 10.^(-rodActionSpectra .* rod_OD);
     rod_fund = bsxfun(@rdivide, rod_fund, max(rod_fund,[],2));
     rodCollectingArea = 1; %in um^2 (JA & CAH).. about 1 Schneeweis (1999) and Schnapf (1990)

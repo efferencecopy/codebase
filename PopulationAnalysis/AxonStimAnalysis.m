@@ -317,7 +317,7 @@ title(sprintf('PPratio vs. Dist for %d Hz', TF))
 
 % specify which neurons you want to analyze
 attribute.area = 'AL';
-attribute.type = 'IN';
+attribute.type = 'PY';
 attribute.layer = '2/3';
 attribute.multiple = 1;
 
@@ -363,7 +363,7 @@ end
 % into a big matrix of [Ncells x UniqueTFs]
 bigTFvector = cat(2, TFs{:});
 uniqueTFs = unique(round(bigTFvector));
-uniqueTFs = [5, 20, 40]
+uniqueTFs = [5, 20, 40];
 N = numel(TFs);
 data = nan(N, numel(uniqueTFs));
 for a = 1:N
@@ -376,37 +376,40 @@ end
 
 % Plot the PPratios as a function of TF. Once for all the data, and again
 % for the average +/- SEM
-avg = nanmean(data,1);
+avg = nanmean(log10(data),1);
 N = sum(~isnan(data),1);
-sem = nanstd(data,[],1)./sqrt(N);
+sem = nanstd(log10(data),[],1)./sqrt(N);
 if ~exist('fhand', 'var')
     fhand = figure; hold on,
     set(gca, 'fontsize', 35)
     xlabel('Temporal Frequency')
-    ylabel('Paired Pulse Ratio')
+    ylabel('Log(PP Ratio)')
 else
     figure(fhand); hold on,
     set(gca, 'fontsize', 35)
     xlabel('Temporal Frequency')
-    ylabel('Paired Pulse Ratio')
+    ylabel('Log(PP Ratio)')
 end
+
 [clr_raw, clr_avg] = hvaPlotColor(attribute.area);
-plot(uniqueTFs', data', '-', 'color', clr_raw)
+plot(uniqueTFs', log10(data'), '-', 'color', clr_raw)
 plot(uniqueTFs, avg, '-o','color', clr_avg,  'linewidth', 4, 'markerfacecolor', clr_avg, 'markersize', 10)
-set(gca, 'xscale', 'log', 'yscale', 'log', 'linewidth', 2, 'fontsize', 35)
+plot([uniqueTFs; uniqueTFs], [avg+sem; avg-sem], '-','color', clr_avg,  'linewidth', 4)
+set(gca, 'xscale', 'log', 'linewidth', 2, 'fontsize', 35)
+set(gca, 'ytick', log10([0.66 1 1.5]), 'ytickLabel', [0.66 1 1.5])
 xlim([4 45])
 
 
 %% PPratio VS. pulse TIME for all TFs.
 
 % specify which neurons you want to analyze
-attribute.area = 'PM';
+attribute.area = 'AL';
 attribute.type = 'PY';
 attribute.layer = '2/3';
 
 % other parameters
 distCrit = 350;
-defaultTFs = [5 20 40];
+defaultTFs = [40];
 
 % locate the neurons in the mouseDB
 [mdbidx, cellnum] = cellListFromXL('Cell_Library', 1, attribute);
@@ -416,7 +419,7 @@ mdb = initMouseDB(0, true);
 
 
 N = numel(cellnum);
-PPratio = nan(numel(defaultTFs), 5, N);
+PPratio = nan(numel(defaultTFs), 4, N);
 for a = 1:N
     
     % grap the data
@@ -445,7 +448,7 @@ for a = 1:N
             continue
         end
         
-        PPratio(rowIdx, :, a) = tmp_ppratio{i}(1:5);
+        PPratio(rowIdx, :, a) = tmp_ppratio{i}(1:size(PPratio,2));
     end
     
 end
@@ -464,14 +467,35 @@ else
 %     xlabel('Pulse Number')
 end
 
-[X,Y] = meshgrid(1:5,1:numel(defaultTFs));
-avg = nanmean(PPratio, 3);
 
-pHand = surf(X, Y, avg);
-[clr_raw, clr_avg] = hvaPlotColor(attribute.area);
-set(pHand, 'Facecolor', clr_avg, 'FaceAlpha', .2, 'EdgeColor', clr_avg, 'linewidth', 2)
-set(gca, 'YTick', [1:numel(defaultTFs)], 'YTickLabel', defaultTFs, 'view', [38 10])
-set(gca, 'linewidth', 2)
+% Things to plot when more than one default TF is defined
+if numel(defaultTFs)>1
+    [X,Y] = meshgrid(1:5,1:numel(defaultTFs));
+    avg = nanmean(PPratio, 3);
+    
+    pHand = surf(X, Y, avg);
+    [clr_raw, clr_avg] = hvaPlotColor(attribute.area);
+    set(pHand, 'Facecolor', clr_avg, 'FaceAlpha', .2, 'EdgeColor', clr_avg, 'linewidth', 2)
+    set(gca, 'YTick', [1:numel(defaultTFs)], 'YTickLabel', defaultTFs, 'view', [38 10])
+    set(gca, 'linewidth', 2)
+end
+
+% Things to plot if only one default TF is defined
+if numel(defaultTFs)==1
+    avg_log  = nanmean(log10(PPratio), 3);
+    sem_log = nanstd(log10(PPratio), [], 3)./sqrt(sum(~isnan(PPratio), 3));
+    dT = 1./defaultTFs.*1000; % dt in msec
+    pulseTimes = 0:dT:(numel(avg_log)-1).*dT;
+    
+    [clr_raw, clr_avg] = hvaPlotColor(attribute.area);
+    plot(pulseTimes, avg_log, '-o','color', clr_avg,  'linewidth', 4, 'markerfacecolor', clr_avg, 'markersize', 10)
+    plot([pulseTimes; pulseTimes], [avg_log-sem_log; avg_log+sem_log], '-','color', clr_avg,  'linewidth', 4)
+    set(gca, 'ytick', log10([0.25 0.5 1 2]), 'ytickLabel', [0.25 0.5 1 2])
+    ylabel('Log(PP Ratio)')
+    xlabel('Pulse Time')
+    axis tight
+    xlim([-10 pulseTimes(end)+20])
+end
 
 %% PPratio VS. PULSE MAGNITUDE AT THE SOMA
 
