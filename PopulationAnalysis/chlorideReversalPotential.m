@@ -69,13 +69,13 @@ ylabel('Current (pA)')
 fin
 
 % THE DATA: < MOUSE NAME, DATA PREFIX, DATA FILE NUMBER, ANALYSIS WINDOW, PAIR NUMBER >
-in = {'CH_061614_D', '2014_07_09_', 3,       (37:90), 1;... % 18 minutes
-      'CH_071514_A', '2014_07_15_', (7:37),  (30:50), 2;... % minimum of 4 min, max of 12 min
-      'CH_071514_A', '2014_07_15_', (53:57), (32:54), 3;... % 
-      'CH_071614_A', '2014_07_16_', (1:8),   (33:49), 4;... % 1 to 2 minutes of dialysis
-      'CH_071614_A', '2014_07_16_', (9:28),  (31:53), 4;... % 7 to 13 minutes
-      'CH_071614_A', '2014_07_16_', (37:52), (41:80), 5;... % zero to 8 minutes
-      'CH_071614_A', '2014_07_16_', (56:74), (38:54), 5};   % 15 to 32 minutes
+in = {'CH_061614_D', '2014_07_09_', 3,       (37:90), 1;... % 18 minutes, holding at -60
+      'CH_071514_A', '2014_07_15_', (7:37),  (30:50), 2;... % minimum of 4 min, max of 12 min, Vhold = -60, only negative pulses
+      'CH_071514_A', '2014_07_15_', (53:57), (32:54), 3;... % Vhold = -60, only negative pulses
+      'CH_071614_A', '2014_07_16_', (1:8),   (33:49), 4;... % 1 to 2 minutes of dialysis, Vhold = -40
+      'CH_071614_A', '2014_07_16_', (9:28),  (31:53), 4;... % 7 to 13 minutes, Vhold = -60
+      'CH_071614_A', '2014_07_16_', (37:52), (41:80), 5;... % zero to 8 minutes, Vhold = -30
+      'CH_071614_A', '2014_07_16_', (56:74), (38:54), 5};   % 15 to 32 minutes, Vhold = 0
 
 for ex = 1:size(in,1);
     fprintf('now working on experiment %d\n', ex)
@@ -146,12 +146,15 @@ for ex = 1:size(in,1);
     % determine the magnitude of the current
     [PSC_avg, PSC_max] = deal([]);
     window = in{ex, 4};
-    PSC_avg = mean(avgCurrentPerVHold(:,[baselinePts+window]), 2);
+    
     [~, maxIdx] = max(abs(avgCurrentPerVHold(:,[baselinePts+window])), [],  2);
     maxIdx = maxIdx+baselinePts+window(1);
     for i = 1:numel(maxIdx);
         PSC_max(i) = avgCurrentPerVHold(i, maxIdx(i));
+        PSC_avg(i) = mean(avgCurrentPerVHold(i,[maxIdx(i)-10 : maxIdx+10]), 2);
     end
+    
+    
     
     % plot the data
     figure
@@ -186,7 +189,7 @@ clrmap = clrmap(inds, :);
 
 figure, hold on,
 for a = 1:numel(popdat)
-    plot(popdat{a}.vhold, popdat{a}.psc_max, '-o',...
+    plot(popdat{a}.vhold, popdat{a}.psc_avg, '-o',...
          'color', clrmap(pairs(a), :),...
          'markeredgecolor', clrmap(pairs(a), :),...
          'linewidth', 3)
