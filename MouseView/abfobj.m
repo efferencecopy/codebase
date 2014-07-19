@@ -258,13 +258,16 @@ classdef abfobj
             end
             
             % figure out how many plots to make
-            figure            
+            f = figure;
+            set(f, 'color', [1 1 1])
+            hzm = zoom(f);
+            set(hzm,'ActionPostCallback', @quickPlot_adjustAxis);
             if any(l_ch1) && any(l_ch2)
                 
                 set(gcf, 'position', [239 386 1064 420]);
                 
                 subplot(2,2,1)
-                pquickPlot_subfxn(raw_ch1, 1, l_ch1)
+                quickPlot_rawData(raw_ch1, 1, l_ch1)
                 
                 subplot(2,2,3)
                 quickPlot_commandWF(wf_ch1, 1, l_ch1_wf)
@@ -297,10 +300,11 @@ classdef abfobj
             function quickPlot_rawData(datToPlot, channel, chIdx)
                 plot(obj.tt, datToPlot)
                 set(gca, 'fontsize', 16)
-                set(gca, 'buttondownfcn', {@quickPlot_adjustAxis, channel})
                 xlabel('time');
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.recChUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                box off
+                set(gca, 'userdata', channel);
             end
             
             function quickPlot_commandWF(wfToPlot, channel, chIdx)
@@ -309,29 +313,31 @@ classdef abfobj
                 xlabel('time')
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.DACchUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                box off
+                set(gca, 'userdata', channel);
             end
             
-            function quickPlot_adjustAxis(h, ~, channel)
-                
-                % store the handle to the current axis
-                h_currentAxis = get(h, 'parent');
-                
-                % figure out which axis has the corrent x lims.
-                if (channel==1) && ~any(l_ch2)
-                    subplot(2,1,1)
-                elseif (channel==1) && any(l_ch2)
-                    subplot(2,2,1);
-                elseif (channel==2) && ~any(l_ch1)
-                    subplot(2,1,1)
-                elseif (channel==2) && any(l_ch1)
-                    subplot(2,2,2);
-                end
+            function quickPlot_adjustAxis(~, h)
                 
                 %grab the new xlims
-                newXlims = get(gca, 'xlim')
+                newXlims = get(h.Axes, 'xlim');
+                
+                % figure out which channel was manipulated
+                channel = get(h.Axes, 'userdata');
+                
+
+                % figure out which axis need to be changed.
+                Naxes = numel(get(gcf, 'children'));
+                Nchannels = sum(double(l_ch1 | l_ch2));
+                Nrows = Naxes ./ Nchannels;
+                
+                l_axes = channel:Nchannels:Nchannels+Nrows;
                 
                 % enforce the new xlims on the WF plot
-                set(h_currentAxis, 'xlim', newXlims)
+                for a = 1:numel(l_axes)
+                    subplot(Nchannels,Nrows,l_axes(a))
+                    set(gca, 'xlim', newXlims)
+                end
                 
             end
             
