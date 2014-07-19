@@ -218,6 +218,12 @@ classdef abfobj
             if any(l_ch1)
                 raw_ch1 = obj.dat(:,l_ch1,:);
                 raw_ch1 = permute(raw_ch1, [1,3,2]);
+                
+                % grab the WF data
+                l_ch1_wf = regexp(obj.head.DACchNames, 'HS1_');
+                l_ch1_wf = ~cellfun(@isempty, l_ch1_wf);
+                wf_ch1 = obj.wf(:, l_ch1_wf, :);
+                wf_ch1 = permute(wf_ch1, [1,3,2]);
             end
             
             
@@ -229,6 +235,12 @@ classdef abfobj
             if any(l_ch2)
                 raw_ch2 = obj.dat(:,l_ch2,:);
                 raw_ch2 = permute(raw_ch2, [1,3,2]);
+                
+                % grab the WF data
+                l_ch2_wf = regexp(obj.head.DACchNames, 'HS2_');
+                l_ch2_wf = ~cellfun(@isempty, l_ch2_wf);
+                wf_ch2 = obj.wf(:, l_ch2_wf, :);
+                wf_ch2 = permute(wf_ch2, [1,3,2]);
             end
             
             % figure out how many plots to make
@@ -237,36 +249,78 @@ classdef abfobj
                 
                 set(gcf, 'position', [239 386 1064 420]);
                 
-                subplot(1,2,1)
-                plot(obj.tt, raw_ch1)
-                set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 1 (%s)', obj.head.recChUnits{l_ch1}))
-                xlim([obj.tt(1) obj.tt(end)])
+                subplot(2,2,1)
+                pquickPlot_subfxn(raw_ch1, 1, l_ch1)
                 
-                subplot(1,2,2)
-                plot(obj.tt, raw_ch2)
-                set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 2 (%s)', obj.head.recChUnits{l_ch2}))
-                xlim([obj.tt(1) obj.tt(end)])
+                subplot(2,2,3)
+                quickPlot_commandWF(wf_ch1, 1, l_ch1_wf)
+                
+                subplot(2,2,2)
+                quickPlot_rawData(raw_ch2, 2, l_ch2)
+                
+                subplot(2,2,4)
+                quickPlot_commandWF(wf_ch2, 2, l_ch2_wf)
                 
             elseif any(l_ch1)
                 
-                plot(obj.tt, raw_ch1)
-                set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 1 (%s)', obj.head.recChUnits{l_ch1}))
-                xlim([obj.tt(1) obj.tt(end)])
+                subplot(2,1,1)
+                quickPlot_rawData(raw_ch1, 1, l_ch1)
+                
+                subplot(2,1,2)
+                quickPlot_commandWF(wf_ch1, 1, l_ch1_wf)
             
             elseif any(l_ch2)
+                
+                subplot(2,1,1)
+                quickPlot_rawData(raw_ch2, 2, l_ch2)
+                
+                subplot(2,1,2)
+                quickPlot_commandWF(wf_ch2, 2, l_ch2_wf)
+                
+            end
             
-                plot(obj.tt, raw_ch2)
+            
+            function quickPlot_rawData(datToPlot, channel, chIdx)
+                plot(obj.tt, datToPlot)
                 set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 2 (%s)', obj.head.recChUnits{l_ch2}))
+                set(gca, 'buttondownfcn', {@quickPlot_adjustAxis, channel})
+                xlabel('time');
+                ylabel(sprintf('Channel %d (%s)', channel, obj.head.recChUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
             end
+            
+            function quickPlot_commandWF(wfToPlot, channel, chIdx)
+                plot(obj.tt, wfToPlot)
+                set(gca, 'fontsize', 16)
+                xlabel('time')
+                ylabel(sprintf('Channel %d (%s)', channel, obj.head.DACchUnits{chIdx}))
+                xlim([obj.tt(1) obj.tt(end)])
+            end
+            
+            function quickPlot_adjustAxis(h, ~, channel)
+                
+                % store the handle to the current axis
+                h_currentAxis = get(h, 'parent');
+                
+                % figure out which axis has the corrent x lims.
+                if (channel==1) && ~any(l_ch2)
+                    subplot(2,1,1)
+                elseif (channel==1) && any(l_ch2)
+                    subplot(2,2,1);
+                elseif (channel==2) && ~any(l_ch1)
+                    subplot(2,1,1)
+                elseif (channel==2) && any(l_ch1)
+                    subplot(2,2,2);
+                end
+                
+                %grab the new xlims
+                newXlims = get(gca, 'xlim')
+                
+                % enforce the new xlims on the WF plot
+                set(h_currentAxis, 'xlim', newXlims)
+                
+            end
+            
             
         end
         
