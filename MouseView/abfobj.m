@@ -28,9 +28,9 @@ classdef abfobj
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
-                    mdb = initMouseDB(false, false);
+                    mdb = initMouseDB(false, true);
                 end
-                mouseName = mdb.search(fileName);
+                mouseName = mdb.search(fileName(1:10)); %ignore the exact file name and just look at the date
                 assert(~isempty(mouseName), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
                 assert(numel(mouseName)==1, 'ABFOBJ ERROR: too many data files match the input <%s>', fileName);
                 
@@ -74,9 +74,23 @@ classdef abfobj
             
         end
         
-        function [idx, time] = threshold(obj, thresh, ch, sweep, direction)
+        function [idx, time] = threshold(obj, thresh, index, direction)
+            % index should contain the 2nd, 3rd, 4th, etc dimensions of the
+            % sweep to take. The first dimension will be time, and I'll
+            % take all time points. For example, if the index is:
+            %  wf(:, index(1), index(2))
+            % than I'm taking all time points from the "index(1) channel"
+            % and the "index(2) sweep"
             
-            above = obj.wf(:,ch,sweep) > thresh;
+            indexString = '(:';
+            for a = 1:numel(index)
+                indexString = [indexString, ',', num2str(index(a))];
+            end
+            indexString = [indexString, ')'];
+            
+            tmpWF = eval(['obj.wf', indexString]);
+            
+            above = tmpWF > thresh;
             change = [0; diff(above)];
             
             switch direction
