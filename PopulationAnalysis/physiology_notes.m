@@ -2,7 +2,7 @@
 
 global GL_ADD_TO_MDB GL_SUPPRESS_ANALYSIS GL_SUBTRACTEXP
 
-GL_ADD_TO_MDB = true;
+GL_ADD_TO_MDB = false;
 GL_SUPPRESS_ANALYSIS = false;
 GL_SUBTRACTEXP = false;
 
@@ -18,10 +18,10 @@ fin
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
 params.mouse = '';      % The mouse's name
-params.cellNum = nan;    % The neuron number that day
+params.cellNum = nan;   % The neuron number that day
 params.DCsteps = '';    % DC steps for Rin and cell identification
 params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
-params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.validCh = 'HS2_';% 'HS2_' or 'HS1_'
 params.files = {};      % File names of the raw data. <Nx1> cell array
 params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = nan;     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
@@ -927,6 +927,38 @@ if ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
+
+%% CH_063014_C Pair 1
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_063014_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_063014_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_07_19_', [0:16]};  % <file name prefix, suffix>
+params.groups = {'control', [0:7];...
+                 'nbqx', [8:16]};
+params.excludeHS1 = [];
+params.excludeHS2 = [7,16];
+params.tags = {};
+params.filter = 800;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
 
 
 %% BOOKMARK FOR CH MICE

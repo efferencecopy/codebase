@@ -30,7 +30,8 @@ for a = 1:numel(params.files)
     
     % change the tt (time vector) so that time=0 is the onset of the first
     % pulse
-    idx_pulseOn = params.ax{a}.threshold(0.1, params.ax{a}.idx.LEDcmd_470, size(params.ax{a}.dat,3), 'u');
+    index = [params.ax{a}.idx.LEDcmd_470, size(params.ax{a}.dat,3)];
+    idx_pulseOn = params.ax{a}.threshold(0.1, index, 'u');
     idx_pulseOn = find(idx_pulseOn, 1, 'first');
     tt{a} = params.ax{a}.tt-params.ax{a}.tt(idx_pulseOn);
 
@@ -79,7 +80,8 @@ for i = 1:numel(params.files)
     % the light onset/offset artifact when looking for the max/min current
     thresh = 0.02;
     sweep = size(params.ax{i}.wf,3);
-    [~, cross_time] = params.ax{i}.threshold(thresh, trigChIdx, sweep, 'd');
+    index = [trigChIdx, sweep];
+    [~, cross_time] = params.ax{i}.threshold(thresh, index, 'd');
     
     % find the peaks
     isi = mean(diff(cross_time));

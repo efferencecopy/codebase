@@ -21,9 +21,10 @@ if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the ph
     imshow(img);
     set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
     set(gcf, 'position', [582    17   847   598]);
+    drawnow
     
     % highlight the stimulation locations
-    if size(params.stimLoc, 1) > 0
+    if isfield(params, 'stimLoc') && size(params.stimLoc, 1) > 0
         centPos = round(ginput(1));
         if ~isempty(centPos) % the user can press return quickly to avoid this part, which will result in an empty vector.
             stimPoints = params.stimLoc;
@@ -45,7 +46,7 @@ end
 % DC STEPS if present
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~isempty(params.DCsteps)
+if isfield(params, 'DCsteps') && ~isempty(params.DCsteps)
     ax_dc = abfobj(params.DCsteps);
     ax_dc.quickPlot
     set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
@@ -58,51 +59,55 @@ end
 % LOAD THE REMAINING FILES IF PRESENT
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-ax = {};
-fprintf('**** Unpacking %d files:\n', numel(params.files));
-for a = 1:numel(params.files)
-    fprintf('file %d: %s \n', a, params.files{a})
-    ax{a} = abfobj(params.files{a});
-    
-    % remove unwanted sweeps
-    if (numel(params.skipSweeps) >= a) && ~isempty(params.skipSweeps{a});
-        disp('removing sweeps')
-        ax{a} = ax{a}.removeSweeps(params.skipSweeps{a});
-    end        
-end
+ax = loadFromList(params.files);
 
 
 %
-% PLOT THE SERIES RESISTANCE
+%  REMOVE UNWANTED SWEEPS
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if numel(params.files)>0
-    figure, hold on,
-    set(gcf, 'position', [15   394   560   420]);
-    idx = 1;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if isfield(params, 'skipSweeps')
     for a = 1:numel(ax)
-        % pull out the series resistance
-        Ra = ax{a}.getRa('quick');
-        Ra = permute(Ra, [3,2,1]);
-        idx_Im = eval(['ax{a}.idx.',params.validCh,'Im']);
-        Ra = Ra(:,idx_Im);
-        
-        % plot the values
-        xx = idx:(idx+numel(Ra)-1);
-        clr = map(clrIdx(a),:);
-        plot(xx(:), Ra(:), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
-        
-        % update the index
-        idx = xx(end)+1;
+        if (numel(params.skipSweeps) >= a) && ~isempty(params.skipSweeps{a});
+            disp('removing sweeps')
+            ax{a} = ax{a}.removeSweeps(params.skipSweeps{a});
+        end
     end
-    
-    % tidy up. 
-    axis tight
-    ymax = get(gca, 'ylim');
-    ylim([0, ymax(2).*1.05])
-    xlabel('Sweep Number')
-    ylabel('Series Resistance (MOhms)')
 end
+
+
+disp('Need to fix Ra plot')
+% %
+% % PLOT THE SERIES RESISTANCE
+% %
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%
+% if numel(params.files)>0
+%     figure, hold on,
+%     set(gcf, 'position', [15   394   560   420]);
+%     idx = 1;
+%     for a = 1:numel(ax)
+%         % pull out the series resistance
+%         Ra = ax{a}.getRa('quick');
+%         Ra = permute(Ra, [3,2,1]);
+%         idx_Im = eval(['ax{a}.idx.',params.validCh,'Im']);
+%         Ra = Ra(:,idx_Im);
+%         
+%         % plot the values
+%         xx = idx:(idx+numel(Ra)-1);
+%         clr = map(clrIdx(a),:);
+%         plot(xx(:), Ra(:), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+%         
+%         % update the index
+%         idx = xx(end)+1;
+%     end
+%     
+%     % tidy up. 
+%     axis tight
+%     ymax = get(gca, 'ylim');
+%     ylim([0, ymax(2).*1.05])
+%     xlabel('Sweep Number')
+%     ylabel('Series Resistance (MOhms)')
+% end
 
 %
 % PERFORM ALL ADDITIONAL ANALYSES

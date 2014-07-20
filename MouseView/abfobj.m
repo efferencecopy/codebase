@@ -156,6 +156,7 @@ classdef abfobj
                     
                     % find the relevant time points with respect to the
                     % command wf
+                    keyboard
                     idxOnset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'd');
                     idxOffset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'u');
                     idx_pulse = find(idxOnset) : find(idxOffset);
@@ -264,7 +265,7 @@ classdef abfobj
             set(hzm,'ActionPostCallback', @quickPlot_adjustAxis);
             if any(l_ch1) && any(l_ch2)
                 
-                set(gcf, 'position', [239 386 1064 420]);
+                set(f, 'position', [239     5   983   801])
                 
                 subplot(2,2,1)
                 quickPlot_rawData(raw_ch1, 1, l_ch1)
@@ -331,11 +332,15 @@ classdef abfobj
                 Nchannels = sum(double(l_ch1 | l_ch2));
                 Nrows = Naxes ./ Nchannels;
                 
-                l_axes = channel:Nchannels:Nchannels+Nrows;
+                if (Nchannels == 1) && (Nrows == 2);
+                    l_axes = [1,2];
+                else
+                    l_axes = channel:Nchannels:Nchannels+Nrows;
+                end
                 
                 % enforce the new xlims on the WF plot
                 for a = 1:numel(l_axes)
-                    subplot(Nchannels,Nrows,l_axes(a))
+                    subplot(Nrows,Nchannels,l_axes(a))
                     set(gca, 'xlim', newXlims)
                 end
                 
