@@ -949,7 +949,7 @@ params.filter = 800;
 % ANALYZE OR ADD TO MDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {};
+    params.fxns = {@anlyMod_optoIV};
     params = invitroAnalysisOverview(params);
 end
 

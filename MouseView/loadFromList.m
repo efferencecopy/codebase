@@ -23,7 +23,7 @@ if any(nchars ~= 15) % [prefix, suffix] construction for 'list' input
         suffix = num2str(list{2}(a));
         nZerosNeeded = 4-numel(suffix);
         suffix = [repmat('0',1,nZerosNeeded), suffix];
-        fNames{a} = [list{1}, suffix];
+        fnames{a} = [list{1}, suffix];
     end
 else
     fnames = list;
