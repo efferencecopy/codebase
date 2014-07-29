@@ -36,8 +36,9 @@ for a = 1:Ngroups
         l_secCh = cellfun(@(x) ~isempty(x), regexpi(ax.head.recChNames, 'sec'));
         l_hs1 = cellfun(@(x) ~isempty(x), regexpi(ax.head.recChNames, 'hs1'));
         l_hs2 = cellfun(@(x) ~isempty(x), regexpi(ax.head.recChNames, 'hs2'));
-        recChIdx = [find(l_hs1 & ~l_secCh), find(l_hs2 & ~l_secCh)];
-        assert(numel(recChIdx)<=2, 'ERROR: too many channels')
+        primaryChIdx = [find(l_hs1 & ~l_secCh), find(l_hs2 & ~l_secCh)];
+        assert(numel(primaryChIdx)<=2, 'ERROR: too many channels')
+        secondaryChIdx = [find(l_hs1 & l_secCh), find(l_hs2 & l_secCh)];
         
         % the time of the LED pulse is the same for both channels, so just
         % grab it now.
@@ -49,15 +50,33 @@ for a = 1:Ngroups
         preTime = 0.100;
         baselinePoints = preTime .* ax.head.sampRate;
         postTime = 0.300;
-        for ch = 1:numel(recChIdx);
-            sweeps = ax.getvals(recChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
+        for ch = 1:numel(primaryChIdx);
+            
+            % ignore data files for specific channels if need be
+            switch ch
+                case 1
+                    exclude = regexpi(groupFiles{i}(end-4:end), params.excludeHS1);
+                case 2
+                    exclude = regexpi(groupFiles{i}(end-4:end), params.excludeHS2);
+            end
+            exclude = any(cellfun(@(x) ~isempty(x), exclude));
+            if exclude
+                fprintf('excluding ch %d from file %s \n', ch, groupFiles{i});
+                continue
+            end
+            
+            
+            sweeps = ax.getvals(primaryChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
             sweeps = permute(sweeps, [3,1,2]);
             baseline = mean(sweeps(:, 1:baselinePoints), 2);
             sweeps = bsxfun(@minus, sweeps, baseline);
-            ivdat.(params.groups{a,1}).raw{i, ch} = mean(sweeps, 1);
+            ivdat.(params.groups{a,1}).raw{ch}{i} = mean(sweeps, 1);
             
             % grab the holding potential here, store it in ivdat
-            
+            vdat = ax.getvals(secondaryChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
+            vdat = mean(vdat, 1); % mean across time;
+            vdat = mean(vdat, 3); % mean across sweeps
+            ivdat.(params.groups{a,1}).vhold{ch}{i} = vdat;
         end
     end
 end
@@ -67,11 +86,43 @@ end
 % plot, and shift them vertically according to the holding
 % potential.
 
-% now grab the PCS magnitude. I don't know how to deal with the
-% mixed E and I currents yet...
-% determine the appropriate time region to analyze, specify this in
-% the physiology notes, or use the ginput field for each channel.
-% only take the
+groups = fieldnames(ivdat);
+for a = 1:numel(groups)
+    
+    figure
+    set(gcf, 'name', groups{a}, 'position', [24    10   560   779]);
+    Nchannels = size(ivdat.(groups{a}).raw, 2);
+    
+    for ch = 1:Nchannels
+        
+        subplot(Nchannels, 1, ch), hold on,
+        xlabel('time (sec)')
+        ylabel('current (pA)')
+        Nvholds = numel(ivdat.(groups{a}).raw{ch});
+        vholds = cat(1, ivdat.(groups{a}).vhold{ch}{:});
+        [~,vholdOrder] = sort(vholds);
+        clrs = pmkmp(Nvholds,'IsoL');
+        clrs = clrs(randperm(Nvholds), :);
+        legtext = {};
+        
+        for i = 1:Nvholds;
+            idx = vholdOrder(i);
+            pA = ivdat.(groups{a}).raw{ch}{idx};
+            mV = ivdat.(groups{a}).vhold{ch}{idx};
+            tvec = linspace(-preTime, postTime, numel(pA));
+            plot(tvec, pA+mV, '-', 'linewidth', 2, 'color', clrs(i,:))
+            legtext{i} = sprintf('%.2f mV', mV);
+        end
+        legend(legtext)
+        legend boxoff
+    end
+end
+
+% store some useful things in the params structure, and return to the
+% calling function
+ivdat.tvec = tvec;
+params.ivdat = ivdat;
+
 
     
     

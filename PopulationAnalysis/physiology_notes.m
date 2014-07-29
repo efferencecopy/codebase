@@ -939,8 +939,8 @@ params.photo = 'CH_063014_C_pair1_tdTomato';      % To assess where the light st
 params.files = {'2014_07_19_', [0:16]};  % <file name prefix, suffix>
 params.groups = {'control', [0:7];...
                  'nbqx', [8:16]};
-params.excludeHS1 = [];
-params.excludeHS2 = [7,16];
+params.excludeHS1 = {};
+params.excludeHS2 = {'_0007', '_0016'};
 params.tags = {};
 params.filter = 800;
 
@@ -958,6 +958,87 @@ if GL_ADD_TO_MDB
 end
 
 
+%% CH_070714_A Pair 1
+
+fin
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_070714_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_070714_A_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_07_23_', [0:13]};  % <file name prefix, suffix>
+params.groups = {'control', [0:6];...
+                 'nbqxGabazine', [7:13]};
+params.excludeHS1 = {};
+params.excludeHS2 = {'_0004', '_0005', '_0006'};
+%params.excludeHS2 = {{'_0004', 31:40}, '_0005', '_0006'};
+params.tags = {};
+params.filter = 800;
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 40, 15};
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_070714_C Pair 1
+
+fin
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_070714_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_070714_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_07_23_', [14:29]};  % <file name prefix, suffix>
+params.groups = {'control', [14:19];...
+                 'nbqxGabazine', [20:29]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+%params.excludeHS2 = {{'_0004', 31:40}, '_0005', '_0006'};
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 400;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
 
 
 

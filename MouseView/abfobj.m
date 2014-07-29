@@ -30,13 +30,17 @@ classdef abfobj
                 if ~exist('mdb', 'var')
                     mdb = initMouseDB(false, true);
                 end
-                mouseName = mdb.search(fileName(1:10)); %ignore the exact file name and just look at the date
-                assert(~isempty(mouseName), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
-                assert(numel(mouseName)==1, 'ABFOBJ ERROR: too many data files match the input <%s>', fileName);
+                mouseNames = mdb.search(fileName(1:10)); %ignore the exact file name and just look at the date
+                assert(~isempty(mouseNames), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
                 
                 % use find file to locate the .abf file
-                fpath = findfile(fileName, [GL_DATPATH, mouseName{1}], '.abf');
-                assert(~isempty(fpath), 'ABFOBJ ERROR: could not locate <%s> in directory <%s>', fileName, mouseName{1})
+                for a = 1:numel(mouseNames)
+                    fpath{a} = findfile(fileName, [GL_DATPATH, mouseNames{a}], '.abf');
+                end
+                validPaths = cellfun(@(x) ~isempty(x), fpath);
+                assert(sum(validPaths) > 0, 'ABFOBJ ERROR: could not find data file <%s>', fileName)
+                assert(sum(validPaths) <= 1, 'ABFOBJ ERROR: too many matches for data file <%s>', fileName)
+                fpath = fpath{validPaths};
                 
             end
             
