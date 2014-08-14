@@ -8,7 +8,7 @@ end
 
 % iterate over the isolated data field and convert the raw current traces
 % to conductances.
-for a = 1:size(params.isolatedCurrents, 1)
+for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
     currentType = params.isolatedCurrents{a, 1};
     experimentalGroup = params.isolatedCurrents{a, 2};
     
@@ -48,10 +48,19 @@ end
 figure % E/I balance
 for ch = 1:nChanels
     subplot(nChanels, 1, ch), hold on,
-    if isempty(params.isolatedData.excit.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.excit.raw_nS{ch}, 'b', 'linewidth', 2)
-    if isempty(params.isolatedData.inhib.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.inhib.raw_nS{ch}, 'r', 'linewidth', 2)
+    
+    if ~isempty(params.isolatedData.excit.raw_nS{ch});
+        plot(params.ivdat.tvec.*1000, params.isolatedData.excit.raw_nS{ch}, 'b', 'linewidth', 2)
+    else
+        continue
+    end
+    
+    if ~isempty(params.isolatedData.inhib.raw_nS{ch});
+        plot(params.ivdat.tvec.*1000, params.isolatedData.inhib.raw_nS{ch}, 'r', 'linewidth', 2)
+    else
+        continue
+    end
+    
     xlabel('time (ms)')
     ylabel('conductance (nS)')
     legend('excitation', 'inhibition')
@@ -62,10 +71,18 @@ end
 figure % NMDA/AMPA
 for ch = 1:nChanels
     subplot(nChanels, 1, ch), hold on,
-    if isempty(params.isolatedData.ampa.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.ampa.raw_nS{ch}, 'k', 'linewidth', 2)
-    if isempty(params.isolatedData.nmda.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.nmda.raw_nS{ch}, 'color', [.4 .4 .4], 'linewidth', 2)
+    if ~isempty(params.isolatedData.ampa.raw_nS{ch});
+        plot(params.ivdat.tvec.*1000, params.isolatedData.ampa.raw_nS{ch}, 'k', 'linewidth', 2)
+    else
+        continue
+    end
+    
+    if ~isempty(params.isolatedData.nmda.raw_nS{ch})
+        plot(params.ivdat.tvec.*1000, params.isolatedData.nmda.raw_nS{ch}, 'color', [.4 .4 .4], 'linewidth', 2)
+    else
+        continue
+    end
+    
     xlabel('time (ms)')
     ylabel('conductance (nS)')
     legend('AMPA', 'NMDA')

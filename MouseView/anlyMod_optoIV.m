@@ -50,22 +50,51 @@ for a = 1:Ngroups
         preTime = 0.100;
         baselinePoints = preTime .* ax.head.sampRate;
         postTime = 0.300;
+        
         for ch = 1:numel(primaryChIdx);
             
             % ignore data files for specific channels if need be
             switch ch
                 case 1
-                    exclude = regexpi(groupFiles{i}(end-4:end), params.excludeHS1);
+                    possibleExclusions = params.excludeHS1;
                 case 2
-                    exclude = regexpi(groupFiles{i}(end-4:end), params.excludeHS2);
+                    possibleExclusions = params.excludeHS2;
             end
-            exclude = any(cellfun(@(x) ~isempty(x), exclude));
-            if exclude
+            
+            exclude_file = 0;
+            ex = 1;
+            while ex < numel(possibleExclusions)
+                if iscell(possibleExclusions{ex})
+                    exclude_file = ~isempty(regexpi(groupFiles{i}(end-4:end), possibleExclusions{ex}{1}));
+                    if exclude_file
+                        exclude_sweeps = possibleExclusions{ex}{2};
+                    end
+                else
+                    exclude_file = ~isempty(regexpi(groupFiles{i}(end-4:end), possibleExclusions{ex}));
+                    if exclude_file
+                        exclude_sweeps = 1:size(ax.dat,3);
+                    end
+                end
+                
+                
+                
+                % break if there was a match
+                if exclude_file
+                    disp('found match')
+                    break
+                end
+                
+                % increment the counter
+                ex = ex+1;
+            end
+            
+            if exclude_file
                 fprintf('excluding ch %d from file %s \n', ch, groupFiles{i});
                 continue
             end
             
-            
+            % extract the data (assuming the file or sweeps didn't get
+            % excluded.
             sweeps = ax.getvals(primaryChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
             sweeps = permute(sweeps, [3,1,2]);
             baseline = mean(sweeps(:, 1:baselinePoints), 2);
