@@ -112,6 +112,7 @@ classdef abfobj
         function Ra = getRa(obj, method)
 
             
+            % find the recorded channels that correspond to Vclamp expts
             [idx_Im, idx_Vclamp] = deal([]);
             for a = 1:numel(obj.head.recChNames);
                 
@@ -154,15 +155,15 @@ classdef abfobj
             % convention as obj.dat (time x channels x sweeps);
             Nsweeps = size(obj.dat, 3);
             Nchannels = numel(idx_Im);
-            Ra = nan(1, Nchannels, Nsweeps);
+            Ra.chNames = obj.head.recChNames(idx_Im);
+            Ra.dat = nan(1, Nchannels, Nsweeps);
             for ch = 1:numel(idx_Im)
                 for swp = 1:Nsweeps;
                     
                     % find the relevant time points with respect to the
                     % command wf
-                    keyboard
-                    idxOnset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'd');
-                    idxOffset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'u');
+                    idxOnset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'd');
+                    idxOffset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'u');
                     idx_pulse = find(idxOnset) : find(idxOffset);
                     
                     % the Im doesn't start until after the onset of the
@@ -187,7 +188,7 @@ classdef abfobj
                         case 'quick'
                             delta_pa = minVal - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
+                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
                             
                         case 'linear'
                             pred = [tt_pulse(1:20)', ones(20,1)];
@@ -197,7 +198,7 @@ classdef abfobj
                             Im_atOnset = betas(1) .* tt_On + betas(2);
                             delta_pa = Im_atOnset - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
+                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
                             
                             % plot everything
 %                             figure,
@@ -308,6 +309,7 @@ classdef abfobj
                 xlabel('time');
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.recChUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                ylim([min(datToPlot(:)).*.95 max(datToPlot(:)).*1.05])
                 box off
                 set(gca, 'userdata', channel);
             end
@@ -318,6 +320,7 @@ classdef abfobj
                 xlabel('time')
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.DACchUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                ylim([min(wfToPlot(:)).*.95 max(wfToPlot(:)).*1.05])
                 box off
                 set(gca, 'userdata', channel);
             end
