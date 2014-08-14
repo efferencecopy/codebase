@@ -668,7 +668,7 @@ fin
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Ok data, not great. L2/3 PY cell from AL (according to notes). Ra
-% increases... Facilitation at soma, depression otherwise, accept at high
+% increases... Facilitation at soma, depression otherwise, except at high
 % TF. Some of the files have different first pulse heights despite being
 % stimuluated at the same site (non-stationarities?)
 
@@ -930,6 +930,17 @@ end
 
 %% CH_063014_C Pair 1
 
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% First file looking at A/N ratios and E/I ratios. There isn't enough data
+% to do the full analysis, but these data are useful for debugging code.
+%
+% brain area: I think this is at the LM/AL border. I'm not 100% certian.
+% popAnalysis: E/I & A/N ratios.
+%
+
 %
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
@@ -938,18 +949,27 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_063014_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_07_19_', [0:16]};  % <file name prefix, suffix>
 params.groups = {'control', [0:7];...
-                 'nbqx', [8:16]};
+                 'nbqxGabazine', [8:16]};
 params.excludeHS1 = {};
 params.excludeHS2 = {'_0007', '_0016'};
 params.tags = {};
 params.filter = 800;
 
 
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -80, 15;...
+                           'inhib', 'control', 20, -75;...
+                           'ampa', 'control', -80, 15;...
+                           'nmda', 'nbqxGabazine', 40, 15};
+
+
 %
 % ANALYZE OR ADD TO MDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV};
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
@@ -963,6 +983,17 @@ end
 fin
 
 %
+% Notes
+%%%%%%%%%%%%%%%%%
+% This pair of cells has o.k data for A/N and E/I ratios. The cell 2 has
+% crummier data and should not be included.
+%
+% Brain area: unknown. Very posterior, so it could be LM or even V1. It's
+% a little unclear and the histology doesn't help much
+%
+% popAnalysis: Added to E/I and A/N for cell 1
+
+%
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
 params.mouse = 'CH_070714_A';      % The mouse's name
@@ -973,7 +1004,6 @@ params.groups = {'control', [0:6];...
                  'nbqxGabazine', [7:13]};
 params.excludeHS1 = {};
 params.excludeHS2 = {'_0004', '_0005', '_0006'};
-%params.excludeHS2 = {{'_0004', 31:40}, '_0005', '_0006'};
 params.tags = {};
 params.filter = 800;
 
@@ -1015,7 +1045,7 @@ params.groups = {'control', [14:19];...
                  'nbqxGabazine', [20:29]};
 params.excludeHS1 = {};
 params.excludeHS2 = {};
-%params.excludeHS2 = {{'_0004', 31:40}, '_0005', '_0006'};
+params.excludeHS2 = {{'_0014', 31:40}, '_0005', '_0006'};
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
