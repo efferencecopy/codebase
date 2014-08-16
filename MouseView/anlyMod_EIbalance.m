@@ -29,6 +29,20 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         trace_pA = params.ivdat.(experimentalGroup).raw{ch}{vHoldAvailable};
         drivingForce_mV = abs(params.isolatedCurrents{a, 3} - params.isolatedCurrents{a, 4}); % in mV
         
+        % if isolatedCurrent == 'ampa', then subtract off the NMDA current
+        % in the presence of blockers.
+        if strcmpi(currentType, 'ampa')
+            vholds_nmdaOnly = params.ivdat.nbqxGabazine.vhold{ch};
+            idx = cellfun(@(x, y) softEq(x, y, 0), vholds_nmdaOnly, repmat({vhold_req}, size(vholds_nmdaOnly)), 'uniformoutput', false);
+            idx = cellfun(@(x) ~isempty(x) && (x==true), idx);
+            if any(idx)
+                trace_nmdaOnly = params.ivdat.nbqxGabazine.raw{ch}{idx};
+                trace_pA = trace_pA - trace_nmdaOnly;
+            else
+                warning('Could not find control condition for AMPA only current')
+            end
+        end
+        
         % convert to amps and volts. 
         trace_amps = trace_pA ./ 1e12;
         drivingForce_volts = drivingForce_mV ./ 1e3;

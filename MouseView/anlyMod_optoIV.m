@@ -26,6 +26,12 @@ for a = 1:Ngroups
         groupFiles{i} = [prefix, suffix];
     end
     
+    % set up a counter that is specific for each channel (so that I can
+    % eliminate sweeps on channel by channel basis (which you can not
+    % do in clampex)
+    ch_specific_idx = [1 1];
+    
+    
     % iterate over the data files and extract stuff for HS1 and HS2
     for i = 1:numel(groupFiles);
         fIdx = cellfun(@(x) ~isempty(x), regexpi(groupFiles{i}, abfLibrary));
@@ -51,6 +57,7 @@ for a = 1:Ngroups
         baselinePoints = preTime .* ax.head.sampRate;
         postTime = 0.300;
         
+        
         for ch = 1:numel(primaryChIdx);
             
             % ignore data files for specific channels if need be
@@ -63,7 +70,7 @@ for a = 1:Ngroups
             
             exclude_file = 0;
             ex = 1;
-            while ex < numel(possibleExclusions)
+            while ex <= numel(possibleExclusions)
                 if iscell(possibleExclusions{ex})
                     exclude_file = ~isempty(regexpi(groupFiles{i}(end-4:end), possibleExclusions{ex}{1}));
                     if exclude_file
@@ -80,7 +87,6 @@ for a = 1:Ngroups
                 
                 % break if there was a match
                 if exclude_file
-                    disp('found match')
                     break
                 end
                 
@@ -88,24 +94,35 @@ for a = 1:Ngroups
                 ex = ex+1;
             end
             
-            if exclude_file
+            totalSweeps = size(ax.dat, 3);
+            if exclude_file && (totalSweeps == numel(exclude_sweeps))
                 fprintf('excluding ch %d from file %s \n', ch, groupFiles{i});
                 continue
+            elseif  exclude_file && (totalSweeps > numel(exclude_sweeps))
+                fprintf('excluding %d sweeps from ch %d from file %s \n', numel(exclude_sweeps), ch, groupFiles{i});
+                l_goodSweeps = true(totalSweeps, 1);
+                l_goodSweeps(exclude_sweeps) = false;
+            else
+                l_goodSweeps = true(totalSweeps, 1);
             end
             
             % extract the data (assuming the file or sweeps didn't get
             % excluded.
             sweeps = ax.getvals(primaryChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
             sweeps = permute(sweeps, [3,1,2]);
+            sweeps = sweeps(l_goodSweeps,:);
             baseline = mean(sweeps(:, 1:baselinePoints), 2);
             sweeps = bsxfun(@minus, sweeps, baseline);
-            ivdat.(params.groups{a,1}).raw{ch}{i} = mean(sweeps, 1);
+            ivdat.(params.groups{a,1}).raw{ch}{ch_specific_idx(ch)} = mean(sweeps, 1);
             
             % grab the holding potential here, store it in ivdat
             vdat = ax.getvals(secondaryChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
             vdat = mean(vdat, 1); % mean across time;
-            vdat = mean(vdat, 3); % mean across sweeps
-            ivdat.(params.groups{a,1}).vhold{ch}{i} = vdat;
+            vdat = mean(vdat(:,:,l_goodSweeps)); % mean across sweeps
+            ivdat.(params.groups{a,1}).vhold{ch}{ch_specific_idx(ch)} = vdat;
+            
+            % increment the ch_specific_idx
+            ch_specific_idx(ch) = ch_specific_idx(ch)+1;
         end
     end
 end
@@ -114,7 +131,6 @@ end
 % pause here and plot the raw data for each channel. Make a new
 % plot, and shift them vertically according to the holding
 % potential.
-
 groups = fieldnames(ivdat);
 for a = 1:numel(groups)
     
@@ -124,15 +140,22 @@ for a = 1:numel(groups)
     
     for ch = 1:Nchannels
         
+        Nvholds = numel(ivdat.(groups{a}).raw{ch});
+        if Nvholds<1 % no plotting when no data
+            continue
+        end
+        try
         subplot(Nchannels, 1, ch), hold on,
         xlabel('time (sec)')
         ylabel('current (pA)')
-        Nvholds = numel(ivdat.(groups{a}).raw{ch});
         vholds = cat(1, ivdat.(groups{a}).vhold{ch}{:});
         [~,vholdOrder] = sort(vholds);
-        clrs = pmkmp(Nvholds,'IsoL');
+        clrs = pmkmp(Nvholds+1,'IsoL'); % pmkmp bonks when asked for a single color. adding one to avoid the bonking...
         clrs = clrs(randperm(Nvholds), :);
         legtext = {};
+        catch
+            keyboard
+        end
         
         for i = 1:Nvholds;
             idx = vholdOrder(i);
