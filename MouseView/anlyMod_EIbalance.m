@@ -85,13 +85,13 @@ end
 figure % NMDA/AMPA
 for ch = 1:nChanels
     subplot(nChanels, 1, ch), hold on,
-    if ~isempty(params.isolatedData.ampa.raw_nS{ch});
+    if isfield(params.isolatedData, 'ampa') && ~isempty(params.isolatedData.ampa.raw_nS{ch});
         plot(params.ivdat.tvec.*1000, params.isolatedData.ampa.raw_nS{ch}, 'k', 'linewidth', 2)
     else
         continue
     end
     
-    if ~isempty(params.isolatedData.nmda.raw_nS{ch})
+    if isfield(params.isolatedData, 'nmda') && ~isempty(params.isolatedData.nmda.raw_nS{ch})
         plot(params.ivdat.tvec.*1000, params.isolatedData.nmda.raw_nS{ch}, 'color', [.4 .4 .4], 'linewidth', 2)
     else
         continue

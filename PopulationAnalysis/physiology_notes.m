@@ -45,6 +45,275 @@ params.filter = 4000;
 % end
 
 
+
+%% AK_072814_A pair 1
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Ok data from CH2, less than great data from CH1. I'm not certain that
+% cell 2 is an IN neuron, so this should be verified.
+%
+% brain area: 
+% popAnalysis: 
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_072814_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_072814_A_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_08_12_', [2:10]};  % <file name prefix, suffix>
+params.groups = {'control', [2:5];...
+                 'nbqxGabazine', [6:10]};
+params.excludeHS1 = {{'_0003', [1:7]}, {'_0002', [1:13, 15:24, 26]}};
+params.excludeHS2 = {{'_0003', [2,3,5:8,11,13]}, {'_0002', [1:10, 13:17, 21:26]}};
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 400;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% AK_072814_B pair 1
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Nice data from 2 PY cells that are likely in PM. Both have good access
+% resisitance. 
+%
+% brain area: likely PM, but need to check
+% popAnalysis: adding to E/I A/N
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_072814_B';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_072814_B_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_08_15_', [2:6]};  % <file name prefix, suffix>
+params.groups = {'control', [2:3];...
+                 'nbqxGabazine', [4:6]};
+params.excludeHS1 = {{'_0002', [1,9,10,14]}};
+params.excludeHS2 = {{'_0002', [1,9,10,14]}};
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 400;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% AK_072814_B cell 3
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Fairly clean data from only a single channel. There is signigicant
+% holding current required at +50 and -75 mV after the drugs have washed
+% on. The resulting Vclamp error causes the NMDA conductance to be
+% underestamated... I should institue a check of this...
+%
+% brain area: likely PM. Need to check once histology is ready 
+% popAnalysis: adding to E/I and A/N. A/N should be filtered out due to
+% Vclamp errors.
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_072814_B';      % The mouse's name
+params.cellNum = 3;    % The neuron number that day
+params.photo = 'AK_072814_B_cell3_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_08_15_', [12:16]};  % <file name prefix, suffix>
+params.groups = {'control', [12:13];...
+                 'nbqxGabazine', [14:16]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 400;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% AK_072814_C pair 1
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Nice data from CH1, junky data from CH2 (the access resistance goes
+% downhill fast).
+%
+% brain area: likely pm, but need to check once histology is done.
+% popAnalysis: Adding Cell 1 to E/I and A/N pop list.
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_072814_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_072814_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_08_13_', [1:9]};  % <file name prefix, suffix>
+params.groups = {'control', [1:4];...
+                 'nbqxGabazine', [5:9]};
+params.excludeHS1 = {{'_0001', [7,8,10,11,13,14,20,25]},{'_0002', [2,5,6,10:12,19,20,25:28]},{'_0003', [15:25]}, {'_0009', [24]}};
+params.excludeHS2 = {{'_0001', [7,8,10,11,13,14,20,25]},{'_0002', [2,5,6,10:12,19,20,25:28]},{'_0003', [15:25]}};
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 400;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% AK_072814_C cell 2
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Limited data from a single PY cell? No synaptic blockers, so only useful
+% for E/I analysis. For this neuron I stimulated two differet spatial
+% locations, but the data are not interpretable due to the fact that Vclamp
+% errors are high on the last (distal) location due to massive amount of
+% required holding current. The apparent E/I ratio goes from 6.7 when
+% stimulating at the soma to 24 at the axons. But I think this could
+% partially be due to Vclamp errors or rundown. 
+%
+%
+% brain area: unknown, need to look at the histology
+% popAnalysis: E/I only for cell 2
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_072814_C';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'AK_072814_C_cell2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+
+% at the soma
+params.files = {'2014_08_13_', [11,13]};  % <file name prefix, suffix>
+params.groups = {'control', [11,13]};
+
+% % over axons
+% params.files = {'2014_08_13_', [16,17]};  % <file name prefix, suffix>
+% params.groups = {'control', [16,17]};
+
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0011', [7,10,16]}, {'_0016', [4:6,9,16,17,20,22,23,25,26,28]}};
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -75, 15;...
+                           'inhib', 'control', 15, -75};
+params.tags = {};
+params.filter = 400;
+
+
+%
+% ANALYZE OR ADD TO MDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% BOOKMARK FOR AK MICE
+
+
 %% CH_020314_B Cell 1
 
 
@@ -775,7 +1044,7 @@ if ~GL_SUPPRESS_ANALYSIS
 end
 
 
-%% %% CH_050614_B cell 1
+%% CH_050614_B cell 1
 
 fin
 
@@ -1195,7 +1464,7 @@ end
 
 
 
-%% CH_072214_A
+%% CH_072214_A pair 1
 
 fin
 %
@@ -1349,27 +1618,28 @@ end
 
 
 
-%% E/I template
+%% CH_072214_D cell 1
 
 fin
 %
 % Notes
 %
 %%%%%%%%%%%%%%%%%
+% Less than stelar data from a single PY cell in PM. No drugs applied, so I
+% only measured E/I ratio. Access resistance isn't great.
 %
-% brain area: 
-% popAnalysis: 
+% brain area: PM
+% popAnalysis: Adding one cell. Will only contribute to E/I analysis.
 %
 
 %
 % PARAMETERS
 %%%%%%%%%%%%%%%%%%%
-params.mouse = '';      % The mouse's name
+params.mouse = 'CH_072214_D';      % The mouse's name
 params.cellNum = 1;    % The neuron number that day
-params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
-params.files = {'', []};  % <file name prefix, suffix>
-params.groups = {'control', [];...
-                 'nbqxGabazine', []};
+params.photo = 'CH_072214_D_cell_1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_08_05_', [4:7]};  % <file name prefix, suffix>
+params.groups = {'control', [4:7]};
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 
@@ -1377,9 +1647,7 @@ params.excludeHS2 = {};
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
-                           'inhib', 'control', 15, -75;...
-                           'ampa', 'control', -75, 15;...
-                           'nmda', 'nbqxGabazine', 50, 15};
+                           'inhib', 'control', 15, -75};
 params.tags = {};
 params.filter = 400;
 
