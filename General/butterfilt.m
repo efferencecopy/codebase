@@ -1,4 +1,4 @@
-function out = butterfilt(in, freqs, sampFreq, type)
+function out = butterfilt(in, freqs, sampFreq, type, dim)
 %
 % out = butterfilt(in, freqs, sampFreq, type)
 %
@@ -9,4 +9,8 @@ function out = butterfilt(in, freqs, sampFreq, type)
 Wn = freqs./(sampFreq/2);
 order = 4;
 [B,A] = butter(order, Wn, type);
-out = filter(B,A,in);
+if exist('dim', 'var')
+    out = filter(B,A,in,[],dim);
+else
+    out = filter(B,A,in);
+end

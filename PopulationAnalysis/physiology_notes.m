@@ -67,12 +67,12 @@ params.excludeHS2 = {{'_0003', [2,3,5:8,11,13]}, {'_0002', [1:10, 13:17, 21:26]}
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
-params.isolatedCurrents = {'excit', 'control', -75, 15;...
+params.isolatedCurrents = {'excit', 'control', -75, 20;...
                            'inhib', 'control', 15, -75;...
-                           'ampa', 'control', -75, 15;...
-                           'nmda', 'nbqxGabazine', 50, 15};
+                           'ampa', 'control', -75, 20;...
+                           'nmda', 'nbqxGabazine', 50, 20};
 params.tags = {};
-params.filter = 400;
+params.filter = 8e3;
 
 
 %
@@ -123,7 +123,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -177,7 +177,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -227,7 +227,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -287,7 +287,7 @@ params.excludeHS2 = {{'_0011', [7,10,16]}, {'_0016', [4:6,9,16,17,20,22,23,25,26
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -1334,7 +1334,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -1386,7 +1386,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -1439,7 +1439,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 20;...
                            'ampa', 'control', -75, 20;...
                            'nmda', 'nbqxGabazine', 50, 20};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -1490,7 +1490,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -1540,7 +1540,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 500;
 
 
 %
@@ -1593,7 +1593,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %
@@ -1641,7 +1641,7 @@ params.excludeHS2 = {};
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
-params.filter = 400;
+params.filter = 1e3;
 
 
 %

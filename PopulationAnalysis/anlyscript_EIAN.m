@@ -33,7 +33,6 @@ HVA = raw(2:end, 5);
 
 % iterate over the mice in the cell library (some mice get analyzed
 % multiple times if there were multiple experiments per mouse)
-datDB_EIAN = [];
 [ampa.peak, nmda.peak, excit.peak, inhib.peak] = deal(nan(numel(mouseNames), 2));
 for ex = 1:numel(mouseNames)
     
@@ -47,7 +46,11 @@ for ex = 1:numel(mouseNames)
     params = invitroAnalysisOverview(params);
     close all
     
-    % add the data to an array
+    %
+    % add the data to an array for the AMPA/NMDA
+    % Excitation/Inhibition ratio stuff
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     idx = goodNeurons(ex,:);
     if isfield(params.isolatedData, 'ampa')
         tmp = params.isolatedData.ampa.peak_nS;
@@ -78,3 +81,130 @@ for ex = 1:numel(mouseNames)
     end
         
 end
+
+% package all the useful things into a single structure (and then save the
+% structure)
+dat.ampa = ampa;
+dat.nmda = nmda;
+dat.excit = excit;
+dat.inhib = inhib;
+dat.hva = HVA;
+dat.goodNeurons = goodNeurons;
+dat.mice = mouseNames;
+dat.siteNum = cat(1, siteNumber{:});
+
+originalDir = pwd;
+cd(GL_POPDATPATH);
+save popAnly_EIAN.mat dat
+cd(originalDir);
+
+%% EXCITATION VS. INHIBITION
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
+
+% pull out raw data
+l_valid = dat.goodNeurons(:);
+raw_excit = dat.excit.peak(:);
+raw_excit = raw_excit(l_valid);
+raw_inhib = dat.inhib.peak(:);
+raw_inhib = raw_inhib(l_valid);
+
+% create grouping lists
+hvas = repmat(dat.hva, 2,1);
+hvas = hvas(l_valid);
+hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
+hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
+hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
+
+
+% plot the most raw form of the data
+figure, hold on,
+plot(raw_excit, raw_inhib, 'ko', 'markerfacecolor', 'k')
+l_nan = isnan(raw_excit);
+betas = [raw_excit(~l_nan), ones(size(raw_excit(~l_nan)))] \ raw_inhib(~l_nan);
+xvals = get(gca, 'xlim');
+plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--k')
+xlabel('Excit conductance (nS)')
+ylabel('Inhib conductance (nS)')
+title(sprintf('ALL DATA: E/I ratio = %.2f', betas(1)))
+
+% plot the data, but color code each HVA
+figure, hold on,
+groups = {'und', 'pm', 'lm'};
+for a = 1:numel(groups);
+    tmp_excit = raw_excit(hvalist.(groups{a}));
+    tmp_inhib = raw_inhib(hvalist.(groups{a}));
+    [clr_fit, clr_raw] = hvaPlotColor(groups{a});
+    plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw)
+    l_nan = isnan(tmp_excit);
+    betas = [tmp_excit(~l_nan), ones(size(tmp_excit(~l_nan)))] \ tmp_inhib(~l_nan);
+    xvals = get(gca, 'xlim');
+    plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw)
+    xlabel('Excit conductance (nS)')
+    ylabel('Inhib conductance (nS)')
+end
+
+
+
+%% AMPA to NMDA RATIOS
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
+
+% pull out raw data
+l_valid = dat.goodNeurons(:);
+raw_ampa = dat.ampa.peak(:);
+raw_ampa = raw_ampa(l_valid);
+raw_nmda = dat.nmda.peak(:);
+raw_nmda = raw_nmda(l_valid);
+
+% create grouping lists
+hvas = repmat(dat.hva, 2,1);
+hvas = hvas(l_valid);
+hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
+hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
+hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
+
+
+% plot the most raw form of the data
+figure, hold on,
+plot(raw_ampa, raw_nmda, 'ko', 'markerfacecolor', 'k')
+l_nan = isnan(raw_ampa);
+betas = [raw_ampa(~l_nan), ones(size(raw_ampa(~l_nan)))] \ raw_nmda(~l_nan);
+xvals = get(gca, 'xlim');
+plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--k')
+xlabel('AMPA conductance (nS)')
+ylabel('NMDA conductance (nS)')
+title(sprintf('ALL DATA: A/N ratio = %.2f', betas(1)))
+
+% plot the data, but color code each HVA
+figure, hold on,
+groups = {'und', 'pm', 'lm'};
+for a = 1:numel(groups);
+    tmp_ampa = raw_ampa(hvalist.(groups{a}));
+    tmp_nmda = raw_nmda(hvalist.(groups{a}));
+    [clr_fit, clr_raw] = hvaPlotColor(groups{a});
+    plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw)
+    l_nan = isnan(tmp_ampa);
+    betas = [tmp_ampa(~l_nan), ones(size(tmp_ampa(~l_nan)))] \ tmp_nmda(~l_nan);
+    xvals = get(gca, 'xlim');
+    plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw)
+    xlabel('AMPA conductance (nS)')
+    ylabel('NMDA conductance (nS)')
+end
+
+
+
+
+
+
+
+
+
+
+

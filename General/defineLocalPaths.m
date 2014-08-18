@@ -1,4 +1,4 @@
-function [GL_DATPATH, GL_DOCUPATH] = defineLocalPaths
+function [GL_DATPATH, GL_DOCUPATH, GL_POPDATPATH] = defineLocalPaths
 
 %
 % Defines the data paths to Glickfeld lab data files. These paths are
@@ -21,17 +21,20 @@ switch whoami
         
     case 'hass_linux'
         GL_DATPATH = '~/Crash/Data/Mice/';
+        GL_POPDATPATH = '~/Crash/Data/population_analysis_DBs/';
         GL_DOCUPATH = '~/DocuBase/';
         defaultpath = '~/Crash/';
         
     case 'glick_rig1'
         GL_DOCUPATH = 'C:\Users\glickfeld_lab\Documents\docubase\';
+        GL_POPDATPATH = '\\crash.dhe.duke.edu\charlie\Data\population_analysis_DBs\';
         GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
         defaultpath = 'C:\Users\glickfeld_lab\Documents\MATLAB';
         
     case 'nuke'
         GL_DOCUPATH = 'C:\Users\charlie\Documents\SourceTree_local\docubase\';
         GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
+        GL_POPDATPATH = '\\crash.dhe.duke.edu\charlie\Data\population_analysis_DBs\';
         defaultpath = 'C:\Users\charlie\Documents\MATLAB';
 end
 

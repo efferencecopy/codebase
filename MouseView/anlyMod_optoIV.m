@@ -113,6 +113,8 @@ for a = 1:Ngroups
             sweeps = sweeps(l_goodSweeps,:);
             baseline = mean(sweeps(:, 1:baselinePoints), 2);
             sweeps = bsxfun(@minus, sweeps, baseline);
+            dim = 2;
+            sweeps = butterfilt(sweeps, params.filter, ax.head.sampRate, 'low', dim);
             ivdat.(params.groups{a,1}).raw{ch}{ch_specific_idx(ch)} = mean(sweeps, 1);
             
             % grab the holding potential here, store it in ivdat
