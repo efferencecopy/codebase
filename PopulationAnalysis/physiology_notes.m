@@ -1,11 +1,3 @@
-%% DEFINE THE TERMS OF THE ANALYSIS
-
-global GL_ADD_TO_MDB GL_SUPPRESS_ANALYSIS GL_SUBTRACTEXP
-
-GL_ADD_TO_MDB = false;
-GL_SUPPRESS_ANALYSIS = false;
-GL_SUBTRACTEXP = false;
-
 %% TEMPLATE VERSION (mouse name and cell num)
 
 fin
@@ -28,19 +20,19 @@ params.vHold = nan;     % The holding potential for vClamp experiments. One valu
 params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 % 
 % %
-% % ANALYZE OR ADD TO MDB
+% % ANALYZE OR ADD TO PARAMSDB
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% if ~GL_SUPPRESS_ANALYSIS
+% if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
 %     params.fxns = {@anlyMod_pulseTrains_stimLoc};
 %     params = invitroAnalysisOverview(params);
 % end
 % 
-% if GL_ADD_TO_MDB
+% if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
 %     addPopAnlyParamsToMDB(params);
 % end
 
@@ -84,14 +76,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -135,14 +127,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -189,14 +181,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -239,14 +231,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -299,14 +291,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -362,18 +354,18 @@ params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'5', '40', '60', '2', '20'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -405,18 +397,18 @@ params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '40', '5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -468,18 +460,18 @@ params.skipSweeps = {}; % In case I need to ignore certain sweeps
 params.vHold = -85 .* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
 params.stimLoc = zeros(3,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -511,18 +503,18 @@ params.vHold = [-85 -85 -85];     % The holding potential for vClamp experiments
 params.stimLoc = [];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -585,18 +577,18 @@ params.stimLoc = [0, 0;...
                   -151 178];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'40 soma', '20 soma', '5 soma', '40 dist', '20 dist', '5 dist'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'interneuron TTX'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -637,18 +629,18 @@ params.stimLoc = [0 0;...
                   -12 234];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20', 'dist 20', 'dist 5', 'dist 40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -700,18 +692,18 @@ params.stimLoc = [0,0;...
                   51,341];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma', 'Pos 1, TF =20','Pos 1, TF =5','Pos 1, TF =40','Pos 1, TF = 40, 400us','Pos 1, TF = 20, 400us','Pos 1, TF = 5, 400us', 'Pos 2, TF = 5, 400us', 'Pos 2, TF = 20, 400us', 'Pos 2, TF = 40, 400us'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'HOA, TF'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -749,19 +741,19 @@ params.stimLoc = [0 0;...
                   -130 238];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -800,19 +792,19 @@ params.stimLoc = [0 0;...
                   107 394];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -857,14 +849,14 @@ params.stimLoc = [46 404;...
                   -46 404];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Spatial light spread', 'control'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -915,14 +907,14 @@ params.stimLoc = [50 408;...
                   -402 80];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Spatial light spread', 'control'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -964,19 +956,19 @@ params.stimLoc = [0 0;...
                   -184 193];
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1031,14 +1023,14 @@ params.stimLoc = [0 0;...
                   -40 407];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'control', 'multiple voltages'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -1083,19 +1075,19 @@ params.stimLoc = [0 0;...
                   -211 312];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1134,19 +1126,19 @@ params.stimLoc = [0 0;
                   -91 330];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = [1000];
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1185,14 +1177,14 @@ params.stimLoc = [-91 330;
                   -315 40];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'spatial light spread', 'control'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 500;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -1235,14 +1227,14 @@ params.isolatedCurrents = {'excit', 'control', -80, 15;...
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1286,14 +1278,14 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1346,14 +1338,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1398,14 +1390,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1451,14 +1443,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1502,14 +1494,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1552,14 +1544,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1605,14 +1597,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1653,14 +1645,14 @@ params.filter = 400;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1743,14 +1735,14 @@ params.legTxt = {'distal pos 1 FS closed';...
                  'distal pos 4 half moon';...
                  'distal pos 5 half moon'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -1805,13 +1797,13 @@ params.legTxt = { 'soma FS open';...
                   'HalfMoon Incorrect';...
                   'HalfMoon Correct'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -1867,18 +1859,18 @@ params.legTxt = {'Soma, 20 Hz';...
                  'Pos 4, 5 Hz';...
                  'Soma, 5 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp, TF, false depression'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1932,18 +1924,18 @@ params.legTxt = {'Soma';...
                  'Pos 3 ';...
                  'Soma'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp, false depression'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -1996,18 +1988,18 @@ params.legTxt = {'Cortex 1';...
          'Cortex 3 Half Moon';...
          'Cortex 3 No Half Moon'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'distal stim, latency, room temp'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2071,18 +2063,18 @@ params.legTxt = {'Soma TF = 5',...
                  'Soma TF = 5',...
                  'Soma TF = 20'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'False depression, TF, trains, HOA'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2128,18 +2120,18 @@ params.stimLoc = [0 0;...
                   404 -170];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2173,18 +2165,18 @@ params.vHold = [-85 -85];     % The holding potential for vClamp experiments. On
 params.stimLoc = [0 0; 0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'False depression'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2217,18 +2209,18 @@ params.vHold = [-85 -85 -85];     % The holding potential for vClamp experiments
 params.stimLoc = [0 0; 0 0; 0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'20', '5', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'HOA, TF'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2276,18 +2268,18 @@ params.stimLoc = [0 0;...
                   -232 175];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma 20', 'Soma 5', 'Pos 1 20 Hz', 'Pos 1: 5 Hz', 'Pos 2: 20 Hz', 'Pos 2: 5 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'TTX, false depression, HOA, TF'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2335,18 +2327,18 @@ params.stimLoc = [0 0;...
                   -16 301];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma: TF = 20', 'Soma: TF = 5', 'Soma: TF = 40', 'Pos1: TF = 20', 'Pos1: TF = 5', 'Pos1: TF = 40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'TTX'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2385,18 +2377,18 @@ params.stimLoc = [0 0;...
                   -153, 152];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20', 'pos 1 5 Hz', 'pos 1 20 Hz', 'pos 1 40 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2428,18 +2420,18 @@ params.vHold = -85.*ones(1,3);     % The holding potential for vClamp experiment
 params.stimLoc = [0 0; -275 -45; -275 -45;];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20 Hz', '20 Hz', '5 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %% EB_040714_A cell 3
@@ -2472,18 +2464,18 @@ params.vHold = -85.*ones(1,4);     % The holding potential for vClamp experiment
 params.stimLoc = [0 0; -300 -50; -300 -50; -300 -50;];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20 hz', '20', '40', '5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %% EB_040714_B cell 1
@@ -2537,18 +2529,18 @@ params.stimLoc = [0 0;...
                    0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'1 soma 20', '1 40', '1 20', '1 5', '2 20', '2 40', '2 5', '2 soma 20', '2 soma 40', '2 soma 5'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %%  EB_040714_B cell 3
@@ -2605,18 +2597,18 @@ params.legTxt = {'soma 20 Hz';...
                 'pos 2 10';...
                 'soma 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %% EB_040714_C cell 1
@@ -2663,19 +2655,19 @@ params.legTxt = {'soma';...
                 'pos 2 40 Hz';...
                 'pos 2 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %% EB_040714_C cell 2
@@ -2708,19 +2700,19 @@ params.vHold = [-85 -85 -85];     % The holding potential for vClamp experiments
 params.stimLoc = [0 0; -258 10; -258 10];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'Soma' 'pos 1 40 Hz', 'pos1 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %% EB_040714_C cell 3
@@ -2777,19 +2769,19 @@ params.legTxt = {'soma 20';...
                 'pos2 5';...
                 'pos2 10'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 %% EB_040714_D Cell 2
@@ -2830,19 +2822,19 @@ params.stimLoc = [0 0;...
                   0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {'soma 20 hz', 'soma 40 hz', 'soma 5 hz', 'soma 10 hz', };     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'FS cell, facilitation, TF STP'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2910,19 +2902,19 @@ params.legTxt = {'Soma 20 Hz';...
                 'Pos4 20 Hz';...
                 'Soma 20 Hz'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -2968,19 +2960,19 @@ params.stimLoc = [0 0;...
                   -358 372];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim', 'synaptic blockers'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3019,19 +3011,19 @@ params.stimLoc = [0 0;...
                   -133 104];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim', 'synaptic blockers', 'retro infect'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3070,19 +3062,19 @@ params.stimLoc = [0 0;...
                   -341 227];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3124,19 +3116,19 @@ params.stimLoc = [0 0;...
                   -307 187];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim', 'retro infect'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3179,19 +3171,19 @@ params.stimLoc = [0 0;...
                   -188 154];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3237,19 +3229,19 @@ params.stimLoc = [0 0;...
                   -204 381];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Axon stim'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3294,19 +3286,19 @@ params.stimLoc = [0 0;...
                   -370 288];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3338,14 +3330,14 @@ params.stimLoc = [-605 136;...
                   -419 314];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'Light spread', 'control'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -3388,19 +3380,19 @@ params.stimLoc = [0 0;...
                   -220 287];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3433,14 +3425,14 @@ params.stimLoc = [0 0;...
                   -204 170];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
@@ -3477,19 +3469,19 @@ params.stimLoc = [0 0;...
                   -243 205];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3527,19 +3519,19 @@ params.stimLoc = [0 0;...
                   -356 241];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {'axon stim', 'spatial slight spread', 'retro infect'};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3574,19 +3566,19 @@ params.stimLoc = [0 0;...
                   50 384];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3629,19 +3621,19 @@ params.stimLoc = [0 0;...
                   -152 480];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3692,19 +3684,19 @@ params.stimLoc = [0 0;...
                   198 420];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
@@ -3756,19 +3748,19 @@ params.stimLoc = [0 0;...
                   0 0];    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
 params.legTxt = {};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
 params.tags = {};
-params.subtractexp = GL_SUBTRACTEXP;
+params.subtractexp = false;
 params.filter = 4000;
 
 
 %
-% ANALYZE OR ADD TO MDB
+% ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~GL_SUPPRESS_ANALYSIS
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_pulseTrains_stimLoc};
     params = invitroAnalysisOverview(params);
 end
 
-if GL_ADD_TO_MDB
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 

@@ -1,7 +1,7 @@
 function params = invitroAnalysisOverview(params)
 
 % specify useful globals
-global GL_DATPATH GL_ADD_TO_MDB
+global GL_DATPATH
 
 
 %
@@ -21,7 +21,7 @@ clrIdx = round(linspace(1,size(map,1), numel(ax))); % colors for various plots
 %  IMAGE OF SLICE (if present)
 %
 %%%%%%%%%%%%%%%%%%%%
-if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the physiology_notes script is auto-running
+if ~isempty(params.photo)% don't plot the figure when the physiology_notes script is auto-running
     
     % plot the photo
     photoPath = findfile(params.photo, [GL_DATPATH, params.mouse], '.jpg');
@@ -91,15 +91,27 @@ if numel(params.files)>0
     for a = 1:numel(ax)
         % pull out the series resistance
         Ra = ax{a}.getRa('quick');
-        dat = permute(Ra.dat, [3,2,1]);
+        access = permute(Ra.dat, [3,2,1]);
+        Verr = permute(Ra.Verr, [3,2,1]);
         
         nCh = numel(Ra.chNames);
+        pltLoc = [1,2;
+                  3,4];
         for ch = 1:nCh
-            % plot the values
-            subplot(nCh, 1, ch), hold on
-            xx = idx:(idx+size(dat,1)-1);
+            % plot the access values
+            subplot(nCh, 2, pltLoc(ch,1)), hold on
+            xx = idx:(idx+size(access,1)-1);
             clr = map(clrIdx(a),:);
-            plot(xx(:), dat(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            plot(xx(:), access(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            t = title(sprintf('Channel: %s', Ra.chNames{ch}));
+            set(t, 'Interpreter', 'none')
+            
+            
+            % plot the vclamp err values
+            subplot(nCh, 2, pltLoc(ch,2)), hold on
+            plot(xx(:), Verr(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            t = title(sprintf('Channel: %s', Ra.chNames{ch}));
+            set(t, 'Interpreter', 'none')
         end
         
         % update the index
@@ -107,15 +119,18 @@ if numel(params.files)>0
     end
     
     % tidy up.
-    for ch = 1:nCh
-        subplot(nCh,1,ch)
+    for ch = 1:nCh.*2
+        subplot(nCh,2,ch)
         axis tight
         ymax = get(gca, 'ylim');
         ylim([0, ymax(2).*1.05])
         xlabel('Sweep Number')
-        ylabel('Series Resistance (MOhms)')
-        t = title(sprintf('Channel: %s', Ra.chNames{ch}));
-        set(t, 'Interpreter', 'none')
+        if any([1,3] == ch)
+            ylabel('Series Resistance (MOhms)')
+        else
+            ylabel('Vclamp Error')
+        end
+            
     end
     
 end

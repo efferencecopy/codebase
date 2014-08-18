@@ -4,7 +4,11 @@ global GL_DOCUPATH
 
 % remove the axon binary file stuff, because this doesn't need to get saved
 % in the mdb.
-params = rmfield(params, 'ax');
+if isfield(params, 'ax');
+    params = rmfield(params, 'ax');
+end
+
+disp(params.mouse)
 
 % open the mdb, figure out which mouse the popParams belong to
 mdb = initMouseDB(false, true);

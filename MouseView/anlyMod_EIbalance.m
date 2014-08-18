@@ -52,6 +52,10 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         trace_nS = trace_siemens .* 1e9;
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
         
+        % calculate the peak value
+        [peakVal_nS, peak_idx] = max(abs(trace_nS));
+        params.isolatedData.(currentType).peak_nS{ch} = peakVal_nS;
+        
     end
     
 end
@@ -65,12 +69,16 @@ for ch = 1:nChanels
     
     if ~isempty(params.isolatedData.excit.raw_nS{ch});
         plot(params.ivdat.tvec.*1000, params.isolatedData.excit.raw_nS{ch}, 'b', 'linewidth', 2)
+        [peakVal_nS, peak_idx] = max(abs(params.isolatedData.excit.raw_nS{ch}));
+        plot(params.ivdat.tvec(peak_idx).*1000, -peakVal_nS, 'bo')
     else
         continue
     end
     
     if ~isempty(params.isolatedData.inhib.raw_nS{ch});
         plot(params.ivdat.tvec.*1000, params.isolatedData.inhib.raw_nS{ch}, 'r', 'linewidth', 2)
+        [peakVal_nS, peak_idx] = max(abs(params.isolatedData.inhib.raw_nS{ch}));
+        plot(params.ivdat.tvec(peak_idx).*1000, peakVal_nS, 'ro')
     else
         continue
     end
@@ -87,12 +95,16 @@ for ch = 1:nChanels
     subplot(nChanels, 1, ch), hold on,
     if isfield(params.isolatedData, 'ampa') && ~isempty(params.isolatedData.ampa.raw_nS{ch});
         plot(params.ivdat.tvec.*1000, params.isolatedData.ampa.raw_nS{ch}, 'k', 'linewidth', 2)
+        [peakVal_nS, peak_idx] = max(abs(params.isolatedData.ampa.raw_nS{ch}));
+        plot(params.ivdat.tvec(peak_idx).*1000, -peakVal_nS, 'ko')
     else
         continue
     end
     
     if isfield(params.isolatedData, 'nmda') && ~isempty(params.isolatedData.nmda.raw_nS{ch})
         plot(params.ivdat.tvec.*1000, params.isolatedData.nmda.raw_nS{ch}, 'color', [.4 .4 .4], 'linewidth', 2)
+        [peakVal_nS, peak_idx] = max(abs(params.isolatedData.nmda.raw_nS{ch}));
+        plot(params.ivdat.tvec(peak_idx).*1000, peakVal_nS, 'o', 'color', [.4 .4 .4])
     else
         continue
     end
