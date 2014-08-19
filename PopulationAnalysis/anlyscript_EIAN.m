@@ -33,7 +33,8 @@ HVA = raw(2:end, 5);
 
 % iterate over the mice in the cell library (some mice get analyzed
 % multiple times if there were multiple experiments per mouse)
-[ampa.peak, nmda.peak, excit.peak, inhib.peak] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.peak.nS, dat.nmda.peak.nS, dat.excit.peak.nS, dat.inhib.peak.nS] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.peak.pA, dat.nmda.peak.pA, dat.excit.peak.pA, dat.inhib.peak.pA] = deal(nan(numel(mouseNames), 2));
 for ex = 1:numel(mouseNames)
     
     ex_mouseName = mouseNames{ex};
@@ -52,42 +53,23 @@ for ex = 1:numel(mouseNames)
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     idx = goodNeurons(ex,:);
-    if isfield(params.isolatedData, 'ampa')
-        tmp = params.isolatedData.ampa.peak_nS;
-        tmp(cellfun(@isempty, tmp)) = {nan};
-        tmp = cat(2,tmp{:});
-        ampa.peak(ex, idx) = tmp(idx);
+    group = {'ampa', 'nmda', 'excit', 'inhib'};
+    for g = 1:numel(group)
+        if isfield(params.isolatedData, group{g})
+            for ch = 1:2
+                
+                if ~isempty(params.isolatedData.(group{g}).raw_nS{ch});
+                    dat.(group{g}).peak.nS(ex, ch) = params.isolatedData.(group{g}).peak_nS{ch};                    
+                    dat.(group{g}).peak.nA(ex, ch) = params.isolatedData.(group{g}).peak_pA{ch};
+                end
+            end
+        end
     end
     
-    if isfield(params.isolatedData, 'nmda')
-        tmp = params.isolatedData.nmda.peak_nS;
-        tmp(cellfun(@isempty, tmp)) = {nan};
-        tmp = cat(2,tmp{:});
-        nmda.peak(ex, idx) = tmp(idx);
-    end
-    
-    if isfield(params.isolatedData, 'excit')
-        tmp = params.isolatedData.excit.peak_nS;
-        tmp(cellfun(@isempty, tmp)) = {nan};
-        tmp = cat(2,tmp{:});
-        excit.peak(ex, idx) = tmp(idx);
-    end
-    
-    if isfield(params.isolatedData, 'inhib')
-        tmp = params.isolatedData.inhib.peak_nS;
-        tmp(cellfun(@isempty, tmp)) = {nan};
-        tmp = cat(2,tmp{:});
-        inhib.peak(ex, idx) = tmp(idx);
-    end
-        
 end
 
 % package all the useful things into a single structure (and then save the
 % structure)
-dat.ampa = ampa;
-dat.nmda = nmda;
-dat.excit = excit;
-dat.inhib = inhib;
 dat.hva = HVA;
 dat.goodNeurons = goodNeurons;
 dat.mice = mouseNames;
@@ -107,9 +89,9 @@ load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 
 % pull out raw data
 l_valid = dat.goodNeurons(:);
-raw_excit = dat.excit.peak(:);
+raw_excit = dat.excit.peak.nS(:);
 raw_excit = raw_excit(l_valid);
-raw_inhib = dat.inhib.peak(:);
+raw_inhib = dat.inhib.peak.nS(:);
 raw_inhib = raw_inhib(l_valid);
 
 % create grouping lists

@@ -12,6 +12,7 @@ switch whoami
         if exist('/Volumes/Charlie HD', 'dir') % external HD is plugged in
             GL_DATPATH = '/Volumes/Charlie HD/Crash HD/Mice/';
             GL_DOCUPATH = '/Volumes/Charlie HD/Rig DocuBase/';
+            GL_POPDATPATH = '/Volumes/Charlie HD/Crash HD/population_analysis_DBs/';
         else % grab things from the local internal HD
             GL_DATPATH = '~/LabStuff/Data/Mice/';
             GL_DOCUPATH = '~/LabStuff/DocuBase/';
