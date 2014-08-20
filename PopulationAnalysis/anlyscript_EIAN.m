@@ -2,10 +2,11 @@
 
 fin
 
-% buid a structure of params from physiology notes
+% buid a structure of params from physiology notes. The globals are used
+% during execution of the physiology_notes script
 global GL_ADD_TO_MDB GL_SUPPRESS_ANALYSIS
-GL_ADD_TO_MDB = true;
-GL_SUPPRESS_ANALYSIS = true;
+GL_ADD_TO_MDB = true; %#ok<NASGU>
+GL_SUPPRESS_ANALYSIS = true; %#ok<NASGU>
 physiology_notes % run to store prams in MDB.
 
 % cd to the directory of workbooks and import the spreadsheet of cells
@@ -20,21 +21,19 @@ goodNeurons(:,2) = cat(1,raw{2:end, 4});
 goodNeurons = logical(goodNeurons);
 HVA = raw(2:end, 5);
 
-
-% build a datDB_EIAN by performing the appropriate analysis. I'll use the
-% params.name field to build each new entry into the DB. Finish by saving
-% the DB (possibly with a date string)
-% Things to save
-%  * raw conductances
-%  * raw currents?
-%  * peak conductances
-%  * list of errors
-%      * Vclamp error too big
+%
+% build a population data structure by performing the appropriate analysis.
+% I'll use the params.name field to build each new entry into the DB.
+% Finish by saving the structure (possibly with a date string)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % iterate over the mice in the cell library (some mice get analyzed
 % multiple times if there were multiple experiments per mouse)
-[dat.ampa.peak.nS, dat.nmda.peak.nS, dat.excit.peak.nS, dat.inhib.peak.nS] = deal(nan(numel(mouseNames), 2));
-[dat.ampa.peak.pA, dat.nmda.peak.pA, dat.excit.peak.pA, dat.inhib.peak.pA] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.peak_nS, dat.nmda.peak_nS, dat.excit.peak_nS, dat.inhib.peak_nS] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.peak_pA, dat.nmda.peak_pA, dat.excit.peak_pA, dat.inhib.peak_pA] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.stability, dat.nmda.stability, dat.excit.stability, dat.inhib.stability] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.raw_pA, dat.nmda.raw_pA, dat.excit.raw_pA, dat.inhib.raw_pA] = deal(repmat({[] []}, numel(mouseNames), 1));
 for ex = 1:numel(mouseNames)
     
     ex_mouseName = mouseNames{ex};
@@ -45,7 +44,7 @@ for ex = 1:numel(mouseNames)
     params = mdb.mice{idx}.popAnly{ex_siteNum};
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
-    close all
+    close all; drawnow
     
     %
     % add the data to an array for the AMPA/NMDA
@@ -59,8 +58,11 @@ for ex = 1:numel(mouseNames)
             for ch = 1:2
                 
                 if ~isempty(params.isolatedData.(group{g}).raw_nS{ch});
-                    dat.(group{g}).peak.nS(ex, ch) = params.isolatedData.(group{g}).peak_nS{ch};                    
-                    dat.(group{g}).peak.nA(ex, ch) = params.isolatedData.(group{g}).peak_pA{ch};
+                    dat.(group{g}).peak_nS(ex, ch) = params.isolatedData.(group{g}).peak_nS{ch};                    
+                    dat.(group{g}).peak_pA(ex, ch) = params.isolatedData.(group{g}).peak_pA{ch};
+                    dat.(group{g}).raw_pA{ex, ch} = params.isolatedData.(group{g}).raw_pA{ch};
+                    dat.(group{g}).stability(ex, ch) = params.isolatedData.(group{g}).globalStability(ch);
+                    dat.tvec{ex} = params.ivdat.tvec;
                 end
             end
         end
@@ -80,6 +82,10 @@ cd(GL_POPDATPATH);
 save popAnly_EIAN.mat dat
 cd(originalDir);
 
+% be nice and return these variables to their default values
+GL_ADD_TO_MDB = false;
+GL_SUPPRESS_ANALYSIS = false;
+
 %% EXCITATION VS. INHIBITION
 
 fin
@@ -87,22 +93,56 @@ fin
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 
-% pull out raw data
-l_valid = dat.goodNeurons(:);
-raw_excit = dat.excit.peak.nS(:);
-raw_excit = raw_excit(l_valid);
-raw_inhib = dat.inhib.peak.nS(:);
-raw_inhib = raw_inhib(l_valid);
 
 % create grouping lists
+l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
 hvas = hvas(l_valid);
 hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
 hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
 hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 
+% plot the raw currents for isolated excitation and inhibition
+nPlots = sum(l_valid);
+nRows = ceil(sqrt(nPlots));
+tmp_inhib_raw = cat(1, dat.inhib.raw_pA(:));
+tmp_excit_raw = cat(1, dat.excit.raw_pA(:));
+tmp_names = repmat(dat.mice, 2,1);
+tmp_tvec = repmat(dat.tvec', 2,1);
+tmp_stability = [dat.ampa.stability(:), dat.nmda.stability(:)];
+listToPlot = find(l_valid);
+figure
+set(gcf, 'position', [7 18 1396 795])
+for i = 1:nPlots;
+    
+    a = listToPlot(i);
+    if any([isempty(tmp_inhib_raw{a}), isempty(tmp_excit_raw{a})])
+        continue
+    end
+    
+    subplot(nRows, nRows, i)
+    hold on,
+    plot(tmp_tvec{a}, tmp_inhib_raw{a}, 'r')
+    plot(tmp_tvec{a}, tmp_excit_raw{a}, 'b')
+    t = title(tmp_names{a});
+    set(t, 'interpreter', 'none')
+    axis tight
+    hold off
 
-% plot the most raw form of the data
+    if any(tmp_stability(a,:)==0)
+        set(gca, 'color', [1, .85, .85])
+    end
+    
+end
+
+
+% pull out peak conductances
+raw_excit = dat.excit.peak_pA(:);
+raw_excit = abs(raw_excit(l_valid));
+raw_inhib = dat.inhib.peak_pA(:);
+raw_inhib = raw_inhib(l_valid);
+
+% plot peak conductances for all cells
 figure, hold on,
 plot(raw_excit, raw_inhib, 'ko', 'markerfacecolor', 'k')
 l_nan = isnan(raw_excit);
@@ -138,14 +178,9 @@ fin
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 
-% pull out raw data
-l_valid = dat.goodNeurons(:);
-raw_ampa = dat.ampa.peak(:);
-raw_ampa = raw_ampa(l_valid);
-raw_nmda = dat.nmda.peak(:);
-raw_nmda = raw_nmda(l_valid);
 
 % create grouping lists
+l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
 hvas = hvas(l_valid);
 hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
@@ -153,7 +188,13 @@ hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
 hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 
 
-% plot the most raw form of the data
+% pull out peak conductances
+raw_ampa = dat.ampa.peak_nS(:);
+raw_ampa = raw_ampa(l_valid);
+raw_nmda = dat.nmda.peak_nS(:);
+raw_nmda = raw_nmda(l_valid);
+
+% plot peak conductances for all cells
 figure, hold on,
 plot(raw_ampa, raw_nmda, 'ko', 'markerfacecolor', 'k')
 l_nan = isnan(raw_ampa);

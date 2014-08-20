@@ -117,6 +117,23 @@ for a = 1:Ngroups
             sweeps = butterfilt(sweeps, params.filter, ax.head.sampRate, 'low', dim);
             ivdat.(params.groups{a,1}).raw{ch}{ch_specific_idx(ch)} = mean(sweeps, 1);
             
+            % do a litte work to make sure there is no runup or rundown in
+            % the size of the currents
+            analysispoints = round(ax.head.sampRate .* 0.050);
+            sweep_snips = sweeps(:,baselinePoints:baselinePoints+analysispoints);
+            [~, inds] = max(abs(sweep_snips), [],2);
+            peakInd = round(mean(inds));
+            peak_pA = mean(sweep_snips(:,peakInd-3:peakInd+3), 2);
+            [~, p] = corr([1:numel(peak_pA)]', peak_pA(:), 'type', 'spearman');
+            if p<0.05
+                prcntChange = (mean(peak_pA(end-5:end)) - mean(peak_pA(1:5))) ./ mean(peak_pA(1:5));
+                if abs(prcntChange) > 0.2; p=0; end
+            else
+                p = 1;
+            end
+            ivdat.(params.groups{a,1}).stablePSCs_pval{ch}{ch_specific_idx(ch)} = p;
+
+            
             % grab the holding potential here, store it in ivdat
             vdat = ax.getvals(secondaryChIdx(ch), 1:size(ax.dat,3), pulseTime-preTime, pulseTime+postTime);
             vdat = mean(vdat, 1); % mean across time;
@@ -146,7 +163,7 @@ for a = 1:numel(groups)
         if Nvholds<1 % no plotting when no data
             continue
         end
-        try
+        
         subplot(Nchannels, 1, ch), hold on,
         xlabel('time (sec)')
         ylabel('current (pA)')
@@ -155,9 +172,6 @@ for a = 1:numel(groups)
         clrs = pmkmp(Nvholds+1,'IsoL'); % pmkmp bonks when asked for a single color. adding one to avoid the bonking...
         clrs = clrs(randperm(Nvholds), :);
         legtext = {};
-        catch
-            keyboard
-        end
         
         for i = 1:Nvholds;
             idx = vholdOrder(i);
