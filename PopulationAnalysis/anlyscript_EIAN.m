@@ -32,7 +32,8 @@ HVA = raw(2:end, 5);
 % multiple times if there were multiple experiments per mouse)
 [dat.ampa.peak_nS, dat.nmda.peak_nS, dat.excit.peak_nS, dat.inhib.peak_nS] = deal(nan(numel(mouseNames), 2));
 [dat.ampa.peak_pA, dat.nmda.peak_pA, dat.excit.peak_pA, dat.inhib.peak_pA] = deal(nan(numel(mouseNames), 2));
-[dat.ampa.stability, dat.nmda.stability, dat.excit.stability, dat.inhib.stability] = deal(nan(numel(mouseNames), 2));
+[dat.ampa.Verr, dat.nmda.Verr, dat.excit.Verr, dat.inhib.Verr] = deal(repmat({[] []}, numel(mouseNames), 1));
+[dat.ampa.peakBySweep, dat.nmda.peakBySweep, dat.excit.peakBySweep, dat.inhib.peakBySweep] = deal(repmat({[] []}, numel(mouseNames), 1));
 [dat.ampa.raw_pA, dat.nmda.raw_pA, dat.excit.raw_pA, dat.inhib.raw_pA] = deal(repmat({[] []}, numel(mouseNames), 1));
 for ex = 1:numel(mouseNames)
     
@@ -61,8 +62,9 @@ for ex = 1:numel(mouseNames)
                     dat.(group{g}).peak_nS(ex, ch) = params.isolatedData.(group{g}).peak_nS{ch};                    
                     dat.(group{g}).peak_pA(ex, ch) = params.isolatedData.(group{g}).peak_pA{ch};
                     dat.(group{g}).raw_pA{ex, ch} = params.isolatedData.(group{g}).raw_pA{ch};
-                    dat.(group{g}).stability(ex, ch) = params.isolatedData.(group{g}).globalStability(ch);
                     dat.tvec{ex} = params.ivdat.tvec;
+                    dat.(group{g}).Verr{ex, ch} = params.isolatedData.(group{g}).Verr{ch};
+                    dat.(group{g}).peakBySweep{ex, ch} = params.isolatedData.(group{g}).peakBySweep_pA{ch};
                 end
             end
         end
@@ -109,7 +111,6 @@ tmp_inhib_raw = cat(1, dat.inhib.raw_pA(:));
 tmp_excit_raw = cat(1, dat.excit.raw_pA(:));
 tmp_names = repmat(dat.mice, 2,1);
 tmp_tvec = repmat(dat.tvec', 2,1);
-tmp_stability = [dat.ampa.stability(:), dat.nmda.stability(:)];
 listToPlot = find(l_valid);
 figure
 set(gcf, 'position', [7 18 1396 795])
@@ -128,13 +129,8 @@ for i = 1:nPlots;
     set(t, 'interpreter', 'none')
     axis tight
     hold off
-
-    if any(tmp_stability(a,:)==0)
-        set(gca, 'color', [1, .85, .85])
-    end
     
 end
-
 
 % pull out peak conductances
 raw_excit = dat.excit.peak_pA(:);
@@ -222,12 +218,20 @@ for a = 1:numel(groups);
 end
 
 
+%% CONTROL ANALYSES
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 
 
+% create grouping lists
+l_valid = dat.goodNeurons(:);
 
-
-
-
+% grab the data
+tmp_ampa_verr = dat.ampa.Verr(:);
+tmp_ampa_verr = tmp_ampa_verr(l_valid);
 
 
 

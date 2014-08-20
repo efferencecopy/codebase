@@ -16,6 +16,7 @@ switch whoami
         else % grab things from the local internal HD
             GL_DATPATH = '~/LabStuff/Data/Mice/';
             GL_DOCUPATH = '~/LabStuff/DocuBase/';
+            GL_POPDATPATH = ''; % not defined
         end
         
         defaultpath = '~/LabStuff/';

@@ -59,12 +59,12 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         
         % this is redundant with params.ivdat.(exptgroup).raw, but I'm
         % going to store the raw current trace in a form that is easily
-        % accessible to down stream analysis:
+        % accessible to down stream analysis. Ditto for Vclamp err, and Ra
         params.isolatedData.(currentType).raw_pA{ch} = trace_pA;
+        params.isolatedData.(currentType).peakBySweep_pA{ch} = params.ivdat.(experimentalGroup).peakBySweep_pA{ch}{vHoldAvailable};
+        params.isolatedData.(currentType).Verr{ch} = params.ivdat.(experimentalGroup).Verr{ch}{vHoldAvailable};
+        params.isolatedData.(currentType).Racc{ch} = params.ivdat.(experimentalGroup).Racc{ch}{vHoldAvailable};
         
-        % store the recording stability information here (also redundant).
-        stability_pval = cat(1,params.ivdat.(experimentalGroup).stablePSCs_pval{ch}{vHoldAvailable});
-        params.isolatedData.(currentType).globalStability(ch) = stability_pval<0.05;
         
         
     end
@@ -95,10 +95,6 @@ for ch = 1:nChanels
     legend('excitation', 'inhibition')
     xlim([-25 300])
     
-    stability = [params.isolatedData.excit.globalStability(ch), params.isolatedData.inhib.globalStability(ch)];
-    if any(stability==0)
-        set(gca, 'color', [1, .85, .85])
-    end
 end
 
 
@@ -122,10 +118,6 @@ for ch = 1:nChanels
     legend('AMPA', 'NMDA')
     xlim([-25 300])
     
-    stability = [params.isolatedData.ampa.globalStability(ch), params.isolatedData.nmda.globalStability(ch)];
-    if any(stability==0)
-        set(gca, 'color', [1, .85, .85])
-    end
 end
 
 

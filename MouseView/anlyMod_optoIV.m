@@ -118,20 +118,32 @@ for a = 1:Ngroups
             ivdat.(params.groups{a,1}).raw{ch}{ch_specific_idx(ch)} = mean(sweeps, 1);
             
             % do a litte work to make sure there is no runup or rundown in
-            % the size of the currents
+            % the size of the currents. store the peak currents on a sweep
+            % by sweep basis.
             analysispoints = round(ax.head.sampRate .* 0.050);
             sweep_snips = sweeps(:,baselinePoints:baselinePoints+analysispoints);
             [~, inds] = max(abs(sweep_snips), [],2);
             peakInd = round(mean(inds));
             peak_pA = mean(sweep_snips(:,peakInd-3:peakInd+3), 2);
-            [~, p] = corr([1:numel(peak_pA)]', peak_pA(:), 'type', 'spearman');
-            if p<0.05
-                prcntChange = (mean(peak_pA(end-5:end)) - mean(peak_pA(1:5))) ./ mean(peak_pA(1:5));
-                if abs(prcntChange) > 0.2; p=0; end
-            else
-                p = 1;
+            ivdat.(params.groups{a,1}).peakBySweep_pA{ch}{ch_specific_idx(ch)} = peak_pA;
+            
+            % now store the Access resistance, and the Vclamp errors for
+            % the same sweeps
+            out = ax.getRa();
+            Ra = permute(out.dat, [3,2,1]);
+            Verr = permute(out.Verr, [3,2,1]);
+            
+            % an ugly hack
+            if size(Ra, 2)<2
+                warning('implementing an ugly hack')
+                
+                Ra = [Ra, Ra];
+                Verr = [Verr, Verr];
             end
-            ivdat.(params.groups{a,1}).stablePSCs_pval{ch}{ch_specific_idx(ch)} = p;
+            
+            ivdat.(params.groups{a,1}).Racc{ch}{ch_specific_idx(ch)} = Ra(l_goodSweeps, ch);
+            ivdat.(params.groups{a,1}).Verr{ch}{ch_specific_idx(ch)} = Verr(l_goodSweeps, ch);
+
 
             
             % grab the holding potential here, store it in ivdat
