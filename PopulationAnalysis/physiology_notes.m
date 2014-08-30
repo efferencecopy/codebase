@@ -1463,7 +1463,7 @@ fin
 % Notes
 %
 %%%%%%%%%%%%%%%%%
-% Decent data from CH2, but CH1 is junky. I'm assuming that cel 2 is a PY
+% Decent data from CH2, but CH1 is junky. I'm assuming that cel 2 is an IN
 % cell.
 %
 % brain area: I'm guessing this is area LM.

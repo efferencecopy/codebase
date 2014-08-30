@@ -64,7 +64,7 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         params.isolatedData.(currentType).peakBySweep_pA{ch} = params.ivdat.(experimentalGroup).peakBySweep_pA{ch}{vHoldAvailable};
         params.isolatedData.(currentType).Verr{ch} = params.ivdat.(experimentalGroup).Verr{ch}{vHoldAvailable};
         params.isolatedData.(currentType).Racc{ch} = params.ivdat.(experimentalGroup).Racc{ch}{vHoldAvailable};
-        
+        params.isolatedData.(currentType).holdingCurrent{ch} = params.ivdat.(experimentalGroup).holdingCurrent{ch}{vHoldAvailable};
         
         
     end

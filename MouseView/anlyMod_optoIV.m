@@ -14,7 +14,7 @@ end
 % centered on the LED pulse
 Ngroups = size(params.groups,1);
 for a = 1:Ngroups
-   
+    
     % determine the data files for this particular condition
     prefix = params.files{1};
     list = params.groups{a,2};
@@ -34,6 +34,7 @@ for a = 1:Ngroups
     
     % iterate over the data files and extract stuff for HS1 and HS2
     for i = 1:numel(groupFiles);
+        
         fIdx = cellfun(@(x) ~isempty(x), regexpi(groupFiles{i}, abfLibrary));
         ax = params.ax{fIdx};
         
@@ -133,7 +134,8 @@ for a = 1:Ngroups
             Ra = permute(out.dat, [3,2,1]);
             Verr = permute(out.Verr, [3,2,1]);
             
-            % an ugly hack
+            % an ugly hack. Need to do this in cases where CH 1 isn't
+            % defined.
             if size(Ra, 2)<2
                 warning('implementing an ugly hack')
                 
@@ -143,6 +145,7 @@ for a = 1:Ngroups
             
             ivdat.(params.groups{a,1}).Racc{ch}{ch_specific_idx(ch)} = Ra(l_goodSweeps, ch);
             ivdat.(params.groups{a,1}).Verr{ch}{ch_specific_idx(ch)} = Verr(l_goodSweeps, ch);
+            ivdat.(params.groups{a,1}).holdingCurrent{ch}{ch_specific_idx(ch)} = baseline;
 
 
             
