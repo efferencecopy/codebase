@@ -259,7 +259,7 @@ clc; close all;
 
 % Set the parameters of the analysis
 observer = 'kali';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
-sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 3] for sedna
+sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
 viewSetting = 'isolum';   % could also be 'lm plane', 's vs l+m', 'isolum'
 plottype = '3D';
 
@@ -334,7 +334,7 @@ fpar_cones = fitDetectionSurface(gab.colorDirs, cones.alpha_analytic, 'ellipsoid
 
 % plot the raw data
 figure;
-set(gcf, 'position', [213 316 1089 490])
+set(gcf, 'position', [56 5 1377 801])
 subplot(1,2,1); % behavioral data
 title(sprintf('Spatial Frequency = %.2f cpd', sfs(sfIdx)))
 threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
@@ -342,6 +342,8 @@ threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
 subplot(1,2,2)% cone noise data
 title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
 threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
+
+
 
 
 %
@@ -370,10 +372,10 @@ conesThresh = coleThresh(reshape(fpar_cones(2:end),3,3), fpar_cones(1), colors);
 C = monkeyThresh ./ conesThresh;
 C = log10(C);
 C = reshape(C, size(X,1), size(X,2)); % for plotting
-minVal = min(C(:))
+minVal = min(C(:));
 minVec = [X(C(:) == minVal), Y(C(:) == minVal), Z(C(:) == minVal)] .* 1.5;
 if size(minVec,1) ==1; minVec = [minVec; -minVec]; end
-maxVal = max(C(:))
+maxVal = max(C(:));
 maxVec = [X(C(:) == maxVal), Y(C(:) == maxVal), Z(C(:) == maxVal)] .* 1.5;
 if size(maxVec,1) ==1; maxVec = [maxVec; -maxVec]; end
 
@@ -418,8 +420,8 @@ clear fpar_monkey fpar_bootstrap existingBootstraps existingParams % makes auto 
 switch observer
     case 'kali'
         load Kali_DTNT_072113.mat % monkey data
-        load Kali_fpar_050514.mat % fits to monkey surfaces 050514 for more straps or 072113 for fewer
-        load Kali_boot_050514.mat % bootstraps for kali 050514 or 072113
+        load Kali_fpar_072113.mat % fits to monkey surfaces 050514 for more straps or 072113 for fewer
+        load Kali_boot_072113.mat % bootstraps for kali 050514 or 072113
         existingParams = fpar_monkey; % 'fpar_monkey' is a variable that I use below, but I don't want to overwrite it...
         existingBootstraps = fpar_bootstrap;
     case 'sedna'
@@ -1371,7 +1373,7 @@ title('Model Thresholds')
 xlabel('Eccentricity (dva)')
 ylabel('Threshold (Lum contrast)')
 xlim([0 7.5])
-ylim([10^(-2.45) 10^(-0.95)])
+ylim([10^(-2.75) 10^(-1.25)])
 diff(log10(get(gca, 'ylim')))
 set(gca, 'yscale', 'log')
 
@@ -1389,8 +1391,11 @@ for a = 1:size(tmp_sim,1)
     inds = ~isnan(tmp_dat(a,:));
     plot(pltEcc(inds), tmp_dat(a,inds), 'linewidth', 3, 'color', pltColors(a,:))
 end
-%set(gca, 'yscale', 'log')
-ylim([0, 3])
+set(gca, 'yscale', 'log')
+ylim([1, 5])
+xlim([0, 7.5])
+ylabel('Monkey to Model ratio')
+xlabel('Eccentricity (deg)')
 
 
 
@@ -1629,7 +1634,6 @@ for a = 1:numel(retinaFiles)
     
     fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/Huskies/DTcones/Data', '.mat');
     load(fpath)
-    gab.contrasts{1}
     [gab.nSd, gab.driftRate, gab.rf_x, gab.rf_y, gab.sd, gab.sf, gab.theta]
     [idlob, cones] = coneNoiseROC(params, idlob, cones, gab); % do the ROC analysis and fit neurometric fxns
     
@@ -1710,8 +1714,8 @@ set([h_yy, ax],...
 set(h_yy(2),...
     'ycolor', 'b',...
     'linewidth', 2,...
-    'ylim', [33, 330],...
-    'ytick', linspace(33, 330, 10))
+    'ylim', [48, 480],...
+    'ytick', linspace(47, 470, 10))
 
 set(h_line2,...
     'color', 'b',...

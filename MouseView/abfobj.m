@@ -22,21 +22,25 @@ classdef abfobj
             if ~exist('fileName', 'var') || isempty(fileName) % no file name supplied
                 currentDir = pwd;
                 cd(GL_DATPATH)
-                [fileName,fpath] = uigetfile('*.nex');
+                [fileName,fpath] = uigetfile('*.abf');
                 fpath = [fpath,fileName];
                 cd(currentDir);
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
-                    mdb = initMouseDB('update', 'notext');
+                    mdb = initMouseDB(false, true);
                 end
-                mouseName = mdb.search(fileName);
-                assert(~isempty(mouseName), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
-                assert(numel(mouseName)==1, 'ABFOBJ ERROR: too many data files match the input <%s>', fileName);
+                mouseNames = mdb.search(fileName(1:10)); %ignore the exact file name and just look at the date
+                assert(~isempty(mouseNames), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
                 
                 % use find file to locate the .abf file
-                fpath = findfile(fileName, [GL_DATPATH, mouseName{1}], '.abf');
-                assert(~isempty(fpath), 'ABFOBJ ERROR: could not locate <%s> in directory <%s>', fileName, mouseName{1})
+                for a = 1:numel(mouseNames)
+                    fpath{a} = findfile(fileName, [GL_DATPATH, mouseNames{a}], '.abf');
+                end
+                validPaths = cellfun(@(x) ~isempty(x), fpath);
+                assert(sum(validPaths) > 0, 'ABFOBJ ERROR: could not find data file <%s>', fileName)
+                assert(sum(validPaths) <= 1, 'ABFOBJ ERROR: too many matches for data file <%s>', fileName)
+                fpath = fpath{validPaths};
                 
             end
             
@@ -74,9 +78,23 @@ classdef abfobj
             
         end
         
-        function [idx, time] = threshold(obj, thresh, ch, sweep, direction)
+        function [idx, time] = threshold(obj, thresh, index, direction)
+            % index should contain the 2nd, 3rd, 4th, etc dimensions of the
+            % sweep to take. The first dimension will be time, and I'll
+            % take all time points. For example, if the index is:
+            %  wf(:, index(1), index(2))
+            % than I'm taking all time points from the "index(1) channel"
+            % and the "index(2) sweep"
             
-            above = obj.wf(:,ch,sweep) > thresh;
+            indexString = '(:';
+            for a = 1:numel(index)
+                indexString = [indexString, ',', num2str(index(a))];
+            end
+            indexString = [indexString, ')'];
+            
+            tmpWF = eval(['obj.wf', indexString]);
+            
+            above = tmpWF > thresh;
             change = [0; diff(above)];
             
             switch direction
@@ -94,6 +112,7 @@ classdef abfobj
         function Ra = getRa(obj, method)
 
             
+            % find the recorded channels that correspond to Vclamp expts
             [idx_Im, idx_Vclamp] = deal([]);
             for a = 1:numel(obj.head.recChNames);
                 
@@ -136,14 +155,15 @@ classdef abfobj
             % convention as obj.dat (time x channels x sweeps);
             Nsweeps = size(obj.dat, 3);
             Nchannels = numel(idx_Im);
-            Ra = nan(1, Nchannels, Nsweeps);
+            Ra.chNames = obj.head.recChNames(idx_Im);
+            Ra.dat = nan(1, Nchannels, Nsweeps);
             for ch = 1:numel(idx_Im)
                 for swp = 1:Nsweeps;
                     
                     % find the relevant time points with respect to the
                     % command wf
-                    idxOnset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'd');
-                    idxOffset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'u');
+                    idxOnset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'd');
+                    idxOffset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'u');
                     idx_pulse = find(idxOnset) : find(idxOffset);
                     
                     % the Im doesn't start until after the onset of the
@@ -168,7 +188,7 @@ classdef abfobj
                         case 'quick'
                             delta_pa = minVal - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
+                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
                             
                         case 'linear'
                             pred = [tt_pulse(1:20)', ones(20,1)];
@@ -178,25 +198,28 @@ classdef abfobj
                             Im_atOnset = betas(1) .* tt_On + betas(2);
                             delta_pa = Im_atOnset - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
-                            
-                            % plot everything
-%                             figure,
-%                             subplot(2,1,1), hold on,
-%                             plot(obj.tt, obj.dat(:, idx_Im(ch), swp), 'k')
-%                             plot(tt_pulse, Im_pulse, 'ro')
-%                             plot(obj.tt(idx_baseline), obj.dat(idx_baseline, idx_Im(ch), swp), 'co')
-%                             plot([pred(:,1);tt_On], betas(1).*[pred(:,1);tt_On]+betas(2), 'b', 'linewidth', 2)
-%                             xlim([0.139 0.1394])
-%                             subplot(2,1,2)
-%                             plot(obj.tt, obj.wf(:, idx_Vclamp(ch), swp), 'k')
-%                             xlim([0.139 0.1394])
-                            
+                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
                         case 'exp'
                             % currently doesn't do anything
                     end
                     
+                    %
+                    % calculate the Vclamp error due to holding current as
+                    % a percentage of the holding potential
+                    %%%%%%%%%%%%%%%%%%%%%%%
+                    Verr_volts = (Ra.dat(1, ch, swp) .* 10^6) .* (Im_baseline .* 10^-12);
+                    Verr_mv = Verr_volts .* 1000;
                     
+                    l_secCh = regexpi(obj.head.recChNames, '_sec', 'match');
+                    l_secCh = cellfun(@(x) ~isempty(x), l_secCh);
+                    l_unitsMV = regexpi(obj.head.recChUnits, 'mv', 'match');
+                    l_unitsMV = cellfun(@(x) ~isempty(x), l_unitsMV);
+                    l_ch = regexp(obj.head.recChNames, sprintf('HS%d', ch), 'match');
+                    l_ch = cellfun(@(x) ~isempty(x), l_ch);
+                    Vm_idx = l_secCh & l_unitsMV & l_ch;
+                    Vcmd = round(mean(obj.dat(idx_baseline, Vm_idx, swp)));
+                    
+                    Ra.Verr(1, ch, swp) = abs(Verr_mv);
                     
                 end
             end
@@ -218,6 +241,12 @@ classdef abfobj
             if any(l_ch1)
                 raw_ch1 = obj.dat(:,l_ch1,:);
                 raw_ch1 = permute(raw_ch1, [1,3,2]);
+                
+                % grab the WF data
+                l_ch1_wf = regexp(obj.head.DACchNames, 'HS1_');
+                l_ch1_wf = ~cellfun(@isempty, l_ch1_wf);
+                wf_ch1 = obj.wf(:, l_ch1_wf, :);
+                wf_ch1 = permute(wf_ch1, [1,3,2]);
             end
             
             
@@ -229,44 +258,104 @@ classdef abfobj
             if any(l_ch2)
                 raw_ch2 = obj.dat(:,l_ch2,:);
                 raw_ch2 = permute(raw_ch2, [1,3,2]);
+                
+                % grab the WF data
+                l_ch2_wf = regexp(obj.head.DACchNames, 'HS2_');
+                l_ch2_wf = ~cellfun(@isempty, l_ch2_wf);
+                wf_ch2 = obj.wf(:, l_ch2_wf, :);
+                wf_ch2 = permute(wf_ch2, [1,3,2]);
             end
             
             % figure out how many plots to make
-            figure            
+            f = figure;
+            set(f, 'color', [1 1 1])
+            hzm = zoom(f);
+            set(hzm,'ActionPostCallback', @quickPlot_adjustAxis);
             if any(l_ch1) && any(l_ch2)
                 
-                set(gcf, 'position', [239 386 1064 420]);
+                set(f, 'position', [239     5   983   801])
                 
-                subplot(1,2,1)
-                plot(obj.tt, raw_ch1)
-                set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 1 (%s)', obj.head.recChUnits{l_ch1}))
-                xlim([obj.tt(1) obj.tt(end)])
+                subplot(2,2,1)
+                quickPlot_rawData(raw_ch1, 1, l_ch1)
                 
-                subplot(1,2,2)
-                plot(obj.tt, raw_ch2)
-                set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 2 (%s)', obj.head.recChUnits{l_ch2}))
-                xlim([obj.tt(1) obj.tt(end)])
+                subplot(2,2,3)
+                quickPlot_commandWF(wf_ch1, 1, l_ch1_wf)
+                
+                subplot(2,2,2)
+                quickPlot_rawData(raw_ch2, 2, l_ch2)
+                
+                subplot(2,2,4)
+                quickPlot_commandWF(wf_ch2, 2, l_ch2_wf)
                 
             elseif any(l_ch1)
                 
-                plot(obj.tt, raw_ch1)
-                set(gca, 'fontsize', 16)
-                xlabel('time')
-                ylabel(sprintf('Channel 1 (%s)', obj.head.recChUnits{l_ch1}))
-                xlim([obj.tt(1) obj.tt(end)])
+                subplot(2,1,1)
+                quickPlot_rawData(raw_ch1, 1, l_ch1)
+                
+                subplot(2,1,2)
+                quickPlot_commandWF(wf_ch1, 1, l_ch1_wf)
             
             elseif any(l_ch2)
+                
+                subplot(2,1,1)
+                quickPlot_rawData(raw_ch2, 2, l_ch2)
+                
+                subplot(2,1,2)
+                quickPlot_commandWF(wf_ch2, 2, l_ch2_wf)
+                
+            end
             
-                plot(obj.tt, raw_ch2)
+            
+            function quickPlot_rawData(datToPlot, channel, chIdx)
+                plot(obj.tt, datToPlot)
+                set(gca, 'fontsize', 16)
+                xlabel('time');
+                ylabel(sprintf('Channel %d (%s)', channel, obj.head.recChUnits{chIdx}))
+                xlim([obj.tt(1) obj.tt(end)])
+                ylim([min(datToPlot(:)).*.95 max(datToPlot(:)).*1.05])
+                box off
+                set(gca, 'userdata', channel);
+            end
+            
+            function quickPlot_commandWF(wfToPlot, channel, chIdx)
+                plot(obj.tt, wfToPlot)
                 set(gca, 'fontsize', 16)
                 xlabel('time')
-                ylabel(sprintf('Channel 2 (%s)', obj.head.recChUnits{l_ch2}))
+                ylabel(sprintf('Channel %d (%s)', channel, obj.head.DACchUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                ylim([min(wfToPlot(:)).*.95 max(wfToPlot(:)).*1.05])
+                box off
+                set(gca, 'userdata', channel);
             end
+            
+            function quickPlot_adjustAxis(~, h)
+                
+                %grab the new xlims
+                newXlims = get(h.Axes, 'xlim');
+                
+                % figure out which channel was manipulated
+                channel = get(h.Axes, 'userdata');
+                
+
+                % figure out which axis need to be changed.
+                Naxes = numel(get(gcf, 'children'));
+                Nchannels = sum(double(l_ch1 | l_ch2));
+                Nrows = Naxes ./ Nchannels;
+                
+                if (Nchannels == 1) && (Nrows == 2);
+                    l_axes = [1,2];
+                else
+                    l_axes = channel:Nchannels:Nchannels+Nrows;
+                end
+                
+                % enforce the new xlims on the WF plot
+                for a = 1:numel(l_axes)
+                    subplot(Nrows,Nchannels,l_axes(a))
+                    set(gca, 'xlim', newXlims)
+                end
+                
+            end
+            
             
         end
         

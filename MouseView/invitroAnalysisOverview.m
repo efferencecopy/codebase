@@ -1,18 +1,27 @@
 function params = invitroAnalysisOverview(params)
 
 % specify useful globals
-global GL_DATPATH GL_ADD_TO_MDB
+global GL_DATPATH
 
-% define a few other things
+
+%
+% LOAD THE EXPERIMENTAL FILES IF PRESENT
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ax = loadFromList(params.files);
+
+
+
+% define a color direction for each data file
 f = figure; map = colormap('jet'); close(f);
-clrIdx = round(linspace(1,size(map,1), numel(params.files))); % colors for various plots
+clrIdx = round(linspace(1,size(map,1), numel(ax))); % colors for various plots
 
 
 %
 %  IMAGE OF SLICE (if present)
 %
 %%%%%%%%%%%%%%%%%%%%
-if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the physiology_notes script is auto-running
+if ~isempty(params.photo)% don't plot the figure when the physiology_notes script is auto-running
     
     % plot the photo
     photoPath = findfile(params.photo, [GL_DATPATH, params.mouse], '.jpg');
@@ -21,9 +30,10 @@ if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the ph
     imshow(img);
     set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
     set(gcf, 'position', [582    17   847   598]);
+    drawnow
     
     % highlight the stimulation locations
-    if size(params.stimLoc, 1) > 0
+    if isfield(params, 'stimLoc') && size(params.stimLoc, 1) > 0
         centPos = round(ginput(1));
         if ~isempty(centPos) % the user can press return quickly to avoid this part, which will result in an empty vector.
             stimPoints = params.stimLoc;
@@ -32,7 +42,7 @@ if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the ph
             stimPoints = bsxfun(@plus, stimPoints, centPos); % pix relative to neuron
             hold on,
             for a = 1:size(stimPoints,1)
-                plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:))
+                plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:), 'markersize', 10)
             end
             drawnow
         end
@@ -45,7 +55,7 @@ end
 % DC STEPS if present
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~isempty(params.DCsteps)
+if isfield(params, 'DCsteps') && ~isempty(params.DCsteps)
     ax_dc = abfobj(params.DCsteps);
     ax_dc.quickPlot
     set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
@@ -55,21 +65,18 @@ end
 
 
 %
-% LOAD THE REMAINING FILES IF PRESENT
+%  REMOVE UNWANTED SWEEPS
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-ax = {};
-fprintf('**** Unpacking %d files:\n', numel(params.files));
-for a = 1:numel(params.files)
-    fprintf('file %d: %s \n', a, params.files{a})
-    ax{a} = abfobj(params.files{a});
-    
-    % remove unwanted sweeps
-    if (numel(params.skipSweeps) >= a) && ~isempty(params.skipSweeps{a});
-        disp('removing sweeps')
-        ax{a} = ax{a}.removeSweeps(params.skipSweeps{a});
-    end        
+if isfield(params, 'skipSweeps')
+    for a = 1:numel(ax)
+        if (numel(params.skipSweeps) >= a) && ~isempty(params.skipSweeps{a});
+            disp('removing sweeps')
+            ax{a} = ax{a}.removeSweeps(params.skipSweeps{a});
+        end
+    end
 end
+
 
 
 %
@@ -78,30 +85,54 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 if numel(params.files)>0
     figure, hold on,
-    set(gcf, 'position', [15   394   560   420]);
+    set(gcf, 'position', [15    23   560   651]);
+    
     idx = 1;
     for a = 1:numel(ax)
         % pull out the series resistance
         Ra = ax{a}.getRa('quick');
-        Ra = permute(Ra, [3,2,1]);
-        idx_Im = eval(['ax{a}.idx.',params.validCh,'Im']);
-        Ra = Ra(:,idx_Im);
+        access = permute(Ra.dat, [3,2,1]);
+        Verr = permute(Ra.Verr, [3,2,1]);
         
-        % plot the values
-        xx = idx:(idx+numel(Ra)-1);
-        clr = map(clrIdx(a),:);
-        plot(xx(:), Ra(:), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+        nCh = numel(Ra.chNames);
+        pltLoc = [1,2;
+                  3,4];
+        for ch = 1:nCh
+            % plot the access values
+            subplot(nCh, 2, pltLoc(ch,1)), hold on
+            xx = idx:(idx+size(access,1)-1);
+            clr = map(clrIdx(a),:);
+            plot(xx(:), access(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            t = title(sprintf('Channel: %s', Ra.chNames{ch}));
+            set(t, 'Interpreter', 'none')
+            
+            
+            % plot the vclamp err values
+            subplot(nCh, 2, pltLoc(ch,2)), hold on
+            plot(xx(:), Verr(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            t = title(sprintf('Channel: %s', Ra.chNames{ch}));
+            set(t, 'Interpreter', 'none')
+        end
         
         % update the index
         idx = xx(end)+1;
     end
     
-    % tidy up. 
-    axis tight
-    ymax = get(gca, 'ylim');
-    ylim([0, ymax(2).*1.05])
-    xlabel('Sweep Number')
-    ylabel('Series Resistance (MOhms)')
+    % tidy up.
+    for ch = 1:nCh.*2
+        subplot(nCh,2,ch)
+        axis tight
+        ymax = get(gca, 'ylim');
+        ylim([0, ymax(2).*1.05])
+        xlabel('Sweep Number')
+        if any([1,3] == ch)
+            ylabel('Series Resistance (MOhms)')
+        else
+            ylabel('Vclamp Error')
+        end
+            
+    end
+    
 end
 
 %
@@ -110,7 +141,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 params.ax = ax; % package the raw data so that I don't have to load the abf files multiple times.
 for a = 1:numel(params.fxns)
-    params = feval(params.fxns{a}, params)
+    params = feval(params.fxns{a}, params);
 end
 
 

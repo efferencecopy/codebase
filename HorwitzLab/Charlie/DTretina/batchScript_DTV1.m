@@ -33,7 +33,7 @@ params.unitTest = false;            % true or false
 params.eqMosaic = false;            % for debugging. true or false
 
 % make some notes... 
-params.notes = '';                  % notes that should be associated the data file?
+params.notes = 'DTV1, filtered wt fxn, aperatured mosaic';                  % notes that should be associated the data file?
 
 
          
@@ -82,7 +82,7 @@ end
 %open a matlabpool
 if exist('matlabpool', 'file') == 2;
     %poolObj = parpool('local', 4);
-    matlabpool open 6
+    matlabpool open 16
     pause(2)
     fprintf(' *** Using parallel operations *** \n')
 end

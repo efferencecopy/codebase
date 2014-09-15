@@ -122,6 +122,7 @@ for clr = 1:nColors;
                 if W_anly(1)< 0;
                     W_anly = -W_anly; % standardize the representation of eigenvectors
                 end
+                                
                 
                 % calculate the necessary elements for ROC analysis
                 mu_signal = mu_sig * W_anly;

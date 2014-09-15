@@ -1,12 +1,16 @@
-function out = butterfilt(in, freqs, sampFreq, type)
+function out = butterfilt(in, freqs, sampFreq, type, dim)
 %
 % out = butterfilt(in, freqs, sampFreq, type)
 %
-%applies filtfilt using a butterworth filter kernel. Type should be 'high',
+%applies filter using a butterworth filter kernel. Type should be 'high',
 %'low', or 'stop'. If type = 'stop', freqs should contain two values.
 
 
 Wn = freqs./(sampFreq/2);
-order = 2;
+order = 4;
 [B,A] = butter(order, Wn, type);
-out = filter(B,A,in);
+if exist('dim', 'var')
+    out = filter(B,A,in,[],dim);
+else
+    out = filter(B,A,in);
+end

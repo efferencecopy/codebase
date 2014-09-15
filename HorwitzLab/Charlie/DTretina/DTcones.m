@@ -457,7 +457,7 @@ function mon = initMonitorCalibration(params, gab, eyes)
     
     % generate a rod-absorPTance spectum and determine the rod R* due to the background
     rodActionSpectra = coneActionSpectra('rod',mon.monSpectWavelengths);
-    rod_OD =  0.45; % Rodieck estimate approx 0.47, Bowmaker et al (1978) estimates 0.475, Baylor (1984) 0.3 to 0.4;
+    rod_OD =  0.35; % Rodieck estimate approx 0.47, Bowmaker et al (1978) estimates 0.475, Baylor (1984) 0.3 to 0.4;
     rod_fund = 1 - 10.^(-rodActionSpectra .* rod_OD);
     rod_fund = bsxfun(@rdivide, rod_fund, max(rod_fund,[],2));
     rodCollectingArea = 1; %in um^2 (JA & CAH).. about 1 Schneeweis (1999) and Schnapf (1990)
@@ -703,8 +703,7 @@ function cones = aperatureConeMosaic(params, cones, mon)
     % load in the GT data file
     GT = gtobj(params.GTV1_fname);
     spikenum = strcmp(GT.sum.rasterCells(1,:),getSpikenum(GT, 'first'));
-    out = getGratingTuning(GT, spikenum);
-    cones.aptDiam = out.areasummation.prefsize;    
+    cones.aptDiam = getAperatureTuning(GT, spikenum);
     
     % make the aperature. The aperature size is in units of DVA, so work in
     % DVA...
@@ -2526,7 +2525,41 @@ end
 
 
 
+function prefDiam = getAperatureTuning(stro, spikenum)
 
+diams = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'diam'));
+protocols = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'protocol'));
+stimon_t = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_on'));
+stimoff_t= stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_off'));
+
+
+spikerates = [];
+baseline_t = 0.25;
+for i = 1:size(stro.trial,1)
+    spiketimes = stro.ras{i,spikenum};
+    nspikes = sum(spiketimes > stimon_t(i) & spiketimes < stimoff_t(i));
+    spikerates = [spikerates; nspikes./(stimoff_t(i)-stimon_t(i))];
+    nspikes = sum(spiketimes > stimon_t(i)-baseline_t & spiketimes < stimon_t(i));
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Looking at area summation curve
+if (any(protocols == 5))
+    Lprotocol = protocols == 5;
+    x = diams(Lprotocol);
+    y = spikerates(Lprotocol);
+    pp = csape(x,y,'not-a-knot');
+    xx = linspace(min(diams),max(diams),100);
+    fit = ppval(pp,xx);
+    prefDiam = xx(find(fit == max(fit),1));
+    
+else
+    prefDiam = nan;
+end
+
+
+
+end
 
 
 
