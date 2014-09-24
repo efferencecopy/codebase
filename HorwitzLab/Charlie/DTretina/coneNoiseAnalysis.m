@@ -1209,6 +1209,7 @@ end
 fin
 modelData = '/Users/charliehass/LabStuff/Huskies/DTcones/HighTF_Simulation_noScones.txt';
 behavioralData = '/Users/charliehass/LabStuff/Huskies/DTcones/ApolloMacPig_CH.txt';
+USE_CC_THRESHOLD = true;
 
 % determine what parameters change across all these data files.
 % p = paramsCheck(behavioralData);
@@ -1232,7 +1233,7 @@ missing = [];
 for a = 1: numel(monkFiles)
     
     % extract the data
-    fpath = findfile(monkFiles{a})
+    fpath = findfile(monkFiles{a});
     if isempty(fpath);
         missing = [missing, a];
         continue
@@ -1249,6 +1250,12 @@ for a = 1: numel(monkFiles)
     for clr = 1:numel(t);
         cnt_LMS = t(clr) .* c(clr,:);
         t(clr) = luminanceContrast(cnt_LMS, Mmtx, bkgnd_rgb, monspect);
+                
+        % Trying to get things into CC units. 
+        if USE_CC_THRESHOLD
+            t(clr) = norm(cnt_LMS);
+            warning('using cone contrast units')
+        end
     end
     
     % parse the threshold data <nColors x nEccentricites>
@@ -1299,7 +1306,7 @@ end
 retinaFiles = fnamesFromTxt2(modelData);
 
 for a = 1:numel(retinaFiles)
-    fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/Huskies/DTcones/Data', '.mat')
+    fpath = findfile(retinaFiles{a}, '/Users/charliehass/LabStuff/Huskies/DTcones/Data', '.mat');
     load(fpath)
     [gab.nSd, gab.driftRate, gab.rf_x, gab.rf_y, gab.sd, gab.sf, gab.theta]
     [idlob, cones] = coneNoiseROC(params, idlob, cones, gab); % do the ROC analysis and fit neurometric fxns
@@ -1319,6 +1326,14 @@ for a = 1:numel(retinaFiles)
     for clr = 1:2;
         cnt_RGB = GBthreshEstimates(clr) .* gunIsoDirs(clr,:);
         GBthreshEstimates(clr) = luminanceContrast([], [], bkgnd_rgb, monspect, cnt_RGB);
+        
+        % Trying to get things into CC units. 
+        if USE_CC_THRESHOLD
+            bkgnd_lms = mon.bkgndlms_Rstar;
+            rgbAtThresh = (cnt_RGB+1) .* bkgnd_rgb;
+            lmsAtThresh = mon.rgb2Rstar * rgbAtThresh(:);
+            GBthreshEstimates(clr) = norm((lmsAtThresh - bkgnd_lms)./bkgnd_lms);
+        end
     end
     
     
