@@ -678,7 +678,7 @@ function cones = initConeMosaic(gab, mon, eyes)
     cones.num_L = (conesPerPix_all - conesPerPix_S) ./ 2;
     cones.num_M = (conesPerPix_all - conesPerPix_S) ./ 2;
     
-    % give the model 2 eyess
+    % give the model 2 eyes
     warning('model has 2 eyes now')
     cones.num_L = cones.num_L .* 2;
     cones.num_M = cones.num_M .* 2;
@@ -786,9 +786,9 @@ function cones = defineConeGainScaleFactor(cones, mon)
     
     % adjust the gain by assuming cone gain is a Weber-Fechner relationship
     % with the half-desensitizing value indicated in Juan's paper.
-    Io = 4500;                 % half-desensitizing value (in R*/sec, from Juan's paper)
+    Io = 2250;                 % half-desensitizing value (in R*/sec, from Juan's paper) [old value was 4500]
     Ib = mon.bkgndlms_Rstar;   % from the monitor initalization routine
-    gain_dark = 0.16;          % from Juan's paper (approximate, and in units of pA/R*)
+    gain_dark = 0.32;          % from Juan's paper (approximate, and in units of pA/R*)[old value was 0.16]
     gainRatio = 1 ./ (1+(Ib./Io));
     gainAtBkgnd = gainRatio .* gain_dark;
     gainOfIRF = max(ifft(cones.filter_fft));
