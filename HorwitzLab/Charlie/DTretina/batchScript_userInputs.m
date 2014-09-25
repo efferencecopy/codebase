@@ -31,10 +31,10 @@ params.parallelOperations = true;             % needs to be true for this script
 
 % enable some debugging options if necesary
 params.unitTest = false;             % true or false
-params.eqMosaic = true;             % for debugging. true or false
+params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'trying to debug stuff for greg. equal cone mosaic, equal bkgnd R*/sec';       % notes that should be associated the data file?
+params.notes = 'equal bkgnd for Greg, but normal cone mosaic';       % notes that should be associated the data file?
 
 
 
@@ -62,7 +62,7 @@ if strcmpi(params.colorselection , 'lots')
     
     
     % define the color directions.... just putting points on a sphere for now
-    nColors = 200;
+    nColors = 100;
     tmp = ceil(sqrt(nColors));
     az = linspace(0, 2*pi, tmp);
     el = linspace(0, pi/2, tmp);
@@ -81,7 +81,7 @@ if strcmpi(params.colorselection , 'lots')
 elseif strcmpi(params.colorselection , 'specific')
     
     % In case I want to test a specific set of colors...
-    colorDirs = [1 1 0];
+    colorDirs = [1 0 0; 0 1 0; 0 0 1];
     colorDirs = bsxfun(@rdivide, colorDirs, sqrt(sum(colorDirs.^2, 2))); % as unit vectors
     alphas = [1, 1, 1];
     nColors = size(colorDirs,1);
