@@ -6,12 +6,6 @@
 % clear out the work space
 fin
 
-tempFreqs = [15 25];
-eccentricity = [5:5:70];
-
-
-for tf = 1:numel(tempFreqs);
-    for ecc = 1:numel(eccentricity)
     
 %
 % define the necessary parameters for the DTcones simulation
@@ -20,13 +14,13 @@ for tf = 1:numel(tempFreqs);
 params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
 params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
 params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-params.monCalFile = 'DTcals_apollo_macpig.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+params.monCalFile = 'DTcals_equal_bkgnd.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
 params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
 params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
-params.enableScones = false;                      % should the S-cones contribute to the pooled response?
+params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.colorselection = 'guniso';              % could be: 'lots', 'specific', 'guniso'
+params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
 
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
@@ -37,10 +31,10 @@ params.parallelOperations = true;             % needs to be true for this script
 
 % enable some debugging options if necesary
 params.unitTest = false;             % true or false
-params.eqMosaic = false;             % for debugging. true or false
+params.eqMosaic = true;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'This run uses the updated IRF dark gain and semi-desaturation constant.\n looking at lum flicker thresholds';       % notes that should be associated the data file?
+params.notes = 'trying to debug stuff for greg. equal cone mosaic, equal bkgnd R*/sec';       % notes that should be associated the data file?
 
 
 
@@ -51,15 +45,15 @@ params.notes = 'This run uses the updated IRF dark gain and semi-desaturation co
 % hijack DTcones ability to import all the relavent gabor parameters.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-dtnt.rf_x = eccentricity(ecc);     % in tenths of dva
-dtnt.rf_y = 0;       % in tenths of dva
-dtnt.sigma = 1.5;    % in tenths of dva
-dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
+dtnt.rf_x = -50;     % in tenths of dva
+dtnt.rf_y = -35;       % in tenths of dva
+dtnt.sigma = 4;    % in tenths of dva
+dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
 dtnt.theta = 0;
 dtnt.gamma = 1;
 dtnt.length = .666;  % in seconds
-dtnt.speed = tempFreqs(tf);
-dtnt.sfs = 3;
+dtnt.speed = 3;
+dtnt.sfs = 1;
 dtnt.alphas = []; % gets filled in later
 dtnt.colorDirs = []; % gets filled in later
 
@@ -152,24 +146,24 @@ end
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% %open a matlabpool
-% if exist('matlabpool', 'file') == 2;
-%     %poolObj = parpool('local', 4);
-%     matlabpool open 10
-%     pause(2)
-%     fprintf(' *** Using parallel operations *** \n')
-% end
+%open a matlabpool
+if exist('matlabpool', 'file') == 2;
+    poolObj = parpool([2 nColors]);
+    %matlabpool open 16
+    pause(2)
+    fprintf(' *** Using parallel operations *** \n')
+end
 
-for a = 1:nColors
+parfor a = 1:nColors
     % run the simulation
     DTcones(pstructs{a})
 end
 
-% % close the workers
-% if exist('matlabpool', 'file') == 2;
-%     matlabpool('close')
-%     %delete(poolObj);
-% end
+% close the workers
+if exist('matlabpool', 'file') == 2;
+    %matlabpool('close')
+    delete(poolObj);
+end
 
 
 
@@ -303,5 +297,3 @@ cd(originalDir)
 
 fprintf('   **** All done with the batch process **** \n')
 
-    end
-end
