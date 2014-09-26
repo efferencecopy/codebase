@@ -48,8 +48,8 @@ fin
 % Ok data from CH2, less than great data from CH1. I'm not certain that
 % cell 2 is an IN neuron, so this should be verified.
 %
-% brain area: 
-% popAnalysis: 
+% brain area: possibly LM
+% popAnalysis: E/I and A/N ratios
 %
 
 %
@@ -99,7 +99,7 @@ fin
 % Nice data from 2 PY cells that are likely in PM. Both have good access
 % resisitance. 
 %
-% brain area: likely PM, but need to check
+% brain area: likely PM
 % popAnalysis: adding to E/I A/N
 %
 
@@ -152,7 +152,7 @@ fin
 % on. The resulting Vclamp error causes the NMDA conductance to be
 % underestamated... I should institue a check of this...
 %
-% brain area: likely PM. Need to check once histology is ready 
+% brain area: likely LM
 % popAnalysis: adding to E/I and A/N. A/N should be filtered out due to
 % Vclamp errors.
 %
@@ -196,6 +196,7 @@ end
 
 %% AK_072814_C pair 1
 fin
+
 %
 % Notes
 %
@@ -259,7 +260,7 @@ fin
 % partially be due to Vclamp errors or rundown. 
 %
 %
-% brain area: unknown, need to look at the histology
+% brain area: likely LM
 % popAnalysis: E/I only for cell 2
 %
 
@@ -304,6 +305,12 @@ end
 
 
 %% BOOKMARK FOR AK MICE
+
+% Need to add:
+% 
+% AK_081814_B
+% AK_081814_C
+% AK_082014_A
 
 
 %% CH_020314_B Cell 1
@@ -1306,7 +1313,7 @@ fin
 % brain area: unknown. The hisology is out of order, and inconclusive. I
 % could go back to scrutinize...
 %
-% popAnalysis: 
+% popAnalysis: E/I and A/N. 
 %
 
 
@@ -1416,7 +1423,7 @@ fin
 %
 %
 % brain area: LM?
-% popAnalysis: adding, but with notes about injection issues. 
+% popAnalysis: adding, but with notes about injection issues. E/I and A/N.
 %
 
 %
@@ -1660,6 +1667,15 @@ end
 
 %% BOOKMARK FOR CH MICE
 % data added to population analyses up to here
+
+% Need to add
+%
+% CH_081114_A (cell 2 seems like network driven excitation to L4 PY cell,
+% and direct activation of SOM+ cell. Equal latence for inhibition).
+% CH_081114_B
+% CH_081114_C
+% CH_081114_D
+% CH_081914_B
 
 
 %% EB_031014_A cell 2

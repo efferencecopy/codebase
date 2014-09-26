@@ -5,7 +5,7 @@ function stackMaker(mName, objective)
 % Initializes a GUI that allows the user to adjust the contrast of images
 % and to make merges between the R, G, B color channels. This funtion will
 % also save all the modifications to a directory of .tiffs specified by the
-% mouse's name.
+% mouse's name. The variable [objective] is optional.
 %
 % C.Hass 3/2014
 
@@ -771,7 +771,7 @@ function mergeImg = merge_initLUT(udat)
         for color = {'red', 'green', 'blue'}
             mergeImg{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
             mergeImg{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
-            mergeImg{a}.(color{1}).lut_slope = 1;
+            mergeImg{a}.(color{1}).lut_slope = 5; %empirically pretty good for the retiga camera
             mergeImg{a}.(color{1}).lut_yint = 0;
         end
     end
