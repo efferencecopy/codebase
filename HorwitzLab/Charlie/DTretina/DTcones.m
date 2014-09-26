@@ -16,7 +16,7 @@ function DTcones(params)
 % params.notes          	=> a string. notes for the data file that describes the experimental run
 % params.parallelOperations => true/false. so that DTcones knows how to store temporary files used during parfor loops
 %
-% Created by CAH using routines inspired by Juan Angueyra
+% Created by CAH using cone physiology data (and fits) from Juan Angueyra
 
 
 
@@ -116,15 +116,15 @@ function [gab, params] = initGabor(params)
     switch lower(params.runType)
         
         case 'default'
-            gab.sd = 4;           % in 1/10 dva
-            gab.nSd = 3;          % number of SDs in gabor
+            gab.sd = 3;           % in 1/10 dva
+            gab.nSd = 4;          % number of SDs in gabor
             gab.theta = 0;        % in radians. Zero is horizontal drifting up
             gab.gamma = 1;        % SDx == SDy
             gab.sf = 1;           % in cpd
             gab.driftRate = 3;    % in cyc/sec
             gab.length = 0.666;   % in sec
-            gab.rf_x = 50;        % in 1/10 dva
-            gab.rf_y = 0;         % in 1/10 dva
+            gab.rf_x = -50;        % in 1/10 dva
+            gab.rf_y = -35;         % in 1/10 dva
             gab.colorDirs = [1, 1, 1;...
                              1, -1, 0;...
                              0, 0, 1];
@@ -361,6 +361,10 @@ function lms_Rstar = getGaborRstar(clr, cnt, gab, mon, params, cones)
         if rem(cones.samplingRate,mon.frameRate) > 1e-2 % cones.samplingRate should be (nearly) an integer multiple of the mon refresh rate
             warning('might have the incorrect cone sampling rate')
         end
+        
+        % make sure that none of the lms_Rstar values are negative.
+        diff_from_bkgnd = lms_Rstar(:)-mon.bkgndlms_Rstar(:);
+        assert(~any(diff_from_bkgnd > mon.bkgndlms_Rstar(:)), sprintf('ERROR: R* values went negative for color <%d> cnt <%d>', clr, cnt))
     end
 
 end
@@ -396,6 +400,15 @@ function mon = initMonitorCalibration(params, gab, eyes)
             mon.frameRate = cal.frameRate;
             mon.monSpectWavelengths = 380:5:780;
             mon.pixperdeg = cal.pixperdeg;
+            
+            % in the case where you load in equalBkgnd cal file, make sure
+            % that the stimulus RF position is what we expect. Due to
+            % macpig, equalBkgnd must be specified uniquely for each
+            % spatial location
+            if isfield(cal, 'rfX')
+                assert(cal.rfX==gab.rf_x, '  ->->->  ERROR: for equal bkgnd, RF needs to be at (-5 -3.5) DVA')
+                assert(cal.rfY==gab.rf_y, '  ->->->  ERROR: for equal bkgnd, RF needs to be at (-5 -3.5) DVA')
+            end
             
         case 'dtv1'
             DT = params.V1stro;
@@ -453,7 +466,7 @@ function mon = initMonitorCalibration(params, gab, eyes)
     
     % determine the R* due to the background intensity of the monitor
     mon.bkgndlms_Rstar = mon.rgb2Rstar * mon.bkgndrgb(:);
-    
+    mon.rgb2Rstar * mon.bkgndrgb(:)
     
     % generate a rod-absorPTance spectum and determine the rod R* due to the background
     rodActionSpectra = coneActionSpectra('rod',mon.monSpectWavelengths);
@@ -678,7 +691,7 @@ function cones = initConeMosaic(gab, mon, eyes)
     cones.num_L = (conesPerPix_all - conesPerPix_S) ./ 2;
     cones.num_M = (conesPerPix_all - conesPerPix_S) ./ 2;
     
-    % give the model 2 eyess
+    % give the model 2 eyes
     warning('model has 2 eyes now')
     cones.num_L = cones.num_L .* 2;
     cones.num_M = cones.num_M .* 2;
@@ -786,9 +799,9 @@ function cones = defineConeGainScaleFactor(cones, mon)
     
     % adjust the gain by assuming cone gain is a Weber-Fechner relationship
     % with the half-desensitizing value indicated in Juan's paper.
-    Io = 4500;                 % half-desensitizing value (in R*/sec, from Juan's paper)
+    Io = 2250;                 % half-desensitizing value (in R*/sec, from Juan's paper) [old value was 4500]
     Ib = mon.bkgndlms_Rstar;   % from the monitor initalization routine
-    gain_dark = 0.16;          % from Juan's paper (approximate, and in units of pA/R*)
+    gain_dark = 0.32;          % from Juan's paper (approximate, and in units of pA/R*)[old value was 0.16]
     gainRatio = 1 ./ (1+(Ib./Io));
     gainAtBkgnd = gainRatio .* gain_dark;
     gainOfIRF = max(ifft(cones.filter_fft));

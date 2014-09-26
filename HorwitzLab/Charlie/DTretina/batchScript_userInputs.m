@@ -6,7 +6,7 @@
 % clear out the work space
 fin
 
-
+    
 %
 % define the necessary parameters for the DTcones simulation
 %
@@ -14,13 +14,13 @@ fin
 params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
 params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
 params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+params.monCalFile = 'DTcals_equal_bkgnd.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
 params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
 params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.colorselection = 'specific';              % could be: 'lots', 'specific', 'guniso'
+params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
 
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
@@ -34,7 +34,7 @@ params.unitTest = false;             % true or false
 params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'comparing sum of variance to average. this file uses the average.';       % notes that should be associated the data file?
+params.notes = 'equal bkgnd for Greg, but normal cone mosaic';       % notes that should be associated the data file?
 
 
 
@@ -45,15 +45,15 @@ params.notes = 'comparing sum of variance to average. this file uses the average
 % hijack DTcones ability to import all the relavent gabor parameters.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-dtnt.rf_x = 30;     % in tenths of dva
-dtnt.rf_y = 0;       % in tenths of dva
-dtnt.sigma = 1.5;    % in tenths of dva
-dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
+dtnt.rf_x = -50;     % in tenths of dva
+dtnt.rf_y = -35;       % in tenths of dva
+dtnt.sigma = 4;    % in tenths of dva
+dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
 dtnt.theta = 0;
 dtnt.gamma = 1;
 dtnt.length = .666;  % in seconds
 dtnt.speed = 3;
-dtnt.sfs = 2;
+dtnt.sfs = 1;
 dtnt.alphas = []; % gets filled in later
 dtnt.colorDirs = []; % gets filled in later
 
@@ -62,7 +62,7 @@ if strcmpi(params.colorselection , 'lots')
     
     
     % define the color directions.... just putting points on a sphere for now
-    nColors = 200;
+    nColors = 100;
     tmp = ceil(sqrt(nColors));
     az = linspace(0, 2*pi, tmp);
     el = linspace(0, pi/2, tmp);
@@ -81,9 +81,7 @@ if strcmpi(params.colorselection , 'lots')
 elseif strcmpi(params.colorselection , 'specific')
     
     % In case I want to test a specific set of colors...
-    colorDirs = [1 1 0;...
-                 1 -1 1;...
-                 0 0 1];
+    colorDirs = [1 0 0; 0 1 0; 0 0 1];
     colorDirs = bsxfun(@rdivide, colorDirs, sqrt(sum(colorDirs.^2, 2))); % as unit vectors
     alphas = [1, 1, 1];
     nColors = size(colorDirs,1);
@@ -147,25 +145,25 @@ end
 % than the order specified by 'colorDirs'
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%         %open a matlabpool
-%         if exist('matlabpool', 'file') == 2;
-%             %poolObj = parpool('local', 4);
-%             matlabpool open 6
-%             pause(2)
-%             fprintf(' *** Using parallel operations *** \n')
-%         end
 
-for a = 1:nColors
+%open a matlabpool
+if exist('matlabpool', 'file') == 2;
+    poolObj = parpool([2 nColors]);
+    %matlabpool open 16
+    pause(2)
+    fprintf(' *** Using parallel operations *** \n')
+end
+
+parfor a = 1:nColors
     % run the simulation
     DTcones(pstructs{a})
 end
 
-%         % close the workers
-%         if exist('matlabpool', 'file') == 2;
-%             matlabpool('close')
-%             %delete(poolObj);
-%         end
+% close the workers
+if exist('matlabpool', 'file') == 2;
+    %matlabpool('close')
+    delete(poolObj);
+end
 
 
 
