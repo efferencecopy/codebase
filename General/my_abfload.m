@@ -1,34 +1,21 @@
 function [d,h, wf] = my_abfload(fn)
-
-% **  [data, header] = abfload(filename)
 %
-% >>> INPUT VARIABLES >>>
-% NAME        TYPE, DEFAULT      DESCRIPTION
-% fn          char array         abf data file name
-%
-% << OUTPUT VARIABLES <<<
-% NAME  TYPE            DESCRIPTION
-% d                     the data read, the format depending on the record-
-%                        ing mode
-%   1. GAP-FREE:
-%   2d array        2d array of size <data pts> by <number of chans>
-%                    Examples of access:
-%                    d(:,2)       data from channel 2 at full length
-%                    d(1:100,:)   first 100 data points from all channels
-%
-%   2. EPISODIC FIXED-LENGTH/WAVEFORM FIXED-LENGTH/HIGH-SPEED OSCILLOSCOPE:
-%   3d array        3d array of size <data pts per sweep> by <number of chans> by <number of sweeps>.
-%                    Examples of access:
-%                    d(:,2,:)            a matrix containing all episodes
-%                                        (at full length) of the second
-%                                        channel in its columns
-%                    d(1:200,:,[1 11])   contains first 200 data points of
-%                                        episodes 1 and 11 of all channels
+%  my_abfload
 % 
+%  EXAMPLE: [data, header waveforms] = my_abfload(filename)
+%
+% fn -> file name to .abf file. Needs to be a pClamp 10 version. Needs to
+% be in matlab's path
+%
+% d -> The raw data as a 3D array with dimensions (time x channels x sweeps)
+%
+% wf -> The command waveforms (not acquired, but reconstructed from the
+% binary data file)
 %
 % CONTRIBUTORS
 %   Original version by Harald Hentschke (harald.hentschke@uni-tuebingen.de)
 %   Extended to abf version 2.0 by Forrest Collman (fcollman@Princeton.edu)
+%   Improved support for pClamp 10 by Charlie Hass (hass@neuro.duke.edu)
 %
 
 

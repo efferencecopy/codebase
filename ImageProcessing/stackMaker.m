@@ -5,7 +5,7 @@ function stackMaker(mName, objective)
 % Initializes a GUI that allows the user to adjust the contrast of images
 % and to make merges between the R, G, B color channels. This funtion will
 % also save all the modifications to a directory of .tiffs specified by the
-% mouse's name.
+% mouse's name. The variable [objective] is optional.
 %
 % C.Hass 3/2014
 
@@ -195,7 +195,18 @@ function udat = gui_init(udat)
                               'string', 'Export to TIFF',...
                               'Position',  [0.78, 0.19, 0.10, 0.05],...
                               'Callback', {@merge_exportAsTIFF});
-    
+                          
+    %
+    % ADD A CHECKBOX FOR MONOCHOME / COLOR
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    udat.h.clrCheckBox = uicontrol('style', 'checkbox',...
+                                   'units', 'normalized',...
+                                   'string', 'RGB mode',...
+                                   'fontsize', 11,...
+                                   'position', [0.8 0.12, .08, .03],...
+                                   'BackgroundColor', get(gcf, 'color'),...
+                                   'callback', {@img_updateImages});
     
     % Put the udat structure in the UserData field.
     set(udat.h.fig, 'UserData', udat);
@@ -205,7 +216,6 @@ function udat = gui_init(udat)
     img_updateHistogram % also updates the raw/merged images by calling img_updateImages
     
 end
-
 
 function gui_selectChannel(hand, ~)
     
@@ -241,7 +251,6 @@ function gui_selectChannel(hand, ~)
     
 end
 
-
 function gui_slider(varargin)
     
     % grab the data
@@ -262,7 +271,6 @@ function gui_slider(varargin)
     gui_updateContrastSliders()
     
 end
-
 
 function gui_txtUpdate(varargin)
     
@@ -346,6 +354,7 @@ function gui_updateContrastSliders(varargin)
 end
 
 
+
 function img_checkForRawImages(udat)
 
     % cd to where the images are
@@ -364,9 +373,6 @@ function img_checkForRawImages(udat)
     
     
 end
-
-
-
 
 function udat = img_getRaw(udat)
 
@@ -476,7 +482,6 @@ function udat = img_getRaw(udat)
     
 end
 
-
 function img_adjustLUTvals(hand, ~)
 
     % grab the userData
@@ -584,7 +589,6 @@ function img_adjustLUTvals(hand, ~)
     
 end
 
-
 function img_flip(varargin)
     
     % grab the data
@@ -620,8 +624,7 @@ function img_flip(varargin)
     
 end
 
-
-function img_updateImages()
+function img_updateImages(varargin)
 
     % grab the data
     udat = get(gcf, 'userdata');
@@ -635,19 +638,27 @@ function img_updateImages()
     set(udat.h.imgBlue, 'CData', img_applyLUT(udat.raw{sliceNum}.blue, udat.merge{sliceNum}.blue))
     
     % create the merged image
-    tmp_cat = cat(3, get(udat.h.imgRed, 'CData'), get(udat.h.imgGreen, 'CData'), get(udat.h.imgBlue, 'CData'));
+    colorMode = get(udat.h.clrCheckBox, 'value');
+    if colorMode == 1 % RGB color mode
+        tmp_merg = cat(3, get(udat.h.imgRed, 'CData'), get(udat.h.imgGreen, 'CData'), get(udat.h.imgBlue, 'CData'));
+    else % monochrome
+        currentColor = udat.currentColor;
+        tmp_merg = img_applyLUT(udat.raw{sliceNum}.(currentColor), udat.merge{sliceNum}.(currentColor));
+        tmp_merg = repmat(tmp_merg, 1, 1, 3);
+    end
+    
     
     % make sure the class of the merged image is correct
     if 8 == udat.raw{sliceNum}.red.info.BitsPerSample(1)
-        tmp_cat = uint8(tmp_cat);
+        tmp_merg = uint8(tmp_merg);
     elseif 16 == udat.raw{sliceNum}.red.info.BitsPerSample(1)
-        tmp_cat = uint16(tmp_cat);
+        tmp_merg = uint16(tmp_merg);
     else
         error('Unknown image resolution')
     end
     
     % update the merged image
-    set(udat.h.imgMerge, 'CData', tmp_cat); % needs to be uint16 inorder for imshow to deal with it appropriately
+    set(udat.h.imgMerge, 'CData', tmp_merg); % needs to be uint16 inorder for imshow to deal with it appropriately
                                      
 end
 
@@ -699,7 +710,6 @@ function img_updateHistogram()
     
 end
 
-
 function out = img_applyLUT(raw, merge)
     
     % apply the LUT
@@ -716,7 +726,6 @@ function out = img_applyLUT(raw, merge)
     out = reshape(out, size(raw.img));
     
 end
-
 
 function img_resetLUT(varargin)
 
@@ -762,7 +771,7 @@ function mergeImg = merge_initLUT(udat)
         for color = {'red', 'green', 'blue'}
             mergeImg{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
             mergeImg{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
-            mergeImg{a}.(color{1}).lut_slope = 1;
+            mergeImg{a}.(color{1}).lut_slope = 5; %empirically pretty good for the retiga camera
             mergeImg{a}.(color{1}).lut_yint = 0;
         end
     end
@@ -771,7 +780,6 @@ function mergeImg = merge_initLUT(udat)
     mergeImg = mergeImg(:);
     
 end
-
 
 function merge_exportAsTIFF(varargin)
 
@@ -815,14 +823,22 @@ function merge_exportAsTIFF(varargin)
    % plate/slice
    %
    %%%%%%%%%%%%%%%%%%%%%%
+   colorMode = get(udat.h.clrCheckBox, 'value');
    for a = 1:numel(udat.raw)
        % apply the LUT to each channel
-       tmp_R = img_applyLUT(udat.raw{a}.red, udat.merge{a}.red);
-       tmp_G = img_applyLUT(udat.raw{a}.green, udat.merge{a}.green);
-       tmp_B= img_applyLUT(udat.raw{a}.blue, udat.merge{a}.blue);
+       if colorMode == 1; % RGB mode
+           tmp_R = img_applyLUT(udat.raw{a}.red, udat.merge{a}.red);
+           tmp_G = img_applyLUT(udat.raw{a}.green, udat.merge{a}.green);
+           tmp_B= img_applyLUT(udat.raw{a}.blue, udat.merge{a}.blue);
+           merged = cat(3, tmp_R, tmp_G, tmp_B);
+       else % monochrome mode
+           currentColor = udat.currentColor;
+           merged = img_applyLUT(udat.raw{a}.(currentColor), udat.merge{a}.(currentColor));
+           merged = repmat(merged, 1,1,3);
+       end
        
        % update the merged image, and convert to the correct class type
-       merged = cat(3, tmp_R, tmp_G, tmp_B);
+       
        if 8 == udat.raw{a}.red.info.BitsPerSample(1)
            merged = uint8(merged);
        elseif 16 == udat.raw{a}.red.info.BitsPerSample(1)

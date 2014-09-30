@@ -77,6 +77,15 @@ in = {'CH_061614_D', '2014_07_09_', 3,       (37:90), 1;... % 18 minutes, holdin
       'CH_071614_A', '2014_07_16_', (37:52), (41:80), 5;... % zero to 8 minutes, Vhold = -30
       'CH_071614_A', '2014_07_16_', (56:74), (38:54), 5};   % 15 to 32 minutes, Vhold = 0
 
+  
+%
+% Alternate Erev Cl- files that are not used here
+%
+%%%%%%%%%%%%
+% CH_070714_B, pair 1, single Vhold per file, Cs internal in both pipets.
+
+
+
 for ex = 1:size(in,1);
     fprintf('now working on experiment %d\n', ex)
     

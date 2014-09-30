@@ -17,7 +17,7 @@ params.flatPowerSpect = false;
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.aperatureMosaic = true;                   % only for DTV1 experiments
+params.aperatureMosaic = true;                  % only for DTV1 experiments
 
 
 
@@ -33,7 +33,7 @@ params.unitTest = false;            % true or false
 params.eqMosaic = false;            % for debugging. true or false
 
 % make some notes... 
-params.notes = 'DTV1, filtered wt fxn, aperatured mosaic';                  % notes that should be associated the data file?
+params.notes = 'DTV1, filtered wt fxn, new gain and semi-desensitization constant, WITH aperature';                  % notes that should be associated the data file?
 
 
          

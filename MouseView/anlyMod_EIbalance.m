@@ -8,7 +8,7 @@ end
 
 % iterate over the isolated data field and convert the raw current traces
 % to conductances.
-for a = 1:size(params.isolatedCurrents, 1)
+for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
     currentType = params.isolatedCurrents{a, 1};
     experimentalGroup = params.isolatedCurrents{a, 2};
     
@@ -29,6 +29,20 @@ for a = 1:size(params.isolatedCurrents, 1)
         trace_pA = params.ivdat.(experimentalGroup).raw{ch}{vHoldAvailable};
         drivingForce_mV = abs(params.isolatedCurrents{a, 3} - params.isolatedCurrents{a, 4}); % in mV
         
+        % if isolatedCurrent == 'ampa', then subtract off the NMDA current
+        % in the presence of blockers.
+        if strcmpi(currentType, 'ampa')
+            vholds_nmdaOnly = params.ivdat.nbqxGabazine.vhold{ch};
+            idx = cellfun(@(x, y) softEq(x, y, 0), vholds_nmdaOnly, repmat({vhold_req}, size(vholds_nmdaOnly)), 'uniformoutput', false);
+            idx = cellfun(@(x) ~isempty(x) && (x==true), idx);
+            if any(idx)
+                trace_nmdaOnly = params.ivdat.nbqxGabazine.raw{ch}{idx};
+                trace_pA = trace_pA - trace_nmdaOnly;
+            else
+                warning('Could not find control condition for AMPA only current')
+            end
+        end
+        
         % convert to amps and volts. 
         trace_amps = trace_pA ./ 1e12;
         drivingForce_volts = drivingForce_mV ./ 1e3;
@@ -37,6 +51,21 @@ for a = 1:size(params.isolatedCurrents, 1)
         trace_siemens = trace_amps ./ drivingForce_volts;
         trace_nS = trace_siemens .* 1e9;
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
+        
+        % calculate the peak value
+        [peakVal_nS, peak_idx] = max(abs(trace_nS));
+        params.isolatedData.(currentType).peak_nS{ch} = peakVal_nS;
+        params.isolatedData.(currentType).peak_pA{ch} = trace_pA(peak_idx);
+        
+        % this is redundant with params.ivdat.(exptgroup).raw, but I'm
+        % going to store the raw current trace in a form that is easily
+        % accessible to down stream analysis. Ditto for Vclamp err, and Ra
+        params.isolatedData.(currentType).raw_pA{ch} = trace_pA;
+        params.isolatedData.(currentType).peakBySweep_pA{ch} = params.ivdat.(experimentalGroup).peakBySweep_pA{ch}{vHoldAvailable};
+        params.isolatedData.(currentType).Verr{ch} = params.ivdat.(experimentalGroup).Verr{ch}{vHoldAvailable};
+        params.isolatedData.(currentType).Racc{ch} = params.ivdat.(experimentalGroup).Racc{ch}{vHoldAvailable};
+        params.isolatedData.(currentType).holdingCurrent{ch} = params.ivdat.(experimentalGroup).holdingCurrent{ch}{vHoldAvailable};
+        
         
     end
     
@@ -48,28 +77,47 @@ end
 figure % E/I balance
 for ch = 1:nChanels
     subplot(nChanels, 1, ch), hold on,
-    if isempty(params.isolatedData.excit.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.excit.raw_nS{ch}, 'b', 'linewidth', 2)
-    if isempty(params.isolatedData.inhib.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.inhib.raw_nS{ch}, 'r', 'linewidth', 2)
+    
+    if ~isempty(params.isolatedData.excit.raw_nS{ch});
+        plot(params.ivdat.tvec.*1000, params.isolatedData.excit.raw_nS{ch}, 'b', 'linewidth', 2)
+    else
+        continue
+    end
+    
+    if ~isempty(params.isolatedData.inhib.raw_nS{ch});
+        plot(params.ivdat.tvec.*1000, params.isolatedData.inhib.raw_nS{ch}, 'r', 'linewidth', 2)
+    else
+        continue
+    end
+    
     xlabel('time (ms)')
     ylabel('conductance (nS)')
     legend('excitation', 'inhibition')
     xlim([-25 300])
+    
 end
 
 
 figure % NMDA/AMPA
 for ch = 1:nChanels
     subplot(nChanels, 1, ch), hold on,
-    if isempty(params.isolatedData.ampa.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.ampa.raw_nS{ch}, 'k', 'linewidth', 2)
-    if isempty(params.isolatedData.nmda.raw_nS{ch}); continue; end
-    plot(params.ivdat.tvec.*1000, params.isolatedData.nmda.raw_nS{ch}, 'color', [.4 .4 .4], 'linewidth', 2)
+    if isfield(params.isolatedData, 'ampa') && ~isempty(params.isolatedData.ampa.raw_nS{ch});
+        plot(params.ivdat.tvec.*1000, params.isolatedData.ampa.raw_nS{ch}, 'k', 'linewidth', 2)
+    else
+        continue
+    end
+    
+    if isfield(params.isolatedData, 'nmda') && ~isempty(params.isolatedData.nmda.raw_nS{ch})
+        plot(params.ivdat.tvec.*1000, params.isolatedData.nmda.raw_nS{ch}, 'color', [.4 .4 .4], 'linewidth', 2)
+    else
+        continue
+    end
+    
     xlabel('time (ms)')
     ylabel('conductance (nS)')
     legend('AMPA', 'NMDA')
     xlim([-25 300])
+    
 end
 
 

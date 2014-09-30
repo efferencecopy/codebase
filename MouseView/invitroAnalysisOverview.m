@@ -1,18 +1,27 @@
 function params = invitroAnalysisOverview(params)
 
 % specify useful globals
-global GL_DATPATH GL_ADD_TO_MDB
+global GL_DATPATH
 
-% define a few other things
+
+%
+% LOAD THE EXPERIMENTAL FILES IF PRESENT
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ax = loadFromList(params.files);
+
+
+
+% define a color direction for each data file
 f = figure; map = colormap('jet'); close(f);
-clrIdx = round(linspace(1,size(map,1), numel(params.files))); % colors for various plots
+clrIdx = round(linspace(1,size(map,1), numel(ax))); % colors for various plots
 
 
 %
 %  IMAGE OF SLICE (if present)
 %
 %%%%%%%%%%%%%%%%%%%%
-if ~isempty(params.photo) &&  ~GL_ADD_TO_MDB % don't plot the figure when the physiology_notes script is auto-running
+if ~isempty(params.photo)% don't plot the figure when the physiology_notes script is auto-running
     
     % plot the photo
     photoPath = findfile(params.photo, [GL_DATPATH, params.mouse], '.jpg');
@@ -56,13 +65,6 @@ end
 
 
 %
-% LOAD THE REMAINING FILES IF PRESENT
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-ax = loadFromList(params.files);
-
-
-%
 %  REMOVE UNWANTED SWEEPS
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -76,38 +78,62 @@ if isfield(params, 'skipSweeps')
 end
 
 
-disp('Need to fix Ra plot')
-% %
-% % PLOT THE SERIES RESISTANCE
-% %
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%
-% if numel(params.files)>0
-%     figure, hold on,
-%     set(gcf, 'position', [15   394   560   420]);
-%     idx = 1;
-%     for a = 1:numel(ax)
-%         % pull out the series resistance
-%         Ra = ax{a}.getRa('quick');
-%         Ra = permute(Ra, [3,2,1]);
-%         idx_Im = eval(['ax{a}.idx.',params.validCh,'Im']);
-%         Ra = Ra(:,idx_Im);
-%         
-%         % plot the values
-%         xx = idx:(idx+numel(Ra)-1);
-%         clr = map(clrIdx(a),:);
-%         plot(xx(:), Ra(:), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
-%         
-%         % update the index
-%         idx = xx(end)+1;
-%     end
-%     
-%     % tidy up. 
-%     axis tight
-%     ymax = get(gca, 'ylim');
-%     ylim([0, ymax(2).*1.05])
-%     xlabel('Sweep Number')
-%     ylabel('Series Resistance (MOhms)')
-% end
+
+%
+% PLOT THE SERIES RESISTANCE
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if numel(params.files)>0
+    figure, hold on,
+    set(gcf, 'position', [15    23   560   651]);
+    
+    idx = 1;
+    for a = 1:numel(ax)
+        % pull out the series resistance
+        Ra = ax{a}.getRa('quick');
+        access = permute(Ra.dat, [3,2,1]);
+        Verr = permute(Ra.Verr, [3,2,1]);
+        
+        nCh = numel(Ra.chNames);
+        pltLoc = [1,2;
+                  3,4];
+        for ch = 1:nCh
+            % plot the access values
+            subplot(nCh, 2, pltLoc(ch,1)), hold on
+            xx = idx:(idx+size(access,1)-1);
+            clr = map(clrIdx(a),:);
+            plot(xx(:), access(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            t = title(sprintf('Channel: %s', Ra.chNames{ch}));
+            set(t, 'Interpreter', 'none')
+            
+            
+            % plot the vclamp err values
+            subplot(nCh, 2, pltLoc(ch,2)), hold on
+            plot(xx(:), Verr(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
+            t = title(sprintf('Channel: %s', Ra.chNames{ch}));
+            set(t, 'Interpreter', 'none')
+        end
+        
+        % update the index
+        idx = xx(end)+1;
+    end
+    
+    % tidy up.
+    for ch = 1:nCh.*2
+        subplot(nCh,2,ch)
+        axis tight
+        ymax = get(gca, 'ylim');
+        ylim([0, ymax(2).*1.05])
+        xlabel('Sweep Number')
+        if any([1,3] == ch)
+            ylabel('Series Resistance (MOhms)')
+        else
+            ylabel('Vclamp Error')
+        end
+            
+    end
+    
+end
 
 %
 % PERFORM ALL ADDITIONAL ANALYSES
@@ -115,7 +141,7 @@ disp('Need to fix Ra plot')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 params.ax = ax; % package the raw data so that I don't have to load the abf files multiple times.
 for a = 1:numel(params.fxns)
-    params = feval(params.fxns{a}, params)
+    params = feval(params.fxns{a}, params);
 end
 
 

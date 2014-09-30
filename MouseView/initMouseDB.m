@@ -1,14 +1,18 @@
 function mdb = initMouseDB(overwrite, suppressOutput)
- 
- % %%%%%%%%%%%%%%%%%%
- %
- % to do
- %
- % Start making GUI to visualize data and to text searches.
- %
- % Add surgery info to mdb.
- %
- % %%%%%%%%%%%%%%%%%%%%%
+
+%
+% INITALIZE THE MOUSE DATABASE
+%
+%      mdb = initMouseDB(overwrite, suppressOutput)
+%
+%  new MDB      ->   mdb = initMouseDB('new');
+%  update only  ->   mdb = initMouseDB('update');
+%  non-verbose  ->   mdb = initMouseDB(~, 'notext');
+%
+%
+% The variables [overwrite] and [suppressOutput] can also be logicals.
+%
+% C.Hass 2014
  
     global GL_DOCUPATH
 
@@ -132,7 +136,11 @@ function mdb = initMouseDB(overwrite, suppressOutput)
         
         % find the MDB entry in the file directory
         idx = find(strcmpi(mdb.mice{a}.name, WBnames));
-        assert(numel(idx)==1, 'Number of matches ~= 1');
+        if numel(idx) == 0;
+            error('Could not locate file <%s>', mdb.mice{a}.name)
+        elseif numel(idx) > 1;
+            error('Too many copies of <%s> in the database', mdb.mice{a}.name)
+        end
         
         % update the mdb if the version in the directory is newer
         if d(idx).datenum > mdb.mice{a}.modDate

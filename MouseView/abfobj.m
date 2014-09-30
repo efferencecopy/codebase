@@ -112,6 +112,7 @@ classdef abfobj
         function Ra = getRa(obj, method)
 
             
+            % find the recorded channels that correspond to Vclamp expts
             [idx_Im, idx_Vclamp] = deal([]);
             for a = 1:numel(obj.head.recChNames);
                 
@@ -154,15 +155,15 @@ classdef abfobj
             % convention as obj.dat (time x channels x sweeps);
             Nsweeps = size(obj.dat, 3);
             Nchannels = numel(idx_Im);
-            Ra = nan(1, Nchannels, Nsweeps);
+            Ra.chNames = obj.head.recChNames(idx_Im);
+            Ra.dat = nan(1, Nchannels, Nsweeps);
             for ch = 1:numel(idx_Im)
                 for swp = 1:Nsweeps;
                     
                     % find the relevant time points with respect to the
                     % command wf
-                    keyboard
-                    idxOnset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'd');
-                    idxOffset = obj.threshold(-0.1, idx_Vclamp(ch), swp, 'u');
+                    idxOnset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'd');
+                    idxOffset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'u');
                     idx_pulse = find(idxOnset) : find(idxOffset);
                     
                     % the Im doesn't start until after the onset of the
@@ -187,7 +188,7 @@ classdef abfobj
                         case 'quick'
                             delta_pa = minVal - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
+                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
                             
                         case 'linear'
                             pred = [tt_pulse(1:20)', ones(20,1)];
@@ -197,25 +198,28 @@ classdef abfobj
                             Im_atOnset = betas(1) .* tt_On + betas(2);
                             delta_pa = Im_atOnset - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra(1,idx_Im(ch), swp) = pulse_mv ./ delta_na;
-                            
-                            % plot everything
-%                             figure,
-%                             subplot(2,1,1), hold on,
-%                             plot(obj.tt, obj.dat(:, idx_Im(ch), swp), 'k')
-%                             plot(tt_pulse, Im_pulse, 'ro')
-%                             plot(obj.tt(idx_baseline), obj.dat(idx_baseline, idx_Im(ch), swp), 'co')
-%                             plot([pred(:,1);tt_On], betas(1).*[pred(:,1);tt_On]+betas(2), 'b', 'linewidth', 2)
-%                             xlim([0.139 0.1394])
-%                             subplot(2,1,2)
-%                             plot(obj.tt, obj.wf(:, idx_Vclamp(ch), swp), 'k')
-%                             xlim([0.139 0.1394])
-                            
+                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
                         case 'exp'
                             % currently doesn't do anything
                     end
                     
+                    %
+                    % calculate the Vclamp error due to holding current as
+                    % a percentage of the holding potential
+                    %%%%%%%%%%%%%%%%%%%%%%%
+                    Verr_volts = (Ra.dat(1, ch, swp) .* 10^6) .* (Im_baseline .* 10^-12);
+                    Verr_mv = Verr_volts .* 1000;
                     
+                    l_secCh = regexpi(obj.head.recChNames, '_sec', 'match');
+                    l_secCh = cellfun(@(x) ~isempty(x), l_secCh);
+                    l_unitsMV = regexpi(obj.head.recChUnits, 'mv', 'match');
+                    l_unitsMV = cellfun(@(x) ~isempty(x), l_unitsMV);
+                    l_ch = regexp(obj.head.recChNames, sprintf('HS%d', ch), 'match');
+                    l_ch = cellfun(@(x) ~isempty(x), l_ch);
+                    Vm_idx = l_secCh & l_unitsMV & l_ch;
+                    Vcmd = round(mean(obj.dat(idx_baseline, Vm_idx, swp)));
+                    
+                    Ra.Verr(1, ch, swp) = abs(Verr_mv);
                     
                 end
             end
@@ -308,6 +312,7 @@ classdef abfobj
                 xlabel('time');
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.recChUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                ylim([min(datToPlot(:)).*.95 max(datToPlot(:)).*1.05])
                 box off
                 set(gca, 'userdata', channel);
             end
@@ -318,6 +323,7 @@ classdef abfobj
                 xlabel('time')
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.DACchUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
+                ylim([min(wfToPlot(:)).*.95 max(wfToPlot(:)).*1.05])
                 box off
                 set(gca, 'userdata', channel);
             end

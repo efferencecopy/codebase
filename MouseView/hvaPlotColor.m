@@ -8,7 +8,10 @@ switch lower(hva)
     case 'al'
         clr_raw = 'm';
         clr_avg = 'r';
-    otherwise
+    case 'lm'
         clr_raw = 'k';
         clr_avg = 'k';
+    otherwise
+        clr_raw = [.8 .8 .8];
+        clr_avg = [.8 .8 .8];
 end
