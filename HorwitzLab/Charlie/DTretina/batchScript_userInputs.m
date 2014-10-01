@@ -14,7 +14,7 @@ fin
 params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
 params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
 params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-params.monCalFile = 'DTcals_equal_bkgnd.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+params.monCalFile = 'DTcals_equal_bkgnd_1200.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
 params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
 params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
@@ -34,7 +34,7 @@ params.unitTest = false;             % true or false
 params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'equal bkgnd for Greg, but normal cone mosaic';       % notes that should be associated the data file?
+params.notes = 'equal bkgnd for Greg, but normal cone mosaic. 200R*/sec bkgnd';       % notes that should be associated the data file?
 
 
 
