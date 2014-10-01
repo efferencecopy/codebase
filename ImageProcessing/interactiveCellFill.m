@@ -72,7 +72,6 @@ X = X1;
 Y = Y1;
 
 
-%Zproj = squeeze(max(fovImg_vol,[],3));
 Zproj = squeeze(fovImg_vol(:,:,Z1));
 Xproj = squeeze(fovImg_vol(X1,:,:));
 Yproj = squeeze(fovImg_vol(:,Y1,:));
@@ -110,30 +109,10 @@ bwCell_vol = false([nRows0,nCols0, nZ]);
 bwCell_vol_numbered = false([nRows0,nCols0, nZ]);
 
 
-
-
-labCell = bwlabel(bwCell,8);
-
-%%% measure existing cells
-stats = regionprops(labCell, 'Area'); % cah this could change
-cellAreas = cat(1, stats.Area);
-
-bwvol = bwlabeln(bwCell_vol,6);
-nCells = max(max(max(bwvol)));
-
 % cah 2 params:
 zoomToAxis = [1 nCols 1 nRows] + 0.5+[-1 1 -1 1];
 cellRadius = 1;
 
-%%% auto-computer the cell area dilation disk radius, only if requested
-if isempty(cellRadius)
-    if nCells < 5
-        error('Too few cells to measure cell radius (%d): ', nCells);
-    else
-        cellRadius = sqrt(mean(cellAreas)/pi);
-    end
-end
-cellRadius = round(cellRadius);
 
 % draw initial figure
 figH = figure;
@@ -199,19 +178,18 @@ Zproj = squeeze(max(bwCell_vol,[],3));
 Xproj = squeeze(bwCell_vol(X1,:,:));
 Yproj = squeeze(bwCell_vol(:,Y1,:));
 
+
 bwCurr_view = [Xproj' zeros(size(Yproj,2),size(Xproj,2))'; Zproj Yproj];
 
 
 nActions = 0;
-nTotal = nCells;
+nTotal = 0;
 saveTotal = {};
 
 Y_OLD = Y1;
 X_OLD = X1;
 SHIFTZ = 0; %tag for shifting Z on this iteration
 while 1  % till broken out of
-    % interactively get clicks
-    %   SHIFTZ = 0; %tag for shifting Z on this iteration
     if SHIFTZ == 0
         [X, Y0, selectionType] = getAPoint(gca);
         
@@ -230,7 +208,6 @@ while 1  % till broken out of
             switch key
                 case char(13) % return
                     break;  % out of loop, done
-                    continue
                 case 'q' %quit
                     %prune the values
                     tmp = bwCell_vol_numbered;
@@ -270,7 +247,7 @@ while 1  % till broken out of
                     SHIFTZ = 1;
                     shiftz1 = +1;
                 case 'x'
-                    %move up
+                    %move down
                     SHIFTZ = 1;
                     shiftz1 = -1;
                 case 'a'
@@ -374,9 +351,8 @@ while 1  % till broken out of
     if (diskR < 1) || diskR > 50
         fprintf(1, 'Disk too small or too big, try again\n');
         continue
-    elseif ~iswithintol(round(diskR), diskR, 10^2*eps)
-        fprintf(1, 'Disk radius must be an integer, try again\n');
-        continue
+    elseif rem(diskR,1) > 0
+        diskR = round(diskR);
     end
     
     
@@ -567,8 +543,8 @@ function [bwNew, bwCell, cellMean] = subAddCell(bwCurr, fovImg, X, Y, cellRadius
     [nRows, nCols] = size(bwCurr);
 
     %%%% set up dilation disks:  use 4-connected regions for all
-    %se = strel('disk',1,8);  % for cells-to-avoid
     se = strel('square',3);  % for cells-to-avoid: all 9 pix in a square;
+    
     % avoid diagonally-connected cells.
     se2 = strel('disk',round(cellRadius),4);  % for region to find mean over
     seJunk = strel('disk', max(round(cellRadius/4), 1), 4);  % remove thin junk
