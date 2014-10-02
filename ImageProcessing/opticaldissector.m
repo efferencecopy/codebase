@@ -76,7 +76,7 @@ function gui_initialize(raw)
             
     % useful constants    
     lims = [raw.info.MinSampleValue(1) raw.info.MaxSampleValue(1)];
-    raw.clrmap = pmkmp(256, 'CubicL');
+    raw.clrmap = colormap('gray');%pmkmp(256, 'CubicL');
     
     % add an axis for the main focal plane
     gl.Zplane = 1;
@@ -204,7 +204,34 @@ if ~isfield(udat, 'mask')
     udat.mask.Ncells = 0;
 end
 
+% create a temporary mask that fits around the point selected
+xmax = udat.raw.info.Width;
+ymax = udat.raw.info.Height;
+zmax = udat.raw.info.Nframes;
+[x,y,z] = ndgrid(1:ymax, 1:xmax, 1:zmax);
+x = x-udat.gl.Yplane;
+y = y-udat.gl.Xplane;
+z = z-udat.gl.Zplane;
+ellipsoid = sqrt( (x.^2)/9 + (y.^2)/9 + z.^2 );
 
+cellmask = ellipsoid < 2;
+surroundmask =  (ellipsoid < 5) & ~((ellipsoid < 2.5) | udat.mask.img); % making a shell around the cell mask
+
+% what's the mean of the surrounding pixels?
+cellmask = cellmask(:);
+surroundmask = surroundmask(:);
+tmpraw = udat.raw.img(:);
+mean_inside = mean(tmpraw(cellmask));
+mean_surround = mean(tmpraw(surroundmask));
+SNR = mean_inside/mean_surround;
+
+% only accept SNR > 1.4
+if SNR < 1.4
+    fprintf('SNR was too low: %.3f\n', SNR)
+    return
+end
+
+% add some some info to the cell mask and update the cell counter.
 
 
 end
