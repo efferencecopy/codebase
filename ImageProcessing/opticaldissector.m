@@ -1,27 +1,27 @@
 function opticaldissector(tiffstack, colorchannel)
 
-%  open the tiff stack
-%
-% if 'tiffstack' is a path, open the stack. if not, open a ui control to
-% navigate to the data file
-%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~exist('tiffstack', 'var') || isempty(tiffstack)
-    [filename, pathname] = uigetfile({'*.tif;*.tiff'}, 'Pick a tiff stack');
-    tiffstack = [pathname, filesep, filename];
-end
-if ~exist('colorchannel', 'var')
-    colorchannel = [];
-end
-raw = io_unpacktiff(tiffstack, colorchannel); % import the data.
+    %  open the tiff stack
+    %
+    % if 'tiffstack' is a path, open the stack. if not, open a ui control to
+    % navigate to the data file
+    %%%%%%%%%%%%%%%%%%%%%%%%%%
+    if ~exist('tiffstack', 'var') || isempty(tiffstack)
+        [filename, pathname] = uigetfile({'*.tif;*.tiff'}, 'Pick a tiff stack');
+        tiffstack = [pathname, filesep, filename];
+    end
+    if ~exist('colorchannel', 'var')
+        colorchannel = [];
+    end
+    raw = io_unpacktiff(tiffstack, colorchannel); % import the data.
 
 
 
-%
-% setup the gui and update the mask
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%
-gui_initialize(raw)
-mask_update()
+    %
+    % setup the gui and update the mask
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%
+    gui_initialize(raw)
+    mask_update()
 
 
 
@@ -42,6 +42,11 @@ function raw = io_unpacktiff(tiffstack, defaultcolor)
     info = imfinfo(tiffstack, 'tif');
     raw.info = info(1);
     raw.info.Nframes = numel(info);
+    
+    % make a short hand name that will be used for autosave and exporting
+    % the data
+    [~, raw.info.shortName] = fileparts(raw.info.Filename);
+    
     
     % this gui only works with monochrome images, if the tiff has more than
     % one channel, force the user to select just one channel
@@ -65,6 +70,17 @@ function raw = io_unpacktiff(tiffstack, defaultcolor)
     
 end
 
+function io_exportData(varargin)
+    
+    % grab the contents of the user data
+    cellFillData = get(gcf, 'userdata');
+    
+    % save the data interactively
+    uisave('cellFillData', ['cellFillData_', cellFillData.raw.info.shortName, '.mat'])
+    
+end
+
+
 
 function gui_initialize(raw)
     
@@ -77,10 +93,10 @@ function gui_initialize(raw)
             
     % useful constants    
     lims = [raw.info.MinSampleValue(1) raw.info.MaxSampleValue(1)];
-    raw.clrmap = colormap('gray');%pmkmp(256, 'CubicL');
+    raw.clrmap = colormap('gray');
     
     % add an axis for the main focal plane
-    gl.Zplane = 1;
+    gl.Zplane = round(raw.info.Nframes/2); % start in the middle
     h.ax_curFrame = axes('position', [0.10, 0.15, .31, .8]);
     h.img_curFrame = imshow(raw.img(:,:,gl.Zplane), lims,...
                             'parent', h.ax_curFrame,...
@@ -110,6 +126,13 @@ function gui_initialize(raw)
                             'colormap', raw.clrmap);
     set(h.img_sliceHoriz, 'ButtonDownFcn', {@gui_getNewFocalPlane});
     
+    % add a button to save the data and dump the result onto the command
+    % window
+    h.export = uicontrol('style', 'togglebutton',...
+                         'units', 'normalized',...
+                         'string', 'Export Data',...
+                         'Position', [0.72, 0.265, 0.20, 0.05],...
+                         'Callback', {@io_exportData});
                         
     % package the relevant info into the user data field
     udat.gl = gl;
@@ -233,7 +256,8 @@ function gui_keypress(~, key)
             udat.gl.Zplane = max([udat.gl.Zplane-1, 1]);
             set(gcf, 'userdata', udat)
             gui_updateImages
-        case 'return'
+        case 'space'
+            why; % egg :)
         case 'backspace'
             set(gcf, 'userdata', udat);
             mask_removeLastCell
@@ -291,15 +315,25 @@ mean_surround = mean(tmpraw(surroundmask));
 SNR = mean_inside/mean_surround;
 
 % only accept SNR > 1.4
-if SNR < 1.4
+if SNR < 1.5
     fprintf('SNR was too low: %.3f\n', SNR)
     return
 end
 
-% add some some info to the master cell mask and update the cell counter.
+% update the cell counter.
 udat.mask.Ncells = udat.mask.Ncells + 1;
-udat.mask.img(reshape(cellmask, ymax, xmax, zmax)) = udat.mask.Ncells;
 
+% fill up a region in the cell mask
+FILLTYPE = 'region_fill';
+switch FILLTYPE
+    case 'simple'
+        udat.mask.img(reshape(cellmask, ymax, xmax, zmax)) = udat.mask.Ncells;
+    case 'region_fill'
+        tmpmask = mask_regionFill(udat, cellmask, mean_inside);
+        tmpmask = tmpmask==1;
+        tmpmask = tmpmask & ~(udat.mask.img); % no overlap with existing cells.
+        udat.mask.img(tmpmask==1) = udat.mask.Ncells;
+end
 
 % Set the user data and update the images
 set(gcf, 'userdata', udat)
@@ -327,7 +361,96 @@ function mask_removeLastCell()
     
 end
 
+function tmpmask = mask_regionFill(udat, cellmask, mean_inside)
+    
+    
+    % find the starting location. Define this point as the point of maximal
+    % brightness inside the cellmask
+    tmpimg = udat.raw.img(:);
+    tmpmask = cellmask(:); 
+    [val, idx] = max(tmpimg(tmpmask));
+    l_eqmax = (tmpimg == val) & tmpmask;
+    [x,y,z] = ind2sub(size(udat.raw.img), find(l_eqmax==1, 1, 'first'));
+    
+    % start at the pixel with max brightness, and check to see if it's
+    % at or above the thresholded value. If so, iterate over it's
+    % neighbors...
+    tmpmask = nan(size(udat.raw.img));
+    
+    % check this nhood. if mean(nhood)>critval, iterate over pixels in
+    % nhood. iterate recursively over all nhoods.
+    maxX = udat.raw.info.Width; % in the scope of nested subfun...
+    maxY = udat.raw.info.Height;
+    maxZ = udat.raw.info.Nframes;
+    set(0,'RecursionLimit',1500) %  dangerous
+    check_nhood(x,y,z, mean_inside)
+   
+    
+    % nested sub function
+    
+    function check_nhood(x,y,z, critval)
+        
+        % if this place has been tested, move on,
+        if ~isnan(tmpmask(x,y,z));
+            return
+        end
+        
+        % otherwise, make a neighborhood and test it relative to the crit val.
+        nhood = fullfact([3 3 3])-2;
+        nhood_idx = bsxfun(@minus, [x,y,z], nhood);
+        
+        % make sure none of the neighboor hood indicies are out of bounds.
+        toolow = nhood_idx < 1;
+        toohigh = bsxfun(@minus, [maxY, maxX, maxZ], nhood_idx) < 0;
+        l_oob = sum([toolow, toohigh], 2) > 0;
+        nhood_idx(l_oob,:) = [];
+        
+        % test the neighborhood against a criterion
+        ind = sub2ind(size(udat.raw.img), nhood_idx(:,1), nhood_idx(:,2), nhood_idx(:,3));
+        aboveCrit = mean(udat.raw.img(ind)) > critval;
+        
+        if ~aboveCrit
+            tmpmask(x,y,z) = 0;
+        else
+            tmpmask(x,y,z) = 1;
+            
+            %recursive part
+            for a = 1:size(nhood_idx,1)
+                r_x=nhood_idx(a,1);
+                r_y=nhood_idx(a,2);
+                r_z=nhood_idx(a,3);
+                if isnan(tmpmask(r_x,r_y,r_z));
+                    check_nhood(r_x,r_y,r_z, critval)
+                end
+            end
+        end
+        
+        
+    end
+    
+    
+    
+end
 
+
+%
+% TO DO
+%
+% 1) Autosave
+%
+% 2) mexd region filling in 3d
+%
+% 3) standard size of window for slices
+%
+% 4) incrase size of main window
+%
+% 5) select cells in "slice" windows
+%
+% 6) targeted delete
+%
+% 7) indicators on marigins to aid in navigation.
+%
+% 8) slice selection with arrow keys?
 
 
 
