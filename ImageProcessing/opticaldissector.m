@@ -6,7 +6,7 @@ function opticaldissector(tiffstack, colorchannel)
 % navigate to the data file
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('tiffstack', 'var') || isempty(tiffstack)
-    [filename, pathname] = uigetfile('*.tif*', 'Pick a tiff stack');
+    [filename, pathname] = uigetfile({'*.tif;*.tiff'}, 'Pick a tiff stack');
     tiffstack = [pathname, filesep, filename];
 end
 if ~exist('colorchannel', 'var')
@@ -17,11 +17,11 @@ raw = io_unpacktiff(tiffstack, colorchannel); % import the data.
 
 
 %
-% setup the gui
+% setup the gui and update the mask
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%
 gui_initialize(raw)
-
+mask_update()
 
 
 
@@ -72,7 +72,8 @@ function gui_initialize(raw)
     h.main = figure;
     set(h.main, 'name', sprintf('Optical Dissector'),...
                 'units', 'normalized',...
-                'position', [0.2, 0, 0.6, 1])
+                'position', [0.2, 0, 0.6, 1],...
+                'windowkeypressfcn', {@gui_keypress})
             
     % useful constants    
     lims = [raw.info.MinSampleValue(1) raw.info.MaxSampleValue(1)];
@@ -122,21 +123,47 @@ function gui_updateImages()
     
     % grab stuff from the user data field
     udat = get(gcf, 'userdata');
+    Xidx = udat.gl.Xplane;
+    Yidx = udat.gl.Yplane;
+    Zidx = udat.gl.Zplane;
+    maxX = udat.raw.info.Width;
+    maxY = udat.raw.info.Height;
+    maxdac = 255;
+    
+    % make an RGB version of the image, but scale certian pixels according
+    % to the cell mask
+    ch = {'R', 'G', 'B'};
+    clr = [1 0.7 0.7];
+    maskvect = udat.mask.img > 0;
+    for a = 1:3
+        tmp = udat.raw.img./maxdac;
+        tmp = tmp(:);
+        tmp(maskvect(:)) = tmp(maskvect(:)).* clr(a);
+        fov.(ch{a}) = reshape(tmp, maxY, maxX, []);
+    end
+        
     
     % new main image focal plane
-    set(udat.h.img_curFrame, 'CData', udat.raw.img(:,:, udat.gl.Zplane))
+    tmp = cat(3, fov.R(:,:, Zidx), fov.G(:,:,Zidx), fov.B(:,:,Zidx));
+    set(udat.h.img_curFrame, 'CData', tmp)
      
     % new vertical slice
-    vertSlice = squeeze(udat.raw.img(:, udat.gl.Xplane, :));
-    vertSlice = repmat(vertSlice, udat.gl.sliceExapandScalar, 1);
-    vertSlice = reshape(vertSlice, udat.raw.info.Height, [])';
-    set(udat.h.img_sliceVert, 'CData', vertSlice)
+    for a = 1:3
+        tmp = squeeze(fov.(ch{a})(:, Xidx, :));
+        tmp = repmat(tmp, udat.gl.sliceExapandScalar, 1);
+        tmp = reshape(tmp, maxY, [])';
+        vert(:,:,a) = tmp;
+    end
+    set(udat.h.img_sliceVert, 'CData', vert)
     
-    % new horizontal slice
-    horizSlice = squeeze(udat.raw.img(udat.gl.Yplane,:, :));
-    horizSlice = repmat(horizSlice, udat.gl.sliceExapandScalar, 1);
-    horizSlice = reshape(horizSlice, udat.raw.info.Width, [])';
-    set(udat.h.img_sliceHoriz, 'CData', horizSlice)
+    % new horizontal slice    
+    for a = 1:3
+        tmp = squeeze(fov.(ch{a})(Yidx,:, :));
+        tmp = repmat(tmp, udat.gl.sliceExapandScalar, 1);
+        tmp = reshape(tmp, maxX, [])';
+        horiz(:,:,a) = tmp;
+    end
+    set(udat.h.img_sliceHoriz, 'CData', horiz)
 
 end
 
@@ -191,6 +218,29 @@ function gui_mainImgClick(varargin)
 
 end
 
+function gui_keypress(~, key)
+
+    % grab the user data
+    udat = get(gcf, 'userdata');
+
+    % route the key press to the appropriate place
+    switch lower(key.Key)
+        case {'rightarrow', 'z', 'downarrow'}
+            udat.gl.Zplane = min([udat.gl.Zplane+1, udat.raw.info.Nframes]);
+            set(gcf, 'userdata', udat)
+            gui_updateImages
+        case {'leftarrow', 'a', 'uparrow'}
+            udat.gl.Zplane = max([udat.gl.Zplane-1, 1]);
+            set(gcf, 'userdata', udat)
+            gui_updateImages
+        case 'return'
+        case 'backspace'
+            set(gcf, 'userdata', udat);
+            mask_removeLastCell
+
+    end
+end
+
 
 function mask_update()
 
@@ -202,6 +252,10 @@ udat = get(gcf, 'userdata');
 if ~isfield(udat, 'mask')
     udat.mask.img = zeros(size(udat.raw.img));
     udat.mask.Ncells = 0;
+    
+    % Set the user data and return
+    set(gcf, 'userdata', udat)
+    return
 end
 
 % create a temporary mask that fits around the point selected
@@ -212,10 +266,21 @@ zmax = udat.raw.info.Nframes;
 x = x-udat.gl.Yplane;
 y = y-udat.gl.Xplane;
 z = z-udat.gl.Zplane;
-ellipsoid = sqrt( (x.^2)/9 + (y.^2)/9 + z.^2 );
+ellipsoid = sqrt( (x.^2)/4 + (y.^2)/4 + z.^2 );
 
-cellmask = ellipsoid < 2;
-surroundmask =  (ellipsoid < 5) & ~((ellipsoid < 2.5) | udat.mask.img); % making a shell around the cell mask
+cellsize = 4;
+surroundsize = 10;
+cellmask = ellipsoid < cellsize;
+surroundmask =  (ellipsoid < surroundsize) & ~((ellipsoid < cellsize+0.5) | udat.mask.img); % making a shell around the cell mask
+
+% are there any existing (other cells) in the window just defined? If so,
+% return without adding any new cells.
+existingCells = udat.mask.img(cellmask) > 0;
+if any(existingCells)
+    disp('This cell has already been marked.')
+    return % do nothing
+end
+
 
 % what's the mean of the surrounding pixels?
 cellmask = cellmask(:);
@@ -231,9 +296,35 @@ if SNR < 1.4
     return
 end
 
-% add some some info to the cell mask and update the cell counter.
+% add some some info to the master cell mask and update the cell counter.
+udat.mask.Ncells = udat.mask.Ncells + 1;
+udat.mask.img(reshape(cellmask, ymax, xmax, zmax)) = udat.mask.Ncells;
 
 
+% Set the user data and update the images
+set(gcf, 'userdata', udat)
+gui_updateImages
+
+
+end
+
+function mask_removeLastCell()
+
+    % grab the udat
+    udat = get(gcf, 'userdata');
+
+    % remove all instances of the last cell, and decrement the cell counter
+    lastCell = udat.mask.Ncells;
+    if lastCell > 0;
+        idx = udat.mask.img == lastCell;
+        udat.mask.img(idx) = 0;
+        udat.mask.Ncells = udat.mask.Ncells - 1;
+    end
+
+    % set the userdata and update
+    set(gcf, 'userdata', udat);
+    gui_updateImages
+    
 end
 
 
