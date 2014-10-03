@@ -192,7 +192,7 @@ function gui_updateImages()
 
 end
 
-function gui_getNewFocalPlane(h_slice, ~)
+function gui_getNewFocalPlane(h_slice, ~) % currently unused.
     
     % grab stuff from the user data field
     udat = get(gcf, 'userdata');
@@ -320,12 +320,10 @@ function gui_keypress(~, key)
             gui_updateImages
         case 'c'
             udat.gl.Yplane = min([udat.gl.Yplane+1, udat.raw.info.Height]);
-            udat.gl.Yplane
             set(gcf, 'userdata', udat)
             gui_updateImages
         case 'd'
             udat.gl.Yplane = max([udat.gl.Yplane-1, 1]);
-            udat.gl.Yplane
             set(gcf, 'userdata', udat)
             gui_updateImages
         case 'space'
