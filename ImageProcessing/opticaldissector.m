@@ -97,26 +97,28 @@ function gui_initialize(raw)
     
     % add an axis for the main focal plane
     gl.Zplane = round(raw.info.Nframes/2); % start in the middle
-    h.ax_curFrame = axes('position', [0.10, 0.15, .31, .8]);
+    h.ax_curFrame = axes('position', [0, 0.02, .4, .96]);
     h.img_curFrame = imshow(raw.img(:,:,gl.Zplane), lims,...
                             'parent', h.ax_curFrame,...
                             'colormap', raw.clrmap);
     set(h.img_curFrame, 'ButtonDownFcn', {@gui_mainImgClick});
+    
                         
     % add an axis for a slice through the vertical dimension
-    h.ax_sliceVert = axes('position', [0.35, 0.70, .6, .31]);
+    h.ax_sliceVert = axes('position', [.27, 0.02, .2, .96]);
     gl.Xplane = round(raw.info.Width/2); % default starting slice is in the middle
-    gl.sliceExapandScalar = round(50./raw.info.Nframes);
+    gl.sliceExapandScalar = ceil(50./raw.info.Nframes);
     vertSlice = squeeze(raw.img(:, gl.Xplane, :));
     vertSlice = repmat(vertSlice, gl.sliceExapandScalar, 1);
-    vertSlice = reshape(vertSlice, raw.info.Height, [])';
+    vertSlice = reshape(vertSlice, raw.info.Height, []);
     h.img_sliceVert = imshow(vertSlice, lims,...
                             'parent', h.ax_sliceVert,...
                             'colormap', raw.clrmap);
-    set(h.img_sliceVert, 'ButtonDownFcn', {@gui_getNewFocalPlane});
+    set(h.img_sliceVert, 'ButtonDownFcn', {@gui_vertSliceImgClick});
+
     
     % add an axis for a slice through the horizontal dimension
-    h.ax_sliceHoriz = axes('position', [0.35, 0.60, .3, .31]);
+    h.ax_sliceHoriz = axes('position', [0.45, 0.50, .3, .31]);
     gl.Yplane = round(raw.info.Height/2); % default starting slice is in the middle
     horizSlice = squeeze(raw.img(gl.Yplane,:, :));
     horizSlice = repmat(horizSlice, gl.sliceExapandScalar, 1);
@@ -124,7 +126,7 @@ function gui_initialize(raw)
     h.img_sliceHoriz = imshow(horizSlice, lims,...
                             'parent', h.ax_sliceHoriz,...
                             'colormap', raw.clrmap);
-    set(h.img_sliceHoriz, 'ButtonDownFcn', {@gui_getNewFocalPlane});
+    set(h.img_sliceHoriz, 'ButtonDownFcn', {@gui_horzSliceImgClick});
     
     % add a button to save the data and dump the result onto the command
     % window
@@ -174,7 +176,7 @@ function gui_updateImages()
     for a = 1:3
         tmp = squeeze(fov.(ch{a})(:, Xidx, :));
         tmp = repmat(tmp, udat.gl.sliceExapandScalar, 1);
-        tmp = reshape(tmp, maxY, [])';
+        tmp = reshape(tmp, maxY, []);
         vert(:,:,a) = tmp;
     end
     set(udat.h.img_sliceVert, 'CData', vert)
@@ -216,6 +218,58 @@ function gui_getNewFocalPlane(h_slice, ~)
     
 end
 
+
+
+function gui_vertSliceImgClick(varargin)
+
+    % grab the udat
+    udat = get(gcf, 'userdata');
+
+    % first, update the vertical and horizontal slices by grabing the X,Y pos
+    % of the mouse click
+    pt = get(udat.h.ax_sliceVert, 'currentpoint');
+    udat.gl.Zplane = round(pt(1,1) ./ udat.gl.sliceExapandScalar);
+    udat.gl.Yplane = round(pt(1,2));
+    set(gcf, 'userdata', udat);
+    gui_updateImages()
+
+    % When the user uses the left mouse button, proceed to update the mask,
+    % if they pressed the right button, do nothing. (right clicks are just
+    % for navigation)
+    switch get(gcf, 'SelectionType')
+        case 'alt'
+            return
+        case 'normal'
+            mask_update;
+    end
+
+end
+
+function gui_horzSliceImgClick(varargin)
+
+    % grab the udat
+    udat = get(gcf, 'userdata');
+
+    % first, update the vertical and horizontal slices by grabing the X,Y pos
+    % of the mouse click
+    pt = get(udat.h.ax_sliceHoriz, 'currentpoint');
+    udat.gl.Xplane = round(pt(1,1));
+    udat.gl.Zplane = round(pt(1,2) ./ udat.gl.sliceExapandScalar);
+    set(gcf, 'userdata', udat);
+    gui_updateImages()
+
+    % When the user uses the left mouse button, proceed to update the mask,
+    % if they pressed the right button, do nothing. (right clicks are just
+    % for navigation)
+    switch get(gcf, 'SelectionType')
+        case 'alt'
+            return
+        case 'normal'
+            mask_update;
+    end
+
+end
+
 function gui_mainImgClick(varargin)
 
     % grab the udat
@@ -248,12 +302,30 @@ function gui_keypress(~, key)
 
     % route the key press to the appropriate place
     switch lower(key.Key)
-        case {'rightarrow', 'z', 'downarrow'}
+        case {'z', 'downarrow'}
             udat.gl.Zplane = min([udat.gl.Zplane+1, udat.raw.info.Nframes]);
             set(gcf, 'userdata', udat)
             gui_updateImages
-        case {'leftarrow', 'a', 'uparrow'}
+        case {'a', 'uparrow'}
             udat.gl.Zplane = max([udat.gl.Zplane-1, 1]);
+            set(gcf, 'userdata', udat)
+            gui_updateImages
+        case 'leftarrow'
+            udat.gl.Xplane = max([udat.gl.Xplane-1, 1]);
+            set(gcf, 'userdata', udat)
+            gui_updateImages
+        case 'rightarrow'
+            udat.gl.Xplane = min([udat.gl.Xplane+1, udat.raw.info.Width]);
+            set(gcf, 'userdata', udat)
+            gui_updateImages
+        case 'c'
+            udat.gl.Yplane = min([udat.gl.Yplane+1, udat.raw.info.Height]);
+            udat.gl.Yplane
+            set(gcf, 'userdata', udat)
+            gui_updateImages
+        case 'd'
+            udat.gl.Yplane = max([udat.gl.Yplane-1, 1]);
+            udat.gl.Yplane
             set(gcf, 'userdata', udat)
             gui_updateImages
         case 'space'
@@ -324,11 +396,28 @@ end
 udat.mask.Ncells = udat.mask.Ncells + 1;
 
 % fill up a region in the cell mask
-FILLTYPE = 'region_fill';
+FILLTYPE = 'recursive';
 switch FILLTYPE
     case 'simple'
         udat.mask.img(reshape(cellmask, ymax, xmax, zmax)) = udat.mask.Ncells;
     case 'region_fill'
+        
+        % find the starting location. Define this point as the point of maximal
+        % brightness inside the cellmask
+        tmpimg = udat.raw.img(:);
+        tmpmask = cellmask(:);
+        [val, idx] = max(tmpimg(tmpmask));
+        l_eqmax = (tmpimg == val) & tmpmask;
+        [x,y,z] = ind2sub(size(udat.raw.img), find(l_eqmax==1, 1, 'first'));
+        
+        dImg = udat.raw.img;
+        dMaxDif = mean_inside / 2;
+        iSeed = [x,y,z];
+        tmpmask = RegionGrowing(dImg, dMaxDif, iSeed);
+        tmpmask = tmpmask & ~(udat.mask.img); % no overlap with existing cells.
+        udat.mask.img(tmpmask==1) = udat.mask.Ncells;
+        
+    case 'recursive'
         tmpmask = mask_regionFill(udat, cellmask, mean_inside);
         tmpmask = tmpmask==1;
         tmpmask = tmpmask & ~(udat.mask.img); % no overlap with existing cells.
@@ -363,35 +452,58 @@ end
 
 function tmpmask = mask_regionFill(udat, cellmask, mean_inside)
     
-    
     % find the starting location. Define this point as the point of maximal
     % brightness inside the cellmask
     tmpimg = udat.raw.img(:);
     tmpmask = cellmask(:); 
-    [val, idx] = max(tmpimg(tmpmask));
+    val = max(tmpimg(tmpmask));
     l_eqmax = (tmpimg == val) & tmpmask;
     [x,y,z] = ind2sub(size(udat.raw.img), find(l_eqmax==1, 1, 'first'));
-    
-    % start at the pixel with max brightness, and check to see if it's
-    % at or above the thresholded value. If so, iterate over it's
-    % neighbors...
-    tmpmask = nan(size(udat.raw.img));
+
     
     % check this nhood. if mean(nhood)>critval, iterate over pixels in
-    % nhood. iterate recursively over all nhoods.
-    maxX = udat.raw.info.Width; % in the scope of nested subfun...
+    % nhood. iterate recursively over all nhoods. Define some things that
+    % will be in the scope of the nested-subfunction:
+    maxX = udat.raw.info.Width;
     maxY = udat.raw.info.Height;
     maxZ = udat.raw.info.Nframes;
-    set(0,'RecursionLimit',1500) %  dangerous
-    check_nhood(x,y,z, mean_inside)
-   
+    tmpmask = nan(size(udat.raw.img));
     
+    % check the neighborhood surrounding the brightest pixel
+    addToQueue = check_nhood(x,y,z, mean_inside);
+    queue = addToQueue;
+    
+    % while loop to grow the region
+    tic;
+    TIMEOUT = false;
+    while (size(queue,1) > 0) && ~TIMEOUT ;
+               
+       % try to do things via cellfun (empirically faster than not using
+       % cellfun)
+       x = mat2cell(queue(:,1), ones(size(queue,1),1));
+       y = mat2cell(queue(:,2), ones(size(queue,1),1));
+       z = mat2cell(queue(:,3), ones(size(queue,1),1));
+       crit = repmat({mean_inside}, size(queue,1), 1);
+       new_nhood = cellfun(@check_nhood, x, y, z, crit, 'uniformoutput', false);
+       queue = vertcat(new_nhood{:});
+       queue = unique(queue, 'rows');
+             
+       
+       % time out after 10 seconds.
+       TIMEOUT = toc>10;
+       if TIMEOUT; disp('TIMED OUT'); end
+        
+    end
+    
+    %
     % nested sub function
-    
-    function check_nhood(x,y,z, critval)
+    %
+    %%%%%%%%%%%%%%%%%%%%
+    function new_nhood = check_nhood(x,y,z, critval)
         
         % if this place has been tested, move on,
         if ~isnan(tmpmask(x,y,z));
+            new_nhood = [];
             return
         end
         
@@ -409,20 +521,19 @@ function tmpmask = mask_regionFill(udat, cellmask, mean_inside)
         ind = sub2ind(size(udat.raw.img), nhood_idx(:,1), nhood_idx(:,2), nhood_idx(:,3));
         aboveCrit = mean(udat.raw.img(ind)) > critval;
         
+        % add to the queue if the center of the Nhood exceeds the crit val.
         if ~aboveCrit
             tmpmask(x,y,z) = 0;
+            new_nhood = [];
         else
             tmpmask(x,y,z) = 1;
+            new_nhood = nhood_idx;
             
-            %recursive part
-            for a = 1:size(nhood_idx,1)
-                r_x=nhood_idx(a,1);
-                r_y=nhood_idx(a,2);
-                r_z=nhood_idx(a,3);
-                if isnan(tmpmask(r_x,r_y,r_z));
-                    check_nhood(r_x,r_y,r_z, critval)
-                end
-            end
+            % eliminate points that have already been tested
+            ind = sub2ind(size(udat.raw.img), nhood_idx(:,1), nhood_idx(:,2), nhood_idx(:,3));
+            l_notTested = isnan(tmpmask(ind));
+            new_nhood = new_nhood(l_notTested,:);
+            
         end
         
         
@@ -437,8 +548,6 @@ end
 % TO DO
 %
 % 1) Autosave
-%
-% 2) mexd region filling in 3d
 %
 % 3) standard size of window for slices
 %
