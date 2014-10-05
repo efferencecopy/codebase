@@ -18,8 +18,8 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         params.isolatedData.(currentType).raw_nS{ch} = [];
         
         % look for the correct holding potential
-        vholds_exp = params.ivdat.(experimentalGroup).vhold{ch}; % available vHolds
-        vhold_req = params.isolatedCurrents{a, 3};
+        vholds_exp = params.ivdat.(experimentalGroup).vhold{ch} % available vHolds
+        vhold_req = params.isolatedCurrents{a, 3}
         vHoldAvailable = cellfun(@(x, y) softEq(x, y, 0), vholds_exp, repmat({vhold_req}, size(vholds_exp)), 'uniformoutput', false);
         vHoldAvailable = cellfun(@(x) ~isempty(x) && (x==true), vHoldAvailable);
         

@@ -1,4 +1,4 @@
-%% EB_060914_C site 2
+%% EB_060914_C site 2  CHR2
 
 % TTX alone looks inwards.
 
@@ -15,7 +15,7 @@ ax_synapticBlockers = abfobj('2014_06_25_0009');
 ax_ttx = abfobj('2014_06_25_0011');
 
 
-%% EB_060314_A site 1
+%% EB_060314_A site 1  CHR2
 
 % AT ROOM TEMP!!!!
 
@@ -33,7 +33,7 @@ ax_ttx = abfobj('2014_06_17_0009');
 % xlims = [1.05 1.23];
 
 
-%% EB_060314_A site 2
+%% EB_060314_A site 2  CHR2
 
 % the only normal ACSF condition is 40 Hz, so the 20 and 5 Hz stuff (Aside
 % from the fiber volley) will be junk.
@@ -42,17 +42,18 @@ ax_ttx = abfobj('2014_06_17_0009');
 fin
 
 % % 5 Hz data
-% ax_control = abfobj('2014_06_17_0010');
-% ax_synapticBlockers = abfobj('2014_06_17_0013');
-% ax_ttx = abfobj('2014_06_17_0014');
-% xlims = [1.05 2.05];
+ax_control = abfobj('2014_06_17_0010');
+ax_synapticBlockers = abfobj('2014_06_17_0013');
+ax_ttx = abfobj('2014_06_17_0014');
+xlims = [1.05 2.05];
+datch = ax_control.idx.HS2_Im;
 
 
 % 20 Hz data
-ax_control = abfobj('2014_06_17_0010');
-ax_synapticBlockers = abfobj('2014_06_17_0012');
-ax_ttx = abfobj('2014_06_17_0015');
-xlims = [1.05 1.34]
+% ax_control = abfobj('2014_06_17_0010');
+% ax_synapticBlockers = abfobj('2014_06_17_0012');
+% ax_ttx = abfobj('2014_06_17_0015');
+% xlims = [1.05 1.34]
 
 
 % % 40 Hz data
@@ -62,7 +63,7 @@ xlims = [1.05 1.34]
 % xlims = [1.05 1.23];
 
 
-%% EB_051914 site 1
+%% EB_051914 site 1 CHR2
 %
 % shows strong depression of synaptic transmission
 
@@ -72,7 +73,7 @@ fin
 ax_control = abfobj('2014_06_12_0006');
 ax_synapticBlockers = abfobj('2014_06_12_0007');
 ax_ttx = abfobj('2014_06_12_0009');
-
+datch = ax_control.idx.HS2_Im;
 % 
 % % 20 Hz FS closed
 % ax_control = abfobj('2014_06_12_0005');
@@ -80,8 +81,39 @@ ax_ttx = abfobj('2014_06_12_0009');
 % ax_ttx = abfobj('2014_06_12_0010');
 
 
+%% CH_091114_B Site 1 CHIEF
+
+% 20 Hz FS open
+ax_control = abfobj('2014_09_30_0012');
+ax_control.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+ax_synapticBlockers = abfobj('2014_09_30_0013');
+ax_synapticBlockers.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+ax_ttx = abfobj('2014_09_30_0015');
+ax_ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+datch = ax_control.idx.HS2_Im;
 
 
+
+%% CH_091114_C Site 1 CHIEF
+
+% 20 Hz FS open
+ax_control = abfobj('2014_10_02_0001');
+ax_control.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+ax_synapticBlockers = abfobj('2014_10_02_0002');
+ax_synapticBlockers.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+ax_ttx = abfobj('2014_10_02_0004');
+ax_ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+datch = ax_control.idx.HS2_Im;
+
+% 40 Hz FS open (the code below won't work for this data set b/c the number
+% of samples differ between the control (20hz) and the other 40 Hz expts.)
+ax_control = abfobj('2014_10_02_0001');
+ax_control.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+ax_synapticBlockers = abfobj('2014_10_02_0003');
+ax_synapticBlockers.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+ax_ttx = abfobj('2014_10_02_0005');
+ax_ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
+datch = ax_control.idx.HS2_Im;
 
 
 
@@ -95,13 +127,13 @@ filterFreqs = 500;
 filterType = 'low';
 
 % notch filter
-CONDITION = false;
+CONDITION = true;
 d = designfilt('bandstopiir','FilterOrder',6, ...
     'HalfPowerFrequency1',5,'HalfPowerFrequency2',6, ...
     'DesignMethod','butter','SampleRate',sampFreq);
 
 % control data
-tmp = permute(ax_control.dat(:,1,:), [3,1,2]);
+tmp = permute(ax_control.dat(:,datch,:), [3,1,2]);
 baseline = mean(tmp(:, 3000:4000), 2);
 tmp = bsxfun(@minus, tmp, baseline);
 tmp = butterfilt(tmp, filterFreqs, sampFreq, filterType, 2);
@@ -113,7 +145,7 @@ end
 trace_control = mean(tmp, 1);
 
 % synaptic blockers data
-tmp = permute(ax_synapticBlockers.dat(:,1,:), [3,1,2]);
+tmp = permute(ax_synapticBlockers.dat(:,datch,:), [3,1,2]);
 baseline = mean(tmp(:, 3000:4000), 2);
 tmp = bsxfun(@minus, tmp, baseline);
 tmp = butterfilt(tmp, filterFreqs, sampFreq, filterType, 2);
@@ -125,7 +157,7 @@ end
 trace_synapticBlockers = mean(tmp, 1);
 
 % ttx data
-tmp = permute(ax_ttx.dat(:,1,:), [3,1,2]);
+tmp = permute(ax_ttx.dat(:,datch,:), [3,1,2]);
 baseline = mean(tmp(:, 3000:4000), 2);
 tmp = bsxfun(@minus, tmp, baseline);
 tmp = butterfilt(tmp, filterFreqs, sampFreq, filterType, 2);

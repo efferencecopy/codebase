@@ -59,7 +59,9 @@ classdef abfobj
             % define the indices into the columns of the waveforms (obj.wf)
             if isfield(obj.head, 'DACchNames')
                 for a = 1:numel(obj.head.DACchNames)
-                    obj.idx.(obj.head.DACchNames{a}) = a;
+                    fieldname = deblank(obj.head.DACchNames{a}); % sometimes the ouput ch is improperly named....
+                    fieldname = fieldname(~isspace(fieldname));
+                    obj.idx.(fieldname) = a;
                 end
             end
             
