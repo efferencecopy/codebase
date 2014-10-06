@@ -135,10 +135,11 @@ for a = 1:Ngroups
             Verr = permute(out.Verr, [3,2,1]);
             
             % an ugly hack. Need to do this in cases where CH 1 isn't
-            % defined.
+            % defined. This line of code doesn't know which channel is
+            % absent, so I should check. Make the absent channel's data a
+            % bunch of NaNs.
             if size(Ra, 2)<2
-                warning('implementing an ugly hack')
-                
+                warning('implementing an ugly hack b/c only 1 ch is undefined')                
                 Ra = [Ra, Ra];
                 Verr = [Verr, Verr];
             end
