@@ -1,4 +1,4 @@
-%% EB_060914_C site 2
+%% EB_060914_C site 2 CHR2
 
 % TTX alone looks inwards.
 
@@ -15,7 +15,7 @@ ax_synapticBlockers = abfobj('2014_06_25_0009');
 ax_ttx = abfobj('2014_06_25_0011');
 
 
-%% EB_060314_A site 1
+%% EB_060314_A site 1 CHR2
 
 % AT ROOM TEMP!!!!
 
@@ -33,7 +33,7 @@ ax_ttx = abfobj('2014_06_17_0009');
 % xlims = [1.05 1.23];
 
 
-%% EB_060314_A site 2
+%% EB_060314_A site 2 CHR2
 
 % the only normal ACSF condition is 40 Hz, so the 20 and 5 Hz stuff (Aside
 % from the fiber volley) will be junk.
@@ -62,7 +62,7 @@ xlims = [1.05 1.34]
 % xlims = [1.05 1.23];
 
 
-%% EB_051914 site 1
+%% EB_051914 site 1 CHR2
 %
 % shows strong depression of synaptic transmission
 
@@ -81,7 +81,17 @@ ax_ttx = abfobj('2014_06_12_0009');
 
 
 
+%% CH_091114_C site 1 ChIEF
 
+% 20 Hz FS open
+ax_control = abfobj('2014_06_12_0006');
+ax_synapticBlockers = abfobj('2014_06_12_0007');
+ax_ttx = abfobj('2014_06_12_0009');
+
+% 40 Hz FS open
+ax_control = abfobj('2014_06_12_0006');
+ax_synapticBlockers = abfobj('2014_06_12_0007');
+ax_ttx = abfobj('2014_06_12_0009');
 
 
 
