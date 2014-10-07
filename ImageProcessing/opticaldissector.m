@@ -363,9 +363,9 @@ z = z-udat.gl.Zplane;
 ellipsoid = sqrt( (x.^2)/4 + (y.^2)/4 + z.^2 );
 
 cellsize = 4;
-surroundsize = 10;
+surroundsize = 13;
 cellmask = ellipsoid < cellsize;
-surroundmask =  (ellipsoid < surroundsize) & ~((ellipsoid < cellsize+0.5) | udat.mask.img); % making a shell around the cell mask
+surroundmask =  (ellipsoid < surroundsize) & ~((ellipsoid < cellsize+1.5) | udat.mask.img); % making a shell around the cell mask
 
 % are there any existing (other cells) in the window just defined? If so,
 % return without adding any new cells.
@@ -390,36 +390,30 @@ if SNR < 1.5
     return
 end
 
-% update the cell counter.
-udat.mask.Ncells = udat.mask.Ncells + 1;
-
 % fill up a region in the cell mask
-FILLTYPE = 'recursive';
+FILLTYPE = 'region_fill';
 switch FILLTYPE
     case 'simple'
+        
+        % update the cell counter.
+        udat.mask.Ncells = udat.mask.Ncells + 1;
+        
+        % highlight the cell filled region
         udat.mask.img(reshape(cellmask, ymax, xmax, zmax)) = udat.mask.Ncells;
+        
     case 'region_fill'
-        
-        % find the starting location. Define this point as the point of maximal
-        % brightness inside the cellmask
-        tmpimg = udat.raw.img(:);
-        tmpmask = cellmask(:);
-        [val, idx] = max(tmpimg(tmpmask));
-        l_eqmax = (tmpimg == val) & tmpmask;
-        [x,y,z] = ind2sub(size(udat.raw.img), find(l_eqmax==1, 1, 'first'));
-        
-        dImg = udat.raw.img;
-        dMaxDif = mean_inside / 2;
-        iSeed = [x,y,z];
-        tmpmask = RegionGrowing(dImg, dMaxDif, iSeed);
-        tmpmask = tmpmask & ~(udat.mask.img); % no overlap with existing cells.
-        udat.mask.img(tmpmask==1) = udat.mask.Ncells;
-        
-    case 'recursive'
         tmpmask = mask_regionFill(udat, cellmask, mean_inside);
         tmpmask = tmpmask==1;
         tmpmask = tmpmask & ~(udat.mask.img); % no overlap with existing cells.
-        udat.mask.img(tmpmask==1) = udat.mask.Ncells;
+        
+        if sum(tmpmask(:))>0
+            udat.mask.Ncells = udat.mask.Ncells + 1;
+            udat.mask.img(tmpmask==1) = udat.mask.Ncells;
+            fprintf('Adding cell #%d\n', udat.mask.Ncells);
+        else
+            fprintf('Cell found but not marked, try clicking on a different part of the cell\n')
+        end
+        
 end
 
 % Set the user data and update the images
@@ -437,8 +431,13 @@ function mask_removeLastCell()
     % remove all instances of the last cell, and decrement the cell counter
     lastCell = udat.mask.Ncells;
     if lastCell > 0;
-        idx = udat.mask.img == lastCell;
-        udat.mask.img(idx) = 0;
+        tmp = udat.mask.img;
+        sz3D = size(tmp);
+        tmp = tmp(:);
+        idx = tmp == lastCell;
+        tmp(idx) = 0;
+        udat.mask.img = reshape(tmp, sz3D);
+        fprintf('Removing cell #%d\n', lastCell);
         udat.mask.Ncells = udat.mask.Ncells - 1;
     end
 
