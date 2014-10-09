@@ -84,7 +84,7 @@ end
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 if numel(params.files)>0
-    figure, hold on,
+    fhand = figure; hold on,
     set(gcf, 'position', [15    23   560   651]);
     
     idx = 1;
@@ -93,13 +93,16 @@ if numel(params.files)>0
         Ra = ax{a}.getRa('quick');
         access = permute(Ra.dat, [3,2,1]);
         Verr = permute(Ra.Verr, [3,2,1]);
+        if isempty(access)
+            continue
+        end
         
         nCh = numel(Ra.chNames);
         pltLoc = [1,2;
                   3,4];
         for ch = 1:nCh
             % plot the access values
-            subplot(nCh, 2, pltLoc(ch,1)), hold on
+            hand(pltLoc(ch,1)) = subplot(nCh, 2, pltLoc(ch,1)); hold on
             xx = idx:(idx+size(access,1)-1);
             clr = map(clrIdx(a),:);
             plot(xx(:), access(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
@@ -108,7 +111,7 @@ if numel(params.files)>0
             
             
             % plot the vclamp err values
-            subplot(nCh, 2, pltLoc(ch,2)), hold on
+            hand(pltLoc(ch,1)) = subplot(nCh, 2, pltLoc(ch,2)); hold on
             plot(xx(:), Verr(:,ch), '-ko', 'markerfacecolor', clr, 'markeredgecolor', clr, 'linewidth', 1.5, 'markersize', 5)
             t = title(sprintf('Channel: %s', Ra.chNames{ch}));
             set(t, 'Interpreter', 'none')
@@ -119,20 +122,23 @@ if numel(params.files)>0
     end
     
     % tidy up.
-    for ch = 1:nCh.*2
-        subplot(nCh,2,ch)
-        axis tight
-        ymax = get(gca, 'ylim');
-        ylim([0, ymax(2).*1.05])
-        xlabel('Sweep Number')
-        if any([1,3] == ch)
-            ylabel('Series Resistance (MOhms)')
-        else
-            ylabel('Vclamp Error')
-        end
+    if exist('hand', 'var') && ~isempty(hand)
+        for ch = 1:nCh.*2
+            subplot(nCh,2,ch)
+            axis tight
+            ymax = get(gca, 'ylim');
+            ylim([0, ymax(2).*1.05])
+            xlabel('Sweep Number')
+            if any([1,3] == ch)
+                ylabel('Series Resistance (MOhms)')
+            else
+                ylabel('Vclamp Error')
+            end
             
+        end
+    else
+        close(fhand) % the figure opened earlier is not useful
     end
-    
 end
 
 %

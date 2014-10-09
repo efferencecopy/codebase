@@ -303,15 +303,135 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
+%% AK_081814_C Cell 2
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% These data are from a SOM+ cell in the injection site of a ChIEF
+% injection. These recordings show very nice TF dependent facilitation.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_081814_C';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.DCsteps = '2014_09_04_0001';    % DC steps for Rin and cell identification
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS2_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_09_04_0002';...
+                '2014_09_04_0003';...
+                '2014_09_04_0004'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {'10', '20', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.subtractexp = false;
+params.filter = 2000;
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+%% AK_082514_C Cell 21
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% These data are from a SOM+ cell in the injection site of a ChR2
+% injection. There's basically no facilitation, and probably some
+% depression at both TFs.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_082514_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.DCsteps = '';    % DC steps for Rin and cell identification
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS1_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_09_17_0000';...
+                '2014_09_17_0001'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {'20', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.subtractexp = false;
+params.filter = 2000;
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% AK_082514_C Cell 2
+fin
+
+%
+% NOTES (cell type, location, experiment type, etc).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% These data are from a SOM+ cell in the injection site of a ChR2
+% injection. There's basically no facilitation, and probably some
+% depression at both TFs.
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_082514_C';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.DCsteps = '';    % DC steps for Rin and cell identification
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.validCh = 'HS1_';    % 'HS2_' or 'HS1_'
+params.files = {'2014_09_17_0002';...
+                '2014_09_17_0003'};      % File names of the raw data. <Nx1> cell array
+params.skipSweeps = {}; % In case I need to ignore certain sweeps
+params.vHold = -85.* ones(numel(params.files), 1);     % The holding potential for vClamp experiments. One value for each expt. <Nx1>
+params.stimLoc = zeros(5,2);    % The (x,y) coordinates of the objective at the locations stimulated with the LED. <Nx2> matrix
+params.legTxt = {'20', '40'};     % Text that will appear in figures to annotate each data file. <Nx1> cell array
+params.subtractexp = false;
+params.filter = 2000;
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_pulseTrains_stimLoc};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
 
 %% BOOKMARK FOR AK MICE
 
 % Need to add:
-% 
-% AK_081814_B
-% AK_081814_C
-% AK_082014_A
-% AK_082514_C
 
 
 %% CH_020314_B Cell 1
@@ -2049,6 +2169,58 @@ end
 %
 
 
+
+%% CH_090414_A pair 1
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Pretty mediocre data, but possibly useable nonetheless. Paired recording
+% from SOM+ and PY cell. Both cells look like they get direct excitation at
+% 2 ms, and inhibition at about 4ms.
+%
+% brain area: AL I think. My notes don't specify much, but based off of the
+% shape of the axon cloud, and the location of the harp string scars in the
+% white images, I think that it's impossible that this area is PM. 
+%
+% popAnalysis: adding to E/I, A/N analysis. Could be culled due to Ra.
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_090414_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_090414_A_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_09_19_', [2,4]};  % <file name prefix, suffix>
+params.groups = {'control', [2,4]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; % all files are junk. no cell on HS2
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
 %% CH_090414_A pair 2
 
 fin
@@ -2103,8 +2275,6 @@ end
 
 % Need to add
 %
-% CH_090414_A
-% CH_090414_B
 % CH_090414_C
 % CH_091114_A
 % CH_091114_B

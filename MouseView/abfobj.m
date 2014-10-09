@@ -133,13 +133,14 @@ classdef abfobj
                 if isempty(vclamp); continue; end
                 
                 % the index to the recorded membrane current
-                tmp = eval(['obj.idx.', validChName{1}, 'Im']);
-                idx_Im = [idx_Im, tmp];
-                
-                % the index to the comand waveform
-                tmp = eval(['obj.idx.', validChName{1}, 'Vclamp']);
-                idx_Vclamp = [idx_Vclamp, tmp];              
-                
+                if all(isfield(obj.idx, {[validChName{1}, 'Im'], [validChName{1}, 'Vclamp']}));
+                    tmp = obj.idx.([validChName{1}, 'Im']);
+                    idx_Im = [idx_Im, tmp];
+                    
+                    % the index to the comand waveform
+                    tmp = obj.idx.([validChName{1}, 'Vclamp']);
+                    idx_Vclamp = [idx_Vclamp, tmp];
+                end
             end
             
             % figure out which fitting method to use. Once exponential fits
@@ -159,6 +160,7 @@ classdef abfobj
             Nchannels = numel(idx_Im);
             Ra.chNames = obj.head.recChNames(idx_Im);
             Ra.dat = nan(1, Nchannels, Nsweeps);
+            Ra.Verr = nan(1, Nchannels, Nsweeps);
             for ch = 1:numel(idx_Im)
                 for swp = 1:Nsweeps;
                     
