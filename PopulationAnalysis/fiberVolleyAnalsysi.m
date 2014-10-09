@@ -115,8 +115,6 @@ ax_ttx = abfobj('2014_10_02_0005');
 ax_ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
 datch = ax_control.idx.HS2_Im;
 
-
-
 %% Do the analysis
 
 close all
@@ -127,7 +125,7 @@ filterFreqs = 500;
 filterType = 'low';
 
 % notch filter
-CONDITION = true;
+CONDITION = false;
 d = designfilt('bandstopiir','FilterOrder',6, ...
     'HalfPowerFrequency1',5,'HalfPowerFrequency2',6, ...
     'DesignMethod','butter','SampleRate',sampFreq);
