@@ -169,13 +169,13 @@ title(sprintf('ALL DATA: E/I ratio = %.2f', betas(1)))
 figure, hold on,
 title('By HVAs')
 set(gca, 'fontsize', 25)
-groups = {'und', 'pm', 'lm'};
+groups = {'und', 'pm', 'lm', 'al'};
 for a = 1:numel(groups);
     tmp_excit = raw_excit(hvalist.(groups{a}));
     tmp_inhib = raw_inhib(hvalist.(groups{a}));
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
-    l_nan = isnan(tmp_excit);
+    l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
     betas = [tmp_excit(~l_nan), ones(size(tmp_excit(~l_nan)))] \ tmp_inhib(~l_nan);
     xvals = get(gca, 'xlim');
     plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw, 'linewidth', 3)

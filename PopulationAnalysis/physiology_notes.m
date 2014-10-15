@@ -1975,9 +1975,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
-                           'inhib', 'control', 15, -75;...
-                           'ampa', 'control', -75, 15;...
-                           'nmda', 'nbqxGabazine', 50, 15};
+                           'inhib', 'control', 15, -75};
 params.tags = {};
 params.filter = 1e3;
 
