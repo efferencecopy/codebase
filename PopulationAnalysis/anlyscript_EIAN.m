@@ -107,6 +107,7 @@ hvas = repmat(dat.hva, 2,1);
 hvas = hvas(l_valid);
 hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
 hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
+hvalist.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
 hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 
 % now group by IN vs PY

@@ -2270,16 +2270,177 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
 end
 
 
+%% CH_090414_C pair 1
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Paired recording from a SOM cell (HS1) and a PY cell (HS2). Decent data.
+% Adding to pop analysis for E/I and A/N, and NMDAR.
+%
+% brain area: This cell may be in LM or AL or at the border...
+% popAnalysis: adding both cells to E/I pop sheet.
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_090414_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_090414_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_09_24_', [1:8, 12]};  % <file name prefix, suffix>
+params.groups = {'control', [1,2];...
+                 'nbqxGabazine', [3,4];...
+                 'NMDAR', [3:8,12]};
+params.excludeHS1 = {};
+params.excludeHS2 = {'_0012'}; % all files are junk. no cell on HS2
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', [-75, -76], 15;...
+                           'inhib', 'control', 15, -75;...
+                           'ampa', 'control', -75, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_090414_C cell 2
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Recording from a single PY cell. Nice data for the most part. Access is
+% poor for the later files
+%
+% brain area: PM.
+% popAnalysis: adding to E/I A/N, NMDAR pop sheet.
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_090414_C';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'CH_090414_C_cell2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_09_24_', [19:28]};  % <file name prefix, suffix>
+params.groups = {'control', [19,20];...
+                 'nbqxGabazine', [21,22];...
+                 'NMDAR', [21:28]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; % all files are junk. no cell on HS2
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -73, 15;...
+                           'inhib', 'control', 15, -73;...
+                           'ampa', 'control', -73, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% CH_091114_F pair 1
+
+fin
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Pretty good data from 2 PY cells. The Ra and holding current are high on
+% some files though, and the Vclamp error creeps up.
+%
+% brain area: AL
+% popAnalysis: E/I, A/N, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_091114_F';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_091114_F_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_09_26_', [1:9]};  % <file name prefix, suffix>
+params.groups = {'control', [1,2];...
+                 'nbqxGabazine', [3:4];...
+                 'NMDAR', [3:9]};
+params.excludeHS1 = {{'_0002', [18]}, '_0007', '_0008', '_0009'};
+params.excludeHS2 = {{'_0006', [2:13,15,17,19,21,23,25]}}; % all files are junk. no cell on HS2
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+
+
+
+
 %% BOOKMARK FOR CH MICE
 % data added to population analyses up to here
 
 % Need to add
 %
-% CH_090414_C
-% CH_091114_A
-% CH_091114_B
-% CH_091114_C
-% CH_091114_F
+% CH_091114_A (ChIEF)
+% CH_091114_B (ChIEF, whole cell:TTX. LFP:fibervolley)
+% CH_091114_C (ChIEF, tried to do LFP but weak responses)
+% CH_091114_F (ChR2, good data)
+% CH_092214_A (NB488 trial and error)
+% CH_092214_B (NB488 trial and error)
+% CH_092214_C (NB488 trial and error)
 
 
 

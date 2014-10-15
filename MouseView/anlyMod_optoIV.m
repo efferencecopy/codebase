@@ -139,7 +139,7 @@ for a = 1:Ngroups
             % absent, so I should check. Make the absent channel's data a
             % bunch of NaNs.
             if size(Ra, 2)<2
-                warning('implementing an ugly hack b/c only 1 ch is undefined')                
+                warning('implementing an ugly hack b/c only 1 ch is defined')                
                 Ra = [Ra, Ra];
                 Verr = [Verr, Verr];
             end

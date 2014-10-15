@@ -18,8 +18,11 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         params.isolatedData.(currentType).raw_nS{ch} = [];
         
         % look for the correct holding potential
-        vholds_exp = params.ivdat.(experimentalGroup).vhold{ch} % available vHolds
-        vhold_req = params.isolatedCurrents{a, 3}
+        vholds_exp = params.ivdat.(experimentalGroup).vhold{ch}; % available vHolds
+        vhold_req = params.isolatedCurrents{a, 3};
+        if numel(vhold_req)>1; % allow the vholds to differ between HS1 and HS2
+            vhold_req = vhold_req(ch);
+        end
         vHoldAvailable = cellfun(@(x, y) softEq(x, y, 0), vholds_exp, repmat({vhold_req}, size(vholds_exp)), 'uniformoutput', false);
         vHoldAvailable = cellfun(@(x) ~isempty(x) && (x==true), vHoldAvailable);
         
@@ -27,7 +30,8 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         
         % pull out the raw data
         trace_pA = params.ivdat.(experimentalGroup).raw{ch}{vHoldAvailable};
-        drivingForce_mV = abs(params.isolatedCurrents{a, 3} - params.isolatedCurrents{a, 4}); % in mV
+        Erev = params.isolatedCurrents{a, 4};
+        drivingForce_mV = abs(vhold_req - Erev); % in mV
         
         % if isolatedCurrent == 'ampa', then subtract off the NMDA current
         % in the presence of blockers.
@@ -48,7 +52,11 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         drivingForce_volts = drivingForce_mV ./ 1e3;
         
         % calculate conductance
+        try
         trace_siemens = trace_amps ./ drivingForce_volts;
+        catch
+            keyboard
+        end
         trace_nS = trace_siemens .* 1e9;
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
         
