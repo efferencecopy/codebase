@@ -101,7 +101,7 @@ fin
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 
 
-% create grouping lists
+% create grouping lists for HVAs
 l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
 hvas = hvas(l_valid);
@@ -110,15 +110,22 @@ hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
 hvalist.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
 hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 
-% now group by IN vs PY
+%
+% create grouping lists for neuron type
 neuronType = dat.neuronType(:);
 neuronType = cellfun(@num2str, neuronType, 'uniformoutput', false);
 neuronType = neuronType(l_valid);
-typeList.IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
+l_IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
+l_SOM = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'som'));
+typeList.IN = l_IN | l_SOM;
+typeList.SOM = l_SOM;
 typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
 typeList.und = ~typeList.IN & ~typeList.PY;
 
+%
 % plot the raw currents for isolated excitation and inhibition
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
 nPlots = sum(l_valid);
 nRows = ceil(sqrt(nPlots));
 tmp_inhib_raw = cat(1, dat.inhib.raw_pA(:));
@@ -147,16 +154,21 @@ for i = 1:nPlots;
 end
 
 % pull out peak conductances
-raw_excit = dat.excit.peak_pA(:);
+raw_excit = dat.excit.peak_nS(:);
+assert(~any(dat.excit.peak_pA(:)>0), 'ERROR: some excitatory currents are positive...')
 raw_excit = abs(raw_excit(l_valid));
-raw_inhib = dat.inhib.peak_pA(:);
+raw_inhib = dat.inhib.peak_nS(:);
+%assert(~any(dat.excit.inhib_pA<0), 'ERROR: some inhibitory currents are negative...')
 raw_inhib = raw_inhib(l_valid);
 
+%
 % plot peak conductances for all cells
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
 plot(raw_excit, raw_inhib, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
-l_nan = isnan(raw_excit);
+l_nan = isnan(raw_excit) | isnan(raw_inhib);
 betas = [raw_excit(~l_nan), ones(size(raw_excit(~l_nan)))] \ raw_inhib(~l_nan);
 xvals_all = get(gca, 'xlim');
 yvals_all = get(gca, 'ylim');
@@ -165,50 +177,106 @@ xlabel('Excit conductance (nS)')
 ylabel('Inhib conductance (nS)')
 title(sprintf('ALL DATA: E/I ratio = %.2f', betas(1)))
 
-% plot the data, but color code each HVA
+%
+% plot the data, but color code each HVA.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
-title('By HVAs')
+title('By HVAs, only PY cells')
 set(gca, 'fontsize', 25)
 groups = {'und', 'pm', 'lm', 'al'};
+h_fit = [];
 for a = 1:numel(groups);
-    tmp_excit = raw_excit(hvalist.(groups{a}));
-    tmp_inhib = raw_inhib(hvalist.(groups{a}));
+    l_PY = typeList.PY;
+    l_HVA = hvalist.(groups{a});
+    l_ToPlot = l_PY & l_HVA;
+    tmp_excit = raw_excit(l_ToPlot);
+    tmp_inhib = raw_inhib(l_ToPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
     betas = [tmp_excit(~l_nan), ones(size(tmp_excit(~l_nan)))] \ tmp_inhib(~l_nan);
     xvals = get(gca, 'xlim');
-    plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw, 'linewidth', 3)
+    h = plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_fit, 'linewidth', 3);
+    h_fit = [h_fit,h];
     xlim(xvals_all)
     ylim(yvals_all)
     xlabel('Excit conductance (nS)')
     ylabel('Inhib conductance (nS)')
 end
+legend(h_fit, groups, 'location', 'southeast')
 
-
-% color code by neuron type
-groupTypes = {'IN', 'PY', 'und'};
-pltClr = {'r', 'b', [.85 .85 .85]};
+%
+% Plot all E/I ratios, color code by neuron type
+%
+%%%%%%%%%%%%%%%%%%
+groupTypes = {'IN', 'PY', 'SOM'};
 figure, hold on,
 title('By cell type')
 set(gca, 'fontsize', 25)
+h_fit = [];
 for a = 1:numel(groupTypes);
     tmp_excit = raw_excit(typeList.(groupTypes{a}));
     tmp_inhib = raw_inhib(typeList.(groupTypes{a}));
-    clr_raw = pltClr{a};
+    [clr_fit, clr_raw] = hvaPlotColor(groupTypes{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
-    l_nan = isnan(tmp_excit);
+    l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
     betas = [tmp_excit(~l_nan), ones(size(tmp_excit(~l_nan)))] \ tmp_inhib(~l_nan);
     xvals = get(gca, 'xlim');
-    plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw, 'linewidth', 3)
+    h = plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_fit, 'linewidth', 3);
+    h_fit = [h_fit, h];
     xlim(xvals_all)
     ylim(yvals_all)
     xlabel('Excit conductance (nS)')
     ylabel('Inhib conductance (nS)')
 end
+legend(h_fit, groupTypes, 'location', 'southeast')
 
+%
+% A general figure that has one subplot for each cell type and shows data
+% across HVAs
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+nHVAs = numel(fieldnames(hvalist));
+nCellTypes = numel(fieldnames(typeList));
+HVATypes = fieldnames(hvalist);
+cellTypes = fieldnames(typeList);
+figure
+for iArea = 1:nHVAs
+    
+    % initialize the plot
+    subplot(1,nHVAs, iArea), hold on,
+    title(sprintf('HVA: %s', HVATypes{iArea}));
+    
+    h_fit = [];
+    l_leg = true(nCellTypes,1);
+    for iType = 1:nCellTypes
+        % make a list of the appropriate cells
+        l_type = typeList.(cellTypes{iType});
+        l_hva = hvalist.(HVATypes{iArea});
+        l_ToPlot = l_type & l_hva;
+        if ~any(l_ToPlot);
+            l_leg(iType) = false;
+            continue
+        end
+        
+        tmp_excit = raw_excit(l_ToPlot);
+        tmp_inhib = raw_inhib(l_ToPlot);
+        [clr_fit, clr_raw] = hvaPlotColor(cellTypes{iType});
+        plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
+        l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
+        betas = [tmp_excit(~l_nan), ones(size(tmp_excit(~l_nan)))] \ tmp_inhib(~l_nan);
+        xvals = get(gca, 'xlim');
+        h = plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_fit, 'linewidth', 3);
+        h_fit = [h_fit, h];
+        xlim(xvals_all)
+        ylim(yvals_all)
+    end
+    legend(h_fit, cellTypes{l_leg}, 'location', 'northwest')
+end
 
-
+% compare SOM+ cells in AL and PM, but normalize the conductances by that
+% of the simultaneously recorded PY cell.
 
 
 %% AMPA to NMDA RATIOS
@@ -219,13 +287,25 @@ fin
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 
 
-% create grouping lists
+% create grouping lists for HVAs
 l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
 hvas = hvas(l_valid);
 hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
+hvalist.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
 hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
 hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
+
+% create grouping lists for neuron type
+neuronType = dat.neuronType(:);
+neuronType = cellfun(@num2str, neuronType, 'uniformoutput', false);
+neuronType = neuronType(l_valid);
+l_IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
+l_SOM = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'som'));
+typeList.IN = l_IN | l_SOM;
+typeList.SOM = l_SOM;
+typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
+typeList.und = ~typeList.IN & ~typeList.PY;
 
 
 % pull out peak conductances
@@ -234,11 +314,14 @@ raw_ampa = raw_ampa(l_valid);
 raw_nmda = dat.nmda.peak_nS(:);
 raw_nmda = raw_nmda(l_valid);
 
+%
 % plot peak conductances for all cells
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
 plot(raw_ampa, raw_nmda, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
-l_nan = isnan(raw_ampa);
+l_nan = isnan(raw_ampa) | isnan(raw_nmda);
 betas = [raw_ampa(~l_nan), ones(size(raw_ampa(~l_nan)))] \ raw_nmda(~l_nan);
 xvals_all = get(gca, 'xlim');
 yvals_all = get(gca, 'ylim');
@@ -247,55 +330,57 @@ xlabel('AMPA conductance (nS)')
 ylabel('NMDA conductance (nS)')
 title(sprintf('ALL DATA: A/N ratio = %.2f', betas(1)))
 
+%
 % plot the data, but color code each HVA
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
-groups = {'und', 'pm', 'lm'};
+groups = {'pm', 'lm', 'al'};
+title('A/N ratio by HVA, PY cells only')
+h_fit =[];
 for a = 1:numel(groups);
-    tmp_ampa = raw_ampa(hvalist.(groups{a}));
-    tmp_nmda = raw_nmda(hvalist.(groups{a}));
+    l_PY = typeList.PY;
+    l_HVA = hvalist.(groups{a});
+    l_ToPlot = l_PY & l_HVA;
+    tmp_ampa = raw_ampa(l_ToPlot);
+    tmp_nmda = raw_nmda(l_ToPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
-    l_nan = isnan(tmp_ampa);
+    l_nan = isnan(tmp_ampa) | isnan(tmp_nmda);
     betas = [tmp_ampa(~l_nan), ones(size(tmp_ampa(~l_nan)))] \ tmp_nmda(~l_nan);
     xvals = get(gca, 'xlim');
-    plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw, 'linewidth', 3)
+    h = plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_fit, 'linewidth', 3);
+    h_fit = [h_fit, h];
     xlim(xvals_all)
     ylim(yvals_all)
     xlabel('AMPA conductance (nS)')
     ylabel('NMDA conductance (nS)')
 end
+legend(h_fit, groups, 'location', 'northwest')
 
 
-
-% now group by IN vs PY
-neuronType = dat.neuronType(:);
-neuronType = cellfun(@num2str, neuronType, 'uniformoutput', false);
-neuronType = neuronType(l_valid);
-typeList.IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
-typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
-typeList.und = ~typeList.IN & ~typeList.PY;
-
-groupTypes = {'IN', 'PY', 'und'};
-pltClr = {'r', 'b', [.85 .85 .85]};
+groupTypes = {'IN', 'PY', 'SOM'};
 figure, hold on,
 set(gca, 'fontsize', 25)
 title('By cell type')
+h_fit = [];
 for a = 1:numel(groupTypes);
     tmp_ampa = raw_ampa(typeList.(groupTypes{a}));
     tmp_nmda = raw_nmda(typeList.(groupTypes{a}));
-    clr_raw = pltClr{a};
+    [clr_fit, clr_raw] = hvaPlotColor(groupTypes{a});
     plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
-    l_nan = isnan(tmp_ampa);
+    l_nan = isnan(tmp_ampa) | isnan(tmp_nmda);
     betas = [tmp_ampa(~l_nan), ones(size(tmp_ampa(~l_nan)))] \ tmp_nmda(~l_nan);
     xvals = get(gca, 'xlim');
-    plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_raw, 'linewidth', 3)
+    h = plot(xvals, [xvals(:), ones(2,1)]*betas(:), '--', 'color', clr_fit, 'linewidth', 3);
+    h_fit = [h_fit,h];
     xlim(xvals_all)
     ylim(yvals_all)
     xlabel('AMPA conductance (nS)')
     ylabel('NMDA conductance (nS)')
 end
-
+legend(h_fit, groupTypes, 'location', 'northwest')
 
 
 %% CONTROL ANALYSES

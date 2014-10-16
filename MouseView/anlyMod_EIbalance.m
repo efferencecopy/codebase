@@ -26,6 +26,10 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         vHoldAvailable = cellfun(@(x, y) softEq(x, y, 0), vholds_exp, repmat({vhold_req}, size(vholds_exp)), 'uniformoutput', false);
         vHoldAvailable = cellfun(@(x) ~isempty(x) && (x==true), vHoldAvailable);
         
+        if strcmpi(currentType, 'ampa') && ~any(vHoldAvailable)
+            disp('There should be an AMPA specific Vhold, but was not found')
+            keyboard
+        end
         if ~any(vHoldAvailable); continue; end
         
         % pull out the raw data
@@ -44,6 +48,7 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
                 trace_pA = trace_pA - trace_nmdaOnly;
             else
                 warning('Could not find control condition for AMPA only current')
+                % just use the trace_pA calculated above
             end
         end
         
@@ -52,11 +57,7 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         drivingForce_volts = drivingForce_mV ./ 1e3;
         
         % calculate conductance
-        try
         trace_siemens = trace_amps ./ drivingForce_volts;
-        catch
-            keyboard
-        end
         trace_nS = trace_siemens .* 1e9;
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
         
