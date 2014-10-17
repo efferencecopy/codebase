@@ -2249,8 +2249,8 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
-params.isolatedCurrents = {'excit', 'control', -72, 15;...
-                           'inhib', 'control', 15, -72};
+params.isolatedCurrents = {'excit', 'control', -72,     [15 17];...
+                           'inhib', 'control', [15 17], -72     };
 params.tags = {};
 params.filter = 1e3;
 
@@ -2300,7 +2300,7 @@ params.excludeHS2 = {'_0012'}; % all files are junk. no cell on HS2
 % Erev is to calculate driving force for conversion from pA to pS
 params.isolatedCurrents = {'excit', 'control', [-75, -76], 15;...
                            'inhib', 'control', 15, -75;...
-                           'ampa', 'control', -75, 15;...
+                           'ampa', 'control', [-75, -76], 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 1e3;

@@ -26,15 +26,14 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         vHoldAvailable = cellfun(@(x, y) softEq(x, y, 0), vholds_exp, repmat({vhold_req}, size(vholds_exp)), 'uniformoutput', false);
         vHoldAvailable = cellfun(@(x) ~isempty(x) && (x==true), vHoldAvailable);
         
-        if strcmpi(currentType, 'ampa') && ~any(vHoldAvailable)
-            disp('There should be an AMPA specific Vhold, but was not found')
-            keyboard
-        end
         if ~any(vHoldAvailable); continue; end
         
         % pull out the raw data
         trace_pA = params.ivdat.(experimentalGroup).raw{ch}{vHoldAvailable};
         Erev = params.isolatedCurrents{a, 4};
+        if numel(Erev)>1
+            Erev = Erev(ch);
+        end
         drivingForce_mV = abs(vhold_req - Erev); % in mV
         
         % if isolatedCurrent == 'ampa', then subtract off the NMDA current
@@ -62,7 +61,15 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
         
         % calculate the peak value
-        [peakVal_nS, peak_idx] = max(abs(trace_nS));
+        switch lower(currentType)
+            case {'excit', 'ampa', 'nmda'}
+                [peakVal_nS, peak_idx] = min(trace_nS);
+                assert(peakVal_nS<0, sprintf('ERROR: inward currents must be negative <CH %d, currentType: %s>', ch, upper(currentType)))
+                peakVal_nS = -peakVal_nS; % store all values as positive numbers.
+            case {'inhib'}
+                [peakVal_nS, peak_idx] = max(abs(trace_nS));
+                assert(peakVal_nS>0, sprintf('ERROR: outward currents must be positive <CH %d, currentType: %s>', ch, upper(currentType)))
+        end
         params.isolatedData.(currentType).peak_nS{ch} = peakVal_nS;
         params.isolatedData.(currentType).peak_pA{ch} = trace_pA(peak_idx);
         
