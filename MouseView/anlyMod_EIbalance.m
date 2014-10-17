@@ -62,13 +62,18 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         
         % calculate the peak value
         switch lower(currentType)
-            case {'excit', 'ampa', 'nmda'}
+            case {'excit', 'ampa'}
                 [peakVal_nS, peak_idx] = min(trace_nS);
                 assert(peakVal_nS<0, sprintf('ERROR: inward currents must be negative <CH %d, currentType: %s>', ch, upper(currentType)))
                 peakVal_nS = -peakVal_nS; % store all values as positive numbers.
-            case {'inhib'}
+            case {'inhib', 'nmda'}
                 [peakVal_nS, peak_idx] = max(abs(trace_nS));
+                
+                %error checking
                 assert(peakVal_nS>0, sprintf('ERROR: outward currents must be positive <CH %d, currentType: %s>', ch, upper(currentType)))
+                if strcmpi(currentType, 'nmda')
+                    assert(vhold_req>20, 'ERROR: Vhold for NMDA current must be >20mV')
+                end
         end
         params.isolatedData.(currentType).peak_nS{ch} = peakVal_nS;
         params.isolatedData.(currentType).peak_pA{ch} = trace_pA(peak_idx);

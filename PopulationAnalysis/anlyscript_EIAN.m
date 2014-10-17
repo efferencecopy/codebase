@@ -30,14 +30,18 @@ HVA = raw(2:end, 5);
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% iterate over the mice in the cell library (some mice get analyzed
-% multiple times if there were multiple experiments per mouse)
+% initalize things that I care about
 [dat.ampa.peak_nS, dat.nmda.peak_nS, dat.excit.peak_nS, dat.inhib.peak_nS] = deal(nan(numel(mouseNames), 2));
 [dat.ampa.peak_pA, dat.nmda.peak_pA, dat.excit.peak_pA, dat.inhib.peak_pA] = deal(nan(numel(mouseNames), 2));
+
+% initalize things for control analyses.
 [dat.ampa.Verr, dat.nmda.Verr, dat.excit.Verr, dat.inhib.Verr] = deal(repmat({[] []}, numel(mouseNames), 1));
 [dat.ampa.holding, dat.nmda.holding, dat.excit.holding, dat.inhib.holding] = deal(repmat({[] []}, numel(mouseNames), 1));
 [dat.ampa.peakBySweep, dat.nmda.peakBySweep, dat.excit.peakBySweep, dat.inhib.peakBySweep] = deal(repmat({[] []}, numel(mouseNames), 1));
 [dat.ampa.raw_pA, dat.nmda.raw_pA, dat.excit.raw_pA, dat.inhib.raw_pA] = deal(repmat({[] []}, numel(mouseNames), 1));
+
+% iterate over the mice in the cell library (some mice get analyzed
+% multiple times if there were multiple experiments per mouse)
 for ex = 1:numel(mouseNames)
     
     ex_mouseName = mouseNames{ex};
