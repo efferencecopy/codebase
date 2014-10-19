@@ -111,7 +111,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'AK_072814_B_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_08_15_', [2:6]};  % <file name prefix, suffix>
 params.groups = {'control', [2:3];...
-                 'nbqxGabazine', [4:6]};
+                 'nbqxGabazine', [4:6];...
+                 'NMDAR', [4:6]};
 params.excludeHS1 = {{'_0002', [1,9,10,14]}};
 params.excludeHS2 = {{'_0002', [1,9,10,14]}};
 
@@ -1338,7 +1339,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_063014_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_07_19_', [0:16]};  % <file name prefix, suffix>
 params.groups = {'control', [0:7];...
-                 'nbqxGabazine', [8:16]};
+                 'nbqxGabazine', [8:16];...
+                 'NMDAR', [8:16]};
 params.excludeHS1 = {};
 params.excludeHS2 = {'_0007', '_0016'};
 params.tags = {};
@@ -1390,7 +1392,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_070714_A_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_07_23_', [0:13]};  % <file name prefix, suffix>
 params.groups = {'control', [0:6];...
-                 'nbqxGabazine', [7:13]};
+                 'nbqxGabazine', [7:13];...
+                 'NMDAR', [7:13]};
 params.excludeHS1 = {};
 params.excludeHS2 = {'_0004', '_0005', '_0006'};
 params.tags = {};
@@ -1502,7 +1505,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_071414_A_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_08_01_', [0:14]};  % <file name prefix, suffix>
 params.groups = {'control', [0:6];...
-                 'nbqxGabazine', [7:14]};
+                 'nbqxGabazine', [7:14];...
+                 'NMDAR', [7:14]};
 params.excludeHS1 = {{'_0006', [3,6,10,14]}, {'_0005', [10,16,24]}, {'_0004', [7]}, '_0004'};
 params.excludeHS2 = {};
 
@@ -1882,7 +1886,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -1916,7 +1920,7 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_081114_B_cell1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_08_25_', [0:10]};  % <file name prefix, suffix>
 params.groups = {'control', [0,1];...
-                 'nbqxGabazine', [2,9];...
+                 'nbqxGabazine', [3,9];...
                  'NMDAR', [2:10]};
 params.excludeHS1 = {{'_0010' [5,6]}};
 params.excludeHS2 = {}; % all files are junk. no cell on HS2
@@ -1927,7 +1931,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -75, 25;...
                            'inhib', 'control', 25, -75;...
                            'ampa', 'control', -75, 25;...
-                           'nmda', 'nbqxGabazine', 50, 25};
+                           'nmda', 'nbqxGabazine', 60, 25};
 params.tags = {};
 params.filter = 1e3;
 
