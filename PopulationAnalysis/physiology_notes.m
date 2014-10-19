@@ -2362,7 +2362,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR_mac};
     params = invitroAnalysisOverview(params);
 end
 
@@ -2413,7 +2413,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR_mac};
     params = invitroAnalysisOverview(params);
 end
 
