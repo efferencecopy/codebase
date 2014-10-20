@@ -60,7 +60,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'AK_072814_A_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_08_12_', [2:10]};  % <file name prefix, suffix>
 params.groups = {'control', [2:5];...
-                 'nbqxGabazine', [6:10]};
+                 'nbqxGabazine', [6:10];...
+                 'NMDAR', [6:10]};
 params.excludeHS1 = {{'_0003', [1:7]}, {'_0002', [1:13, 15:24, 26]}};
 params.excludeHS2 = {{'_0003', [2,3,5:8,11,13]}, {'_0002', [1:10, 13:17, 21:26]}};
 
@@ -79,7 +80,7 @@ params.filter = 8e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -131,7 +132,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -217,7 +218,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'AK_072814_C_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_08_13_', [1:9]};  % <file name prefix, suffix>
 params.groups = {'control', [1:4];...
-                 'nbqxGabazine', [5:9]};
+                 'nbqxGabazine', [5:9];...
+                 'NMDAR', [5:9]};
 params.excludeHS1 = {{'_0001', [7,8,10,11,13,14,20,25]},{'_0002', [2,5,6,10:12,19,20,25:28]},{'_0003', [15:25]}, {'_0009', [24]}};
 params.excludeHS2 = {{'_0001', [7,8,10,11,13,14,20,25]},{'_0002', [2,5,6,10:12,19,20,25:28]},{'_0003', [15:25]}};
 
@@ -236,7 +238,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -1360,7 +1362,7 @@ params.isolatedCurrents = {'excit', 'control', -80, 15;...
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -1412,7 +1414,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -1525,7 +1527,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -1559,7 +1561,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_071414_D_pair1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_07_30_', [0:4, 6:13]};  % <file name prefix, suffix>
 params.groups = {'control', [1:4,6];...
-                 'nbqxGabazine', [7:13]};
+                 'nbqxGabazine', [7:13];...
+                 'NMDAR', [7:13]};
 params.excludeHS1 = {'_0012', '_0013'};
 params.excludeHS2 = {{'_0011' [34:40]}, '_0012', '_0013'};
 
@@ -1578,7 +1581,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -1940,7 +1943,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -2314,7 +2317,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -2366,7 +2369,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR_mac};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 
@@ -2417,7 +2420,7 @@ params.filter = 1e3;
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR_mac};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
 end
 

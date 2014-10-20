@@ -1,19 +1,9 @@
-function params = anlyMod_NMDAR_mac(params)
-
-% need to pull out each file that contains NBQX and GABAZINE and plot peak
-% pA as a function of Vhold. 
-
-% what are the files within groups = NMDAR?
-
-% iterate over channels
-%   * iterate over Vholds (store in cell array)
-%   * include a "corrected" Vhold that incorporates the Vclamp error
-
-
+function params = anlyMod_NMDAR(params)
 
 % define an analysis window based off when the LED pulse turns on. Ignore
-% the first 1.25 ms due to LED artifacts.
-l_anlyWindow = params.ivdat.tvec > 0.00125;
+% the first 3.5 ms due to LED artifacts, ignore everything after 100 msec
+% so that I'm only looking at the time period with the peak
+l_anlyWindow = (params.ivdat.tvec > 0.0035) & (params.ivdat.tvec < 0.040);
 
 
 % pull out the raw data and determine the peak current
@@ -51,6 +41,11 @@ for ch = 1:nCh
     NMDAR_ivdat_pA{ch} = NMDAR_ivdat_pA{ch}(idx);
 end
 
+% package the results into the 'params' structure
+params.ivdat.NMDAR.ivcurve.mV = NMDAR_ivdat_Vhold;
+params.ivdat.NMDAR.ivcurve.mV_corrected = NMDAR_ivdat_Vhold_corrected;
+params.ivdat.NMDAR.ivcurve.pA =  NMDAR_ivdat_pA;
+
 
 %
 % Plot the results
@@ -67,10 +62,9 @@ for a = 1:nCh
     subplot(nCh, 2, a.*2), hold on,
     plot(NMDAR_ivdat_Vhold{a}, NMDAR_ivdat_pA{a}, '-ko')
     plot(NMDAR_ivdat_Vhold_corrected{a}, NMDAR_ivdat_pA{a}, '-bo')
+    xlim([-95 55])
     xlabel('Voltage (mV)')
     ylabel('Current (pA)')
-    
-    
 end
 
 
