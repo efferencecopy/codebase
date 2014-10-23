@@ -33,6 +33,7 @@ HVA = raw(2:end, 5);
 % initalize things that I care about
 [dat.ampa.peak_nS, dat.nmda.peak_nS, dat.excit.peak_nS, dat.inhib.peak_nS] = deal(nan(numel(mouseNames), 2));
 [dat.ampa.peak_pA, dat.nmda.peak_pA, dat.excit.peak_pA, dat.inhib.peak_pA] = deal(nan(numel(mouseNames), 2));
+[dat.NMDAR.ivcurve.mV, dat.NMDAR.ivcurve.mv_corrected, dat.NMDAR.ivcurve.pA] = deal(repmat({[] []}, numel(mouseNames), 1));
 
 % initalize things for control analyses.
 [dat.ampa.Verr, dat.nmda.Verr, dat.excit.Verr, dat.inhib.Verr] = deal(repmat({[] []}, numel(mouseNames), 1));
@@ -50,69 +51,73 @@ for ex = 1:numel(mouseNames)
     [~, idx] = mdb.search(ex_mouseName);
     
     params = mdb.mice{idx}.popAnly{ex_siteNum};
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
     close all; drawnow
     
     %
     % add the data to an array for the AMPA/NMDA
-    % Excitation/Inhibition ratio stuff
+    % Excitation/Inhibition ratio stuff. Adding 'NMDAR' to the 'group'
+    % array allows the script to pull out NMDAR IV curve data
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    idx = goodNeurons(ex,:);
-    group = {'ampa', 'nmda', 'excit', 'inhib'};
+%    idx = goodNeurons(ex,:); This line might not do anything...
+    group = {'ampa', 'nmda', 'excit', 'inhib', 'NMDAR'};
     for g = 1:numel(group)
-        if isfield(params.isolatedData, group{g})
-            for ch = 1:2
-                
-                if ~isempty(params.isolatedData.(group{g}).raw_nS{ch});
-                    dat.(group{g}).peak_nS(ex, ch) = params.isolatedData.(group{g}).peak_nS{ch};
-                    dat.(group{g}).peak_pA(ex, ch) = params.isolatedData.(group{g}).peak_pA{ch};
-                    dat.(group{g}).raw_pA{ex, ch} = params.isolatedData.(group{g}).raw_pA{ch};
-                    dat.tvec{ex} = params.ivdat.tvec;
-                    dat.(group{g}).Verr{ex, ch} = params.isolatedData.(group{g}).Verr{ch};
-                    dat.(group{g}).peakBySweep{ex, ch} = params.isolatedData.(group{g}).peakBySweep_pA{ch};
-                    dat.(group{g}).holding{ex,ch} = params.isolatedData.(group{g}).holdingCurrent{ch};
+        
+        switch group{g}
+            case {'ampa', 'nmda', 'excit', 'inhib'}
+                if isfield(params.isolatedData, group{g})
+                    for ch = 1:2
+                        
+                        if ~isempty(params.isolatedData.(group{g}).raw_nS{ch});
+                            dat.(group{g}).peak_nS(ex, ch) = params.isolatedData.(group{g}).peak_nS{ch};
+                            dat.(group{g}).peak_pA(ex, ch) = params.isolatedData.(group{g}).peak_pA{ch};
+                            dat.(group{g}).raw_pA{ex, ch} = params.isolatedData.(group{g}).raw_pA{ch};
+                            dat.tvec{ex} = params.ivdat.tvec;
+                            dat.(group{g}).Verr{ex, ch} = params.isolatedData.(group{g}).Verr{ch};
+                            dat.(group{g}).peakBySweep{ex, ch} = params.isolatedData.(group{g}).peakBySweep_pA{ch};
+                            dat.(group{g}).holding{ex,ch} = params.isolatedData.(group{g}).holdingCurrent{ch};
+                        end
+                    end
                 end
-            end
+                
+            case 'NMDAR'
+                if isfield(params.ivdat, 'NMDAR')
+                    for ch = 1:2
+                        
+                        if ~isempty(params.ivdat.NMDAR.ivcurve.mV{ch});
+                            dat.NMDAR.ivcurve.mV{ex, ch} = params.ivdat.NMDAR.ivcurve.mV{ch};
+                            dat.NMDAR.ivcurve.mv_corrected{ex, ch} = params.ivdat.NMDAR.ivcurve.mV_corrected{ch};
+                            dat.NMDAR.ivcurve.pA{ex, ch} = params.ivdat.NMDAR.ivcurve.pA{ch};
+                        end
+                        
+                    end
+                end
+                
         end
-    end
+        
+        
+    end % iterate over groups
     
-end
+end % iterate over recording sites
 
-% package all the useful things into a single structure (and then save the
-% structure)
+% package all the useful things into a single structure
 dat.hva = HVA;
 dat.goodNeurons = goodNeurons;
 dat.neuronType = neuronType;
 dat.mice = mouseNames;
 dat.siteNum = cat(1, siteNumber{:});
 
-originalDir = pwd;
-cd(GL_POPDATPATH);
-save popAnly_EIAN.mat dat
-cd(originalDir);
-
-% be nice and return these variables to their default values
-GL_ADD_TO_MDB = false;
-GL_SUPPRESS_ANALYSIS = false;
-
-%% EXCITATION VS. INHIBITION
-
-fin
-
-% load in the pre-saved population data
-load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
-
 
 % create grouping lists for HVAs
 l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
 hvas = hvas(l_valid);
-hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
-hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
-hvalist.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
-hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
+hvaList.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
+hvaList.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
+hvaList.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
+hvaList.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 
 %
 % create grouping lists for neuron type
@@ -125,6 +130,26 @@ typeList.IN = l_IN | l_SOM;
 typeList.SOM = l_SOM;
 typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
 typeList.und = ~typeList.IN & ~typeList.PY;
+
+
+% save the data and the grouping lists
+originalDir = pwd;
+cd(GL_POPDATPATH);
+save('popAnly_EIAN.mat', 'dat', 'hvaList', 'typeList')
+cd(originalDir);
+
+% be nice and return these variables to their default values
+GL_ADD_TO_MDB = false;
+GL_SUPPRESS_ANALYSIS = false;
+
+%% EXCITATION VS. INHIBITION
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
+l_valid = dat.goodNeurons(:);
+
 
 %
 % plot the raw currents for isolated excitation and inhibition
@@ -157,13 +182,17 @@ for i = 1:nPlots;
     
 end
 
-% pull out peak conductances
-raw_excit = dat.excit.peak_nS(:);
-assert(~any(dat.excit.peak_pA(:)>0), 'ERROR: some excitatory currents are positive...')
-raw_excit = abs(raw_excit(l_valid));
-raw_inhib = dat.inhib.peak_nS(:);
-%assert(~any(dat.excit.inhib_pA<0), 'ERROR: some inhibitory currents are negative...')
-raw_inhib = raw_inhib(l_valid);
+% pull out peak conductances. do some error checking, and make sure
+% all the nS values are positive.
+excit_nS_signed = dat.excit.peak_nS(:);
+excit_nS_signed = excit_nS_signed(l_valid);
+assert(all(excit_nS_signed<0), 'ERROR: some excitatory currents are positive...')
+excit_nS_unsigned = abs(excit_nS_signed);
+
+inhib_nS_signed = dat.inhib.peak_nS(:);
+inhib_nS_signed = inhib_nS_signed(l_valid);
+assert(all(inhib_nS_signed>0), 'ERROR: some inhibitory currents are negative...')
+inhib_nS_unsigned = abs(inhib_nS_signed);
 
 %
 % plot peak conductances for all cells
@@ -171,9 +200,9 @@ raw_inhib = raw_inhib(l_valid);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
-plot(raw_excit, raw_inhib, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
-l_nan = isnan(raw_excit) | isnan(raw_inhib);
-betas = [raw_excit(~l_nan), ones(size(raw_excit(~l_nan)))] \ raw_inhib(~l_nan);
+plot(excit_nS_unsigned, inhib_nS_unsigned, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
+l_nan = isnan(excit_nS_unsigned) | isnan(inhib_nS_unsigned);
+betas = [excit_nS_unsigned(~l_nan), ones(size(excit_nS_unsigned(~l_nan)))] \ inhib_nS_unsigned(~l_nan);
 xvals_all = get(gca, 'xlim');
 yvals_all = get(gca, 'ylim');
 plot(xvals_all, [xvals_all(:), ones(2,1)]*betas(:), '--k', 'linewidth', 3)
@@ -192,10 +221,10 @@ groups = {'und', 'pm', 'lm', 'al'};
 h_fit = [];
 for a = 1:numel(groups);
     l_PY = typeList.PY;
-    l_HVA = hvalist.(groups{a});
+    l_HVA = hvaList.(groups{a});
     l_ToPlot = l_PY & l_HVA;
-    tmp_excit = raw_excit(l_ToPlot);
-    tmp_inhib = raw_inhib(l_ToPlot);
+    tmp_excit = excit_nS_unsigned(l_ToPlot);
+    tmp_inhib = inhib_nS_unsigned(l_ToPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
@@ -220,8 +249,8 @@ title('By cell type')
 set(gca, 'fontsize', 25)
 h_fit = [];
 for a = 1:numel(groupTypes);
-    tmp_excit = raw_excit(typeList.(groupTypes{a}));
-    tmp_inhib = raw_inhib(typeList.(groupTypes{a}));
+    tmp_excit = excit_nS_unsigned(typeList.(groupTypes{a}));
+    tmp_inhib = inhib_nS_unsigned(typeList.(groupTypes{a}));
     [clr_fit, clr_raw] = hvaPlotColor(groupTypes{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
@@ -241,9 +270,9 @@ legend(h_fit, groupTypes, 'location', 'southeast')
 % across HVAs
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-nHVAs = numel(fieldnames(hvalist));
+nHVAs = numel(fieldnames(hvaList));
 nCellTypes = numel(fieldnames(typeList));
-HVATypes = fieldnames(hvalist);
+HVATypes = fieldnames(hvaList);
 cellTypes = fieldnames(typeList);
 figure
 for iArea = 1:nHVAs
@@ -257,15 +286,15 @@ for iArea = 1:nHVAs
     for iType = 1:nCellTypes
         % make a list of the appropriate cells
         l_type = typeList.(cellTypes{iType});
-        l_hva = hvalist.(HVATypes{iArea});
+        l_hva = hvaList.(HVATypes{iArea});
         l_ToPlot = l_type & l_hva;
         if ~any(l_ToPlot);
             l_leg(iType) = false;
             continue
         end
         
-        tmp_excit = raw_excit(l_ToPlot);
-        tmp_inhib = raw_inhib(l_ToPlot);
+        tmp_excit = excit_nS_unsigned(l_ToPlot);
+        tmp_inhib = inhib_nS_unsigned(l_ToPlot);
         [clr_fit, clr_raw] = hvaPlotColor(cellTypes{iType});
         plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
         l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
@@ -289,34 +318,15 @@ fin
 
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
-
-
-% create grouping lists for HVAs
 l_valid = dat.goodNeurons(:);
-hvas = repmat(dat.hva, 2,1);
-hvas = hvas(l_valid);
-hvalist.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
-hvalist.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
-hvalist.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
-hvalist.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
-
-% create grouping lists for neuron type
-neuronType = dat.neuronType(:);
-neuronType = cellfun(@num2str, neuronType, 'uniformoutput', false);
-neuronType = neuronType(l_valid);
-l_IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
-l_SOM = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'som'));
-typeList.IN = l_IN | l_SOM;
-typeList.SOM = l_SOM;
-typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
-typeList.und = ~typeList.IN & ~typeList.PY;
-
 
 % pull out peak conductances
-raw_ampa = dat.ampa.peak_nS(:);
-raw_ampa = raw_ampa(l_valid);
-raw_nmda = dat.nmda.peak_nS(:);
-raw_nmda = raw_nmda(l_valid);
+error('Need to do some error checking on the CURRENTS')
+raw_ampa_nS = dat.ampa.peak_nS(:);
+raw_ampa_nS = raw_ampa_nS(l_valid);
+raw_nmda_nS = dat.nmda.peak_nS(:);
+raw_nmda_nS = raw_nmda_nS(l_valid);
+
 
 %
 % plot peak conductances for all cells
@@ -324,9 +334,9 @@ raw_nmda = raw_nmda(l_valid);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
-plot(raw_ampa, raw_nmda, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
-l_nan = isnan(raw_ampa) | isnan(raw_nmda);
-betas = [raw_ampa(~l_nan), ones(size(raw_ampa(~l_nan)))] \ raw_nmda(~l_nan);
+plot(raw_ampa_nS, raw_nmda_nS, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
+l_nan = isnan(raw_ampa_nS) | isnan(raw_nmda_nS);
+betas = [raw_ampa_nS(~l_nan), ones(size(raw_ampa_nS(~l_nan)))] \ raw_nmda_nS(~l_nan);
 xvals_all = get(gca, 'xlim');
 yvals_all = get(gca, 'ylim');
 plot(xvals_all, [xvals_all(:), ones(2,1)]*betas(:), '--k', 'linewidth', 3)
@@ -345,10 +355,10 @@ title('A/N ratio by HVA, PY cells only')
 h_fit =[];
 for a = 1:numel(groups);
     l_PY = typeList.PY;
-    l_HVA = hvalist.(groups{a});
+    l_HVA = hvaList.(groups{a});
     l_ToPlot = l_PY & l_HVA;
-    tmp_ampa = raw_ampa(l_ToPlot);
-    tmp_nmda = raw_nmda(l_ToPlot);
+    tmp_ampa = raw_ampa_nS(l_ToPlot);
+    tmp_nmda = raw_nmda_nS(l_ToPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_ampa) | isnan(tmp_nmda);
@@ -370,8 +380,8 @@ set(gca, 'fontsize', 25)
 title('By cell type')
 h_fit = [];
 for a = 1:numel(groupTypes);
-    tmp_ampa = raw_ampa(typeList.(groupTypes{a}));
-    tmp_nmda = raw_nmda(typeList.(groupTypes{a}));
+    tmp_ampa = raw_ampa_nS(typeList.(groupTypes{a}));
+    tmp_nmda = raw_nmda_nS(typeList.(groupTypes{a}));
     [clr_fit, clr_raw] = hvaPlotColor(groupTypes{a});
     plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_ampa) | isnan(tmp_nmda);

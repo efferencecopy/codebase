@@ -65,32 +65,23 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         trace_nS = trace_siemens .* 1e9;
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
         
-        % calculate the peak value
-        switch lower(currentType)
-            case {'excit', 'ampa'}
-                
-                peakVal_nS = min(trace_nS(l_anlyWindow));
-                peak_idx = (trace_nS == peakVal_nS) & l_anlyWindow;
-                
-                % error checking
-                assert(peakVal_nS<0, sprintf('ERROR: inward currents must be negative <CH %d, currentType: %s>', ch, upper(currentType)))
-                assert(sum(peak_idx)==1, sprintf('ERROR: Too  many indicies found <CH %d, currentType: %s>', ch, upper(currentType)))
-                
-                % important:
-                peakVal_nS = -peakVal_nS; % store all values as positive numbers.
-                
-            case {'inhib', 'nmda'}
-                
-                peakVal_nS = max(abs(trace_nS(l_anlyWindow)));
-                peak_idx = (abs(trace_nS) == peakVal_nS) & l_anlyWindow;
-                
-                %error checking
-                assert(peakVal_nS>0, sprintf('ERROR: outward currents must be positive <CH %d, currentType: %s>', ch, upper(currentType)))
-                assert(sum(peak_idx)==1, sprintf('ERROR: Too  many indicies found <CH %d, currentType: %s>', ch, upper(currentType)))
-                if strcmpi(currentType, 'nmda')
-                    assert(vhold_req>20, 'ERROR: Vhold for NMDA current must be >20mV')
-                end
+        
+        % extract the max (unsigned) peak value
+        peakVal_nS = max(abs(trace_nS(l_anlyWindow))); % unsigned value
+        peak_idx = (abs(trace_nS) == peakVal_nS) & l_anlyWindow;
+        
+        %error checking
+        assert(sum(peak_idx)==1, sprintf('ERROR: Too  many indicies found <CH %d, currentType: %s>', ch, upper(currentType)))
+        if strcmpi(currentType, 'nmda')
+            assert(vhold_req>20, 'ERROR: Vhold for NMDA current must be >20mV')
         end
+        
+        % save the signed value. Some of them will have the wrong sign for
+        % the type of current (e.g., negative current for NMDA at
+        % Vhold>25mV). Saving the signed nS value will help identify these
+        % issues during subsequent data analysis.
+        peakVal_nS = trace_nS(peak_idx);
+
         
         % store the data in the params struct
         params.isolatedData.(currentType).peak_nS{ch} = peakVal_nS;

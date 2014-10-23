@@ -1,5 +1,12 @@
 function params = anlyMod_NMDAR(params)
 
+
+% if the NMDAR raw data are not defined, do not run this analysis
+if ~isfield(params.ivdat, 'NMDAR')
+    fprintf('No NMDAR data found for Mouse: <%s> and Site: <%d> \n', params.mouse, params.cellNum)
+    return
+end
+
 % define an analysis window based off when the LED pulse turns on. Ignore
 % the first 3.5 ms due to LED artifacts, ignore everything after 100 msec
 % so that I'm only looking at the time period with the peak
