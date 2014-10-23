@@ -239,6 +239,7 @@ for a = 1:numel(groups);
     ylim(yvals_all)
     xlabel('Excit conductance (nS)')
     ylabel('Inhib conductance (nS)')
+    
 end
 legend(h_fit, groups, 'location', 'southeast')
 
