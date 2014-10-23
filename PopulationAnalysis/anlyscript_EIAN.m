@@ -61,8 +61,7 @@ for ex = 1:numel(mouseNames)
     % array allows the script to pull out NMDAR IV curve data
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%    idx = goodNeurons(ex,:); This line might not do anything...
-    group = {'ampa', 'nmda', 'excit', 'inhib', 'NMDAR'};
+    group = {'ampa', 'nmda', 'excit', 'inhib'};
     for g = 1:numel(group)
         
         switch group{g}
@@ -113,7 +112,7 @@ dat.siteNum = cat(1, siteNumber{:});
 % create grouping lists for HVAs
 l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
-hvas = hvas(l_valid);
+%hvas = hvas(l_valid);
 hvaList.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
 hvaList.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
 hvaList.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
@@ -123,7 +122,7 @@ hvaList.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 % create grouping lists for neuron type
 neuronType = dat.neuronType(:);
 neuronType = cellfun(@num2str, neuronType, 'uniformoutput', false);
-neuronType = neuronType(l_valid);
+%neuronType = neuronType(l_valid);
 l_IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
 l_SOM = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'som'));
 typeList.IN = l_IN | l_SOM;
@@ -194,6 +193,8 @@ inhib_nS_signed = inhib_nS_signed(l_valid);
 assert(all(inhib_nS_signed>0), 'ERROR: some inhibitory currents are negative...')
 inhib_nS_unsigned = abs(inhib_nS_signed);
 
+
+
 %
 % plot peak conductances for all cells
 %
@@ -210,6 +211,7 @@ xlabel('Excit conductance (nS)')
 ylabel('Inhib conductance (nS)')
 title(sprintf('ALL DATA: E/I ratio = %.2f', betas(1)))
 
+
 %
 % plot the data, but color code each HVA.
 %
@@ -222,9 +224,10 @@ h_fit = [];
 for a = 1:numel(groups);
     l_PY = typeList.PY;
     l_HVA = hvaList.(groups{a});
-    l_ToPlot = l_PY & l_HVA;
-    tmp_excit = excit_nS_unsigned(l_ToPlot);
-    tmp_inhib = inhib_nS_unsigned(l_ToPlot);
+    l_toPlot = l_PY & l_HVA;
+    l_toPlot(~l_valid) = [];
+    tmp_excit = excit_nS_unsigned(l_toPlot);
+    tmp_inhib = inhib_nS_unsigned(l_toPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
@@ -239,6 +242,8 @@ for a = 1:numel(groups);
 end
 legend(h_fit, groups, 'location', 'southeast')
 
+
+
 %
 % Plot all E/I ratios, color code by neuron type
 %
@@ -249,8 +254,10 @@ title('By cell type')
 set(gca, 'fontsize', 25)
 h_fit = [];
 for a = 1:numel(groupTypes);
-    tmp_excit = excit_nS_unsigned(typeList.(groupTypes{a}));
-    tmp_inhib = inhib_nS_unsigned(typeList.(groupTypes{a}));
+    l_toPlot = typeList.(groupTypes{a});
+    l_toPlot(~l_valid) = [];
+    tmp_excit = excit_nS_unsigned(l_toPlot);
+    tmp_inhib = inhib_nS_unsigned(l_toPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groupTypes{a});
     plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
@@ -264,6 +271,8 @@ for a = 1:numel(groupTypes);
     ylabel('Inhib conductance (nS)')
 end
 legend(h_fit, groupTypes, 'location', 'southeast')
+
+
 
 %
 % A general figure that has one subplot for each cell type and shows data
@@ -287,14 +296,15 @@ for iArea = 1:nHVAs
         % make a list of the appropriate cells
         l_type = typeList.(cellTypes{iType});
         l_hva = hvaList.(HVATypes{iArea});
-        l_ToPlot = l_type & l_hva;
-        if ~any(l_ToPlot);
+        l_toPlot = l_type & l_hva;
+        l_toPlot(~l_valid) = [];
+        if ~any(l_toPlot);
             l_leg(iType) = false;
             continue
         end
         
-        tmp_excit = excit_nS_unsigned(l_ToPlot);
-        tmp_inhib = inhib_nS_unsigned(l_ToPlot);
+        tmp_excit = excit_nS_unsigned(l_toPlot);
+        tmp_inhib = inhib_nS_unsigned(l_toPlot);
         [clr_fit, clr_raw] = hvaPlotColor(cellTypes{iType});
         plot(tmp_excit, tmp_inhib, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
         l_nan = isnan(tmp_excit) | isnan(tmp_inhib);
@@ -308,8 +318,8 @@ for iArea = 1:nHVAs
     legend(h_fit, cellTypes{l_leg}, 'location', 'northwest')
 end
 
-% compare SOM+ cells in AL and PM, but normalize the conductances by that
-% of the simultaneously recorded PY cell.
+
+
 
 
 %% AMPA to NMDA RATIOS
@@ -320,12 +330,21 @@ fin
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 l_valid = dat.goodNeurons(:);
 
-% pull out peak conductances
-error('Need to do some error checking on the CURRENTS')
-raw_ampa_nS = dat.ampa.peak_nS(:);
-raw_ampa_nS = raw_ampa_nS(l_valid);
-raw_nmda_nS = dat.nmda.peak_nS(:);
-raw_nmda_nS = raw_nmda_nS(l_valid);
+% pull out peak conductances. do some error checking, and then convert the
+% nS values into positive numbers.
+ampa_nS_signed = dat.ampa.peak_nS(:);
+nmda_nS_signed = dat.nmda.peak_nS(:);
+
+l_valid = l_valid & ~isnan(ampa_nS_signed) & ~isnan(nmda_nS_signed);
+ampa_nS_signed = ampa_nS_signed(l_valid);
+nmda_nS_signed = nmda_nS_signed(l_valid);
+
+assert(all(ampa_nS_signed<0), 'ERROR: some AMPA currents are positive or nan')
+assert(all(nmda_nS_signed>0), 'ERROR: some NMDA currents are negative or nan')
+ampa_nS_unsigned = abs(ampa_nS_signed);
+nmda_nS_unsigned = abs(nmda_nS_signed);
+
+
 
 
 %
@@ -334,15 +353,17 @@ raw_nmda_nS = raw_nmda_nS(l_valid);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
-plot(raw_ampa_nS, raw_nmda_nS, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
-l_nan = isnan(raw_ampa_nS) | isnan(raw_nmda_nS);
-betas = [raw_ampa_nS(~l_nan), ones(size(raw_ampa_nS(~l_nan)))] \ raw_nmda_nS(~l_nan);
+plot(ampa_nS_unsigned, nmda_nS_unsigned, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
+l_nan = isnan(ampa_nS_unsigned) | isnan(nmda_nS_unsigned);
+betas = [ampa_nS_unsigned(~l_nan), ones(size(ampa_nS_unsigned(~l_nan)))] \ nmda_nS_unsigned(~l_nan);
 xvals_all = get(gca, 'xlim');
 yvals_all = get(gca, 'ylim');
 plot(xvals_all, [xvals_all(:), ones(2,1)]*betas(:), '--k', 'linewidth', 3)
 xlabel('AMPA conductance (nS)')
 ylabel('NMDA conductance (nS)')
 title(sprintf('ALL DATA: A/N ratio = %.2f', betas(1)))
+
+
 
 %
 % plot the data, but color code each HVA
@@ -356,9 +377,10 @@ h_fit =[];
 for a = 1:numel(groups);
     l_PY = typeList.PY;
     l_HVA = hvaList.(groups{a});
-    l_ToPlot = l_PY & l_HVA;
-    tmp_ampa = raw_ampa_nS(l_ToPlot);
-    tmp_nmda = raw_nmda_nS(l_ToPlot);
+    l_toPlot = l_PY & l_HVA;
+    l_toPlot(~l_valid) = [];
+    tmp_ampa = ampa_nS_unsigned(l_toPlot);
+    tmp_nmda = nmda_nS_unsigned(l_toPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groups{a});
     plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_ampa) | isnan(tmp_nmda);
@@ -380,8 +402,10 @@ set(gca, 'fontsize', 25)
 title('By cell type')
 h_fit = [];
 for a = 1:numel(groupTypes);
-    tmp_ampa = raw_ampa_nS(typeList.(groupTypes{a}));
-    tmp_nmda = raw_nmda_nS(typeList.(groupTypes{a}));
+    l_toPlot = typeList.(groupTypes{a});
+    l_toPlot(~l_valid) = [];
+    tmp_ampa = ampa_nS_unsigned(l_toPlot);
+    tmp_nmda = nmda_nS_unsigned(l_toPlot);
     [clr_fit, clr_raw] = hvaPlotColor(groupTypes{a});
     plot(tmp_ampa, tmp_nmda, 'o', 'markerfacecolor', clr_raw, 'markeredgecolor', clr_raw, 'markersize', 10)
     l_nan = isnan(tmp_ampa) | isnan(tmp_nmda);
