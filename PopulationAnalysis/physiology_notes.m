@@ -431,10 +431,434 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
 end
 
 
+%% AK_092914_A cell 1
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_092914_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_092914_A_cell1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_16_', [0:8]};  % <file name prefix, suffix>
+params.groups = {'control', [0,1];...
+                 'nbqxGabazine', [2,3];...
+                 'NMDAR', [2:8]};
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0005', [4,8]}, {'_0008', [1:11, 23:27]}};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% AK_092914_A cell 2
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_092914_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'AK_092914_A_cell2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_16_', [9:12]};  % <file name prefix, suffix>
+params.groups = {'control', [9,10];...
+                 'nbqxGabazine', [11,12]};
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0012', [5:11]}};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% AK_092914_B Cell 1
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_092914_B';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_092914_B_cell1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_17_', [0:8]};  % <file name prefix, suffix>
+params.groups = {'control', [0,1];...
+                 'nbqxGabazine', [2,3];...
+                 'NMDAR', [2:8]};
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0000', 1}, {'_0005', 3:14}, {'_0008', 10}};
+params.tags = {};
+params.filter = 1e3;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = '';      % The mouse's name
+params.cellNum = ;    % The neuron number that day
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'', []};  % <file name prefix, suffix>
+params.groups = {'control', [];...
+                 'nbqxGabazine', [];...
+                 'NMDAR', []};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = '';      % The mouse's name
+params.cellNum = ;    % The neuron number that day
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'', []};  % <file name prefix, suffix>
+params.groups = {'control', [];...
+                 'nbqxGabazine', [];...
+                 'NMDAR', []};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = '';      % The mouse's name
+params.cellNum = ;    % The neuron number that day
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'', []};  % <file name prefix, suffix>
+params.groups = {'control', [];...
+                 'nbqxGabazine', [];...
+                 'NMDAR', []};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = '';      % The mouse's name
+params.cellNum = ;    % The neuron number that day
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'', []};  % <file name prefix, suffix>
+params.groups = {'control', [];...
+                 'nbqxGabazine', [];...
+                 'NMDAR', []};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+
+
+
+
+%% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% brain area:
+% popAnalysis: 
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = '';      % The mouse's name
+params.cellNum = ;    % The neuron number that day
+params.photo = '';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'', []};  % <file name prefix, suffix>
+params.groups = {'control', [];...
+                 'nbqxGabazine', [];...
+                 'NMDAR', []};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 800;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 15;...
+                           'inhib', 'control', 15, -72;...
+                           'ampa', 'control', -72, 15;...
+                           'nmda', 'nbqxGabazine', 50, 15};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+
 
 %% BOOKMARK FOR AK MICE
 
+% make sure that dat_DB script does not create duplicate entries, and that
+% one run of dat_DB for one script does not intrued (or becomes affected
+% by) prior dat_DB runs. To do this, make the mdb from scratch. this will
+% add processing time...
+
+% Make sure that the kinetics are the same for each Vhold. It's possible
+% that the NMDAR currents are contaminated by Ca2+ current for Vholds close
+% to -20 mV.
+
+
 % Need to add:
+% AK_092914_A (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
+% AK_092914_B (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
+% AK_092914_C (EIAN)
+% AK_092914_D (EIAN)
 
 
 %% CH_020314_B Cell 1
@@ -2446,6 +2870,10 @@ end
 % CH_092214_A (NB488 trial and error)
 % CH_092214_B (NB488 trial and error)
 % CH_092214_C (NB488 trial and error)
+% CH_092214_D (NB488 trial and error)
+% CH_100614_A (EIAN)
+% CH_100614_B (EIAN)
+% CH_100614_C (EIAN)
 
 
 
