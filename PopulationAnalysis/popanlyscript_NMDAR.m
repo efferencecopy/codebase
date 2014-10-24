@@ -52,22 +52,19 @@ for ex = 1:numel(mouseNames)
     % Excitation/Inhibition ratio stuff. Adding 'NMDAR' to the 'group'
     % array allows the script to pull out NMDAR IV curve data
     %
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    for g = 1:numel(group)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    if isfield(params.ivdat, 'NMDAR')
         
-        if isfield(params.ivdat, 'NMDAR')
+        for ch = 1:2
             
-            for ch = 1:2
-                
-                if ~isempty(params.ivdat.NMDAR.ivcurve.mV{ch});
-                    dat.ivcurve.mV{ex, ch} = params.ivdat.NMDAR.ivcurve.mV{ch};
-                    dat.ivcurve.mv_corrected{ex, ch} = params.ivdat.NMDAR.ivcurve.mV_corrected{ch};
-                    dat.ivcurve.pA{ex, ch} = params.ivdat.NMDAR.ivcurve.pA{ch};
-                end
-                
+            if ~isempty(params.ivdat.NMDAR.ivcurve.mV{ch});
+                dat.ivcurve.mV{ex, ch} = params.ivdat.NMDAR.ivcurve.mV{ch};
+                dat.ivcurve.mv_corrected{ex, ch} = params.ivdat.NMDAR.ivcurve.mV_corrected{ch};
+                dat.ivcurve.pA{ex, ch} = params.ivdat.NMDAR.ivcurve.pA{ch};
             end
+            
         end
-    end % iterate over groups
+    end
     
 end % iterate over recording sites
 
@@ -108,3 +105,61 @@ cd(originalDir);
 % be nice and return these variables to their default values
 GL_ADD_TO_MDB = false;
 GL_SUPPRESS_ANALYSIS = false;
+
+
+%% PLOT THE IV CURVES FOR EACH AREA
+
+fin
+
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_NMDAR.mat'])
+l_valid = dat.goodNeurons(:);
+
+
+% plot the IV curves for PY cells
+tmp_mV = dat.ivcurve.mV(:);
+tmp_mV_corrected = dat.ivcurve.mv_corrected(:);
+tmp_pA = dat.ivcurve.pA(:);
+l_AL = hvaList.al;
+l_PM = hvaList.pm;
+l_toplot = l_valid & typeList.PY;
+h_raw = figure; hold on,
+h_corrected = figure; hold on,
+for a = find(l_toplot)'
+   
+   % figure out the plot colors
+   if l_AL(a)
+       [clr_fit, clr_raw] = hvaPlotColor('AL');
+   elseif l_PM(a)
+       [clr_fit, clr_raw] = hvaPlotColor('PM');
+   else
+       continue % do nothing if this isn't AL or PM
+   end
+   
+   % normalize the IV curve by the value at +50 mV. 
+   plt_mV = tmp_mV{a};
+   plt_mV_corrected = tmp_mV_corrected{a};
+   plt_pA = tmp_pA{a};
+   idx = softEq(plt_mV, 50, 0);
+   if ~any(idx)
+       warning('No Vhold = 50 mV found')
+       continue
+   end
+   plt_pA = plt_pA ./ plt_pA(idx);
+   
+   if numel(plt_pA)<4
+       continue
+   end
+
+   figure(h_raw)
+   plot(plt_mV, plt_pA, 'o-', 'color', clr_raw)
+   
+   figure(h_corrected)
+   plot(plt_mV_corrected, plt_pA, 'o-', 'color', clr_raw)
+    
+end
+
+
+
+
