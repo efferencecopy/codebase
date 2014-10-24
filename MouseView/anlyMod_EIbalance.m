@@ -2,9 +2,14 @@ function params = anlyMod_EIbalance(params)
 
 
 % make sure data are present
-if ~isfield(params, 'ivdat')
-    fprintf('No optoIV data present')
-end
+assert(isfield(params, 'ivdat'), 'ERROR: No optoIV data present')
+
+
+% define an analysis window based off when the LED pulse turns on. Ignore
+% the first 3.5 ms due to LED artifacts, ignore everything after 40 msec
+% so that I'm only looking at the time period with the peak
+l_anlyWindow = (params.ivdat.tvec > 0.0035) & (params.ivdat.tvec < 0.040);
+
 
 % iterate over the isolated data field and convert the raw current traces
 % to conductances.
@@ -60,27 +65,32 @@ for a = 1:size(params.isolatedCurrents, 1) % Num Vholds.
         trace_nS = trace_siemens .* 1e9;
         params.isolatedData.(currentType).raw_nS{ch} = trace_nS;
         
-        % calculate the peak value
-        switch lower(currentType)
-            case {'excit', 'ampa'}
-                [peakVal_nS, peak_idx] = min(trace_nS);
-                assert(peakVal_nS<0, sprintf('ERROR: inward currents must be negative <CH %d, currentType: %s>', ch, upper(currentType)))
-                peakVal_nS = -peakVal_nS; % store all values as positive numbers.
-            case {'inhib', 'nmda'}
-                [peakVal_nS, peak_idx] = max(abs(trace_nS));
-                
-                %error checking
-                assert(peakVal_nS>0, sprintf('ERROR: outward currents must be positive <CH %d, currentType: %s>', ch, upper(currentType)))
-                if strcmpi(currentType, 'nmda')
-                    assert(vhold_req>20, 'ERROR: Vhold for NMDA current must be >20mV')
-                end
+        
+        % extract the max (unsigned) peak value
+        peakVal_nS = max(abs(trace_nS(l_anlyWindow))); % unsigned value
+        peak_idx = (abs(trace_nS) == peakVal_nS) & l_anlyWindow;
+        
+        %error checking
+        assert(sum(peak_idx)==1, sprintf('ERROR: Too  many indicies found <CH %d, currentType: %s>', ch, upper(currentType)))
+        if strcmpi(currentType, 'nmda')
+            assert(vhold_req>20, 'ERROR: Vhold for NMDA current must be >20mV')
         end
+        
+        % save the signed value. Some of them will have the wrong sign for
+        % the type of current (e.g., negative current for NMDA at
+        % Vhold>25mV). Saving the signed nS value will help identify these
+        % issues during subsequent data analysis.
+        peakVal_nS = trace_nS(peak_idx);
+
+        
+        % store the data in the params struct
         params.isolatedData.(currentType).peak_nS{ch} = peakVal_nS;
         params.isolatedData.(currentType).peak_pA{ch} = trace_pA(peak_idx);
         
         % this is redundant with params.ivdat.(exptgroup).raw, but I'm
         % going to store the raw current trace in a form that is easily
-        % accessible to down stream analysis. Ditto for Vclamp err, and Ra
+        % accessible to down stream analysis that is specifically
+        % interested in the isolated currents. Ditto for Vclamp err, and Ra
         params.isolatedData.(currentType).raw_pA{ch} = trace_pA;
         params.isolatedData.(currentType).peakBySweep_pA{ch} = params.ivdat.(experimentalGroup).peakBySweep_pA{ch}{vHoldAvailable};
         params.isolatedData.(currentType).Verr{ch} = params.ivdat.(experimentalGroup).Verr{ch}{vHoldAvailable};
