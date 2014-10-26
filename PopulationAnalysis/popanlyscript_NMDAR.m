@@ -121,6 +121,8 @@ l_valid = dat.goodNeurons(:);
 tmp_mV = dat.ivcurve.mV(:);
 tmp_mV_corrected = dat.ivcurve.mv_corrected(:);
 tmp_pA = dat.ivcurve.pA(:);
+tmp_mice = [dat.mice(:); dat.mice(:)];
+tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
 l_AL = hvaList.al;
 l_PM = hvaList.pm;
 l_toplot = l_valid & typeList.PY;
@@ -153,7 +155,10 @@ for a = find(l_toplot)'
    end
 
    figure(h_raw)
-   plot(plt_mV, plt_pA, 'o-', 'color', clr_raw)
+   p = plot(plt_mV, plt_pA, 'o-', 'color', clr_raw);
+   printTitle = @(a,b,c) title(sprintf('%s, cell %d',c{1},c{2}));
+   set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
+   
    
    figure(h_corrected)
    plot(plt_mV_corrected, plt_pA, 'o-', 'color', clr_raw)
