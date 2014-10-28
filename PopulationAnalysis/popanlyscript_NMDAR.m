@@ -21,7 +21,7 @@ goodNeurons(:,2) = cat(1,raw{2:end, 4});
 goodNeurons = logical(goodNeurons);
 neuronType = raw(2:end, 6:7);
 HVA = raw(2:end, 5);
-
+layer = raw(2:end, 8);
 
 %
 % build a population data structure by performing the appropriate analysis.
@@ -31,7 +31,11 @@ HVA = raw(2:end, 5);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % initalize things that I care about
-[dat.ivcurve.mV, dat.ivcurve.mv_corrected, dat.ivcurve.pA] = deal(repmat({[] []}, numel(mouseNames), 1));
+[dat.NMDAR.raw,...
+ dat.ivcurve.mV,...
+ dat.ivcurve.mv_corrected,...
+ dat.ivcurve.pA,...
+ dat.tvec] = deal(repmat({[] []}, numel(mouseNames), 1));
 
 % iterate over the mice in the cell library (some mice get analyzed
 % multiple times if there were multiple experiments per mouse)
@@ -54,16 +58,12 @@ for ex = 1:numel(mouseNames)
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     if isfield(params.ivdat, 'NMDAR')
-        
-        for ch = 1:2
-            
-            if ~isempty(params.ivdat.NMDAR.ivcurve.mV{ch});
-                dat.ivcurve.mV{ex, ch} = params.ivdat.NMDAR.ivcurve.mV{ch};
-                dat.ivcurve.mv_corrected{ex, ch} = params.ivdat.NMDAR.ivcurve.mV_corrected{ch};
-                dat.ivcurve.pA{ex, ch} = params.ivdat.NMDAR.ivcurve.pA{ch};
-            end
-            
-        end
+       
+        dat.NMDAR.raw(ex,:) = params.ivdat.NMDAR.raw;
+        dat.tvec{ex,1} = params.ivdat.tvec;
+        dat.ivcurve.mV(ex, :) = params.ivdat.NMDAR.ivcurve.mV;
+        dat.ivcurve.mv_corrected(ex, :) = params.ivdat.NMDAR.ivcurve.mV_corrected;
+        dat.ivcurve.pA(ex, :) = params.ivdat.NMDAR.ivcurve.pA;
     end
     
 end % iterate over recording sites
@@ -74,6 +74,7 @@ dat.goodNeurons = goodNeurons;
 dat.neuronType = neuronType;
 dat.mice = mouseNames;
 dat.siteNum = cat(1, siteNumber{:});
+dat.layer = layer;
 
 
 % create grouping lists for HVAs
@@ -96,10 +97,18 @@ typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
 typeList.und = ~typeList.IN & ~typeList.PY;
 
 
+%
+% create a grouping list for layer
+layer = [layer;layer];
+layerList.L_23 = cellfun(@(x) ~isempty(x), regexpi(layer, '2/3'));
+layerList.L_4 = cellfun(@(x) ~isempty(x), regexpi(layer, '4'));
+layerList.L_5 = cellfun(@(x) ~isempty(x), regexpi(layer, '5'));
+
+
 % save the data and the grouping lists
 originalDir = pwd;
 cd(GL_POPDATPATH);
-save('popAnly_NMDAR.mat', 'dat', 'hvaList', 'typeList')
+save('popAnly_NMDAR.mat', 'dat', 'hvaList', 'typeList', 'layerList')
 cd(originalDir);
 
 % be nice and return these variables to their default values
@@ -114,7 +123,13 @@ fin
 
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_NMDAR.mat'])
-l_valid = dat.goodNeurons(:);
+
+%
+% PARAMETERS FOR ANALYSIS
+%
+MINNUMVHOLD = 6; % minimum number of vholds a data set needs to be included
+l_23 = layerList.L_23;
+l_valid = dat.goodNeurons(:) & l_23 & typeList.PY;
 
 
 % plot the IV curves for PY cells
@@ -125,7 +140,7 @@ tmp_mice = [dat.mice(:); dat.mice(:)];
 tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
 l_AL = hvaList.al;
 l_PM = hvaList.pm;
-l_toplot = l_valid & typeList.PY;
+l_toplot = l_valid;
 h_raw = figure; hold on,
 h_corrected = figure; hold on,
 for a = find(l_toplot)'
@@ -143,28 +158,122 @@ for a = find(l_toplot)'
    plt_mV = tmp_mV{a};
    plt_mV_corrected = tmp_mV_corrected{a};
    plt_pA = tmp_pA{a};
-   idx = softEq(plt_mV, 50, 0);
-   if ~any(idx)
-       warning('No Vhold = 50 mV found')
-       continue
-   end
-   plt_pA = plt_pA ./ plt_pA(idx);
    
-   if numel(plt_pA)<4
+   if numel(plt_pA) < MINNUMVHOLD
        continue
    end
+   
+   % plot the "corrected" version first b/c it doesn't need any
+   % normalization, and thus all the cells will get plotted (not just the
+   % ones that have a Vhold = 50mV.
+   figure(h_corrected)
+   plot(plt_mV_corrected, plt_pA, 'o-', 'color', clr_raw)
+   
+   
+   % now normalize the raw values.
+   idx = softEq(plt_mV, 50, 0);
+   if sum(idx) == 1
+       normfact_pA = plt_pA(idx);
+       
+   elseif ~any(idx)
+       
+       warning('No Vhold = 50 mV found')
+       
+       % try to interpolate b/w two points...
+       template = sign(plt_mV - 50);
+       template = conv(template, [-1 1]);
+       idx = find(template == -2);
+       
+       if isempty(idx);
+           continue
+       else
+           xx = plt_mV([idx-1, idx]);
+           yy = plt_pA([idx-1, idx]);
+           xq = 50;
+           normfact_pA = interp1(xx, yy, xq);
+           warning('Estimating normalization factor')
+       end
+
+   else
+       error('unknown number of Vhold=50 conditions')
+   end
+   plt_pA = plt_pA ./ normfact_pA;
+   
 
    figure(h_raw)
    p = plot(plt_mV, plt_pA, 'o-', 'color', clr_raw);
    printTitle = @(a,b,c) title(sprintf('%s, cell %d',c{1},c{2}));
    set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
+   t = get(get(p, 'parent'), 'title');
    
-   
-   figure(h_corrected)
-   plot(plt_mV_corrected, plt_pA, 'o-', 'color', clr_raw)
-    
 end
 
 
+figure(h_raw)
+xlabel('Voltage (mV)')
+ylabel('Current (pA)')
+title('IV curve, raw')
+set(t, 'interpreter', 'none');
+
+figure(h_corrected)
+xlabel('Voltage')
+ylabel('Current (pA)')
+title('IV curve, corrected for steady state Rs')
+
+
+%% NMDA RAW CURRENTS
+
+
+
+
+fin
+
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_NMDAR.mat'])
+l_valid = dat.goodNeurons(:);
+
+tmp_Raw = dat.NMDAR.raw(:);
+tmp_tvec = [dat.tvec; dat.tvec];
+tmp_names = repmat(dat.mice,2,1);
+tmp_mV = dat.ivcurve.mV(:);
+Nfigs = ceil(sum(l_valid)/4);
+cellList = find(l_valid);
+idx = 1;
+for ii_fig = 1:Nfigs
+    
+    figure;
+    set(gcf, 'position', [130           5        1177         801])
+    
+    for ii_plt = 1:4
+        if numel(cellList) < idx; continue; end
+        if isempty(tmp_Raw{cellList(idx)}); idx = idx+1; continue; end
+        
+        tvec = tmp_tvec{cellList(idx),1};
+        l_window = (tvec>0.0035) & (tvec<0.100);
+        
+        tmp_pA = tmp_Raw{cellList(idx)};
+        tmp_pA = cat(1, tmp_pA{:})';
+        tmp_pA = abs(tmp_pA);
+        tmp_pA(~l_window,:) = [];
+        tmp_pA = bsxfun(@rdivide, tmp_pA, max(tmp_pA,[],1));
+        
+        
+        
+        subplot(2,2,ii_plt);
+        plot(tvec(l_window), tmp_pA)
+        t = title(tmp_names{idx});
+        set(t, 'interpreter', 'none')
+        
+        leg = tmp_mV{cellList(idx)};
+        leg = mat2cell(leg, ones(1,size(leg,1)), ones(1,size(leg,2)));
+        leg = cellfun(@(x) sprintf('%.1f', x), leg, 'uniformoutput', 0);
+        legend(leg)
+    
+        idx = idx+1;
+    end
+    
+    
+end
 
 

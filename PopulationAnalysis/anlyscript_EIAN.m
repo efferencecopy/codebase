@@ -21,6 +21,7 @@ goodNeurons(:,2) = cat(1,raw{2:end, 4});
 goodNeurons = logical(goodNeurons);
 neuronType = raw(2:end, 6:7);
 HVA = raw(2:end, 5);
+layer = raw(2:end, 8);
 
 
 %
@@ -107,6 +108,7 @@ dat.goodNeurons = goodNeurons;
 dat.neuronType = neuronType;
 dat.mice = mouseNames;
 dat.siteNum = cat(1, siteNumber{:});
+dat.layer = layer;
 
 
 % create grouping lists for HVAs
@@ -122,7 +124,6 @@ hvaList.('und') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'und'));
 % create grouping lists for neuron type
 neuronType = dat.neuronType(:);
 neuronType = cellfun(@num2str, neuronType, 'uniformoutput', false);
-%neuronType = neuronType(l_valid);
 l_IN = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'in'));
 l_SOM = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'som'));
 typeList.IN = l_IN | l_SOM;
@@ -131,10 +132,18 @@ typeList.PY = cellfun(@(x) ~isempty(x), regexpi(neuronType, 'py'));
 typeList.und = ~typeList.IN & ~typeList.PY;
 
 
+%
+% create a grouping list for layer
+layer = [layer;layer];
+layerList.L_23 = cellfun(@(x) ~isempty(x), regexpi(layer, '2/3'));
+layerList.L_4 = cellfun(@(x) ~isempty(x), regexpi(layer, '4'));
+layerList.L_5 = cellfun(@(x) ~isempty(x), regexpi(layer, '5'));
+
+
 % save the data and the grouping lists
 originalDir = pwd;
 cd(GL_POPDATPATH);
-save('popAnly_EIAN.mat', 'dat', 'hvaList', 'typeList')
+save('popAnly_EIAN.mat', 'dat', 'hvaList', 'typeList', 'layerList')
 cd(originalDir);
 
 % be nice and return these variables to their default values
@@ -147,7 +156,8 @@ fin
 
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
-l_valid = dat.goodNeurons(:);
+l_23 = layerList.L_23;
+l_valid = dat.goodNeurons(:) & l_23;
 
 
 %
@@ -329,7 +339,8 @@ fin
 
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
-l_valid = dat.goodNeurons(:);
+l_23 = layerList.L_23;
+l_valid = dat.goodNeurons(:) & l_23;
 
 % pull out peak conductances. do some error checking, and then convert the
 % nS values into positive numbers.
@@ -372,7 +383,7 @@ title(sprintf('ALL DATA: A/N ratio = %.2f', betas(1)))
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure, hold on,
 set(gca, 'fontsize', 25)
-groups = {'pm', 'lm', 'al'};
+groups = {'pm', 'lm', 'al', 'und'};
 title('A/N ratio by HVA, PY cells only')
 h_fit =[];
 for a = 1:numel(groups);
