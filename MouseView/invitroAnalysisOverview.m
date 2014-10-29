@@ -24,13 +24,20 @@ clrIdx = round(linspace(1,size(map,1), numel(ax))); % colors for various plots
 if ~isempty(params.photo)% don't plot the figure when the physiology_notes script is auto-running
     
     % plot the photo
-    photoPath = findfile(params.photo, [GL_DATPATH, params.mouse], '.jpg');
-    img = imread(photoPath);
-    figure
-    imshow(img);
-    set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
-    set(gcf, 'position', [582    17   847   598]);
-    drawnow
+    cd([GL_DATPATH, params.mouse, filesep, 'Other'])
+    d = dir;
+    d.name;
+    
+    for i_photo = 1:numel(d)
+        if strncmpi(d(i_photo).name, params.photo, numel(params.photo))
+            figure
+            img = imread(d(i_photo).name);
+            imshow(img);
+            set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
+            set(gcf, 'position', [582    17   847   598]);
+            drawnow
+        end
+    end
     
     % highlight the stimulation locations
     if isfield(params, 'stimLoc') && size(params.stimLoc, 1) > 0

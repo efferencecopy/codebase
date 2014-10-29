@@ -130,9 +130,11 @@ for a = 1:Ngroups
             sweep_snips = sweeps(:,baselinePoints:baselinePoints+analysispoints);
             [~, inds] = max(abs(sweep_snips), [],2);
             peakInd = round(mean(inds));
+            peakInd = max([peakInd, 4]); % this line is a hack to make the next line work when the sweep_snip is a flat line or the max idx is the first index
             peak_pA = mean(sweep_snips(:,peakInd-3:peakInd+3), 2);
             ivdat.(params.groups{a,1}).peakBySweep_pA{ch}{ch_specific_idx(ch)} = peak_pA;
-            
+
+
             % now store the Access resistance, and the Vclamp errors for
             % the same sweeps
             out = ax.getRa();

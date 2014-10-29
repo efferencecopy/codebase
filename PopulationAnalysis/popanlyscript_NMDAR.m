@@ -2,6 +2,8 @@
 
 fin
 
+mdb = initMouseDB('new'); % clear out the junk from previous datDB runs.
+
 % buid a structure of params from physiology notes. The globals are used
 % during execution of the physiology_notes script
 global GL_ADD_TO_MDB GL_SUPPRESS_ANALYSIS

@@ -15,16 +15,21 @@ l_anlyWindow = (params.ivdat.tvec > 0.0035) & (params.ivdat.tvec < 0.040);
 
 % pull out the raw data and determine the peak current
 nCh = size(params.ivdat.NMDAR.raw,2);
-for ch = 1:nCh;
-   nVholds = size(params.ivdat.NMDAR.raw{ch},2);
-   snippets = cellfun(@(x,y) x(y), params.ivdat.NMDAR.raw{ch}, repmat({l_anlyWindow}, 1, nVholds), 'uniformoutput', 0);
-   max_pA = cellfun(@(x) max(abs(x)), snippets, 'uniformoutput', false); %strictly pos vals
-   max_idx = cellfun(@(x,y) find(abs(x)==y), snippets, max_pA, 'uniformoutput', false);
-   max_pA = cellfun(@(x,y) x(y), snippets, max_idx);
-   NMDAR_ivdat_pA{ch} = max_pA;
-   NMDAR_snippets{ch} = snippets; % only for local ploting and debugging.
+try
+    for ch = 1:nCh;
+        nVholds = size(params.ivdat.NMDAR.raw{ch},2);
+        if nVholds > 0
+            snippets = cellfun(@(x,y) x(y), params.ivdat.NMDAR.raw{ch}, repmat({l_anlyWindow}, 1, nVholds), 'uniformoutput', 0);
+            max_pA = cellfun(@(x) max(abs(x)), snippets, 'uniformoutput', false); %strictly pos vals
+            max_idx = cellfun(@(x,y) find(abs(x)==y,1,'first'), snippets, max_pA, 'uniformoutput', false);
+            max_pA = cellfun(@(x,y) x(y), snippets, max_idx);
+            NMDAR_ivdat_pA{ch} = max_pA;
+            NMDAR_snippets{ch} = snippets; % only for local ploting and debugging.
+        end
+    end
+catch
+    keyboard
 end
-
 
 % store the Vholds
 NMDAR_ivdat_Vhold = cellfun(@(x) cat(2,x{:}), params.ivdat.NMDAR.vhold, 'uniformoutput', false);

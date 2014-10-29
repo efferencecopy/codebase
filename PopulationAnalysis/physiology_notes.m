@@ -817,7 +817,7 @@ fin
 %%%%%%%%%%%%%%%%%%%
 params.mouse = 'AK_092914_D';      % The mouse's name
 params.cellNum = 4;    % The neuron number that day
-params.photo = 'AK_092914_D_cell4_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.photo = 'AK_092914_D_cell4';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_10_19_', [3:12]};  % <file name prefix, suffix>
 params.groups = {'control', [3,4];...
                  'nbqxGabazine', [6,7];...
@@ -849,19 +849,16 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
-
-
 %% AK_092914_D Cell 5
 
 fin
 
 % NOTES
 %%%%%%%%%%%%%%%%%%%%%%%%
-% Very nice data. Excellent Rs, and big responses. There's a nice cell fill
-% too.
+% 
 %
-% brain area: PM
-% popAnalysis: Adding to EIAN and NMDAR
+% brain area: 
+% popAnalysis: 
 %
 
 
@@ -870,7 +867,7 @@ fin
 %%%%%%%%%%%%%%%%%%%
 params.mouse = 'AK_092914_D';      % The mouse's name
 params.cellNum = 5;    % The neuron number that day
-params.photo = 'AK_092914_D_cell5_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.photo = 'AK_092914_D_cell5';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_10_19_', [14:24]};  % <file name prefix, suffix>
 params.groups = {'control', [14,15];...
                  'nbqxGabazine', [17,18];...
@@ -878,7 +875,7 @@ params.groups = {'control', [14,15];...
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
-params.filter = 800;
+params.filter = 1e3;
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -902,6 +899,101 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
+
+
+%% AK_101314_A Cell 1
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% Okay recording quality, but I forgot to aquire data at -72mV prior to
+% drugs, so I can't recover A/N or E/I ratios. The cell fill looks nice
+% though... Also, I think that this is and interneuron, but this is based
+% on little data. I should consult the cell fill.
+%
+% brain area: PM
+% popAnalysis: NMDAR
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_101314_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_101314_A_cell1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_28_', [4:11]};  % <file name prefix, suffix>
+params.groups = {'NMDAR', [4:11]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 1e3;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% AK_101314_A Cell 2
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+%
+% brain area: PM
+% popAnalysis: NMDAR
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_101314_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'AK_101314_A_cell2';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_28_', [13:20]};  % <file name prefix, suffix>
+params.groups = {'NMDAR', [13:20]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 1e3;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
 
 
 
@@ -2917,6 +3009,170 @@ end
 
 
 
+%% CH_100614_B cell 1
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Pretty good data, although the NMDAR data at Vhold = -20mV looks
+% contaminated by Ca2+ currents. The kinetics at -20 are much slower than
+% the others, and there were lots of cases where the Vclamp escaped.
+%
+% brain area: PM
+% popAnalysis: E/I, A/N, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_100614_B';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_100614_B_cell1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_22_', [0:4,6:10]};  % <file name prefix, suffix>
+params.groups = {'control', [0,1];...
+                 'nbqxGabazine', [2,3];...
+                 'NMDAR', [2,3,4,6:10]};
+params.excludeHS1 = {{'_0000', [14]}, {'_0010', [4,5,7,9,11,12,13,15,18,19,24,25,26,29,30]}};
+params.excludeHS2 = {}; 
+params.celldepth = [norm(-32 -232), nan];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_100614_C cell 2
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Not great but not terrible data from a single PY cell. Using Rs
+% compensation on an otherwise dismal Rs. I also think that the Rs
+% compensation forced the sec_Vm recording to be a few mV different than
+% what I expected.
+%
+% brain area: PM
+% popAnalysis: EIAN, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_100614_C';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'CH_100614_C_cell2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_21_', [4:7]};  % <file name prefix, suffix>
+params.groups = {'control', [4,5];...
+                 'nbqxGabazine', [6,7]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; 
+params.celldepth = [nan, norm(-120 -215)];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -76, 17;...
+                           'inhib', 'control', 17, -76;...
+                           'ampa', 'control', -76, 17;...
+                           'nmda', 'nbqxGabazine', 61, 17};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_100614_C cell 3
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% Pretty good data. There's a possibility to directly compare Rs
+% compensation vs. no compensation. There also appears to be some Ca2+
+% contamination at Vhold = -20
+%
+%
+% brain area: AL
+% popAnalysis: EIAN, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_100614_C';      % The mouse's name
+params.cellNum = 3;    % The neuron number that day
+params.photo = 'CH_100614_C_cell3_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_21_', [12:22]};  % <file name prefix, suffix>
+params.groups = {'control', [12,13];...
+                 'nbqxGabazine', [14,15];...
+                 'NMDAR', [16:22]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; 
+params.celldepth = [nan, norm([-361 310])];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
 
 
 
@@ -2935,8 +3191,8 @@ end
 % CH_092214_C (NB488 trial and error)
 % CH_092214_D (NB488 trial and error)
 % CH_100614_A (EIAN)
-% CH_100614_B (EIAN)
-% CH_100614_C (EIAN)
+% CH_100614_B (EIAN) Need to check histology
+% CH_100614_C (EIAN) Need to check histology
 
 
 
