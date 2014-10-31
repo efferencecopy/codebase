@@ -12,6 +12,6 @@ switch lower(hva)
         clr_raw = [.6 1 .6];
         clr_avg = 'g';
     otherwise
-        clr_raw = [.7 .7 .7];
-        clr_avg = [.85 .85 .85];
+        clr_raw = [.5 .5 .5];
+        clr_avg = [.4 .4 .4];
 end
