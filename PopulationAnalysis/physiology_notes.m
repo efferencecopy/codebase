@@ -1008,13 +1008,19 @@ end
 % that the NMDAR currents are contaminated by Ca2+ current for Vholds close
 % to -20 mV.
 
+% make sure that all the physiology_notes have "note" sections and "cell
+% type" sections and "brain area" sections
+
+% institute a check to make sure that all the parameters are the same
+% acorss a set of .abf files.
 
 % Need to add:
 % AK_092914_A (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
 % AK_092914_B (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
 % AK_092914_C (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
 % AK_092914_D (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
-
+% AK_101314_A
+% AK_101314_C
 
 %% CH_020314_B Cell 1
 
@@ -3190,9 +3196,10 @@ end
 % CH_092214_B (NB488 trial and error)
 % CH_092214_C (NB488 trial and error)
 % CH_092214_D (NB488 trial and error)
-% CH_100614_A (EIAN)
+% CH_100614_A (EIAN) ## make sure this mouse has been added
 % CH_100614_B (EIAN) Need to check histology
 % CH_100614_C (EIAN) Need to check histology
+% 
 
 
 
