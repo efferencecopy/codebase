@@ -23,7 +23,7 @@ goodNeurons(:,2) = cat(1,raw{2:end, 4});
 goodNeurons = logical(goodNeurons);
 neuronType = raw(2:end, 6:7);
 HVA = raw(2:end, 5);
-layer = raw(2:end, 8);
+layer = [raw(2:end, 8); raw(2:end, 9)];
 
 
 %
@@ -136,7 +136,6 @@ typeList.und = ~typeList.IN & ~typeList.PY;
 
 %
 % create a grouping list for layer
-layer = [layer;layer];
 layerList.L_23 = cellfun(@(x) ~isempty(x), regexpi(layer, '2/3'));
 layerList.L_4 = cellfun(@(x) ~isempty(x), regexpi(layer, '4'));
 layerList.L_5 = cellfun(@(x) ~isempty(x), regexpi(layer, '5'));
@@ -155,7 +154,7 @@ GL_SUPPRESS_ANALYSIS = false;
 %% EXCITATION VS. INHIBITION
 
 fin
-
+error('Laminar position needs to be updated')
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
 l_23 = layerList.L_23;

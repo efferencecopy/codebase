@@ -855,9 +855,9 @@ fin
 
 % NOTES
 %%%%%%%%%%%%%%%%%%%%%%%%
-% 
+% Pretty nice data from a L2/3 PY cell in PM. 
 %
-% brain area: 
+% brain area: PM, PY cell.
 % popAnalysis: 
 %
 
@@ -956,7 +956,10 @@ fin
 
 % NOTES
 %%%%%%%%%%%%%%%%%%%%%%%%
-% 
+% This cell was recorded in the same slice as cell1 from AK_101314_A but
+% after it had already been exposed to synaptic blockers. I kept the
+% blockers on, and recorded this cell. It will only contribute to NMDAR
+% analysis, and I don't know what type of cell this is... 
 %
 % brain area: PM
 % popAnalysis: NMDAR
@@ -988,6 +991,114 @@ params.isolatedCurrents = {};
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
     params.fxns = {@anlyMod_optoIV, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% AK_101314_C Pair 1
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% Nice paired data from two cells in AL. Need to determine what type of
+% cell they are...
+%
+% brain area: AL
+% popAnalysis: EIAN, NMDAR
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_101314_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_29_', [0:10]};  % <file name prefix, suffix>
+params.groups = {'control', [0,1];...
+                 'nbqxGabazine', [2,3];...
+                 'NMDAR', [4:10]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 1e3;
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV,  @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% AK_101314_C Pair 1 (spatial dependence)
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% These recordings were taken after NBQX and Gabazine had washed out, but
+% in normal ACSF. The currents are likely NMDAR mediated though (i think).
+% I'm just trying to understand if stimulation location affects the ratio
+% of currents measured in different cell types.
+%
+% brain area: AL
+% popAnalysis: none.
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_101314_C';      % The mouse's name
+params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
+params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
+params.groups = {'NMDAR', [11:15]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 1e3;
+
+params.stimLoc = [-67, -67;...
+                  -132 -178;...
+                  -209 -284;...
+                  -3, 6;...
+                  -76 -67];
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV};
     params = invitroAnalysisOverview(params);
 end
 

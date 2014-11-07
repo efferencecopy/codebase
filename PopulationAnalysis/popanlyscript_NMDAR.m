@@ -23,7 +23,7 @@ goodNeurons(:,2) = cat(1,raw{2:end, 4});
 goodNeurons = logical(goodNeurons);
 neuronType = raw(2:end, 6:7);
 HVA = raw(2:end, 5);
-layer = raw(2:end, 8);
+layer = [raw(2:end, 8); raw(2:end, 9)];
 
 %
 % build a population data structure by performing the appropriate analysis.
@@ -33,7 +33,8 @@ layer = raw(2:end, 8);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % initalize things that I care about
-[dat.NMDAR.raw,...
+[dat.NMDAR.raw_pA,...
+ dat.NMDAR.raw_mV,...
  dat.ivcurve.mV,...
  dat.ivcurve.mv_corrected,...
  dat.ivcurve.pA,...
@@ -61,7 +62,8 @@ for ex = 1:numel(mouseNames)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     if isfield(params.ivdat, 'NMDAR')
        
-        dat.NMDAR.raw(ex,:) = params.ivdat.NMDAR.raw;
+        dat.NMDAR.raw_pA(ex,:) = params.ivdat.NMDAR.raw;
+        dat.NMDAR.raw_mV(ex,:) = params.ivdat.NMDAR.vhold;
         dat.tvec{ex,1} = params.ivdat.tvec;
         dat.ivcurve.mV(ex, :) = params.ivdat.NMDAR.ivcurve.mV;
         dat.ivcurve.mv_corrected(ex, :) = params.ivdat.NMDAR.ivcurve.mV_corrected;
@@ -101,7 +103,6 @@ typeList.und = ~typeList.IN & ~typeList.PY;
 
 %
 % create a grouping list for layer
-layer = [layer;layer];
 layerList.L_23 = cellfun(@(x) ~isempty(x), regexpi(layer, '2/3'));
 layerList.L_4 = cellfun(@(x) ~isempty(x), regexpi(layer, '4'));
 layerList.L_5 = cellfun(@(x) ~isempty(x), regexpi(layer, '5'));
@@ -142,6 +143,7 @@ tmp_mice = [dat.mice(:); dat.mice(:)];
 tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
 l_AL = hvaList.al;
 l_PM = hvaList.pm;
+l_und = hvaList.und;
 l_toplot = l_valid;
 h_raw = figure; hold on,
 h_corrected = figure; hold on,
@@ -152,6 +154,8 @@ for a = find(l_toplot)'
        [clr_fit, clr_raw] = hvaPlotColor('AL');
    elseif l_PM(a)
        [clr_fit, clr_raw] = hvaPlotColor('PM');
+   elseif l_und(a)
+       [clr_fit, clr_raw] = hvaPlotColor('und');
    else
        continue % do nothing if this isn't AL or PM
    end
@@ -227,18 +231,20 @@ title('IV curve, corrected for steady state Rs')
 
 
 
-
 fin
 
 
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_NMDAR.mat'])
-l_valid = dat.goodNeurons(:);
+l_23 = layerList.L_23;
+l_valid = dat.goodNeurons(:) & l_23 & typeList.PY;
 
-tmp_Raw = dat.NMDAR.raw(:);
+
+
+tmp_Raw = dat.NMDAR.raw_pA(:);
 tmp_tvec = [dat.tvec; dat.tvec];
 tmp_names = repmat(dat.mice,2,1);
-tmp_mV = dat.ivcurve.mV(:);
+tmp_mV = dat.NMDAR.raw_mV(:);
 Nfigs = ceil(sum(l_valid)/4);
 cellList = find(l_valid);
 idx = 1;
@@ -256,19 +262,30 @@ for ii_fig = 1:Nfigs
         
         tmp_pA = tmp_Raw{cellList(idx)};
         tmp_pA = cat(1, tmp_pA{:})';
-        tmp_pA = abs(tmp_pA);
         tmp_pA(~l_window,:) = [];
-        tmp_pA = bsxfun(@rdivide, tmp_pA, max(tmp_pA,[],1));
+        
+        % a complicated way of picking the correct normalization value
+        % regardless of the polarity of the current
+        maxVal = max(tmp_pA,[],1);
+        minVal = min(tmp_pA, [],1);
+        l_out = abs(maxVal) > abs(minVal);
+        l_in = abs(maxVal) < abs(minVal);
+        peakVal = nan(size(maxVal));
+        peakVal(l_out) = maxVal(l_out);
+        peakVal(l_in) = minVal(l_in);
+        
+        % now do the normalization
+        tmp_pA = bsxfun(@rdivide, tmp_pA, peakVal);
         
         
         
         subplot(2,2,ii_plt);
         plot(tvec(l_window), tmp_pA)
-        t = title(tmp_names{idx});
+        t = title(tmp_names{cellList(idx)});
         set(t, 'interpreter', 'none')
         
         leg = tmp_mV{cellList(idx)};
-        leg = mat2cell(leg, ones(1,size(leg,1)), ones(1,size(leg,2)));
+        %leg = mat2cell(leg, ones(1,size(leg,1)), ones(1,size(leg,2)));
         leg = cellfun(@(x) sprintf('%.1f', x), leg, 'uniformoutput', 0);
         legend(leg)
     
