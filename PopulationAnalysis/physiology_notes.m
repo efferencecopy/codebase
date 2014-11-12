@@ -913,7 +913,14 @@ fin
 % on little data. I should consult the cell fill.
 %
 % brain area: PM
+%
 % popAnalysis: NMDAR
+%
+% Layer: 2/3 
+%
+% cell type: Not exactly sure, but could be a PY cell. There's little
+% physiology evidence to back this up (not much spontaneous activity at any
+% Vhold, but also not much data).
 %
 
 
@@ -929,7 +936,7 @@ params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
 params.filter = 1e3;
-
+params.celldepth = [norm([2 -193]), nan];
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -963,6 +970,7 @@ fin
 %
 % brain area: PM
 % popAnalysis: NMDAR
+% cell type: not sure, need to check the histology
 %
 
 
@@ -978,6 +986,7 @@ params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
 params.filter = 1e3;
+params.celldepth = [nan, norm([26 -256])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -1028,6 +1037,7 @@ params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
 params.filter = 1e3;
+params.celldepth = [norm([-263, -403]), norm([-262+56, -389+125])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -1053,59 +1063,63 @@ end
 
 
 %% AK_101314_C Pair 1 (spatial dependence)
-
-fin
-
-% NOTES
-%%%%%%%%%%%%%%%%%%%%%%%%
-% These recordings were taken after NBQX and Gabazine had washed out, but
-% in normal ACSF. The currents are likely NMDAR mediated though (i think).
-% I'm just trying to understand if stimulation location affects the ratio
-% of currents measured in different cell types.
-%
-% brain area: AL
-% popAnalysis: none.
-%
-
-
-%
-% PARAMETERS
-%%%%%%%%%%%%%%%%%%%
-params.mouse = 'AK_101314_C';      % The mouse's name
-params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
-params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
-params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
-params.groups = {'NMDAR', [11:15]};
-params.excludeHS1 = {};
-params.excludeHS2 = {};
-params.tags = {};
-params.filter = 1e3;
-
-params.stimLoc = [-67, -67;...
-                  -132 -178;...
-                  -209 -284;...
-                  -3, 6;...
-                  -76 -67];
-
-
-% stuff for E/I and AMPA/NMDA ratios
-% key for isolatedCurrents = {<current><group><Vhold><Erev>}
-% Erev is to calculate driving force for conversion from pA to pS
-params.isolatedCurrents = {};
-
-
-%
-% ANALYZE OR ADD TO PARAMSDB
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_optoIV};
-    params = invitroAnalysisOverview(params);
-end
-
-if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
-    addPopAnlyParamsToMDB(params);
-end
-
+% 
+% fin
+% 
+% % NOTES
+% %%%%%%%%%%%%%%%%%%%%%%%%
+% % These recordings were taken after NBQX and Gabazine had washed out, but
+% % in normal ACSF. The currents are likely NMDAR mediated though (i think).
+% % I'm just trying to understand if stimulation location affects the ratio
+% % of currents measured in different cell types.
+% %
+% % brain area: AL
+% % popAnalysis: none.
+% %
+% 
+% 
+% %
+% % PARAMETERS
+% %%%%%%%%%%%%%%%%%%%
+% params.mouse = 'AK_101314_C';      % The mouse's name
+% params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
+% params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+% params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
+% params.groups = {'NMDAR', [11:15]};
+% params.excludeHS1 = {};
+% params.excludeHS2 = {};
+% params.tags = {};
+% params.filter = 1e3;
+% 
+% params.stimLoc = [-67, -67;...
+%                   -132 -178;...
+%                   -209 -284;...
+%                   -3, 6;...
+%                   -76 -67];
+% 
+% 
+% % stuff for E/I and AMPA/NMDA ratios
+% % key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% % Erev is to calculate driving force for conversion from pA to pS
+% params.isolatedCurrents = {};
+% 
+% 
+% %
+% % ANALYZE OR ADD TO PARAMSDB
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+%     params.fxns = {@anlyMod_optoIV};
+%     params = invitroAnalysisOverview(params);
+% end
+% 
+% 
+% % extra analysis for this pair of cells
+% peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
+% peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
+% figure, hold on,
+% plot(peak_pA_HS1, '-k.')
+% plot(peak_pA_HS2, '-b.')
+% 
 
 
 %% BOOKMARK FOR AK MICE
@@ -1130,8 +1144,8 @@ end
 % AK_092914_B (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
 % AK_092914_C (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
 % AK_092914_D (EIAN) Need to look at histology, write notes, and confirm HVA location on the pop_workbook
-% AK_101314_A
-% AK_101314_C
+% AK_101314_A need to verify cell type
+% AK_101314_C need to verify brain region
 
 %% CH_020314_B Cell 1
 
@@ -2619,7 +2633,7 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_081114_B_cell1_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_08_25_', [0:10]};  % <file name prefix, suffix>
 params.groups = {'control', [0,1];...
-                 'nbqxGabazine', [3,9];...
+                 'nbqxGabazine', [2,3,9];...
                  'NMDAR', [2:10]};
 params.excludeHS1 = {{'_0010' [5,6]}};
 params.excludeHS2 = {}; % all files are junk. no cell on HS2
@@ -3293,6 +3307,309 @@ end
 
 
 
+%% CH_141020_A pair 1
+
+
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+%
+%
+% brain area: PM
+%
+% cell type: Both cells get a modest amount of spontaneous inhibition. Cell
+% 2 might get slightly more. Cell 1 looks more PY like based on the in
+% vitro cell fill. Neither cell gets much spontaneous excitation. I'm going
+% to call both of these PY cells. 
+%
+% layer: 2/3
+% popAnalysis: EIAN, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_141020_A';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_141020_A_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_11_03_', [0:9]};  % <file name prefix, suffix>
+params.groups = {'control', [0,1];...
+                 'nbqxGabazine', [2,3];...
+                 'NMDAR', [2:9]};
+params.excludeHS1 = {{'_0000', [3,4,8,12,19]}};
+params.excludeHS2 = {{'_0000', [3,4,8,12,19]}}; 
+params.celldepth = [norm([102 178]), norm([98 189])];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_141020_A cell 2
+
+
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+% ok. data. NMDAR only
+%
+% brain area: likely AL, but need to consult histology
+%
+% cell type: und. no control data, so no spontaneous activity. Need to
+% consult the confocal imaging
+%
+% layer: 2/3
+% popAnalysis: NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_141020_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'CH_141020_A_cell2';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_11_03_', [11:17]};  % <file name prefix, suffix>
+params.groups = {'NMDAR', [11:17]};
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0011', [1:4]}}; 
+params.celldepth = [norm([]), norm([])];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_141020_B pair 1 
+
+
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+% Pretty decent data from cell2, but cell 1 is junk.
+%
+% brain area: pm
+%
+% cell type: Cell 2 is PY cell based off of in vitro cell fill. It gets
+% some spontaneous excitation, but lots of spontaneous inhibition
+%
+% layer: 2/3
+% popAnalysis:
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_141020_B';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_141020_B_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_11_04_', [2:15]};  % <file name prefix, suffix>
+params.groups = {'control', [5,6];...
+                 'nbqxGabazine', [7,8];...
+                 'NMDAR', [9:15]};
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0003', [2]}, {'_0006', [2]}, {'_0010', [2]}, {'_0013', [2]}}; 
+params.celldepth = [norm([]), norm([])];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+params.tags = {};
+params.filter = 1e3;
+
+% params.stimLoc = [-57 75;...
+%                   -49 -8];
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+%% CH_141020_C  pair 1
+
+
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+% ok data from channel 1, but ch2 cuts out early.
+%
+% brain area: likely AL, but need to check the histology
+%
+% cell type: both cells have spontaneous inhibition (particularly cell 1).
+% I think that this is also a PY cell based off of the in vitro image of
+% NB488
+%
+% layer: 2/3
+% popAnalysis: EIAN, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_141020_C';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_141020_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_11_06_', [0:11]};  % <file name prefix, suffix>
+params.groups = {'control', [0,3];...
+                 'nbqxGabazine', [4,7];...
+                 'NMDAR', [4,6:11]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; 
+params.celldepth = [norm([]), norm([])];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+%% CH_141020_D pair 1 
+
+
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+% pretty good data from CH2. 
+%
+% brain area: PM
+%
+% cell type: cel 2 receives a small amt of spontaneous inhibition, but lots
+% of spontaneous excitation.
+%
+% layer: 2/3
+%
+% popAnalysis: EIAN, NMDAR
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_141020_D';      % The mouse's name
+params.cellNum = 1;    % The neuron number that day
+params.photo = 'CH_141020_D_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_11_05_', [0,3:12]};  % <file name prefix, suffix>
+params.groups = {'control', [0,3];...
+                 'nbqxGabazine', [4,5];...
+                 'NMDAR', [6:12]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; 
+params.celldepth = [nan, norm([-145 -210])];
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72;...
+                           'ampa', 'control', -72, 17;...
+                           'nmda', 'nbqxGabazine', 50, 17};
+params.tags = {};
+params.filter = 1e3;
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
 
 %% BOOKMARK FOR CH MICE
 % data added to population analyses up to here
@@ -3310,7 +3627,8 @@ end
 % CH_100614_A (EIAN) ## make sure this mouse has been added
 % CH_100614_B (EIAN) Need to check histology
 % CH_100614_C (EIAN) Need to check histology
-% 
+% CH_141020_A Confirm brain region on cell 2
+
 
 
 

@@ -82,7 +82,6 @@ dat.layer = layer;
 
 
 % create grouping lists for HVAs
-l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
 hvaList.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
 hvaList.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
@@ -103,6 +102,8 @@ typeList.und = ~typeList.IN & ~typeList.PY;
 
 %
 % create a grouping list for layer
+layer = dat.layer(:);
+layer = cellfun(@num2str, layer, 'uniformoutput', false);
 layerList.L_23 = cellfun(@(x) ~isempty(x), regexpi(layer, '2/3'));
 layerList.L_4 = cellfun(@(x) ~isempty(x), regexpi(layer, '4'));
 layerList.L_5 = cellfun(@(x) ~isempty(x), regexpi(layer, '5'));
@@ -132,8 +133,13 @@ load([GL_POPDATPATH, 'popAnly_NMDAR.mat'])
 %
 MINNUMVHOLD = 6; % minimum number of vholds a data set needs to be included
 l_23 = layerList.L_23;
-l_valid = dat.goodNeurons(:) & l_23 & typeList.PY;
+l_valid = dat.goodNeurons(:)& typeList.PY;
 
+% create a container for the scaled IV curves
+scaled.al.pA = {};
+scaled.al.mV = {};
+scaled.pm.pA = {};
+scaled.pm.mV = {};
 
 % plot the IV curves for PY cells
 tmp_mV = dat.ivcurve.mV(:);
@@ -212,6 +218,17 @@ for a = find(l_toplot)'
    set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
    t = get(get(p, 'parent'), 'title');
    
+      
+   % store the scaled values for later
+   if l_AL(a)
+      scaled.al.mV{end+1} = plt_mV;
+      scaled.al.pA{end+1} = plt_pA;
+   elseif l_PM(a)
+      scaled.pm.mV{end+1} = plt_mV;
+      scaled.pm.pA{end+1} = plt_pA;
+   end
+   
+   
 end
 
 
@@ -225,6 +242,40 @@ figure(h_corrected)
 xlabel('Voltage')
 ylabel('Current (pA)')
 title('IV curve, corrected for steady state Rs')
+
+
+
+%
+% Average scaled IV curve
+%
+
+tested_mV = [-80 -60 -40 -20  0 15 17 50];
+scaled.al.avg = repmat({[]}, 1, numel(tested_mV));
+scaled.pm.avg =  repmat({[]}, 1, numel(tested_mV));
+group = {'al', 'pm'};
+for i_group = 1:2
+    for i_cell = 1:numel(scaled.(group{i_group}).mV)
+        mV = scaled.(group{i_group}).mV{i_cell};
+        pA = scaled.(group{i_group}).pA{i_cell};
+        for i_vhold = 1:numel(mV)
+            idx_avg = softEq(mV(i_vhold), tested_mV, 0);
+            if sum(idx_avg) == 0
+                continue
+            elseif sum(idx_avg)>1
+                error('too many matches')
+            end
+            scaled.(group{i_group}).avg{find(idx_avg)}(end+1) = pA(i_vhold);
+            
+        end
+    end
+end
+
+figure, hold on,
+for i_group = 1:2
+     [clr_fit, clr_raw] = hvaPlotColor(group{i_group});
+     plot(tested_mV, cellfun(@mean, scaled.(group{i_group}).avg), 'o-', 'color', clr_raw)
+end
+    
 
 
 %% NMDA RAW CURRENTS

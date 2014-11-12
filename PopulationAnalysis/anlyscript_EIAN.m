@@ -114,9 +114,7 @@ dat.layer = layer;
 
 
 % create grouping lists for HVAs
-l_valid = dat.goodNeurons(:);
 hvas = repmat(dat.hva, 2,1);
-%hvas = hvas(l_valid);
 hvaList.('pm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'pm'));
 hvaList.('lm') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'lm'));
 hvaList.('al') = cellfun(@(x) ~isempty(x), regexpi(hvas, 'al'));
@@ -136,6 +134,8 @@ typeList.und = ~typeList.IN & ~typeList.PY;
 
 %
 % create a grouping list for layer
+layer = dat.layer(:);
+layer = cellfun(@num2str, layer, 'uniformoutput', false);
 layerList.L_23 = cellfun(@(x) ~isempty(x), regexpi(layer, '2/3'));
 layerList.L_4 = cellfun(@(x) ~isempty(x), regexpi(layer, '4'));
 layerList.L_5 = cellfun(@(x) ~isempty(x), regexpi(layer, '5'));
@@ -154,7 +154,7 @@ GL_SUPPRESS_ANALYSIS = false;
 %% EXCITATION VS. INHIBITION
 
 fin
-error('Laminar position needs to be updated')
+
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
 l_23 = layerList.L_23;
@@ -210,9 +210,18 @@ inhib_nS_unsigned = abs(inhib_nS_signed);
 % plot peak conductances for all cells
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
+tmp_mice = [dat.mice(:); dat.mice(:)];
+tmp_mice = tmp_mice(l_valid);
+tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
+tmp_siteNum = tmp_siteNum(l_valid);
 figure, hold on,
 set(gca, 'fontsize', 25)
-plot(excit_nS_unsigned, inhib_nS_unsigned, 'ko', 'markerfacecolor', 'k', 'markersize', 10)
+for a = 1:numel(excit_nS_unsigned)
+    p = plot(excit_nS_unsigned(a), inhib_nS_unsigned(a), 'ko', 'markerfacecolor', 'k', 'markersize', 10);
+    printTitle = @(a,b,c) title(sprintf('%s, cell %d',c{1},c{2}));
+    set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
+    t = get(get(p, 'parent'), 'title');
+end
 l_nan = isnan(excit_nS_unsigned) | isnan(inhib_nS_unsigned);
 betas = [excit_nS_unsigned(~l_nan), ones(size(excit_nS_unsigned(~l_nan)))] \ inhib_nS_unsigned(~l_nan);
 xvals_all = get(gca, 'xlim');
@@ -221,7 +230,7 @@ plot(xvals_all, [xvals_all(:), ones(2,1)]*betas(:), '--k', 'linewidth', 3)
 xlabel('Excit conductance (nS)')
 ylabel('Inhib conductance (nS)')
 title(sprintf('ALL DATA: E/I ratio = %.2f', betas(1)))
-
+set(t, 'interpreter', 'none');
 
 %
 % plot the data, but color code each HVA.
@@ -341,7 +350,7 @@ fin
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
 l_23 = layerList.L_23;
-l_valid = dat.goodNeurons(:) & l_23;
+l_valid = dat.goodNeurons(:);
 
 % pull out peak conductances. do some error checking, and then convert the
 % nS values into positive numbers.
