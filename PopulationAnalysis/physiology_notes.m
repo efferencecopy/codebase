@@ -1163,63 +1163,63 @@ end
 
 
 %% AK_101314_C Pair 1 (spatial dependence)
-% 
-% fin
-% 
-% % NOTES
-% %%%%%%%%%%%%%%%%%%%%%%%%
-% % These recordings were taken after NBQX and Gabazine had washed out, but
-% % in normal ACSF. The currents are likely NMDAR mediated though (i think).
-% % I'm just trying to understand if stimulation location affects the ratio
-% % of currents measured in different cell types.
-% %
-% % brain area: AL
-% % popAnalysis: none.
-% %
-% 
-% 
-% %
-% % PARAMETERS
-% %%%%%%%%%%%%%%%%%%%
-% params.mouse = 'AK_101314_C';      % The mouse's name
-% params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
-% params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
-% params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
-% params.groups = {'NMDAR', [11:15]};
-% params.excludeHS1 = {};
-% params.excludeHS2 = {};
-% params.tags = {};
-% params.filter = 1e3;
-% 
-% params.stimLoc = [-67, -67;...
-%                   -132 -178;...
-%                   -209 -284;...
-%                   -3, 6;...
-%                   -76 -67];
-% 
-% 
-% % stuff for E/I and AMPA/NMDA ratios
-% % key for isolatedCurrents = {<current><group><Vhold><Erev>}
-% % Erev is to calculate driving force for conversion from pA to pS
-% params.isolatedCurrents = {};
-% 
-% 
-% %
-% % ANALYZE OR ADD TO PARAMSDB
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-%     params.fxns = {@anlyMod_optoIV};
-%     params = invitroAnalysisOverview(params);
-% end
-% 
-% 
-% % extra analysis for this pair of cells
-% peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
-% peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
-% figure, hold on,
-% plot(peak_pA_HS1, '-k.')
-% plot(peak_pA_HS2, '-b.')
-% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% These recordings were taken after NBQX and Gabazine had washed out, but
+% in normal ACSF. The currents are likely NMDAR mediated though (i think).
+% I'm just trying to understand if stimulation location affects the ratio
+% of currents measured in different cell types.
+%
+% brain area: AL
+% popAnalysis: none.
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_101314_C';      % The mouse's name
+params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
+params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
+params.groups = {'NMDAR', [11:15]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 1e3;
+
+params.stimLoc = [-67, -67;...
+                  -132 -178;...
+                  -209 -284;...
+                  -3, 6;...
+                  -76 -67];
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV};
+    params = invitroAnalysisOverview(params);
+end
+
+
+% extra analysis for this pair of cells
+peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
+peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
+figure, hold on,
+plot(peak_pA_HS1, '-k.')
+plot(peak_pA_HS2, '-b.')
+
 
 
 %% BOOKMARK FOR AK MICE

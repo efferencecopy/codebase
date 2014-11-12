@@ -347,6 +347,100 @@ end
 
 
 
+%% E/I RATIOS BY CELL DEPTH
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
+l_valid = dat.goodNeurons(:) & typeList.PY & layerList.L_23;
+
+
+% pull out peak conductances. do some error checking, and make sure
+% all the nS values are positive.
+excit_nS_signed = dat.excit.peak_nS(:);
+excit_nS_signed = excit_nS_signed(l_valid);
+assert(all(excit_nS_signed<0), 'ERROR: some excitatory currents are positive...')
+excit_nS_unsigned = abs(excit_nS_signed);
+
+inhib_nS_signed = dat.inhib.peak_nS(:);
+inhib_nS_signed = inhib_nS_signed(l_valid);
+assert(all(inhib_nS_signed>0), 'ERROR: some inhibitory currents are negative...')
+inhib_nS_unsigned = abs(inhib_nS_signed);
+
+% define the E/I ratio
+ei_ratio = excit_nS_unsigned ./ inhib_nS_unsigned;
+
+% define the cell depth measurements
+cellDepth = dat.cellDepth(:);
+cellDepth = cellDepth(l_valid);
+
+
+
+
+%
+% plot all the data and make points clickable
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+tmp_mice = [dat.mice(:); dat.mice(:)];
+tmp_mice = tmp_mice(l_valid);
+tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
+tmp_siteNum = tmp_siteNum(l_valid);
+figure, hold on,
+set(gca, 'fontsize', 25)
+for a = 1:numel(ei_ratio)
+    p = plot(cellDepth(a), ei_ratio(a), 'ko', 'markerfacecolor', 'k', 'markersize', 10);
+    printTitle = @(a,b,c) title(sprintf('%s, cell %d',c{1},c{2}));
+    set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
+    t = get(get(p, 'parent'), 'title');
+end
+xlabel('cell depth')
+ylabel('ei_ratio')
+set(t, 'interpreter', 'none');
+set(gca, 'yscale', 'log')
+
+
+
+%
+% color code points by HVA or by laminar location
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% grouping list for layer
+l_L23 = layerList.L_23;
+l_L23 = l_L23(l_valid);
+l_L4 = layerList.L_4;
+l_L4 = l_L4(l_valid);
+l_L5 = layerList.L_5;
+l_L5 = l_L5(l_valid);
+
+
+figure, hold on,
+plot(cellDepth(l_L23), ei_ratio(l_L23), 'bo', 'markerfacecolor', 'b')
+plot(cellDepth(l_L4), ei_ratio(l_L4), 'ko', 'markerfacecolor', 'k')
+plot(cellDepth(l_L5), ei_ratio(l_L5), 'ro', 'markerfacecolor', 'r')
+set(gca, 'yscale', 'log')
+legend('Layer 2/3', 'Layer 4', 'Layer 5')
+ylabel('Ex / Inhib ratio')
+xlabel('Cell Depth')
+title('Grouped by Laminar Location')
+
+
+% now by area
+l_AL = hvaList.al;
+l_AL = l_AL(l_valid);
+l_PM = hvaList.pm;
+l_PM = l_PM(l_valid);
+
+figure, hold on,
+plot(cellDepth(l_AL), ei_ratio(l_AL), 'ro', 'markerfacecolor', 'r')
+plot(cellDepth(l_PM), ei_ratio(l_PM), 'bo', 'markerfacecolor', 'b')
+set(gca, 'yscale', 'log')
+legend('Area AL', 'Area PM')
+ylabel('Ex / Inhib ratio')
+xlabel('Cell Depth')
+title('Grouped by brain area')
+
 
 %% AMPA to NMDA RATIOS
 
@@ -354,7 +448,6 @@ fin
 
 % load in the pre-saved population data
 load([GL_POPDATPATH, 'popAnly_EIAN.mat'])
-l_23 = layerList.L_23;
 l_valid = dat.goodNeurons(:);
 
 % pull out peak conductances. do some error checking, and then convert the
@@ -446,6 +539,182 @@ for a = 1:numel(groupTypes);
     ylabel('NMDA conductance (nS)')
 end
 legend(h_fit, groupTypes, 'location', 'northwest')
+
+
+%% A/N RATIOS BY CELL DEPTH
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
+l_valid = dat.goodNeurons(:) & typeList.IN;
+
+
+% pull out peak conductances. do some error checking, and make sure
+% all the nS values are positive.
+ampa_nS_signed = dat.ampa.peak_nS(:);
+ampa_nS_signed = ampa_nS_signed(l_valid);
+assert(all(ampa_nS_signed<0 | isnan(ampa_nS_signed)), 'ERROR: some AMPA currents are positive...')
+ampa_nS_unsigned = abs(ampa_nS_signed);
+
+nmda_nS_signed = dat.nmda.peak_nS(:);
+nmda_nS_signed = nmda_nS_signed(l_valid);
+assert(all(nmda_nS_signed>0 | isnan(nmda_nS_signed)), 'ERROR: some NMDA currents are negative...')
+nmda_nS_unsigned = abs(nmda_nS_signed);
+
+% define the E/I ratio
+an_ratio = ampa_nS_unsigned ./ nmda_nS_unsigned;
+
+% define the cell depth measurements
+cellDepth = dat.cellDepth(:);
+cellDepth = cellDepth(l_valid);
+
+
+
+
+%
+% plot all the data and make points clickable
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+tmp_mice = [dat.mice(:); dat.mice(:)];
+tmp_mice = tmp_mice(l_valid);
+tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
+tmp_siteNum = tmp_siteNum(l_valid);
+figure, hold on,
+set(gca, 'fontsize', 25)
+for a = 1:numel(an_ratio)
+    p = plot(cellDepth(a), an_ratio(a), 'ko', 'markerfacecolor', 'k', 'markersize', 10);
+    printTitle = @(a,b,c) title(sprintf('%s, cell %d',c{1},c{2}));
+    set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
+    t = get(get(p, 'parent'), 'title');
+end
+xlabel('cell depth')
+ylabel('A/N ratio')
+set(t, 'interpreter', 'none');
+set(gca, 'yscale', 'log')
+
+
+
+%
+% color code points by HVA or by laminar location
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% grouping list for layer
+l_L23 = layerList.L_23;
+l_L23 = l_L23(l_valid);
+l_L4 = layerList.L_4;
+l_L4 = l_L4(l_valid);
+l_L5 = layerList.L_5;
+l_L5 = l_L5(l_valid);
+
+
+figure, hold on,
+plot(cellDepth(l_L23), an_ratio(l_L23), 'bo', 'markerfacecolor', 'b')
+plot(cellDepth(l_L4), an_ratio(l_L4), 'ko', 'markerfacecolor', 'k')
+plot(cellDepth(l_L5), an_ratio(l_L5), 'ro', 'markerfacecolor', 'r')
+set(gca, 'yscale', 'log')
+legend('Layer 2/3', 'Layer 4', 'Layer 5')
+ylabel('AMPA / NMDA ratio')
+xlabel('Cell Depth')
+title('Grouped by Laminar Location')
+
+
+% now by area
+group = {'al', 'pm', 'lm', 'und'};
+figure, hold on,
+for a = 1:numel(group)
+    l_hva = hvaList.(group{a});
+    l_hva(~l_valid) = [];
+    [clr_fit, clr_raw] = hvaPlotColor(group{a});
+    plot(cellDepth(l_hva), an_ratio(l_hva), 'o', 'markeredgecolor', clr_raw, 'markerfacecolor', clr_raw, 'markersize', 8)
+end
+set(gca, 'yscale', 'log')
+legend(group)
+ylabel('AMPA / NMDA ratio')
+xlabel('Cell Depth')
+title('Grouped by brain area')
+
+%% A/N vs E/I ratios
+
+fin
+
+% load in the pre-saved population data
+load([GL_POPDATPATH, 'popAnly_EIAN.mat']);
+l_valid = dat.goodNeurons(:) & typeList.PY & layerList.L_23;
+
+
+% pull out peak conductances. do some error checking, and make sure
+% all the nS values are positive.
+ampa_nS_signed = dat.ampa.peak_nS(:);
+ampa_nS_signed = ampa_nS_signed(l_valid);
+assert(all(ampa_nS_signed<0 | isnan(ampa_nS_signed)), 'ERROR: some AMPA currents are positive...')
+ampa_nS_unsigned = abs(ampa_nS_signed);
+
+nmda_nS_signed = dat.nmda.peak_nS(:);
+nmda_nS_signed = nmda_nS_signed(l_valid);
+assert(all(nmda_nS_signed>0 | isnan(nmda_nS_signed)), 'ERROR: some NMDA currents are negative...')
+nmda_nS_unsigned = abs(nmda_nS_signed);
+
+% define the A/N ratio
+an_ratio = ampa_nS_unsigned ./ nmda_nS_unsigned;
+
+
+
+% pull out peak conductances. do some error checking, and make sure
+% all the nS values are positive.
+excit_nS_signed = dat.excit.peak_nS(:);
+excit_nS_signed = excit_nS_signed(l_valid);
+assert(all(excit_nS_signed<0), 'ERROR: some excitatory currents are positive...')
+excit_nS_unsigned = abs(excit_nS_signed);
+
+inhib_nS_signed = dat.inhib.peak_nS(:);
+inhib_nS_signed = inhib_nS_signed(l_valid);
+assert(all(inhib_nS_signed>0), 'ERROR: some inhibitory currents are negative...')
+inhib_nS_unsigned = abs(inhib_nS_signed);
+
+% define the E/I ratio
+ei_ratio = excit_nS_unsigned ./ inhib_nS_unsigned;
+
+
+%
+% plot all the data and make points clickable
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+tmp_mice = [dat.mice(:); dat.mice(:)];
+tmp_mice = tmp_mice(l_valid);
+tmp_siteNum = [dat.siteNum(:); dat.siteNum(:)];
+tmp_siteNum = tmp_siteNum(l_valid);
+figure, hold on,
+set(gca, 'fontsize', 25)
+for a = 1:numel(an_ratio)
+    p = plot(ei_ratio(a), an_ratio(a), 'ko', 'markerfacecolor', 'k', 'markersize', 10);
+    printTitle = @(a,b,c) title(sprintf('%s, cell %d',c{1},c{2}));
+    set(p, 'buttonDownFcn', {printTitle, {tmp_mice{a}, tmp_siteNum(a)}})
+    t = get(get(p, 'parent'), 'title');
+end
+x = xlabel('E/I ratio');
+y = ylabel('A/N ratio');
+set(gca, 'yscale', 'log', 'xscale', 'log')
+set([t,x,y], 'interpreter', 'none');
+
+%
+% plot by HVA
+%
+groups = {'al', 'pm', 'lm', 'und'};
+figure, hold on,
+for a = 1:numel(groups)
+    l_hva = hvaList.(groups{a});
+    l_hva(~l_valid) = [];
+    [clr_fit, clr_raw] = hvaPlotColor(groups{a});
+    
+    plot(ei_ratio(l_hva), an_ratio(l_hva), 'o', 'markeredgecolor', clr_raw, 'markerfacecolor', clr_raw, 'markersize', 10);
+end
+x = xlabel('E/I ratio');
+y = ylabel('A/N ratio');
+set(gca, 'yscale', 'log', 'xscale', 'log')
+
+
 
 
 %% CONTROL ANALYSES
