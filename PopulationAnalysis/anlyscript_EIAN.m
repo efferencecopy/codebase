@@ -37,6 +37,8 @@ layer = [raw(2:end, 8); raw(2:end, 9)];
 [dat.ampa.peak_nS, dat.nmda.peak_nS, dat.excit.peak_nS, dat.inhib.peak_nS] = deal(nan(numel(mouseNames), 2));
 [dat.ampa.peak_pA, dat.nmda.peak_pA, dat.excit.peak_pA, dat.inhib.peak_pA] = deal(nan(numel(mouseNames), 2));
 [dat.NMDAR.ivcurve.mV, dat.NMDAR.ivcurve.mv_corrected, dat.NMDAR.ivcurve.pA] = deal(repmat({[] []}, numel(mouseNames), 1));
+dat.cellDepth = deal(nan(numel(mouseNames), 2));
+
 
 % initalize things for control analyses.
 [dat.ampa.Verr, dat.nmda.Verr, dat.excit.Verr, dat.inhib.Verr] = deal(repmat({[] []}, numel(mouseNames), 1));
@@ -57,6 +59,9 @@ for ex = 1:numel(mouseNames)
     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
     params = invitroAnalysisOverview(params);
     close all; drawnow
+    
+    % store the cell depth measurements
+    dat.cellDepth(ex,:) = params.celldepth;
     
     %
     % add the data to an array for the AMPA/NMDA
