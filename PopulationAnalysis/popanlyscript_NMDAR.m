@@ -133,7 +133,7 @@ load([GL_POPDATPATH, 'popAnly_NMDAR.mat'])
 %
 MINNUMVHOLD = 6; % minimum number of vholds a data set needs to be included
 l_23 = layerList.L_23;
-l_valid = dat.goodNeurons(:)& typeList.PY;
+l_valid = dat.goodNeurons(:) & typeList.PY;
 
 % create a container for the scaled IV curves
 scaled.al.pA = {};

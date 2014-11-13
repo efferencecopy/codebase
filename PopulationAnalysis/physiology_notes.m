@@ -74,6 +74,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 20;...
                            'nmda', 'nbqxGabazine', 50, 20};
 params.tags = {};
 params.filter = 8e3;
+params.celldepth = [norm([-102+35 237+8]), norm([102 229])];
 
 
 %
@@ -126,6 +127,10 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 1e3;
+HS1loc = [10 28];
+HS2loc = [-4 8];
+Pialoc = [44 229];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 %
@@ -181,6 +186,11 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
 params.tags = {};
 params.filter = 1e3;
 
+HS1loc = [70 2.8];
+HS2loc = [nan];
+Pialoc = [-225 261];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 %
 % ANALYZE OR ADD TO PARAMSDB
@@ -232,6 +242,11 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 1e3;
+
+HS1loc = [-1.5 -23.2];
+HS2loc = [15 -15];
+Pialoc = [64 167];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 %
@@ -293,6 +308,11 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
 params.tags = {};
 params.filter = 1e3;
 
+
+HS1loc = [nan];
+HS2loc = [0 55];
+Pialoc = [-299 251];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 %
 % ANALYZE OR ADD TO PARAMSDB
@@ -457,6 +477,11 @@ params.excludeHS2 = {{'_0005', [4,8]}, {'_0008', [1:11, 23:27]}};
 params.tags = {};
 params.filter = 800;
 
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [-203 283];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -515,7 +540,13 @@ params.isolatedCurrents = {'excit', 'control', -72, 15;...
                            'ampa', 'control', -72, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [-181 -139];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
+                       
+                       
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -567,6 +598,14 @@ params.isolatedCurrents = {'excit', 'control', -72, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 
 
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [-108 160];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+                       
+                       
+                       
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -609,6 +648,13 @@ params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
 params.filter = 800;
+
+
+
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [-68 135];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -662,6 +708,13 @@ params.tags = {};
 params.filter = 800;
 
 
+
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [-25 -440];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
@@ -704,7 +757,7 @@ fin
 %%%%%%%%%%%%%%%%%%%
 params.mouse = 'AK_092914_C';      % The mouse's name
 params.cellNum = 2;    % The neuron number that day
-params.photo = 'AK_092914_C_cell2_tdTomato';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.photo = 'AK_092914_C_cell2';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_10_18_', [5,9,10,12,18:25]};  % <file name prefix, suffix>
 params.groups = {'control', [5,9];...
                  'nbqxGabazine', [10,12];...
@@ -713,6 +766,12 @@ params.excludeHS1 = {};
 params.excludeHS2 = {{'_0025', [6]}};
 params.tags = {};
 params.filter = 800;
+
+
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [-43 -225];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -768,6 +827,12 @@ params.excludeHS1 = {};
 params.excludeHS2 = {{'_0035', [13:19]}};
 params.tags = {};
 params.filter = 800;
+
+
+HS1loc = [nan];
+HS2loc = [0 0];
+Pialoc = [328 480];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -828,6 +893,13 @@ params.tags = {};
 params.filter = 800;
 
 
+
+HS1loc = [0 0];
+HS2loc = [0 0];
+Pialoc = [-240 360];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
@@ -876,6 +948,13 @@ params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
 params.filter = 1e3;
+
+
+
+HS1loc = [0 0];
+HS2loc = [0 0];
+Pialoc = [54 -184];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -944,6 +1023,13 @@ params.celldepth = [norm([2 -193]), nan];
 params.isolatedCurrents = {};
 
 
+
+HS1loc = [0];
+HS2loc = [0];
+Pialoc = [2 -193];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -987,6 +1073,13 @@ params.excludeHS2 = {};
 params.tags = {};
 params.filter = 1e3;
 params.celldepth = [nan, norm([26 -256])];
+
+
+
+HS1loc = [0];
+HS2loc = [0];
+Pialoc = [26 -256];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -1040,6 +1133,13 @@ params.filter = 1e3;
 params.celldepth = [norm([-263, -403]), norm([-262+56, -389+125])];
 
 
+
+HS1loc = [1 14];
+HS2loc = [-56 -125];
+Pialoc = [-262 -389];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
@@ -1063,63 +1163,63 @@ end
 
 
 %% AK_101314_C Pair 1 (spatial dependence)
-% 
-% fin
-% 
-% % NOTES
-% %%%%%%%%%%%%%%%%%%%%%%%%
-% % These recordings were taken after NBQX and Gabazine had washed out, but
-% % in normal ACSF. The currents are likely NMDAR mediated though (i think).
-% % I'm just trying to understand if stimulation location affects the ratio
-% % of currents measured in different cell types.
-% %
-% % brain area: AL
-% % popAnalysis: none.
-% %
-% 
-% 
-% %
-% % PARAMETERS
-% %%%%%%%%%%%%%%%%%%%
-% params.mouse = 'AK_101314_C';      % The mouse's name
-% params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
-% params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
-% params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
-% params.groups = {'NMDAR', [11:15]};
-% params.excludeHS1 = {};
-% params.excludeHS2 = {};
-% params.tags = {};
-% params.filter = 1e3;
-% 
-% params.stimLoc = [-67, -67;...
-%                   -132 -178;...
-%                   -209 -284;...
-%                   -3, 6;...
-%                   -76 -67];
-% 
-% 
-% % stuff for E/I and AMPA/NMDA ratios
-% % key for isolatedCurrents = {<current><group><Vhold><Erev>}
-% % Erev is to calculate driving force for conversion from pA to pS
-% params.isolatedCurrents = {};
-% 
-% 
-% %
-% % ANALYZE OR ADD TO PARAMSDB
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-%     params.fxns = {@anlyMod_optoIV};
-%     params = invitroAnalysisOverview(params);
-% end
-% 
-% 
-% % extra analysis for this pair of cells
-% peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
-% peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
-% figure, hold on,
-% plot(peak_pA_HS1, '-k.')
-% plot(peak_pA_HS2, '-b.')
-% 
+
+fin
+
+% NOTES
+%%%%%%%%%%%%%%%%%%%%%%%%
+% These recordings were taken after NBQX and Gabazine had washed out, but
+% in normal ACSF. The currents are likely NMDAR mediated though (i think).
+% I'm just trying to understand if stimulation location affects the ratio
+% of currents measured in different cell types.
+%
+% brain area: AL
+% popAnalysis: none.
+%
+
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'AK_101314_C';      % The mouse's name
+params.cellNum = 100; % NOTE: I'm making this number big so that it doesn't interfere with the params info from the previous analysis cell (same neurons)
+params.photo = 'AK_101314_C_pair1';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2014_10_29_', [11:15]};  % <file name prefix, suffix>
+params.groups = {'NMDAR', [11:15]};
+params.excludeHS1 = {};
+params.excludeHS2 = {};
+params.tags = {};
+params.filter = 1e3;
+
+params.stimLoc = [-67, -67;...
+                  -132 -178;...
+                  -209 -284;...
+                  -3, 6;...
+                  -76 -67];
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {};
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_optoIV};
+    params = invitroAnalysisOverview(params);
+end
+
+
+% extra analysis for this pair of cells
+peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
+peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
+figure, hold on,
+plot(peak_pA_HS1, '-k.')
+plot(peak_pA_HS2, '-b.')
+
 
 
 %% BOOKMARK FOR AK MICE
@@ -2059,6 +2159,12 @@ params.tags = {};
 params.filter = 800;
 
 
+HS1loc = [nan];
+HS2loc = [nan];
+Pialoc = [nan];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
 % Erev is to calculate driving force for conversion from pA to pS
@@ -2110,6 +2216,13 @@ params.excludeHS1 = {};
 params.excludeHS2 = {'_0004', '_0005', '_0006'};
 params.tags = {};
 params.filter = 800;
+
+
+HS1loc = [nan];
+HS2loc = [nan];
+Pialoc = [nan];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -2180,6 +2293,10 @@ params.tags = {};
 params.filter = 1e3;
 
 
+params.celldepth = [180 180];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2231,6 +2348,13 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 1e3;
+
+
+
+HS1loc = [-99 13];
+HS2loc = [-27 -27];
+Pialoc = [-153 276];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 %
@@ -2287,6 +2411,13 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [-6 23];
+HS2loc = [37 21];
+Pialoc = [10 211];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2338,6 +2469,13 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [-68 24];
+HS2loc = [3 6];
+Pialoc = [-28 -352];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2386,6 +2524,13 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 500;
+
+
+HS1loc = [-10 29];
+HS2loc = [48 2];
+Pialoc = [70 520];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -2441,6 +2586,13 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [-26 -3];
+HS2loc = [2 10];
+Pialoc = [-12 270];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2487,6 +2639,13 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [0];
+HS2loc = [0];
+Pialoc = [-85 238];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -2536,6 +2695,13 @@ params.isolatedCurrents = {'excit', 'control', -75, 20;...
                            'inhib', 'control', 20, -75};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [15 5];
+HS2loc = [58 20];
+Pialoc = [-216 152];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -2595,6 +2761,13 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [-16 7];
+HS2loc = [-7 -7];
+Pialoc = [-351 -295];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2649,6 +2822,13 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [-33 38];
+HS2loc = [nan];
+Pialoc = [184 274];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2695,6 +2875,13 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [nan];
+HS2loc = [6 11];
+Pialoc = [175 238];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -2757,6 +2944,12 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [nan];
+HS2loc = [nan];
+Pialoc = [nan];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2804,6 +2997,13 @@ params.isolatedCurrents = {'excit', 'control', -70, 15;...
                            'inhib', 'control', 15, -70};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [-21 -36];
+HS2loc = [-7 -7];
+Pialoc = [-82 -242];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -2855,6 +3055,13 @@ params.isolatedCurrents = {'excit', 'control', -70, 15;...
                            'inhib', 'control', 15, -70};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [23 17];
+HS2loc = [53 36];
+Pialoc = [8 -198];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -2923,6 +3130,12 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [nan];
+HS2loc = [nan];
+Pialoc = [nan];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2970,6 +3183,13 @@ params.isolatedCurrents = {'excit', 'control', -72,     [15 17];...
                            'inhib', 'control', [15 17], -72     };
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [-83 39];
+HS2loc = [6 25];
+Pialoc = [-484 246];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -3021,6 +3241,13 @@ params.isolatedCurrents = {'excit', 'control', [-75, -76], 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [43 -67];
+HS2loc = [-8 11];
+Pialoc = [243 -219];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -3075,6 +3302,13 @@ params.tags = {};
 params.filter = 1e3;
 
 
+HS1loc = [nan];
+HS2loc = [3 0];
+Pialoc = [-26 262];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
+
 %
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3124,6 +3358,12 @@ params.isolatedCurrents = {'excit', 'control', -72, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [-46 -10];
+HS2loc = [-6 9];
+Pialoc = [247 -120];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 %
@@ -3180,6 +3420,12 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
 params.tags = {};
 params.filter = 1e3;
 
+HS1loc = [0];
+HS2loc = [0];
+Pialoc = [-32 -232];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
+
 
 %
 % ANALYZE OR ADD TO PARAMSDB
@@ -3234,6 +3480,12 @@ params.isolatedCurrents = {'excit', 'control', -76, 17;...
                            'nmda', 'nbqxGabazine', 61, 17};
 params.tags = {};
 params.filter = 1e3;
+
+HS1loc = [0];
+HS2loc = [0];
+Pialoc = [-120 -215];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
+
 
 
 %
@@ -3290,6 +3542,12 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [0];
+HS2loc = [0];
+Pialoc = [-361 310];
+params.celldepth = [norm(HS1loc-Pialoc), norm([HS2loc-Pialoc])];
 
 
 %
@@ -3402,7 +3660,7 @@ params.files = {'2014_11_03_', [11:17]};  % <file name prefix, suffix>
 params.groups = {'NMDAR', [11:17]};
 params.excludeHS1 = {};
 params.excludeHS2 = {{'_0011', [1:4]}}; 
-params.celldepth = [norm([]), norm([])];
+params.celldepth = [norm([124 220]), norm([124 220])];
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -3460,7 +3718,7 @@ params.groups = {'control', [5,6];...
                  'NMDAR', [9:15]};
 params.excludeHS1 = {};
 params.excludeHS2 = {{'_0003', [2]}, {'_0006', [2]}, {'_0010', [2]}, {'_0013', [2]}}; 
-params.celldepth = [norm([]), norm([])];
+params.celldepth = [norm([nan]), norm([-15 -178])];
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -3523,7 +3781,7 @@ params.groups = {'control', [0,3];...
                  'NMDAR', [4,6:11]};
 params.excludeHS1 = {};
 params.excludeHS2 = {}; 
-params.celldepth = [norm([]), norm([])];
+
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -3534,6 +3792,13 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
 params.filter = 1e3;
+
+
+HS1loc = [-60 -16];
+HS2loc = [-10 0];
+Pialoc1 = [-193 64];
+Pialoc2 = [-137 122];
+params.celldepth = [norm(HS1loc-Pialoc1), norm([HS2loc-Pialoc2])];
 
 
 %
@@ -3585,7 +3850,7 @@ params.groups = {'control', [0,3];...
                  'NMDAR', [6:12]};
 params.excludeHS1 = {};
 params.excludeHS2 = {}; 
-params.celldepth = [nan, norm([-145 -210])];
+
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}
@@ -3596,6 +3861,12 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
 params.filter = 1e3;
+
+HS1loc = [73 67];
+HS2loc = [20 10];
+Pialoc1 = [-125 -200];
+Pialoc2 = [-125 -200];
+params.celldepth = [norm(HS1loc-Pialoc1), norm([HS2loc-Pialoc2])];
 
 
 %
