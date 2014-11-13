@@ -458,8 +458,8 @@ fin
 % NOTES
 %%%%%%%%%%%%%%%%%%%%%%%%
 %
-% brain area:
-% popAnalysis: 
+% brain area: AL
+% popAnalysis: EIAN, NMDAR
 %
 
 %
@@ -513,8 +513,8 @@ fin
 % NOTES
 %%%%%%%%%%%%%%%%%%%%%%%%
 %
-% brain area:
-% popAnalysis: 
+% brain area: AL
+% popAnalysis: EIAN, NMDAR
 %
 
 %
@@ -568,7 +568,7 @@ fin
 % NOTES
 %%%%%%%%%%%%%%%%%%%%%%%%
 %
-% brain area:
+% brain area: PM
 % popAnalysis: EAIN, NMDAR
 %
 
@@ -689,7 +689,7 @@ fin
 % Seems like a unknown cell type in L4. Not much else to say. Only a little
 % data.
 %
-% brain area: und
+% brain area: AL
 % popAnalysis: EIAN (EI only)
 %
 
@@ -747,8 +747,8 @@ fin
 % data to include the NMDAR data. NB-488 fill seems to suggest that this
 % cell is a PY cell.
 %
-% brain area:
-% popAnalysis: 
+% brain area: AL
+% popAnalysis:  EIAN, NMDAR
 %
 
 
@@ -763,7 +763,7 @@ params.groups = {'control', [5,9];...
                  'nbqxGabazine', [10,12];...
                  'NMDAR', [18:25]};
 params.excludeHS1 = {};
-params.excludeHS2 = {};
+params.excludeHS2 = {{'_0025', [6]}};
 params.tags = {};
 params.filter = 800;
 
