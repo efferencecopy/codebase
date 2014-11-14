@@ -1,24 +1,18 @@
 function defineLayerBoundaries
 
-% game plan
-%
-% Make gui with some buttons
-%   * change color chanel
-%   * export data
-%   * scroll through focal planes
 
 % import the data
-[raw, mask] = io_importData;
+[raw, mask, fpath] = io_importData;
 
 % initialize the gui window display the raw image and the mask
-gui_initialize(raw, mask);
+gui_initialize(raw, mask, fpath);
 
 
 end
 
 
 
-function [raw, mask] = io_importData
+function [raw, mask, fpath] = io_importData
 
     % find the path to the mask file (created in the opticaldissector.m program)
     [fnames, fpath] = uigetfile({['*'], ['all files']}, 'Select the mask file', 'multiselect', 'on');
@@ -50,7 +44,33 @@ function [raw, mask] = io_importData
 
 end
 
-function gui_initialize(raw, mask)
+function io_exportData(varargin)
+    
+    % grab the user data
+    cellFillData = get(gcf, 'userdata');
+    
+    % delete the actual raw image so that the file size isn't huge
+    cellFillData.raw.img = [];
+    
+    % cd to the appropriate directory
+    dir_start = pwd;
+    cd(cellFillData.fpath)
+    
+    % create a new .mat file name
+    fname_out = ['layered_cellFillData_', cellFillData.raw.info.shortName, '.mat'];
+    
+    % export the data with the new file name
+    uisave('cellFillData', fname_out)
+    
+    % cd back to the original directory, and reset the value of the
+    % uibutton to zero
+    cd(dir_start)
+    set(varargin{1}, 'value', 0)
+    
+end
+
+
+function gui_initialize(raw, mask, fpath)
     
     % for the main GUI window
     h.fig.main = figure;
@@ -62,28 +82,28 @@ function gui_initialize(raw, mask)
                          'string', 'L1 to L2/3',...
                          'Position', [0.1, 0.9, 0.40, 0.05],...
                          'BackgroundColor', [0.7 0.7 0.7],...
-                         'Callback', {@mask_defineBoundary});
+                         'Callback', {@mask_defineBoundary, 'boundary1'});
     
     h.gui.boundary2 = uicontrol('style', 'togglebutton',...
                          'units', 'normalized',...
                          'string', 'L2/3 to L4',...
                          'Position', [0.1, 0.78, 0.40, 0.05],...
                          'BackgroundColor', [0.7 0.5 0.5],...
-                         'Callback', {@mask_defineBoundary});
+                         'Callback', {@mask_defineBoundary, 'boundary2'});
                      
     h.gui.boundary3 = uicontrol('style', 'togglebutton',...
                          'units', 'normalized',...
                          'string', 'L4 to L5',...
                          'Position', [0.1, 0.66, 0.40, 0.05],...                         
                          'BackgroundColor', [0.5 0.7 0.5],...
-                         'Callback', {@mask_defineBoundary});
+                         'Callback', {@mask_defineBoundary, 'boundary3'});
                      
     h.gui.boundary4 = uicontrol('style', 'togglebutton',...
                          'units', 'normalized',...
                          'string', 'Bottom of Cortex',...
                          'Position', [0.1, 0.54, 0.40, 0.05],...                         
                          'BackgroundColor', [0.5 0.5 0.7],...
-                         'Callback', {@mask_defineBoundary});
+                         'Callback', {@mask_defineBoundary, 'boundary4'});
     
    % define buttons to change the color chanel viewed on the raw data and
    % which focal plane is visible.
@@ -92,22 +112,24 @@ function gui_initialize(raw, mask)
    h.gui.slider = uicontrol('style', 'slider',...
                          'units', 'normalized',...
                          'position', [0.2, 0.24, 0.6, 0.03],...
-                         'Callback', {@gui_updateRawImg},...
                          'Value', defaultFocalPlane,...
                          'max', nFocalPlanes,...
                          'min', 1,...
                          'SliderStep', [1./nFocalPlanes, 1./nFocalPlanes.*5]);
+   
+   % make a listener for the slider that will enable smooth control
+   h.gui.sliderListen = addlistener(h.gui.slider, 'Value', 'PostSet',@(x,y) gui_updateRawImg(nan,nan,h.fig.main));
                     
    h.gui.colorChannel = uicontrol('style', 'listbox',...
                           'units', 'normalized',...
                           'position', [0.3, 0.33, 0.4, 0.13],...
                           'string', {'Red', 'Green', 'Blue'},...
                           'value', 2,...
-                          'Callback', {@gui_updateRawImg});
+                          'Callback', {@gui_updateRawImg, h.fig.main});
                       
                       
    % a button for exporting the data
-   h.gui.boundary4 = uicontrol('style', 'togglebutton',...
+   h.gui.export = uicontrol('style', 'togglebutton',...
                          'units', 'normalized',...
                          'string', 'Export Data',...
                          'Position', [0.25, 0.1, 0.50, 0.08],...
@@ -116,7 +138,6 @@ function gui_initialize(raw, mask)
    
    % display the raw image and the mask
    h.fig.mask = figure;
-   set(gcf, 'position', [546 19 289 660])
    proj = max(mask.img,[],3);
    h.mask.proj = imshow(proj./max(proj(:)));
    hold on
@@ -126,22 +147,23 @@ function gui_initialize(raw, mask)
    h.mask.boundLine2 = plot(nan, nan, 'r--', 'linewidth', 3);
    h.mask.boundLine3 = plot(nan, nan, 'g--', 'linewidth', 3);
    h.mask.boundLine4 = plot(nan, nan, 'b--', 'linewidth', 3);
+   set(gcf, 'position', [487 4 360 681])
    
    
    h.fig.raw = figure;
-   set(gcf, 'position', [174    16   289   660])
    h.raw.img = imshow(raw.img(:,:,defaultFocalPlane,2)./255);
    hold on,
    h.raw.boundLine1 = plot(nan, nan, 'w--', 'linewidth', 3);
    h.raw.boundLine2 = plot(nan, nan, 'r--', 'linewidth', 3);
    h.raw.boundLine3 = plot(nan, nan, 'g--', 'linewidth', 3);
    h.raw.boundLine4 = plot(nan, nan, 'b--', 'linewidth', 3);
-   
+   set(gcf, 'position', [110 4 354 681])
    
    % set the user data field in the main gui window
    udat.raw = raw;
    udat.mask = mask;
    udat.h = h;
+   udat.fpath = fpath;
    set(h.fig.main, 'userdata', udat)
    
 end
@@ -149,7 +171,7 @@ end
 function gui_updateRawImg(varargin)
 
     % grab the udata
-    udat = get(gcf, 'userdata');
+    udat = get(varargin{3}, 'userdata');
     
     % define the focal plane and color channel
     colorChannel = get(udat.h.gui.colorChannel, 'value');
@@ -161,8 +183,73 @@ function gui_updateRawImg(varargin)
     
 end
 
+function mask_defineBoundary(varargin)
+    
+    % grab the user data
+    udat = get(gcf, 'userdata');
+    
+    % which boundary is this supposed to be?
+    boundary = varargin{3};
+    
+    % grab two points using ginput. make sure to force the raw image to be
+    % the current axes
+    figure(udat.h.fig.raw);
+    [x,y] = ginput(2);
+    
+    % define a slope and y intercept based off the 2 points
+    m = diff(y)./diff(x);
+    b = y(1) - (m.*x(1));
+    
+    % push these values into the appropriate field of the udat
+    udat.raw.(boundary).m = m;
+    udat.raw.(boundary).b = b;
+    
+    % reset the uibutton
+    set(varargin{1}, 'value', 0);
+    
+    % reset the user data
+    set(udat.h.fig.main, 'userdata', udat);
+    
+    % refresh the laminar boundaries on the mask and raw images
+    mask_drawLaminarBoundaries(udat);
+
+end
 
 
+function mask_drawLaminarBoundaries(udat)
+    
+    
+    boundType = {'boundary1', 'boundary2', 'boundary3', 'boundary4'};
+    boundHand = {'boundLine1', 'boundLine2', 'boundLine3', 'boundLine4'};
+    for a = 1:numel(boundType)
+        
+       % make sure the slope and intercept are defined
+       if ~isfield(udat.raw, boundType{a})
+           continue
+       end
+       
+       % define a domain, and calculate the yvals
+       x = [1, size(udat.raw.img, 2)];
+       m = udat.raw.(boundType{a}).m;
+       b = udat.raw.(boundType{a}).b;
+       y = m.*x + b;
+       
+       % update the line in the raw image
+       figure(udat.h.fig.raw)
+       set(udat.h.raw.(boundHand{a}), 'xdata', x, 'ydata', y)
+       
+       % update the line on the mask
+       figure(udat.h.fig.mask)
+       set(udat.h.mask.(boundHand{a}), 'xdata', x, 'ydata', y)
+       
+    end
+    
+    
+    
+    
+    
+    
+end
 
 
 
