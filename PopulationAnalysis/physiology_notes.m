@@ -1213,12 +1213,12 @@ if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
 end
 
 
-% extra analysis for this pair of cells
-peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
-peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
-figure, hold on,
-plot(peak_pA_HS1, '-k.')
-plot(peak_pA_HS2, '-b.')
+% % extra analysis for this pair of cells
+% peak_pA_HS1 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{1});
+% peak_pA_HS2 = cellfun(@mean, params.ivdat.NMDAR.peakBySweep_pA{2});
+% figure, hold on,
+% plot(peak_pA_HS1, '-k.')
+% plot(peak_pA_HS2, '-b.')
 
 
 
