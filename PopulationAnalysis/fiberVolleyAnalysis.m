@@ -116,7 +116,7 @@ ax.ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
 chIdx = ax.control.idx.HS2_Im;
 
 
-%%
+%% AK_141103_A Site 2 & 3
 
 fin
 
