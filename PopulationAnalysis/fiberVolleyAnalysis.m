@@ -4,15 +4,15 @@
 
 fin
 
-% % 5 Hz data
-% ax.control = abfobj('2014_06_25_0008');
-% ax.synapticBlockers = abfobj('2014_06_25_0010');
-% ax.ttx = abfobj('2014_06_25_0012');
+% 5 Hz data
+ax.control = abfobj('2014_06_25_0008');
+ax.synapticBlockers = abfobj('2014_06_25_0010');
+ax.ttx = abfobj('2014_06_25_0012');
 
-% 20 Hz data
-ax.control = abfobj('2014_06_25_0007');
-ax.synapticBlockers = abfobj('2014_06_25_0009');
-ax.ttx = abfobj('2014_06_25_0011');
+% % 20 Hz data
+% ax.control = abfobj('2014_06_25_0007');
+% ax.synapticBlockers = abfobj('2014_06_25_0009');
+% ax.ttx = abfobj('2014_06_25_0011');
 chIdx = ax.control.idx.HS2_Im;
 
 %% EB_060314_A site 1  CHR2
@@ -116,16 +116,48 @@ ax.ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
 chIdx = ax.control.idx.HS2_Im;
 
 
-%% AK_141103_A Site 2 & 3
+
+
+%% AK_141103_A Site 1
 
 fin
 
-% 20 Hz FS open
-ax.control = abfobj('2014_11_18_0006');
-ax.cadmium = abfobj('2014_11_18_0007');
-ax.synapticBlockers = abfobj('2014_11_18_0008');
-ax.ttx = abfobj('2014_11_18_0009');
+% 5 Hz FS open
+ax.control = abfobj('2014_11_18_0001');
+
+ax.cadmium = abfobj('2014_11_18_0002');
+ax.cadmium = ax.cadmium.removeSweeps([1:20]); % CdCl comes in on sweep 6, stable at sweep 20
+
+ax.synapticBlockers = abfobj('2014_11_18_0003');
+
+ax.ttx = abfobj('2014_11_18_0004');
+
 chIdx = ax.control.idx.HS2_Im;
+
+
+
+%% AK_141103_A Site 2 & 3
+
+% notes:
+%
+% 20 Hz FS open
+%
+% be sure to look at both channels
+
+fin
+
+
+ax.control = abfcat(3, {'2014_11_18_0005', '2014_11_18_0006'});
+
+ax.cadmium = abfobj('2014_11_18_0007');
+ax.cadmium = ax.cadmium.removeSweeps([1:20]); % CdCl comes in on sweep 6, stable at sweep 20
+
+ax.synapticBlockers = abfobj('2014_11_18_0008');
+
+ax.ttx = abfobj('2014_11_18_0009');
+
+chIdx = ax.control.idx.HS2_Im; 
+
 
 
 %% Do the analysis
@@ -134,10 +166,16 @@ close all
 
 sampFreq = ax.control.head.sampRate;
 tt = (0:size(ax.control.dat, 1)-1) ./ sampFreq .* 1000;
-filter.Freqs = 400;
-filter.Type = 'low';
-filter.windowSize = sampFreq .* 0.300;
-filter.stepSize = sampFreq .* 0.100;
+
+filter.lp_freqs = 300;
+filter.cnx_winsize = sampFreq .* 0.300;
+filter.cnx_stepsize = sampFreq .* 0.050;
+
+% stuff for notch filter
+wo = 60/(sampFreq/2);  bw = wo/150;
+[b,a] = iirnotch(wo,bw);
+filter.notch_a = a;
+filter.notch_b = b;
 
 % figure out when the pulses came on:
 thresh = 0.05;
@@ -147,8 +185,8 @@ pulseOnset = find(crossings==1, 1, 'first');
 tt = tt-tt(pulseOnset);
 
 
-% mean subtract and filter. store the data in a new structure called "raw"
-raw = [];
+% mean subtract and filter. store the data in a new structure called "trace"
+trace = [];
 exptCond = {'control', 'synapticBlockers', 'ttx', 'cadmium'};
 for a = 1:numel(exptCond)
     
@@ -156,19 +194,26 @@ for a = 1:numel(exptCond)
         continue
     end
     
-    % grab the raw data and baseline subtract
+    
+    
+    % grab the raw data
     tmp = ax.(exptCond{a}).dat(:, chIdx,:); % grab the raw data
     tmp = squeeze(tmp);
+    
+    % baseline subtract
     tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
     
     % locally detrend
     trendless = locdetrend(tmp, sampFreq);
     
     % filter out the high frequency stuff
-    filtered = butterfilt(trendless, filter.Freqs, sampFreq, filter.Type, 1);
+    filtered = butterfilt(trendless, filter.lp_freqs, sampFreq, 'low', 1);
+    
+    % try to reduce 60 cycle noise
+   % filtered = filtfilt(filter.notch_b, filter.notch_a, filtered);
     
     % take the mean
-    raw.(exptCond{a}) = mean(filtered,2);
+    trace.(exptCond{a}) = mean(filtered,2);
     
 end
 
@@ -176,56 +221,29 @@ end
 
 
 
-glutamateOnly = raw.control - raw.synapticBlockers;
-fiberVolley = raw.synapticBlockers - raw.ttx;
+trace.glutamateOnly = trace.control - trace.synapticBlockers;
+trace.fiberVolley = trace.synapticBlockers - trace.ttx;
 
-
-
-figure
-set(gcf, 'position', [28 296 1375 506])
-plot(tt, raw.control, 'k', 'linewidth', 3)
-%xlim(xlims)
-xlabel('time (sec)')
-ylabel('LFP amplitude')
-title('Control Condition')
-axis tight
-
-
-figure
-set(gcf, 'position', [28 296 1375 506])
-plot(tt, raw.synapticBlockers, 'k', 'linewidth', 3)
-xlabel('time (sec)')
-ylabel('LFP amplitude')
-title('With Synaptic Blockers')
-axis tight
-
-
-figure
-set(gcf, 'position', [28 296 1375 506])
-plot(tt, raw.ttx, 'k', 'linewidth', 3)
-xlabel('time (sec)')
-ylabel('LFP amplitude')
-title('With TTX')
-axis tight
-
-
-figure
-set(gcf, 'position', [28 296 1375 506])
-plot(tt, glutamateOnly, 'k', 'linewidth', 3)
-xlabel('time (sec)')
-ylabel('LFP amplitude')
-title('LFP due to synaptic transmission')
-axis tight
-
-
-figure, hold on,
-set(gcf, 'position', [28 296 1375 506])
-plot(tt, fiberVolley, 'k', 'linewidth', 3)
-plot(tt(crossings), zeros(1, sum(crossings)), 'or', 'markerfacecolor', 'r')
-xlabel('time (sec)')
-ylabel('LFP amplitude')
-title('LFP due to fiber volley')
-axis tight
+%
+% plot the results
+%
+exptCond = {exptCond{:}, 'glutamateOnly', 'fiberVolley'};
+for a = 1:numel(exptCond)
+    
+    if ~isfield(trace, exptCond{a})
+        continue
+    end
+    
+    figure, hold on,
+    set(gcf, 'position', [28 296 1375 506], 'name', exptCond{a})
+    plot(tt, trace.(exptCond{a}), 'k', 'linewidth', 3)
+    plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
+    xlabel('time (sec)')
+    ylabel('LFP amplitude')
+    title(exptCond{a})
+    axis tight
+    
+end
 
 
 

@@ -35,11 +35,18 @@ for a = 2:numel(ax)
     
     if all([protocolMatch, chUnitsMatch, chNamesMatch])
         
-        % the file in question passed the initial test, but now consider
-        % holding potential:
+        % find Vclamp channels
         rec_pA = strcmpi(ax{a}.head.recChUnits, 'pa');
         sec_ch = cellfun(@(x) ~isempty(x), regexpi(ax{a}.head.recChNames, 'sec'));
         vclamp_channel = rec_pA & ~sec_ch; % voltage clamp records current (pA) on the primary channel
+        
+        
+        %
+        % Checks for voltage clamp experiemnts
+        %
+        % the file in question passed the initial test, but now consider
+        % holding potential
+        %
         if any(vclamp_channel)
             rec_mV = strcmpi(ax{a}.head.recChUnits, 'mv');
             vclamp_monitor = rec_mV & sec_ch; % vclamp monitor records voltage (mV) on the secondary channel
@@ -54,15 +61,36 @@ for a = 2:numel(ax)
                 warning('Holding potentials might not be identical')
                 holdingMatch = true;
             end
+            
+            if all(holdingMatch)
+                vclampcheck = true;
+            else
+                vclampcheck = false;
+            end
+        else
+            vclampcheck = true;
         end
         
-        if all(holdingMatch)
+        
+        %
+        % Checks for current clamp experiemnts
+        %
+        % the file in question passed the initial test, but now consider
+        % holding potential
+        %
+        
+        %%% nothing yet %%%
+        iclampcheck = true;
+        
+        
+        % if everything checks out, smash the two files together.
+        if vclampcheck && iclampcheck
             out.dat = cat(catdim, out.dat, ax{a}.dat);
             out.wf = cat(catdim, out.wf, ax{a}.wf);
         end
     end
     
-    if ~all([protocolMatch, chUnitsMatch, chNamesMatch]) || ~all(holdingMatch)
+    if ~all([protocolMatch, chUnitsMatch, chNamesMatch, iclampcheck, vclampcheck])
         fprintf('File <%s> was not included \n', varargin{a})
         keyboard
     end

@@ -69,8 +69,15 @@ classdef abfobj
         
         function obj = removeSweeps(obj, idx)
             
+            %error checking
             assert(size(obj.dat,3)>1, 'ABFOBJ ERROR: only one sweep present, nothing to delete')
-            obj.dat(:,:,idx) = [];
+            
+            % make a logical vector
+            newidx = true(1,size(obj.dat,3));
+            newidx(idx) = false;
+            
+            obj.dat = obj.dat(:,:,newidx);
+            obj.wf = obj.wf(:,:,newidx);
         end
         
         function out = getvals(obj, ch, sweep, timeStart, timeEnd)

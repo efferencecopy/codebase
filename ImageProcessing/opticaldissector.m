@@ -105,7 +105,7 @@ function gui_initialize(raw)
     
                         
     % add an axis for a slice through the vertical dimension
-    h.ax_sliceVert = axes('position', [.27, 0.02, .2, .96]);
+    h.ax_sliceVert = axes('position', [.30, 0.02, .2, .96]);
     gl.Xplane = round(raw.info.Width/2); % default starting slice is in the middle
     gl.sliceExapandScalar = ceil(50./raw.info.Nframes);
     vertSlice = squeeze(raw.img(:, gl.Xplane, :));
@@ -118,7 +118,7 @@ function gui_initialize(raw)
 
     
     % add an axis for a slice through the horizontal dimension
-    h.ax_sliceHoriz = axes('position', [0.45, 0.50, .3, .31]);
+    h.ax_sliceHoriz = axes('position', [0.47, 0.50, .3, .31]);
     gl.Yplane = round(raw.info.Height/2); % default starting slice is in the middle
     horizSlice = squeeze(raw.img(gl.Yplane,:, :));
     horizSlice = repmat(horizSlice, gl.sliceExapandScalar, 1);
@@ -127,6 +127,15 @@ function gui_initialize(raw)
                             'parent', h.ax_sliceHoriz,...
                             'colormap', raw.clrmap);
     set(h.img_sliceHoriz, 'ButtonDownFcn', {@gui_horzSliceImgClick});
+    
+    
+    % add a button to mark a filled region as multiple cells
+    h.multipleCells = uicontrol('style', 'togglebutton',...
+                                'units', 'normalized',...
+                                'string', 'Multiple Cells',...
+                                'Position', [0.47, 0.265, 0.2 0.05],...
+                                'Callback', {@mask_markAsMultiple});
+    
     
     % add a button to save the data and dump the result onto the command
     % window
@@ -144,10 +153,14 @@ function gui_initialize(raw)
     
 end
 
-function gui_updateImages()
+function gui_updateImages(h_main)
     
     % grab stuff from the user data field
-    udat = get(gcf, 'userdata');
+    if exist('h_main', 'var')
+        udat = get(h_main, 'userdata');
+    else
+        udat = get(gcf, 'userdata');
+    end
     Xidx = udat.gl.Xplane;
     Yidx = udat.gl.Yplane;
     Zidx = udat.gl.Zplane;
@@ -445,6 +458,133 @@ function mask_removeLastCell()
     set(gcf, 'userdata', udat);
     gui_updateImages
     
+end
+
+function mask_markAsMultiple(varargin)
+    
+    % grab the user data
+    udat = get(gcf, 'userdata');
+    
+    % assume that the cell(s) in question were the last ones filled, so
+    % they should have the highest number in the mask. Make a new 3D mask
+    % that's a binary mask with ones where the cell(s) of interest is located
+    if ~isfield(udat.mask, 'Ncells') || udat.mask.Ncells == 0
+        fprintf('No cells have been filled yet \n')
+        return
+    end
+    orig_mask = udat.mask.img == udat.mask.Ncells;
+    
+    % hack off all the things you don't care about
+    linIdx = find(orig_mask(:) > 0);
+    [x,y,z] = ind2sub(size(orig_mask), linIdx);
+    xmin = max([0, min(x)-10]);
+    xmax = min([size(orig_mask,1), max(x)+10]);
+    ymin = max([0, min(y)-10]);
+    ymax = min([size(orig_mask,2), max(y)+10]);
+    zmin = max([0, min(z)-4]);
+    zmax = min([size(orig_mask,3), max(z)+4]);
+    tmp_mask = orig_mask(xmin:xmax, ymin:ymax, zmin:zmax);
+    
+    % alert the user that this could take some time
+    fprintf('*** Entering automated segmentation routine *** \n')
+    fprintf('*** This could take upto 1 minute to complete *** \n')
+    
+    
+    % present the before image
+    h_check = figure;
+    subplot(1,2,1)
+    [x,y,z] = meshgrid(1:size(tmp_mask,2), 1:size(tmp_mask,1), 1:size(tmp_mask,3));
+    isosurface(x,y,z,tmp_mask,0.9), 
+    axis equal, title('Before')
+    xlabel x, ylabel y, zlabel z
+    view(3), camlight, lighting gouraud
+    
+    % work on the watershed analysis
+    D = bwdist(~tmp_mask); % compute the distance transform...
+    se = strel('ball', 4, 4);
+    D = imerode(D, se);
+    se = strel('ball', 7, 7);
+    D = imdilate(D, se);
+    D = -D;    
+    D(~tmp_mask) = -Inf;
+    L = watershed(D);
+    
+    % scan for stuff that's too small to be a cell
+    objects = unique(L(:));
+    objects = objects(objects>1);
+    l_valid = false(numel(objects),1);
+    cellSize = 125;
+    for a = 1:numel(objects)
+        sz = sum(L(:) == objects(a));
+        l_valid(a) = (sz > cellSize);
+    end
+    objects = objects(l_valid);
+    
+    
+    subplot(1,2,2)
+    clrval = linspace(0.7, 0.99, numel(objects));
+    for a = 1:numel(objects)
+        isosurface(x,y,z,L==objects(a),clrval(a))
+    end
+    axis equal
+    title('Segmented objects')
+    xlabel x, ylabel y, zlabel z
+    view(3), camlight, lighting gouraud
+    drawnow
+    
+    % user input
+    h_accept = uicontrol('style', 'togglebutton',...
+            'units', 'normalized',...
+            'string', 'Accept',...
+            'Position', [0.55, 0.05, 0.1 0.05],...
+            'ButtonDownFcn', {@set_returnval, 'accept'});
+    
+    h_reject = uicontrol('style', 'togglebutton',...
+            'units', 'normalized',...
+            'string', 'Reject',...
+            'Position', [0.7, 0.05, 0.1 0.05],...
+            'ButtonDownFcn', {@set_returnval, 'reject'});
+    drawnow
+    
+    % helper function
+    function decision = set_returnval(varargin)
+        keyboard
+        decision = varargin{3};
+    end
+
+    decision = 'lk';
+    disp(decision)
+    
+    switch decision
+        case 'accept'
+            
+            % delete the representation in the old mask
+            idx = udat.mask.img == udat.mask.Ncells;
+            udat.mask.img(idx) = 0;
+            udat.mask.Ncells = udat.mask.Ncells-1;
+            
+            for a = 1:numel(objects)
+                udat.mask.Ncells = udat.mask.Ncells + 1;
+                udat.mask.img(L==objects(a)) = udat.mask.Ncells;
+            end
+            
+        case 'reject'
+            
+            % for now, just delete that region from the mask
+            idx = udat.mask.img == udat.mask.Ncells;
+            udat.mask.img(idx) = 0;
+            udat.mask.Ncells = udat.mask.Ncells-1;
+            
+    end
+    
+    
+   % apply the changes
+   set(udat.h.main, 'userdata', udat);
+   
+   % update the gui
+   gui_updateImages(udat.h.main);
+   
+
 end
 
 function tmpmask = mask_regionFill(udat, cellmask, mean_inside)

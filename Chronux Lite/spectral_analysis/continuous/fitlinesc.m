@@ -63,12 +63,14 @@ if nargin < 5; f0=[]; end;
 params.tapers=dpsschk(tapers,N,Fs); % calculate the tapers
 [Fval,A,f,sig] = ftestc(data,params,p,plt);
 if isempty(f0);
-   fmax=findpeaks(Fval,sig);
+   
+   fmax=findpeaks(Fval,sig)
+   
    freqs=cell(1,C);
    Amps=cell(1,C);
    datafit=data;
    for ch=1:C;
-       fsig=f(fmax(ch).loc);
+       fsig=f(floc(:,ch));
        freqs{ch}=fsig;
        Amps{ch}=A(fmax(ch).loc,ch);
        Nf=length(fsig);
