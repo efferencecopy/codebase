@@ -24,7 +24,9 @@ function opticaldissector(tiffstack, colorchannel)
     mask_update()
 
 
-
+    % clear the command window b/c the gui is going to print out a bunch of
+    % text
+    clc
 
 end % main function
 
@@ -80,6 +82,44 @@ function io_exportData(varargin)
     
 end
 
+function io_importSavedMask(varargin)
+    
+    % grab the user data
+    udat = get(gcf, 'userdata');
+    set(udat.h.importMask, 'value', 0);
+    
+    % allow the user to specify a pre-existing mask file, which will be a
+    % .mat file
+    [filename, pathname] = uigetfile({'*.mat'}, 'Pick a mask file');
+    if ~filename
+        return
+    end
+    
+    % loads a structure called "cellFillData" which should contain the
+    % saved mask;
+    load([pathname, filesep, filename]); 
+    
+    % grab the saved mask and do a quick check
+    savedMask = cellFillData.mask.img;
+    savedNCells = cellFillData.mask.Ncells;
+    sz_saved = size(savedMask);
+    sz_current = size(udat.mask.img);
+    assert(all(sz_saved == sz_current), 'ERROR: Saved mask is the wrong size');
+    
+    % overwrite the current mask data
+    udat.mask.img = savedMask;
+    udat.mask.Ncells = savedNCells;
+    
+    % set the udat and replot the main gui window
+    set(udat.h.main, 'userdata', udat);
+    gui_updateImages(udat.h.main);
+    
+    % display some text
+    fprintf('Imported pre-existing mask with %d cells\n', udat.mask.Ncells);
+    
+    
+end
+
 
 
 function gui_initialize(raw)
@@ -88,7 +128,7 @@ function gui_initialize(raw)
     h.main = figure;
     set(h.main, 'name', sprintf('Optical Dissector'),...
                 'units', 'normalized',...
-                'position', [0.2, 0, 0.6, 1],...
+                'position', [0.2660 0.0356 0.6 0.89],...
                 'windowkeypressfcn', {@gui_keypress})
             
     % useful constants    
@@ -144,6 +184,29 @@ function gui_initialize(raw)
                          'string', 'Export Data',...
                          'Position', [0.72, 0.265, 0.20, 0.05],...
                          'Callback', {@io_exportData});
+                     
+    % add a button to import a previously saved mask file
+    h.importMask = uicontrol('style', 'togglebutton',...
+                         'units', 'normalized',...
+                         'string', 'Import Mask',...
+                         'Position', [0.47, 0.20, 0.20, 0.05],...
+                         'Callback', {@io_importSavedMask});
+                     
+    % add a button to quickly check your work
+    h.quickCheck = uicontrol('style', 'togglebutton',...
+                         'units', 'normalized',...
+                         'string', 'Quick Check',...
+                         'Position', [0.72, 0.20, 0.20, 0.05],...
+                         'Callback', {@mask_quickCheck}); 
+                     
+    % add a little text box for an online cell counter
+    h.cellCounter = uicontrol('style', 'text',...
+                              'units', 'normalized',...
+                              'string', 'Cell Count: 0',...
+                              'fontsize', 14,...
+                              'position', [0.58, 0.12, 0.2, 0.05],...
+                              'BackgroundColor', get(h.main, 'color'));
+    
                         
     % package the relevant info into the user data field
     udat.gl = gl;
@@ -166,7 +229,7 @@ function gui_updateImages(h_main)
     Zidx = udat.gl.Zplane;
     maxX = udat.raw.info.Width;
     maxY = udat.raw.info.Height;
-    maxdac = 255;
+    maxdac = udat.raw.info.MaxSampleValue(1);
     
     % make an RGB version of the image, but scale certian pixels according
     % to the cell mask
@@ -203,6 +266,11 @@ function gui_updateImages(h_main)
     end
     set(udat.h.img_sliceHoriz, 'CData', horiz)
 
+    
+    % update the online counter
+    msg = sprintf('Cell Count:  %d', udat.mask.Ncells);
+    set(udat.h.cellCounter, 'string', msg);
+    
 end
 
 function gui_getNewFocalPlane(h_slice, ~) % currently unused.
@@ -436,6 +504,42 @@ gui_updateImages
 
 end
 
+function mask_quickCheck(varargin)
+    
+    % grab the udat
+    udat = get(gcf, 'userdata');
+    set(udat.h.quickCheck, 'value', 0);
+    
+    % some useful info
+    maxX = udat.raw.info.Width;
+    maxY = udat.raw.info.Height;
+    maxdac = udat.raw.info.MaxSampleValue(1);
+    
+    
+    % project all the cells down the z dimension. Do the same with the mask
+    proj_raw = max(udat.raw.img, [], 3);
+    proj_mask = max(udat.mask.img, [], 3);
+    
+    % make an RGB version of the image, but scale certian pixels according
+    % to the cell mask
+    clr = [1 0.7 0.7];
+    maskvect = proj_mask > 0;
+    rgbimg = nan(maxY, maxX, 3);
+    for a = 1:3
+        tmp = proj_raw./maxdac;
+        tmp = tmp(:);
+        tmp(maskvect(:)) = tmp(maskvect(:)).* clr(a);
+        rgbimg(:,:,a) = reshape(tmp, maxY, maxX);
+    end
+    
+    % Display the result
+    h_check = figure;
+    imshow(rgbimg)
+    set(h_check, 'position', [16 5 376 797], 'toolBar', 'none')
+    
+    
+end
+
 function mask_removeLastCell()
 
     % grab the udat
@@ -470,6 +574,7 @@ function mask_markAsMultiple(varargin)
     % that's a binary mask with ones where the cell(s) of interest is located
     if ~isfield(udat.mask, 'Ncells') || udat.mask.Ncells == 0
         fprintf('No cells have been filled yet \n')
+        set(udat.h.multipleCells, 'value', 0) 
         return
     end
     orig_mask = udat.mask.img == udat.mask.Ncells;
@@ -487,11 +592,12 @@ function mask_markAsMultiple(varargin)
     
     % alert the user that this could take some time
     fprintf('*** Entering automated segmentation routine *** \n')
-    fprintf('*** This could take upto 1 minute to complete *** \n')
+    fprintf('*** This could take up to 1 minute to complete *** \n')
     
     
     % present the before image
     h_check = figure;
+    set(h_check, 'position', [562 160 784 636])
     subplot(1,2,1)
     [x,y,z] = meshgrid(1:size(tmp_mask,2), 1:size(tmp_mask,1), 1:size(tmp_mask,3));
     isosurface(x,y,z,tmp_mask,0.9), 
@@ -537,52 +643,162 @@ function mask_markAsMultiple(varargin)
             'units', 'normalized',...
             'string', 'Accept',...
             'Position', [0.55, 0.05, 0.1 0.05],...
-            'ButtonDownFcn', {@set_returnval, 'accept'});
+            'Callback', {@set_returnval});
     
     h_reject = uicontrol('style', 'togglebutton',...
             'units', 'normalized',...
             'string', 'Reject',...
             'Position', [0.7, 0.05, 0.1 0.05],...
-            'ButtonDownFcn', {@set_returnval, 'reject'});
+            'Callback', {@set_returnval});
+        
+    h_manual = uicontrol('style', 'togglebutton',...
+            'units', 'normalized',...
+            'string', 'Maunual Entry',...
+            'Position', [0.85, 0.05, 0.1 0.05],...
+            'Callback', {@set_returnval});
+        
     drawnow
+    rotate3d on;
     
     % helper function
-    function decision = set_returnval(varargin)
-        keyboard
-        decision = varargin{3};
+    function set_returnval(varargin)
+        set(h_check, 'name', 'resolved');
+    end
+    
+    % wait for the user to push one of the two buttons. This is important
+    % b/c we don't want the user to make any more dicisions in the main gui
+    % window until this issue is resolved.
+    waitfor(h_check, 'name', 'resolved');
+    
+    % now figure out which button they pressed.
+    assert(sum([get(h_accept, 'value'), get(h_reject, 'value'), get(h_manual, 'value')]) == 1,...
+            'ERROR: Please enter only one selection... unsure how this happened... Cells were not added or deleted');
+        
+    if get(h_accept, 'value')
+        decision = 'accept';
+    elseif get(h_reject, 'value')
+        decision = 'reject';
+    elseif get(h_manual, 'value')
+        decision = 'manual';
+    else
+        error('Unknown selection')
     end
 
-    decision = 'lk';
-    disp(decision)
-    
+
+    % now deal with the decision
     switch decision
         case 'accept'
             
-            % delete the representation in the old mask
-            idx = udat.mask.img == udat.mask.Ncells;
-            udat.mask.img(idx) = 0;
+            % provide some feedback to the user
+            fprintf('Accepted: %d new cell(s) added\n', numel(objects))
+            
+            % delete the representation in the old mask, but don't disturb
+            % the other pixels. Turning the tmp_mask back into a 'double'
+            % is important because it starts out as a logical, and logical
+            % arrays can only have 1 and 0, but I want each cloud of cells
+            % to have different integers.
+            tmp_mask = udat.mask.img(xmin:xmax, ymin:ymax, zmin:zmax);
+            idx = tmp_mask == udat.mask.Ncells;
+            tmp_mask(idx) = 0;
+            
+            % reduce the cell count back down by 1
             udat.mask.Ncells = udat.mask.Ncells-1;
             
+            % update the tmp_mask (which is a subset of the orig_mask)
             for a = 1:numel(objects)
                 udat.mask.Ncells = udat.mask.Ncells + 1;
-                udat.mask.img(L==objects(a)) = udat.mask.Ncells;
+                tmp_mask(L==objects(a)) = udat.mask.Ncells;
+                fprintf('  Adding cell #%d\n', udat.mask.Ncells)
             end
             
+            % put the tmp_mask back into the original mask
+            udat.mask.img(xmin:xmax, ymin:ymax, zmin:zmax) = tmp_mask;
+            
+            
+        case 'manual'
+            
+            % promp the user to specify how many cells are present
+            prompt={'How many cells are present?'};
+            name='Manual Entry For Multiple Cells';
+            numlines=1;
+            answer = inputdlg(prompt,name,numlines);
+            answer = str2double(answer);
+            fprintf('Manual Entry: %d new cell(s) added\n', answer)
+            
+            % use the original cell volume, but fill it up with multiple
+            % integers (one for each "cell"). This will mean that multiple
+            % cells with fill the exact same valume. This is a hack, but
+            % allows the program to count multiple cells even when the
+            % region filling algorithm doesn't work well AND the automated
+            % routine to split cells doesn't work either.
+            tmp_mask = udat.mask.img(xmin:xmax, ymin:ymax, zmin:zmax);
+            sz_mask = size(tmp_mask);
+            tmp_mask = tmp_mask(:); % for linear indexing
+            idx = find(tmp_mask == udat.mask.Ncells);
+            [r,c,z] = ind2sub(sz_mask, idx);
+            
+            % reset the cell counter
+            udat.mask.Ncells = udat.mask.Ncells-1;
+            
+            % re-fill the original cell volume with the appropriate number
+            % of cells
+            if answer == 0
+                tmp_mask(idx) = 0;
+                fprintf('Manual Entry: previously selected cell has been deleted\n')
+                
+            else
+                
+                % try to maintain the footprint in the xy dims and divide
+                % the volume through the z dim
+                assert(numel(unique(z)) > answer, 'ERROR: you asked for more cells than can be accomodated in this volume')
+                
+                zPlanes = unique(z);
+                zPlanes = round(linspace(zPlanes(1), zPlanes(end), answer+1));
+                assert( numel(unique(zPlanes))-1 == answer, 'ERROR: sub-dividing through the z-dim has failed')
+                
+                
+                % update cell counter, provide feedback, and adjust the
+                % entries in the cell volume
+                for a = 1:answer
+                    udat.mask.Ncells = udat.mask.Ncells+1;
+                    fprintf('  Adding cell #%d\n', udat.mask.Ncells);
+                    
+                    l_pix = (z >= zPlanes(a)) & (z <= zPlanes(a+1));
+                    tmp_mask(idx(l_pix)) = udat.mask.Ncells;
+                end
+                
+            end
+            
+            % put the tmp_mask back into the original mask
+            tmp_mask = reshape(tmp_mask, sz_mask);
+            udat.mask.img(xmin:xmax, ymin:ymax, zmin:zmax) = tmp_mask;
+            
+            
+            
         case 'reject'
+            
+            % provide some feedback to the user
+            fprintf('Rejected: cell #%d deleted from mask\n', udat.mask.Ncells)
             
             % for now, just delete that region from the mask
             idx = udat.mask.img == udat.mask.Ncells;
             udat.mask.img(idx) = 0;
             udat.mask.Ncells = udat.mask.Ncells-1;
-            
+           
     end
     
+    
+   % close the h_check figure, and reset the 'multiple cells' button on the
+   % main gui window
+   close(h_check) 
+   set(udat.h.multipleCells, 'value', 0) 
     
    % apply the changes
    set(udat.h.main, 'userdata', udat);
    
    % update the gui
    gui_updateImages(udat.h.main);
+   
    
 
 end
@@ -688,15 +904,9 @@ end
 %
 % 3) standard size of window for slices
 %
-% 4) incrase size of main window
-%
-% 5) select cells in "slice" windows
-%
 % 6) targeted delete
 %
 % 7) indicators on marigins to aid in navigation.
-%
-% 8) slice selection with arrow keys?
 
 
 
