@@ -477,11 +477,11 @@ function mask_markAsMultiple(varargin)
     % hack off all the things you don't care about
     linIdx = find(orig_mask(:) > 0);
     [x,y,z] = ind2sub(size(orig_mask), linIdx);
-    xmin = max([0, min(x)-10]);
+    xmin = max([1, min(x)-10]);
     xmax = min([size(orig_mask,1), max(x)+10]);
-    ymin = max([0, min(y)-10]);
+    ymin = max([1, min(y)-10]);
     ymax = min([size(orig_mask,2), max(y)+10]);
-    zmin = max([0, min(z)-4]);
+    zmin = max([1, min(z)-4]);
     zmax = min([size(orig_mask,3), max(z)+4]);
     tmp_mask = orig_mask(xmin:xmax, ymin:ymax, zmin:zmax);
     
