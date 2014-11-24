@@ -114,6 +114,9 @@ function io_importSavedMask(varargin)
     set(udat.h.main, 'userdata', udat);
     gui_updateImages(udat.h.main);
     
+    % display some text
+    fprintf('Imported pre-existing mask with %d cells\n', udat.mask.Ncells);
+    
     
 end
 
@@ -194,7 +197,16 @@ function gui_initialize(raw)
                          'units', 'normalized',...
                          'string', 'Quick Check',...
                          'Position', [0.72, 0.20, 0.20, 0.05],...
-                         'Callback', {@mask_quickCheck});                    
+                         'Callback', {@mask_quickCheck}); 
+                     
+    % add a little text box for an online cell counter
+    h.cellCounter = uicontrol('style', 'text',...
+                              'units', 'normalized',...
+                              'string', 'Cell Count: 0',...
+                              'fontsize', 14,...
+                              'position', [0.58, 0.12, 0.2, 0.05],...
+                              'BackgroundColor', get(h.main, 'color'));
+    
                         
     % package the relevant info into the user data field
     udat.gl = gl;
@@ -254,6 +266,11 @@ function gui_updateImages(h_main)
     end
     set(udat.h.img_sliceHoriz, 'CData', horiz)
 
+    
+    % update the online counter
+    msg = sprintf('Cell Count:  %d', udat.mask.Ncells);
+    set(udat.h.cellCounter, 'string', msg);
+    
 end
 
 function gui_getNewFocalPlane(h_slice, ~) % currently unused.
@@ -708,16 +725,17 @@ function mask_markAsMultiple(varargin)
             answer = str2double(answer);
             fprintf('Manual Entry: %d new cell(s) added\n', answer)
             
-            % use the oridinal cell volume, but interleave integers. This
-            % will mean that multiple cells with fill the exact same
-            % valume. This is a hack, but allows the program to count
-            % multiple cells even when the region filling algorithm doesn't
-            % work well AND the automated routine to split cells doesn't
-            % work either.
+            % use the original cell volume, but fill it up with multiple
+            % integers (one for each "cell"). This will mean that multiple
+            % cells with fill the exact same valume. This is a hack, but
+            % allows the program to count multiple cells even when the
+            % region filling algorithm doesn't work well AND the automated
+            % routine to split cells doesn't work either.
             tmp_mask = udat.mask.img(xmin:xmax, ymin:ymax, zmin:zmax);
             sz_mask = size(tmp_mask);
             tmp_mask = tmp_mask(:); % for linear indexing
             idx = find(tmp_mask == udat.mask.Ncells);
+            [r,c,z] = ind2sub(sz_mask, idx);
             
             % reset the cell counter
             udat.mask.Ncells = udat.mask.Ncells-1;
@@ -729,22 +747,26 @@ function mask_markAsMultiple(varargin)
                 fprintf('Manual Entry: previously selected cell has been deleted\n')
                 
             else
-                nPix = numel(idx);
-                assert(nPix>answer, 'ERROR: you asked for more cells than can be accomodated in this volume')
                 
-                startVal = udat.mask.Ncells+1;
-                endVal = udat.mask.Ncells + answer;
-                new_integers = startVal:endVal;
-                new_integers = repmat(new_integers', ceil(nPix/numel(new_integers)), 1);
-                new_integers(nPix+1:end) = [];
+                % try to maintain the footprint in the xy dims and divide
+                % the volume through the z dim
+                assert(numel(unique(z)) > answer, 'ERROR: you asked for more cells than can be accomodated in this volume')
                 
-                tmp_mask(idx) = new_integers;
+                zPlanes = unique(z);
+                zPlanes = round(linspace(zPlanes(1), zPlanes(end), answer+1));
+                assert( numel(unique(zPlanes))-1 == answer, 'ERROR: sub-dividing through the z-dim has failed')
                 
-                % update cell counter and provide feedback
+                
+                % update cell counter, provide feedback, and adjust the
+                % entries in the cell volume
                 for a = 1:answer
                     udat.mask.Ncells = udat.mask.Ncells+1;
                     fprintf('  Adding cell #%d\n', udat.mask.Ncells);
+                    
+                    l_pix = (z >= zPlanes(a)) & (z <= zPlanes(a+1));
+                    tmp_mask(idx(l_pix)) = udat.mask.Ncells;
                 end
+                
             end
             
             % put the tmp_mask back into the original mask
