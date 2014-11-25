@@ -597,7 +597,7 @@ function mask_markAsMultiple(varargin)
     
     % present the before image
     h_check = figure;
-    set(h_check, 'position', [562 160 784 636])
+    set(h_check, 'position', [220 160 784 636])
     subplot(1,2,1)
     [x,y,z] = meshgrid(1:size(tmp_mask,2), 1:size(tmp_mask,1), 1:size(tmp_mask,3));
     isosurface(x,y,z,tmp_mask,0.9), 
@@ -653,7 +653,7 @@ function mask_markAsMultiple(varargin)
         
     h_manual = uicontrol('style', 'togglebutton',...
             'units', 'normalized',...
-            'string', 'Maunual Entry',...
+            'string', 'Manual Entry',...
             'Position', [0.85, 0.05, 0.1 0.05],...
             'Callback', {@set_returnval});
         
@@ -735,7 +735,7 @@ function mask_markAsMultiple(varargin)
             sz_mask = size(tmp_mask);
             tmp_mask = tmp_mask(:); % for linear indexing
             idx = find(tmp_mask == udat.mask.Ncells);
-            [r,c,z] = ind2sub(sz_mask, idx);
+            [~,~,z] = ind2sub(sz_mask, idx);
             
             % reset the cell counter
             udat.mask.Ncells = udat.mask.Ncells-1;
