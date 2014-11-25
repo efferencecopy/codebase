@@ -52,52 +52,43 @@ function [datafit,Amps,freqs,Fval,sig]=fitlinesc(data,params,p,plt,f0)
 %       freqs          (significant frequencies)
 %       Fval           (Fstatistic at all frequencies)
 %       sig            (significance level for F distribution p value of p)
+
+
 data=change_row_to_column(data);
 [N,C]=size(data);
+
 if nargin < 2 || isempty(params); params=[]; end;
-[tapers,pad,Fs,fpass,err,trialave,params]=getparams(params); 
+
+[tapers,~,Fs,~,~,~,params]=getparams(params);
 clear pad fpass err trialave;
+
 if nargin < 3 || isempty(p);p=0.05/N;end;
 if nargin < 4 || isempty(plt); plt='n'; end;
 if nargin < 5; f0=[]; end;
+
 params.tapers=dpsschk(tapers,N,Fs); % calculate the tapers
 [Fval,A,f,sig] = ftestc(data,params,p,plt);
+
 if isempty(f0);
    
-   fmax=findpeaks(Fval,sig)
+   [~, loc] = findpeaks(Fval,'threshold', sig);
    
-   freqs=cell(1,C);
-   Amps=cell(1,C);
-   datafit=data;
-   for ch=1:C;
-       fsig=f(floc(:,ch));
-       freqs{ch}=fsig;
-       Amps{ch}=A(fmax(ch).loc,ch);
-       Nf=length(fsig);
-%       fprintf('The significant lines for channel %d and the amplitudes are \n',ch);
-%        for nf=1:Nf;
-%            fprintf('%12.8f\n',fsig(nf));
-%            fprintf('%12.8f\n',real(A(fmax(ch).loc(nf),ch)));
-%            fprintf('%12.8f\n',imag(A(fmax(ch).loc(nf),ch))); 
-%            fprintf('\n');
-%        end;
-       datafit(:,ch)=exp(i*2*pi*(0:N-1)'*fsig/Fs)*A(fmax(ch).loc,ch)+exp(-i*2*pi*(0:N-1)'*fsig/Fs)*conj(A(fmax(ch).loc,ch));
-   end;
+   freqs=f(loc);
+   
+   Amps=A(loc);
+   datafit=exp(1i*2*pi*(0:N-1)'*freqs/Fs)*A(loc)+exp(-1i*2*pi*(0:N-1)'*freqs/Fs)*conj(A(loc));
+   
 else
-   indx = zeros( length(f0) );
-   for n=1:length(f0);
-       [fsig,indx(n)]=min(abs(f-f0(n)));
-   end;
-   fsig=f(indx);
-   for ch=1:C;
-       freqs{ch}=fsig;
-       Amps{ch}=A(indx,ch);
-       Nf=length(fsig);
-%        fprintf('For channel %d the amplitudes and the Fstatistic at f=%f are \n',ch,f0);
-%        fprintf('Fstatistic = %12.8f Fthreshold = %12.8f\n',Fval(indx),sig);
-%        fprintf('Real part of amplitude = %12.8f\n',real(A(indx,ch)));
-%        fprintf('Imaginary part of amplitude = %12.8f\n',imag(A(indx,ch))); 
-       datafit(:,ch)=exp(i*2*pi*(0:N-1)'*fsig/Fs)*A(indx,ch)+exp(-i*2*pi*(0:N-1)'*fsig/Fs)*conj(A(indx,ch));
-   end;
-end;
+    indx = zeros(length(f0), 1);
+    for n=1:length(f0);
+        [~,indx(n)]=min(abs(f-f0(n)));
+    end;
+    freqs=f(indx);
+    Amps = A(indx);
+    datafit=exp(1i*2*pi*(0:N-1)'*freqs/Fs)*A(indx)+exp(-1i*2*pi*(0:N-1)'*freqs/Fs)*conj(A(indx));
+
+end
+
+
+
 

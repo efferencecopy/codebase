@@ -128,7 +128,7 @@ ax.control = abfobj('2014_11_18_0001');
 ax.cadmium = abfobj('2014_11_18_0002');
 ax.cadmium = ax.cadmium.removeSweeps([1:20]); % CdCl comes in on sweep 6, stable at sweep 20
 
-ax.synapticBlockers = abfobj('2014_11_18_0003');
+ax.synapticBlockers = abfobj('2014_11_18_0003'); % includes CdCl
 
 ax.ttx = abfobj('2014_11_18_0004');
 
@@ -152,13 +152,34 @@ ax.control = abfcat(3, {'2014_11_18_0005', '2014_11_18_0006'});
 ax.cadmium = abfobj('2014_11_18_0007');
 ax.cadmium = ax.cadmium.removeSweeps([1:20]); % CdCl comes in on sweep 6, stable at sweep 20
 
-ax.synapticBlockers = abfobj('2014_11_18_0008');
+ax.synapticBlockers = abfobj('2014_11_18_0008'); % includes CdCl
 
 ax.ttx = abfobj('2014_11_18_0009');
 
 chIdx = ax.control.idx.HS2_Im; 
 
 
+
+%%
+
+%
+%
+%
+
+fin
+
+% 20 Hz
+ax.control = abfobj('2014_11_21_0000');
+ax.synapticBlockers = abfobj('2014_11_21_0003'); % includes CdCl
+ax.ttx = abfobj('2014_11_21_0005'); % includes CdCl
+% 
+% % 40 Hz
+% ax.control = abfobj('2014_11_21_0001');
+% ax.synapticBlockers = abfobj('2014_11_21_0004'); % includes CdCl
+% ax.ttx = abfobj('2014_11_21_0006'); % includes CdCl
+
+% look at both channels
+chIdx = ax.control.idx.HS2_Im; 
 
 %% Do the analysis
 
@@ -167,15 +188,8 @@ close all
 sampFreq = ax.control.head.sampRate;
 tt = (0:size(ax.control.dat, 1)-1) ./ sampFreq .* 1000;
 
-filter.lp_freqs = 300;
-filter.cnx_winsize = sampFreq .* 0.300;
-filter.cnx_stepsize = sampFreq .* 0.050;
+filter.lp_freqs = 2000; % lower than 2e3 is bad b/c it cuts our important events...
 
-% stuff for notch filter
-wo = 60/(sampFreq/2);  bw = wo/150;
-[b,a] = iirnotch(wo,bw);
-filter.notch_a = a;
-filter.notch_b = b;
 
 % figure out when the pulses came on:
 thresh = 0.05;
@@ -200,20 +214,26 @@ for a = 1:numel(exptCond)
     tmp = ax.(exptCond{a}).dat(:, chIdx,:); % grab the raw data
     tmp = squeeze(tmp);
     
+    
     % baseline subtract
     tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
     
-    % locally detrend
-    trendless = locdetrend(tmp, sampFreq);
     
     % filter out the high frequency stuff
-    filtered = butterfilt(trendless, filter.lp_freqs, sampFreq, 'low', 1);
-    
-    % try to reduce 60 cycle noise
-   % filtered = filtfilt(filter.notch_b, filter.notch_a, filtered);
+    filtered = butterfilt(tmp, filter.lp_freqs, sampFreq, 'low', 1);
     
     % take the mean
-    trace.(exptCond{a}) = mean(filtered,2);
+    average = mean(filtered,2);
+    
+    % try to reduce 60 cycle noise
+    params.Fs = sampFreq;
+    params.fpass = [1 2000];
+    params.tapers = [3,5];
+    f0 = [60 120];
+    average=rmlinesc(average,params);
+    
+    
+    trace.(exptCond{a}) = average;
     
 end
 
@@ -238,7 +258,7 @@ for a = 1:numel(exptCond)
     set(gcf, 'position', [28 296 1375 506], 'name', exptCond{a})
     plot(tt, trace.(exptCond{a}), 'k', 'linewidth', 3)
     plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
-    xlabel('time (sec)')
+    xlabel('time (ms)')
     ylabel('LFP amplitude')
     title(exptCond{a})
     axis tight
