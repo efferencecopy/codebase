@@ -196,8 +196,13 @@ thresh = 0.05;
 index = [ax.control.idx.LEDcmd_470, 1];
 crossings = ax.control.threshold(thresh, index, 'u');
 pulseOnset = find(crossings==1, 1, 'first');
-tt = tt-tt(pulseOnset);
 
+% figure out if there was a test pulse (which is an artifact from using a
+% Vclamp protocol)
+thresh = -0.001; % in mV
+index = [ax.control.idx.HS2_Vclamp, 1];
+crossings = ax.control.threshold(thresh, index, 'u');
+Rs_testPulse_off = find(crossings==1, 1, 'first');
 
 % mean subtract and filter. store the data in a new structure called "trace"
 trace = [];
@@ -205,7 +210,7 @@ exptCond = {'control', 'synapticBlockers', 'ttx', 'cadmium'};
 for a = 1:numel(exptCond)
     
     if ~isfield(ax, exptCond{a});
-        continue
+        continueRs_testPulse_off
     end
     
     
@@ -226,11 +231,10 @@ for a = 1:numel(exptCond)
     average = mean(filtered,2);
     
     % try to reduce 60 cycle noise
-    params.Fs = sampFreq;
-    params.fpass = [1 2000];
-    params.tapers = [3,5];
-    f0 = [60 120];
-    average=rmlinesc(average,params);
+    lines = 60;
+    winStart = Rs_testPulse_off + (sampFreq * 0.150);
+    winEnd = pulseOnset;
+    average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
     
     
     trace.(exptCond{a}) = average;
@@ -256,6 +260,7 @@ for a = 1:numel(exptCond)
     
     figure, hold on,
     set(gcf, 'position', [28 296 1375 506], 'name', exptCond{a})
+    tt = tt-tt(pulseOnset);
     plot(tt, trace.(exptCond{a}), 'k', 'linewidth', 3)
     plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
     xlabel('time (ms)')
