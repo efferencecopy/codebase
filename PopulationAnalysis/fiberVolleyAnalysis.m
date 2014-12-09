@@ -197,12 +197,12 @@ index = [ax.control.idx.LEDcmd_470, 1];
 crossings = ax.control.threshold(thresh, index, 'u');
 pulseOnset = find(crossings==1, 1, 'first');
 
-% figure out if there was a test pulse (which is an artifact from using a
-% Vclamp protocol)
-thresh = -0.001; % in mV
-index = [ax.control.idx.HS2_Vclamp, 1];
-crossings = ax.control.threshold(thresh, index, 'u');
-Rs_testPulse_off = find(crossings==1, 1, 'first');
+% % figure out if there was a test pulse (which is an artifact from using a
+% % Vclamp protocol)
+% thresh = -0.001; % in mV
+% index = [ax.control.idx.HS2_Vclamp, 1];
+% crossings = ax.control.threshold(thresh, index, 'u');
+% Rs_testPulse_off = find(crossings==1, 1, 'first');
 
 % mean subtract and filter. store the data in a new structure called "trace"
 trace = [];
@@ -210,7 +210,7 @@ exptCond = {'control', 'synapticBlockers', 'ttx', 'cadmium'};
 for a = 1:numel(exptCond)
     
     if ~isfield(ax, exptCond{a});
-        continueRs_testPulse_off
+        continue
     end
     
     
@@ -230,12 +230,12 @@ for a = 1:numel(exptCond)
     % take the mean
     average = mean(filtered,2);
     
-    % try to reduce 60 cycle noise
-    lines = 60;
-    winStart = Rs_testPulse_off + (sampFreq * 0.150);
-    winEnd = pulseOnset;
-    average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
-    
+%     % try to reduce 60 cycle noise
+%     lines = 60;
+%     winStart = Rs_testPulse_off + (sampFreq * 0.150);
+%     winEnd = pulseOnset;
+%     %average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
+%     
     
     trace.(exptCond{a}) = average;
     

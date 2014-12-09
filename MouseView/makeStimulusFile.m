@@ -19,8 +19,10 @@ if isempty(params.pFreq)
     params.pFreq = 0;
 end
 
-
+%
 % Generate the stimulus waveforms (one for each unique stimulus type)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
 nAmps = numel(params.pAmp);
 nFreqs = numel(params.pFreq);
 nPulseWidths = numel(params.pWidth);
@@ -43,21 +45,57 @@ for i_cond = 1:size(conditions, 1)
     tmp_pAmp = params.pAmp(conditions(i_cond, 1));
     tmp_pFreq = params.pFreq(conditions(i_cond, 2));
     tmp_pWidth = params.pWidth(conditions(i_cond, 3));
-    samplesPerPulse = ceil(tmp_pWidth ./ params.si);
+    samplesPerPulse = ceil(tmp_pWidth ./ params.si) + 1; % need to add 1 b/c this is a 'fence post' problem
     
     if tmp_pFreq == 0 % only one pulse
         templates{i_cond}(tStartIdx : tStartIdx+samplesPerPulse-1) = tmp_pAmp;
         templates{i_cond}(tStartIdx+samplesPerPulse : end) = 0;
-    else
-        samplesPerPeriod = ceil(1./tmp_pFreq ./ params.si);
+        
+    else % multiple pulses
+        samplesPerPeriod = ceil(1./tmp_pFreq ./ params.si); % adding 1 b/c this is a fence post problem
         samplesPerIPI = samplesPerPeriod - samplesPerPulse;
         motif = zeros(1,samplesPerPeriod);
-        motif(1:samplesPerPulse-1) = tmp_pAmp;
+        motif(1:samplesPerPulse) = tmp_pAmp;
+        
+        % quick error checking
+        samplesPerTrain = samplesPerPeriod .* params.nPulses;
+        idx_trainEnd = samplesPerTrain + tStartIdx;
+        assert(idx_trainEnd < numel(tt), 'ERROR: This pulse train can not fit in the sweep-time specified')
+        
+        % now construct the train pulse by pulse
         idx = tStartIdx;
+        for i_pulse = 1:params.nPulses
+            templates{i_cond}(idx:idx+samplesPerPeriod-1) = motif;
+            idx = idx + samplesPerPeriod;
+        end
     end
+
 end
 
 
+%
+% create a matrix of sweeps to be exported to the atf file
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+trlTypes = 1:size(conditions,1);
+trlTypes = repmat(trlTypes, 1, params.nReps);
+randIdx = randperm(numel(trlTypes)); % randomize the order
+trlTypes = trlTypes(randIdx);
+sweeps = nan(numel(tt), numel(trlTypes));
+for i_swp = 1:numel(trlTypes)
+    sweeps(:,i_swp) = templates{trlTypes(i_swp)}(:);
+end
+
+% the atf file needs a time vector, so add that here as the first column
+sweeps = cat(2, tt(:), sweeps);
+
+
+
+%
+% create the header information. Open a new file, and start writing into
+% the new file.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 header{1,:} = {'ATF', '1'};
@@ -82,10 +120,10 @@ header{11,:} = {'Time (s)', tmp{:}};
 
 
 % open a new file
-fileID = fopen('celldata.atf','w');
+fileID = fopen(params.name,'w');
 
 
-% interate over the header, adding line by line. All the entries are
+% iterate over the header, adding line by line. All the entries are
 % strings, but I need to append \t and \n characters appropriately
 specMotif = '%s \t ';
 for row = 1:size(header,1);
@@ -94,6 +132,19 @@ for row = 1:size(header,1);
     formatSpec = [formatSpec, '%s \n'];
     fprintf(fileID, formatSpec, header{row}{1:end});
 end
+
+
+
+% iterate over the sweeps, adding line by line. All the entries are
+% doubles, but I need to append \t and \n characters appropriately
+specMotif = '%.12f \t ';
+nCols = size(sweeps,2);
+formatSpec = repmat(specMotif, 1, nCols-1);
+formatSpec = [formatSpec, '%.12f \n'];
+for row = 1:size(sweeps,1);
+    fprintf(fileID, formatSpec, sweeps(row,:));
+end
+
 fclose(fileID);
 
 
