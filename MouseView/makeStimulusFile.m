@@ -68,6 +68,7 @@ for i_cond = 1:size(conditions, 1)
             templates{i_cond}(idx:idx+samplesPerPeriod-1) = motif;
             idx = idx + samplesPerPeriod;
         end
+        templates{i_cond}(idx:end) = 0; % add the trailing zeros
     end
 
 end
