@@ -3886,15 +3886,8 @@ end
 % data added to population analyses up to here
 
 % Need to add
-%
-% CH_091114_A (ChIEF)
-% CH_091114_B (ChIEF, whole cell:TTX. LFP:fibervolley)
-% CH_091114_C (ChIEF, tried to do LFP but weak responses)
+
 % CH_091114_F (ChR2, good data)
-% CH_092214_A (NB488 trial and error)
-% CH_092214_B (NB488 trial and error)
-% CH_092214_C (NB488 trial and error)
-% CH_092214_D (NB488 trial and error)
 % CH_100614_A (EIAN) ## make sure this mouse has been added
 % CH_100614_B (EIAN) Need to check histology
 % CH_100614_C (EIAN) Need to check histology

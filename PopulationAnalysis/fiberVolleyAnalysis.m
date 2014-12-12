@@ -1,3 +1,111 @@
+%% Do the analysis
+
+close all
+
+sampFreq = ax.control.head.sampRate;
+tt = (0:size(ax.control.dat, 1)-1) ./ sampFreq .* 1000;
+
+filter.lp_freqs = 2000; % lower than 2e3 is bad b/c it cuts our important events...
+
+
+% figure out when the pulses came on:
+thresh = 0.05;
+index = [ax.control.idx.LEDcmd_470, 1];
+crossings = ax.control.threshold(thresh, index, 'u');
+pulseOnset = find(crossings==1, 1, 'first');
+
+
+
+% mean subtract and filter. store the data in a new structure called "trace"
+trace = [];
+exptCond = {'control', 'synapticBlockers', 'ttx', 'cadmium'};
+for a = 1:numel(exptCond)
+    
+    if ~isfield(ax, exptCond{a});
+        continue
+    end
+    
+    
+    
+    % grab the raw data
+    tmp = ax.(exptCond{a}).dat(:, chIdx,:); % grab the raw data
+    tmp = squeeze(tmp);
+    
+    
+    % baseline subtract
+    tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
+    
+    
+    % filter out the high frequency stuff
+    filtered = butterfilt(tmp, filter.lp_freqs, sampFreq, 'low', 1);
+    
+    % take the mean
+    average = mean(filtered,2);
+    
+%     % try to reduce 60 cycle noise
+%     lines = 60;
+%     winStart = Rs_testPulse_off + (sampFreq * 0.150);
+%     winEnd = pulseOnset;
+%     %average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
+%     
+    
+    trace.(exptCond{a}) = average;
+    
+end
+
+
+
+
+
+trace.glutamateOnly = trace.control - trace.synapticBlockers;
+trace.fiberVolley = trace.synapticBlockers - trace.ttx;
+
+%
+% plot the results
+%
+exptCond = {exptCond{:}, 'glutamateOnly', 'fiberVolley'};
+
+% create tabbed GUI
+hFig = figure;
+set(gcf, 'position', [40 48 972 711]);
+s = warning('off', 'MATLAB:uitabgroup:OldVersion');
+hTabGroup = uitabgroup('Parent',hFig);
+for a = 1:numel(exptCond)
+    
+    if ~isfield(trace, exptCond{a})
+        continue
+    end
+    
+    hTabs(a) = uitab('Parent', hTabGroup, 'Title', exptCond{a});
+    hAx(a) = axes('Parent', hTabs(a));
+    hold on,
+    tt = tt-tt(pulseOnset);
+    plot(tt, trace.(exptCond{a}), 'k', 'linewidth', 3)
+    plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
+    xlabel('time (ms)')
+    ylabel('LFP amplitude')
+    title(exptCond{a})
+    axis tight
+    xlim([-100, tt(find(crossings==1, 1,'last'))+100])
+    hold off
+    
+end
+
+
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   DEPRECATED EXPT NOTES (TRANSFERED TO A EXCEL WORKBOOK)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
 %% EB_060914_C site 2  CHR2
 
 % TTX alone looks inwards.
@@ -69,16 +177,16 @@ chIdx = ax.control.idx.HS2_Im;
 
 fin
 
-% 20 Hz FS open
-ax.control = abfobj('2014_06_12_0006');
-ax.synapticBlockers = abfobj('2014_06_12_0007');
-ax.ttx = abfobj('2014_06_12_0009');
-chIdx = ax.control.idx.HS2_Im;
-% 
-% % 20 Hz FS closed
-% ax.control = abfobj('2014_06_12_0005');
-% ax.synapticBlockers = abfobj('2014_06_12_0008');
-% ax.ttx = abfobj('2014_06_12_0010');
+% % 20 Hz FS open
+% ax.control = abfobj('2014_06_12_0006');
+% ax.synapticBlockers = abfobj('2014_06_12_0007');
+% ax.ttx = abfobj('2014_06_12_0009');
+% chIdx = ax.control.idx.HS2_Im;
+
+% 20 Hz FS closed
+ax.control = abfobj('2014_06_12_0005');
+ax.synapticBlockers = abfobj('2014_06_12_0008');
+ax.ttx = abfobj('2014_06_12_0010');
 
 
 %% CH_091114_B Site 1 CHIEF
@@ -160,7 +268,9 @@ chIdx = ax.control.idx.HS2_Im;
 
 
 
-%%
+
+
+%% AK_141103_B
 
 %
 %
@@ -180,96 +290,4 @@ ax.ttx = abfobj('2014_11_21_0005'); % includes CdCl
 
 % look at both channels
 chIdx = ax.control.idx.HS2_Im; 
-
-%% Do the analysis
-
-close all
-
-sampFreq = ax.control.head.sampRate;
-tt = (0:size(ax.control.dat, 1)-1) ./ sampFreq .* 1000;
-
-filter.lp_freqs = 2000; % lower than 2e3 is bad b/c it cuts our important events...
-
-
-% figure out when the pulses came on:
-thresh = 0.05;
-index = [ax.control.idx.LEDcmd_470, 1];
-crossings = ax.control.threshold(thresh, index, 'u');
-pulseOnset = find(crossings==1, 1, 'first');
-
-% % figure out if there was a test pulse (which is an artifact from using a
-% % Vclamp protocol)
-% thresh = -0.001; % in mV
-% index = [ax.control.idx.HS2_Vclamp, 1];
-% crossings = ax.control.threshold(thresh, index, 'u');
-% Rs_testPulse_off = find(crossings==1, 1, 'first');
-
-% mean subtract and filter. store the data in a new structure called "trace"
-trace = [];
-exptCond = {'control', 'synapticBlockers', 'ttx', 'cadmium'};
-for a = 1:numel(exptCond)
-    
-    if ~isfield(ax, exptCond{a});
-        continue
-    end
-    
-    
-    
-    % grab the raw data
-    tmp = ax.(exptCond{a}).dat(:, chIdx,:); % grab the raw data
-    tmp = squeeze(tmp);
-    
-    
-    % baseline subtract
-    tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
-    
-    
-    % filter out the high frequency stuff
-    filtered = butterfilt(tmp, filter.lp_freqs, sampFreq, 'low', 1);
-    
-    % take the mean
-    average = mean(filtered,2);
-    
-%     % try to reduce 60 cycle noise
-%     lines = 60;
-%     winStart = Rs_testPulse_off + (sampFreq * 0.150);
-%     winEnd = pulseOnset;
-%     %average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
-%     
-    
-    trace.(exptCond{a}) = average;
-    
-end
-
-
-
-
-
-trace.glutamateOnly = trace.control - trace.synapticBlockers;
-trace.fiberVolley = trace.synapticBlockers - trace.ttx;
-
-%
-% plot the results
-%
-exptCond = {exptCond{:}, 'glutamateOnly', 'fiberVolley'};
-for a = 1:numel(exptCond)
-    
-    if ~isfield(trace, exptCond{a})
-        continue
-    end
-    
-    figure, hold on,
-    set(gcf, 'position', [28 296 1375 506], 'name', exptCond{a})
-    tt = tt-tt(pulseOnset);
-    plot(tt, trace.(exptCond{a}), 'k', 'linewidth', 3)
-    plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
-    xlabel('time (ms)')
-    ylabel('LFP amplitude')
-    title(exptCond{a})
-    axis tight
-    
-end
-
-
-
 
