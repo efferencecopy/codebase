@@ -1,293 +1,235 @@
-%% Do the analysis
-
-close all
-
-sampFreq = ax.control.head.sampRate;
-tt = (0:size(ax.control.dat, 1)-1) ./ sampFreq .* 1000;
-
-filter.lp_freqs = 2000; % lower than 2e3 is bad b/c it cuts our important events...
-
-
-% figure out when the pulses came on:
-thresh = 0.05;
-index = [ax.control.idx.LEDcmd_470, 1];
-crossings = ax.control.threshold(thresh, index, 'u');
-pulseOnset = find(crossings==1, 1, 'first');
+function fiberVolleyAnalysis(exptList, exptWorkbook)
 
 
 
-% mean subtract and filter. store the data in a new structure called "trace"
+% figure out the file names, etc.
+mouseNames = exptWorkbook(exptList,1);
+siteNumber = exptWorkbook(exptList,2);
+fnames = exptWorkbook(exptList,3);
+exptConds = exptWorkbook(exptList,5);
+channels = exptWorkbook(exptList, 6:7);
+rmsweeps = exptWorkbook(exptList,9);
+tfs = exptWorkbook(exptList, 4);
+
+% ERROR CHECKING: check to make sure that the exptConds are correct
+validConds = {'none',...
+              'cd2',...
+              'nbqx_apv',...
+              'nbqx_apv_cd2',...
+              'nbqx_apv_cd2_ttx',...
+              'nbqx_apv_ttx'};
+exptConds = cellfun(@(x) regexprep(x, '\+', '_'), exptConds, 'uniformoutput', false);
+idx = cellfun(@(x,y) regexpi(x,y), exptConds, repmat({validConds}, size(exptConds)), 'uniformoutput', false);
+idx = cellfun(@(x) any([x{:}]), idx);
+assert(all(idx), 'ERROR: at least one experimental condition is not recognized');
+
+% ERROR CHECKING: make sure that there is consistency in the chanels used
+% for each input file
+channelConfigs = cell2mat(channels);
+channelConfigs = unique(channelConfigs, 'rows');
+channelList = find(channelConfigs);
+assert(size(channelConfigs,1)==1, 'ERROR: The recorded channels changes from file to file')
+
+
+
+% read in all the data
+clc
+fprintf('reading in the data for fiber volley analysis\n')
+for i_fid = 1:numel(fnames)
+    fprintf('   reading <%s>\n', fnames{i_fid})
+    tmp = abfobj(fnames{i_fid});
+    tmp.head.validChans = cat(1, channels{i_fid,:});
+    
+    % remove some sweeps if need be
+    if ~isnan(rmsweeps{i_fid})
+        idx = false(size(tmp.dat,3),1);
+        idx(eval(rmsweeps{i_fid})) = true;
+        tmp = tmp.removeSweeps(idx);
+    end
+    
+    if isnumeric(tfs{i_fid})
+        field_tf = ['tf_', num2str(tfs{i_fid})];
+        field_expt = exptConds{i_fid};
+        ax.(field_tf).(field_expt) = tmp;
+        
+    elseif strcmpi(tfs{i_fid}, 'interleaved')
+        
+        tdict = outerleave(tmp, tmp.idx.LED_470);
+        
+        % need to update the tfs array to indicate that there are multiples
+        fileTFs = tdict.conds(:,3);
+        fprintf('     Interleaved tfs: %s\n', num2str(fileTFs'));
+        
+        for i_tf = 1:numel(fileTFs)
+            
+            % new field names
+            field_tf = ['tf_', num2str(fileTFs(i_tf))];
+            field_expt = exptConds{i_fid};
+            
+            % make a franken-abf struct
+            ax.(field_tf).(field_expt).head = tmp.head;
+            ax.(field_tf).(field_expt).dat = tmp.dat(:,:,tdict.trlList == i_tf);
+            ax.(field_tf).(field_expt).idx = tmp.idx;
+        end
+        
+        
+        
+    end
+end
+
+
+% pull out the raw data, filter, and organize all the raw traces.
+fprintf('Filtering and organizing raw data\n');
 trace = [];
-exptCond = {'control', 'synapticBlockers', 'ttx', 'cadmium'};
-for a = 1:numel(exptCond)
+TFfields = fieldnames(ax);
+for i_tf = 1:numel(TFfields)
     
-    if ~isfield(ax, exptCond{a});
-        continue
+    conditionFields = fieldnames(ax.(TFfields{i_tf}));
+    
+    for i_cond = 1:numel(exptConds)
+        
+        % generate some field names for extraction and saving
+        field_tf = TFfields{i_tf};
+        field_expt = conditionFields{i_cond};
+        
+        sampFreq = ax.(field_tf).(field_expt).head.sampRate;
+        tt = (0:size(ax.(field_tf).(field_expt).dat, 1)-1) ./ sampFreq .* 1000;
+        
+        
+        % grab the raw data (channel by channel)
+        validChans = ax.(field_tf).(field_expt).head.validChans;
+        validChans = find(validChans == 1);
+        for i_ch = 1:numel(validChans);
+            
+            % figure out the appropriate index to the data. It should have
+            % the correct "HSx_" prefix, and have the correct units
+            correctUnits = strcmpi('mV', ax.(field_tf).(field_expt).head.recChUnits);
+            correctHS = strncmpi(sprintf('HS%d_', i_ch), ax.(field_tf).(field_expt).head.recChNames, 3);
+            chIdx = correctUnits & correctHS;
+            
+            tmp = ax.(field_tf).(field_expt).dat(:, chIdx,:);
+            tmp = squeeze(tmp);
+            
+            
+            % baseline subtract, determine when the pulses came on...
+            thresh = 0.05;
+            ledIdx = ax.(field_tf).(field_expt).idx.LED_470;
+            template = ax.(field_tf).(field_expt).dat(:,ledIdx,1);
+            template = template > thresh;
+            template = [0; diff(template)];
+            crossings = template == 1;
+            storedCrossings{i_tf} = crossings;
+            pulseOnset = find(crossings==1, 1, 'first');
+            
+            tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
+            
+            
+            % filter out the high frequency stuff. Filtering shouldn't go
+            % below 2000 b/c you'll start to carve out the fiber volley
+            % (which is only a few ms wide)
+            lp_freq = 2000;
+            filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+            
+            % take the mean
+            average = mean(filtered,2);
+            
+            %     % try to reduce 60 cycle noise
+            %     lines = 60;
+            %     winStart = Rs_testPulse_off + (sampFreq * 0.150);
+            %     winEnd = pulseOnset;
+            %     %average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
+            %
+            
+            trace.(field_tf).(field_expt)(:,i_ch) = average;
+        end
+    end
+end
+
+
+
+fprintf('Calculating fiber volley\n')
+TFfields = fieldnames(ax);
+for i_tf = 1:numel(TFfields)
+    
+    % rules:
+    %
+    % nbqx_apv - nbqx_apv_ttx           =>   fiber volley with Na and Ca2 and presynpatic mGluR
+    % nbqx_apv - nbqx_apv_cd_ttx        =>   fiber volley with Na and Ca2 and presynpatic mGluR
+    % nbqx_apv_cd2 - nbqx_apv_cd2_ttx   =>   fiber volley with just Na
+    % none - nbqx_apv                   =>   synapticTransmission
+    % none                              =>   control
+    
+    
+    % generate some field names
+    field_tf = TFfields{i_tf};
+    
+    % is there control data and nbqx_apv?
+    control_Present = isfield(trace.(field_tf), 'none');
+    nbqx_apv_Present = isfield(trace.(field_tf), 'nbqx_apv');
+    if control_Present && nbqx_apv_Present
+        trace.(field_tf).synapticTransmission = trace.(field_tf).none - trace.(field_tf).nbqx_apv;
+    end
+    
+    % is there a ttx condition that can be used to define fiber volley with
+    % sodium and calcium currents?
+    nbqx_apv_ttx_Present = isfield(trace.(field_tf), 'nbqx_apv_ttx');
+    nbqx_apv_cd2_ttx_Present = isfield(trace.(field_tf), 'nbqx_apv_cd2_ttx');
+    assert(~all([nbqx_apv_ttx_Present, nbqx_apv_cd2_ttx_Present]), 'ERROR: multiple TTX files defined');
+    if nbqx_apv_Present && nbqx_apv_ttx_Present
+        trace.(field_tf).FV_Na_Ca2_mGluR = trace.(field_tf).nbqx_apv - trace.(field_tf).nbqx_apv_ttx;
+    elseif nbqx_apv_Present && nbqx_apv_cd2_ttx_Present
+        trace.(field_tf).FV_Na_Ca2_mGluR = trace.(field_tf).nbqx_apv - trace.(field_tf).nbqx_apv_cd2_ttx;
+    end
+    
+    % is there a ttx+cd condition that can be used to define the fiber
+    % volley with just Na+
+    nbqx_apv_cd2_Present = isfield(trace.(field_tf), 'nbqx_apv_cd2');
+    if nbqx_apv_cd2_Present && nbqx_apv_cd2_ttx_Present
+        trace.(field_tf).FV_Na = trace.(field_tf).nbqx_apv_cd2 - trace.(field_tf).nbqx_apv_cd2_ttx;
     end
     
     
-    
-    % grab the raw data
-    tmp = ax.(exptCond{a}).dat(:, chIdx,:); % grab the raw data
-    tmp = squeeze(tmp);
-    
-    
-    % baseline subtract
-    tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
-    
-    
-    % filter out the high frequency stuff
-    filtered = butterfilt(tmp, filter.lp_freqs, sampFreq, 'low', 1);
-    
-    % take the mean
-    average = mean(filtered,2);
-    
-%     % try to reduce 60 cycle noise
-%     lines = 60;
-%     winStart = Rs_testPulse_off + (sampFreq * 0.150);
-%     winEnd = pulseOnset;
-%     %average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
-%     
-    
-    trace.(exptCond{a}) = average;
     
 end
 
 
 
-
-
-trace.glutamateOnly = trace.control - trace.synapticBlockers;
-trace.fiberVolley = trace.synapticBlockers - trace.ttx;
-
 %
-% plot the results
+% plot the results (one summary figure for each TF
 %
-exptCond = {exptCond{:}, 'glutamateOnly', 'fiberVolley'};
-
-% create tabbed GUI
-hFig = figure;
-set(gcf, 'position', [40 48 972 711]);
-s = warning('off', 'MATLAB:uitabgroup:OldVersion');
-hTabGroup = uitabgroup('Parent',hFig);
-for a = 1:numel(exptCond)
+for i_tf = 1:numel(TFfields)
     
-    if ~isfield(trace, exptCond{a})
-        continue
+    % generate the tab labels
+    field_tf = TFfields{i_tf};
+    tabLabels = fieldnames(trace.(field_tf));
+    
+    % one figure for each channel
+    for i_ch = 1:sum(channelConfigs);
+        
+        % create tabbed GUI
+        hFig = figure;
+        set(gcf, 'position', [40 48 972 711]);
+        set(gcf, 'name', sprintf('%s, site %d, %s, chan: %d', mouseNames{1}, siteNumber{1}, TFfields{i_tf}, channelList(i_ch)))
+        s = warning('off', 'MATLAB:uitabgroup:OldVersion');
+        hTabGroup = uitabgroup('Parent',hFig);
+        
+        for i_cond = 1:numel(tabLabels)
+
+            hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', tabLabels{i_cond});
+            hAx(i_cond) = axes('Parent', hTabs(i_cond));
+            hold on,
+            tt = tt-tt(pulseOnset);
+            plot(tt, trace.(field_tf).(tabLabels{i_cond})(:,i_ch), 'k', 'linewidth', 3)
+            crossings = storedCrossings{i_tf};
+            plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
+            xlabel('time (ms)')
+            ylabel('LFP amplitude')
+            axis tight
+            %xlim([-100, tt(find(crossings==1, 1,'last'))+100])
+            hold off
+            
+        end
     end
     
-    hTabs(a) = uitab('Parent', hTabGroup, 'Title', exptCond{a});
-    hAx(a) = axes('Parent', hTabs(a));
-    hold on,
-    tt = tt-tt(pulseOnset);
-    plot(tt, trace.(exptCond{a}), 'k', 'linewidth', 3)
-    plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
-    xlabel('time (ms)')
-    ylabel('LFP amplitude')
-    title(exptCond{a})
-    axis tight
-    xlim([-100, tt(find(crossings==1, 1,'last'))+100])
-    hold off
-    
 end
-
-
-
-%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%   DEPRECATED EXPT NOTES (TRANSFERED TO A EXCEL WORKBOOK)
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-
-
-
-%% EB_060914_C site 2  CHR2
-
-% TTX alone looks inwards.
-
-fin
-
-% 5 Hz data
-ax.control = abfobj('2014_06_25_0008');
-ax.synapticBlockers = abfobj('2014_06_25_0010');
-ax.ttx = abfobj('2014_06_25_0012');
-
-% % 20 Hz data
-% ax.control = abfobj('2014_06_25_0007');
-% ax.synapticBlockers = abfobj('2014_06_25_0009');
-% ax.ttx = abfobj('2014_06_25_0011');
-chIdx = ax.control.idx.HS2_Im;
-
-%% EB_060314_A site 1  CHR2
-
-% AT ROOM TEMP!!!!
-
-fin
-
-% 20 Hz data
-ax.control = abfobj('2014_06_17_0000');
-ax.synapticBlockers = abfobj('2014_06_17_0004');
-ax.ttx = abfobj('2014_06_17_0009');
-
-% % 40 Hz data
-% ax.control = abfobj('2014_06_17_0001');
-% ax.synapticBlockers = abfobj('2014_06_17_0005');
-% ax.ttx = abfobj('2014_06_17_0007');
-% xlims = [1.05 1.23];
-
-
-%% EB_060314_A site 2  CHR2
-
-% the only normal ACSF condition is 40 Hz, so the 20 and 5 Hz stuff (Aside
-% from the fiber volley) will be junk.
-
-
-fin
-
-% % 5 Hz data
-ax.control = abfobj('2014_06_17_0010');
-ax.synapticBlockers = abfobj('2014_06_17_0013');
-ax.ttx = abfobj('2014_06_17_0014');
-xlims = [1.05 2.05];
-chIdx = ax.control.idx.HS2_Im;
-
-
-% 20 Hz data
-% ax.control = abfobj('2014_06_17_0010');
-% ax.synapticBlockers = abfobj('2014_06_17_0012');
-% ax.ttx = abfobj('2014_06_17_0015');
-% xlims = [1.05 1.34]
-
-
-% % 40 Hz data
-% ax.control = abfobj('2014_06_17_0010');
-% ax.synapticBlockers = abfobj('2014_06_17_0011');
-% ax.ttx = abfobj('2014_06_17_0016');
-% xlims = [1.05 1.23];
-
-
-%% EB_051914 site 1 CHR2
-%
-% shows strong depression of synaptic transmission
-
-fin
-
-% % 20 Hz FS open
-% ax.control = abfobj('2014_06_12_0006');
-% ax.synapticBlockers = abfobj('2014_06_12_0007');
-% ax.ttx = abfobj('2014_06_12_0009');
-% chIdx = ax.control.idx.HS2_Im;
-
-% 20 Hz FS closed
-ax.control = abfobj('2014_06_12_0005');
-ax.synapticBlockers = abfobj('2014_06_12_0008');
-ax.ttx = abfobj('2014_06_12_0010');
-
-
-%% CH_091114_B Site 1 CHIEF
-
-% 20 Hz FS open
-ax.control = abfobj('2014_09_30_0012');
-ax.control.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-ax.synapticBlockers = abfobj('2014_09_30_0013');
-ax.synapticBlockers.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-ax.ttx = abfobj('2014_09_30_0015');
-ax.ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-chIdx = ax.control.idx.HS2_Im;
-
-
-
-%% CH_091114_C Site 1 CHIEF
-
-% 20 Hz FS open
-ax.control = abfobj('2014_10_02_0001');
-ax.control.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-ax.synapticBlockers = abfobj('2014_10_02_0002');
-ax.synapticBlockers.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-ax.ttx = abfobj('2014_10_02_0004');
-ax.ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-chIdx = ax.control.idx.HS2_Im;
-
-% 40 Hz FS open (the code below won't work for this data set b/c the number
-% of samples differ between the control (20hz) and the other 40 Hz expts.)
-ax.control = abfobj('2014_10_02_0001');
-ax.control.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-ax.synapticBlockers = abfobj('2014_10_02_0003');
-ax.synapticBlockers.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-ax.ttx = abfobj('2014_10_02_0005');
-ax.ttx.head.DACchNames{1} = 'HS1_Vclamp'; %mis named signal
-chIdx = ax.control.idx.HS2_Im;
-
-
-
-
-%% AK_141103_A Site 1
-
-fin
-
-% 5 Hz FS open
-ax.control = abfobj('2014_11_18_0001');
-
-ax.cadmium = abfobj('2014_11_18_0002');
-ax.cadmium = ax.cadmium.removeSweeps([1:20]); % CdCl comes in on sweep 6, stable at sweep 20
-
-ax.synapticBlockers = abfobj('2014_11_18_0003'); % includes CdCl
-
-ax.ttx = abfobj('2014_11_18_0004');
-
-chIdx = ax.control.idx.HS2_Im;
-
-
-
-%% AK_141103_A Site 2 & 3
-
-% notes:
-%
-% 20 Hz FS open
-%
-% be sure to look at both channels
-
-fin
-
-
-ax.control = abfcat(3, {'2014_11_18_0005', '2014_11_18_0006'});
-
-ax.cadmium = abfobj('2014_11_18_0007');
-ax.cadmium = ax.cadmium.removeSweeps([1:20]); % CdCl comes in on sweep 6, stable at sweep 20
-
-ax.synapticBlockers = abfobj('2014_11_18_0008'); % includes CdCl
-
-ax.ttx = abfobj('2014_11_18_0009');
-
-chIdx = ax.control.idx.HS2_Im; 
-
-
-
-
-
-%% AK_141103_B
-
-%
-%
-%
-
-fin
-
-% 20 Hz
-ax.control = abfobj('2014_11_21_0000');
-ax.synapticBlockers = abfobj('2014_11_21_0003'); % includes CdCl
-ax.ttx = abfobj('2014_11_21_0005'); % includes CdCl
-% 
-% % 40 Hz
-% ax.control = abfobj('2014_11_21_0001');
-% ax.synapticBlockers = abfobj('2014_11_21_0004'); % includes CdCl
-% ax.ttx = abfobj('2014_11_21_0006'); % includes CdCl
-
-% look at both channels
-chIdx = ax.control.idx.HS2_Im; 
 
