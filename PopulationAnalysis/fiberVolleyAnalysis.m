@@ -103,9 +103,11 @@ for i_tf = 1:numel(TFfields)
             
             % figure out the appropriate index to the data. It should have
             % the correct "HSx_" prefix, and have the correct units
+            whichChan = validChans(i_ch);
             correctUnits = strcmpi('mV', ax.(field_tf).(field_expt).head.recChUnits);
-            correctHS = strncmpi(sprintf('HS%d_', i_ch), ax.(field_tf).(field_expt).head.recChNames, 3);
+            correctHS = strncmpi(sprintf('HS%d_', whichChan), ax.(field_tf).(field_expt).head.recChNames, 3);
             chIdx = correctUnits & correctHS;
+            assert(sum(chIdx)==1, 'ERROR: incorrect channel selection')
             
             tmp = ax.(field_tf).(field_expt).dat(:, chIdx,:);
             tmp = squeeze(tmp);

@@ -4,7 +4,7 @@ function fiberVolleyGui
 % load in the excel workbook
 global GL_DOCUPATH
 
-fname = [GL_DOCUPATH, 'Other_Workbooks', filesep, 'fiberVolleyCellList.xlsx'];
+fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
 [~,txt, raw] = xlsread(fname);
 raw(size(txt,1)+1:end, :) = [];
 raw(:,size(txt,2)+1:end) = [];

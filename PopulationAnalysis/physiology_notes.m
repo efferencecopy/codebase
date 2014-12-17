@@ -126,7 +126,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 HS1loc = [10 28];
 HS2loc = [-4 8];
 Pialoc = [44 229];
@@ -184,7 +184,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 HS1loc = [70 2.8];
 HS2loc = [nan];
@@ -241,7 +241,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 HS1loc = [-1.5 -23.2];
 HS2loc = [15 -15];
@@ -306,7 +306,7 @@ params.excludeHS2 = {{'_0011', [7,10,16]}, {'_0016', [4:6,9,16,17,20,22,23,25,26
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [nan];
@@ -586,7 +586,7 @@ params.groups = {'control', [0,1];...
 params.excludeHS1 = {};
 params.excludeHS2 = {{'_0000', 1}, {'_0005', 3:14}, {'_0008', 10}};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -947,7 +947,7 @@ params.groups = {'control', [14,15];...
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 
@@ -1014,7 +1014,7 @@ params.groups = {'NMDAR', [4:11]};
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 params.celldepth = [norm([2 -193]), nan];
 
 % stuff for E/I and AMPA/NMDA ratios
@@ -1071,7 +1071,7 @@ params.groups = {'NMDAR', [13:20]};
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 params.celldepth = [nan, norm([26 -256])];
 
 
@@ -1129,7 +1129,7 @@ params.groups = {'control', [0,1];...
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 params.celldepth = [norm([-263, -403]), norm([-262+56, -389+125])];
 
 
@@ -1189,7 +1189,7 @@ params.groups = {'NMDAR', [11:15]};
 params.excludeHS1 = {};
 params.excludeHS2 = {};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 params.stimLoc = [-67, -67;...
                   -132 -178;...
@@ -2290,7 +2290,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 params.celldepth = [180 180];
@@ -2347,7 +2347,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 
@@ -2408,7 +2408,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 20;...
                            'ampa', 'control', -75, 20;...
                            'nmda', 'nbqxGabazine', 50, 20};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-6 23];
@@ -2466,7 +2466,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-68 24];
@@ -2583,7 +2583,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-26 -3];
@@ -2638,7 +2638,7 @@ params.excludeHS2 = {};
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [0];
@@ -2694,7 +2694,7 @@ params.excludeHS2 = {};
 params.isolatedCurrents = {'excit', 'control', -75, 20;...
                            'inhib', 'control', 20, -75};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [15 5];
@@ -2758,7 +2758,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'ampa', 'control', -75, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-16 7];
@@ -2819,7 +2819,7 @@ params.isolatedCurrents = {'excit', 'control', -75, 25;...
                            'ampa', 'control', -75, 25;...
                            'nmda', 'nbqxGabazine', 60, 25};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-33 38];
@@ -2874,7 +2874,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [nan];
@@ -2941,7 +2941,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -75, 15;...
                            'inhib', 'control', 15, -75};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [nan];
@@ -2996,7 +2996,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -70, 15;...
                            'inhib', 'control', 15, -70};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-21 -36];
@@ -3054,7 +3054,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -70, 15;...
                            'inhib', 'control', 15, -70};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [23 17];
@@ -3127,7 +3127,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -72, 15;...
                            'inhib', 'control', 15, -72};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [nan];
@@ -3182,7 +3182,7 @@ params.excludeHS2 = {}; % all files are junk. no cell on HS2
 params.isolatedCurrents = {'excit', 'control', -72,     [15 17];...
                            'inhib', 'control', [15 17], -72     };
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-83 39];
@@ -3240,7 +3240,7 @@ params.isolatedCurrents = {'excit', 'control', [-75, -76], 15;...
                            'ampa', 'control', [-75, -76], 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [43 -67];
@@ -3299,7 +3299,7 @@ params.isolatedCurrents = {'excit', 'control', -73, 15;...
                            'ampa', 'control', -73, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [nan];
@@ -3357,7 +3357,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 15;...
                            'ampa', 'control', -72, 15;...
                            'nmda', 'nbqxGabazine', 50, 15};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-46 -10];
@@ -3418,7 +3418,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'ampa', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 HS1loc = [0];
 HS2loc = [0];
@@ -3479,7 +3479,7 @@ params.isolatedCurrents = {'excit', 'control', -76, 17;...
                            'ampa', 'control', -76, 17;...
                            'nmda', 'nbqxGabazine', 61, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 HS1loc = [0];
 HS2loc = [0];
@@ -3541,7 +3541,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'ampa', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [0];
@@ -3611,7 +3611,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'ampa', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 %
@@ -3667,7 +3667,7 @@ params.celldepth = [norm([124 220]), norm([124 220])];
 % Erev is to calculate driving force for conversion from pA to pS
 params.isolatedCurrents = {};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 %
@@ -3728,7 +3728,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'ampa', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 % params.stimLoc = [-57 75;...
 %                   -49 -8];
@@ -3791,7 +3791,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'ampa', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 
 HS1loc = [-60 -16];
@@ -3860,7 +3860,7 @@ params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'ampa', 'control', -72, 17;...
                            'nmda', 'nbqxGabazine', 50, 17};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 HS1loc = [73 67];
 HS2loc = [20 10];
@@ -3893,7 +3893,9 @@ fin
 %
 %%%%%%%%%%%%%%%%%
 % 
-% A single cell in PM. This was the first neuron tested using the 
+% A single cell in PM. This was the first neuron tested using the
+% interleaved stimulus protocol generated in matlab and then imported into
+% clampex
 %
 
 %
@@ -3914,7 +3916,7 @@ params.excludeHS2 = {};
 params.isolatedCurrents = {'excit', 'control', -72, 17;...
                            'inhib', 'control', 17, -72};
 params.tags = {};
-params.filter = 1e3;
+params.filter = 2e3;
 
 HS1loc = [];
 HS2loc = [];

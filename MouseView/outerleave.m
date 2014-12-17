@@ -41,9 +41,12 @@ for swp = 1:Nsweeps
     pAmp(swp) = max(tmpWF(:,swp));
     pAmp(swp) = round(pAmp(swp).*100) ./ 100; % round to the one hundreths place
     
-    
-    tFreq(swp) =  1./(pOnTimes(2)-pOnTimes(1));
-    tFreq(swp) = round(tFreq(swp).*10)./10; % round to the tenth place
+    if numel(pOnTimes)>1
+        tFreq(swp) =  1./(pOnTimes(2)-pOnTimes(1));
+        tFreq(swp) = round(tFreq(swp).*10)./10; % round to the tenth place
+    else
+        tFreq(swp) = 0; % a single pulse
+    end
     
 end
 
