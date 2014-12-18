@@ -34,6 +34,18 @@ function params = anlyMod_EI_IO(params)
 
         ledIdx = params.ax{i_ax}.idx.LED_470;
         tdict = outerleave(params.ax{i_ax}, ledIdx);
+        
+        
+        
+        
+        % calculate the pulse times, which will be used later
+        tmpWF = params.ax{i_ax}.dat(:,ledIdx,:);
+        tmpWF = permute(tmpWF, [1,3,2]);
+        [Nsamps, Nsweeps] = size(tmpWF);
+        thresh = 0.025;
+        above = tmpWF > thresh;
+        change = [zeros(1,Nsweeps); diff(above, 1, 1)];
+        threshCrossing = change == 1;
 
 
         % figure out how many channels there were
@@ -66,14 +78,25 @@ function params = anlyMod_EI_IO(params)
                     continue
                 end
                 
+                % grab the raw data, mean subtract, and then average across
+                % sweeps
+                tmp_raw = params.ax{i_ax}.dat(:,chIdx,l_valid);
+                tmp_raw = permute(tmp_raw, [1,3,2]);
+                pOn_idx = sum(threshCrossing(:,l_valid),2);
+                [pks, pOn_idx]= findpeaks(double(pOn_idx));
+                assert(~isempty(pOn_idx), 'ERROR: could not locate pulses')
+                assert(all(pks == sum(l_valid)), 'ERROR: Pulse times may not be syncd or there may be different numbers of pulses each sweep')
                 
-                tmp = params.ax{i_ax}.dat(:,chIdx,l_valid);
-                tmp = permute(tmp, [1,3,2]);
+                baselineSamples = ceil(0.150 .* params.ax{i_ax}.head.sampRate);
+                baseline_idx = false(Nsamps, 1);
+                baseline_idx(pOn_idx-baselineSamples : pOn_idx) = true;
                 
-                figure
-                hold on,
-                plot(params.ax{i_ax}.tt, tmp)
-                plot(params.ax{i_ax}.tt, mean(tmp,2), 'k')
+                baseline_raw = mean(tmp_raw(baseline_idx,:),1); % the actual baseline
+                tmp_raw = bsxfun(@minus, tmp_raw, baseline_raw);
+                
+                avg = mean(tmp_raw,2); % average across sweeps.
+                
+                
 
             end
 
