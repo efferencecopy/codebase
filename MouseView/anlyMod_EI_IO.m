@@ -34,8 +34,7 @@ function params = anlyMod_EI_IO(params)
 
         ledIdx = params.ax{i_ax}.idx.LED_470;
         tdict = outerleave(params.ax{i_ax}, ledIdx);
-        
-        
+        params.tdict{i_ax} = tdict;       
         
         
         % calculate the pulse times, which will be used later
@@ -53,8 +52,8 @@ function params = anlyMod_EI_IO(params)
         l_hs1 = cellfun(@(x) ~isempty(x), regexpi(params.ax{i_ax}.head.recChNames, 'hs1'));
         l_hs2 = cellfun(@(x) ~isempty(x), regexpi(params.ax{i_ax}.head.recChNames, 'hs2'));
         primaryChIdx = [find(l_hs1 & ~l_secCh), find(l_hs2 & ~l_secCh)];
-        assert(numel(primaryChIdx)<=2, 'ERROR: too many channels')
         secondaryChIdx = [find(l_hs1 & l_secCh), find(l_hs2 & l_secCh)];
+        assert(numel(primaryChIdx)<=2, 'ERROR: too many channels')
 
         for i_ch = 1:numel(primaryChIdx);
 
@@ -78,8 +77,7 @@ function params = anlyMod_EI_IO(params)
                     continue
                 end
                 
-                % grab the raw data, mean subtract, and then average across
-                % sweeps
+                % grab the raw data, mean subtract, and then average across sweeps
                 tmp_raw = params.ax{i_ax}.dat(:,chIdx,l_valid);
                 tmp_raw = permute(tmp_raw, [1,3,2]);
                 pOn_idx = sum(threshCrossing(:,l_valid),2);
@@ -94,9 +92,19 @@ function params = anlyMod_EI_IO(params)
                 baseline_raw = mean(tmp_raw(baseline_idx,:),1); % the actual baseline
                 tmp_raw = bsxfun(@minus, tmp_raw, baseline_raw);
                 
-                avg = mean(tmp_raw,2); % average across sweeps.
+                params.avg.trace{i_ax}{i_cond, i_ch} = mean(tmp_raw,2); % average across sweeps.
                 
-                
+                % store the holding potential (if Vclamp)
+                idx = secondaryChIdx(i_ch);
+                vclamp = strcmpi(params.ax{i_ax}.head.recChUnits{idx}, 'mv');
+                if vclamp
+                    tmp_raw = params.ax{i_ax}.dat(:,idx,l_valid);
+                    tmp_raw = permute(tmp_raw, [1,3,2]);
+                    vhold = mean(tmp_raw(baseline_idx,:),1); % vhold for each sweep
+                    assert(range(vhold)<=1, 'ERROR: difference in Vhold exceeds tolerance');
+                    
+                    
+                end
 
             end
 
