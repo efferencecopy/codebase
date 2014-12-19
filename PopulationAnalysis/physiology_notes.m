@@ -3929,7 +3929,7 @@ params.celldepth = [norm(HS1loc-Pialoc1), norm([HS2loc-Pialoc2])];
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {@anlyMod_EI_IO};
+    params.fxns = {@anlyMod_avgOuterleave, @anlyMod_EI_IO};
     params = invitroAnalysisOverview(params);
 end
 
