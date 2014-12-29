@@ -3906,8 +3906,8 @@ params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_141124_C_cell1';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_12_11_', [4:7]};  % <file name prefix, suffix>
 params.groups = {'control', [4:7]};
-params.excludeHS1 = {};
-params.excludeHS2 = {}; 
+params.excludeHS1 = {{'_0004', [1:3]}};
+params.excludeHS2 = {{'_0006', [7:11]}}; 
 
 
 % stuff for E/I and AMPA/NMDA ratios
