@@ -116,7 +116,11 @@ function params = anlyMod_avgOuterleave(params)
                 nCh = size(params.avg.trace_pA{fid_idx},2);
                 for i_ch = 1:nCh;
                     subplot(nCh,1,i_ch), hold on,
+                    try
                     plot(params.ax{fid_idx}.tt, params.avg.trace_pA{fid_idx}{i_cond, i_ch}, '-', 'color', clrs(i_fid,:))
+                    catch
+                        keyboard
+                    end
                     t_on = params.ax{fid_idx}.tt(params.tdict{fid_idx}.pOnIdx{i_cond, i_ch}(1));
                     t_off = params.ax{fid_idx}.tt(params.tdict{fid_idx}.pOnIdx{i_cond, i_ch}(end));
                     xlim([t_on, t_off+0.100])
@@ -183,11 +187,11 @@ function out = findGoodSweeps(params, i_ax, i_ch)
 
     totalSweeps = size(params.ax{i_ax}.dat, 3);
     if exclude_file && (totalSweeps == numel(exclude_sweeps))
-        fprintf('excluding ch %d from file %s \n', ch, completeNames{i_ax});
+        fprintf('excluding ch %d from file %s \n', i_ch, completeNames{i_ax});
         out = 'exclude_file';
         
     elseif  exclude_file && (totalSweeps > numel(exclude_sweeps))
-        fprintf('excluding %d sweeps from ch %d from file %s \n', numel(exclude_sweeps), ch, completeNames{i_ax});
+        fprintf('excluding %d sweeps from ch %d from file %s \n', numel(exclude_sweeps), i_ch, completeNames{i_ax});
         out = true(totalSweeps, 1);
         out(exclude_sweeps) = false;
         
