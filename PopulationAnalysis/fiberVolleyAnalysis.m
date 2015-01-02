@@ -23,7 +23,7 @@ idx = cellfun(@(x,y) regexpi(x,y), exptConds, repmat({validConds}, size(exptCond
 idx = cellfun(@(x) any([x{:}]), idx);
 assert(all(idx), 'ERROR: at least one experimental condition is not recognized');
 
-% ERROR CHECKING: make sure that there is consistency in the chanels used
+% ERROR CHECKING: make sure that there tmp.head.validChansis consistency in the chanels used
 % for each input file
 channelConfigs = cell2mat(channels);
 channelConfigs = unique(channelConfigs, 'rows');

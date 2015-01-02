@@ -103,18 +103,20 @@ function params = anlyMod_avgOuterleave(params)
         % stuff in the params.avg.trace_pA array is ordered in the same way
         % as params.files. Figure out which files are in each group, and
         % the index to params.avg.trace_pA
-        for i_fid = 1:numel(params.groups{i_grp,2});
+        nFiles = numel(params.groups{i_grp,2});
+        clrs = pmkmp(nFiles+1,'IsoL'); % pmkmp bonks when asked for a single color. adding one to avoid the bonking...
+        clrs = clrs(randperm(nFiles), :);
+        for i_fid = 1:nFiles;
             
             fid_idx = params.files{2} == params.groups{i_grp,2}(i_fid);
             nConds = size(params.avg.trace_pA{fid_idx},1);
-            clrs = hsv(nConds);
             
             for i_cond = 1:nConds
                 
                 nCh = size(params.avg.trace_pA{fid_idx},2);
                 for i_ch = 1:nCh;
                     subplot(nCh,1,i_ch), hold on,
-                    plot(params.ax{fid_idx}.tt, params.avg.trace_pA{fid_idx}{i_cond, i_ch}, '-', 'color', clrs(i_cond,:))
+                    plot(params.ax{fid_idx}.tt, params.avg.trace_pA{fid_idx}{i_cond, i_ch}, '-', 'color', clrs(i_fid,:))
                     t_on = params.ax{fid_idx}.tt(params.tdict{fid_idx}.pOnIdx{i_cond, i_ch}(1));
                     t_off = params.ax{fid_idx}.tt(params.tdict{fid_idx}.pOnIdx{i_cond, i_ch}(end));
                     xlim([t_on, t_off+0.100])

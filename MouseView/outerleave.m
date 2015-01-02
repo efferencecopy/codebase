@@ -54,7 +54,7 @@ end
 % now determine the number of unique trial types
 tDict.vars = {'pAmp', 'pWidth', 'tFreq'};
 tDict.conds = unique([pAmp, pWidth, tFreq], 'rows');
-Nconds = size(tDict.conds, 2);
+Nconds = size(tDict.conds, 1);
 
 tDict.trlList = nan(Nsweeps, 1);
 for a = 1:Nconds
