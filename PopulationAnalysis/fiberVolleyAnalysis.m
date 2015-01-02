@@ -47,12 +47,9 @@ for i_fid = 1:numel(fnames)
         tmp = tmp.removeSweeps(idx);
     end
     
-    if isnumeric(tfs{i_fid})
-        field_tf = ['tf_', num2str(tfs{i_fid})];
-        field_expt = exptConds{i_fid};
-        ax.(field_tf).(field_expt) = tmp;
-        
-    elseif strcmpi(tfs{i_fid}, 'interleaved')
+    % store the data, grouped by TF. First, I need to figure out the
+    % appropriate field name for each TF instance
+    if strcmpi(tfs{i_fid}, 'interleaved')
         
         tdict = outerleave(tmp, tmp.idx.LED_470);
         
@@ -71,8 +68,16 @@ for i_fid = 1:numel(fnames)
             ax.(field_tf).(field_expt).dat = tmp.dat(:,:,tdict.trlList == i_tf);
             ax.(field_tf).(field_expt).idx = tmp.idx;
         end
+
+    else
         
-        
+        if isnumeric(tfs{i_fid})
+            field_tf = ['tf_', num2str(tfs{i_fid})];
+        else
+            field_tf = ['tf_', tfs{i_fid}];
+        end
+        field_expt = exptConds{i_fid};
+        ax.(field_tf).(field_expt) = tmp;
         
     end
 end
@@ -119,9 +124,10 @@ for i_tf = 1:numel(TFfields)
             template = ax.(field_tf).(field_expt).dat(:,ledIdx,1);
             template = template > thresh;
             template = [0; diff(template)];
-            crossings = template == 1;
-            storedCrossings{i_tf} = crossings;
-            pulseOnset = find(crossings==1, 1, 'first');
+            storedCrossings_on{i_tf} = template == 1;
+            tmp_off = template == -1;
+            storedCrossings_off{i_tf} = [tmp_off(2:end); false]; % i think there is an OBO error otherwise...
+            pulseOnset = find(template==1, 1, 'first');
             
             tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
             
@@ -129,7 +135,7 @@ for i_tf = 1:numel(TFfields)
             % filter out the high frequency stuff. Filtering shouldn't go
             % below 2000 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 2000;
+            lp_freq = 4000;
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             
             % take the mean
@@ -197,7 +203,7 @@ end
 
 
 %
-% plot the results (one summary figure for each TF
+% plot the results (one summary figure for each TF)
 %
 for i_tf = 1:numel(TFfields)
     
@@ -222,12 +228,14 @@ for i_tf = 1:numel(TFfields)
             hold on,
             tt = tt-tt(pulseOnset);
             plot(tt, trace.(field_tf).(tabLabels{i_cond})(:,i_ch), 'k', 'linewidth', 3)
-            crossings = storedCrossings{i_tf};
-            plot(tt(crossings), zeros(1,sum(crossings)), 'ro', 'markerfacecolor', 'r')
+            crossings_on = storedCrossings_on{i_tf};
+            crossings_off = storedCrossings_off{i_tf};
+            plot(tt(crossings_on), zeros(1,sum(crossings_on)), 'ro', 'markerfacecolor', 'r')
+            plot(tt(crossings_off), zeros(1,sum(crossings_off)), 'mo', 'markerfacecolor', 'r')
             xlabel('time (ms)')
             ylabel('LFP amplitude')
             axis tight
-            %xlim([-100, tt(find(crossings==1, 1,'last'))+100])
+            xlim([-75, tt(find(crossings_off==1, 1,'last'))+75])
             hold off
             
         end
