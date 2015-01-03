@@ -33,6 +33,7 @@ function params = anlyMod_avgOuterleave(params)
             chIdx = primaryChIdx(i_ch);
 
             % generate a trial list for this specific channel and .abf file
+            % based off the "exclusion list" defined in physiology_notes.m
             l_goodSweeps = findGoodSweeps(params, i_ax, i_ch);
             if strcmpi(l_goodSweeps, 'exclude_file')
                 continue
@@ -47,13 +48,16 @@ function params = anlyMod_avgOuterleave(params)
                 l_valid = l_goodSweeps & l_cond;
                 
                 if sum(l_valid) == 0
+                    params.avg.trace_pA{i_ax}{i_cond, i_ch} = nan(Nsamps, 1);
                     continue
                 end
                 
                 % grab the raw data, mean subtract, and then average across sweeps
                 tmp_raw = params.ax{i_ax}.dat(:,chIdx,l_valid);
                 tmp_raw = permute(tmp_raw, [1,3,2]);
-                pOn_idx = sum(threshCrossing(:,l_valid),2);
+                dim = 1;
+                tmp_raw = butterfilt(tmp_raw, params.filter, params.ax{i_ax}.head.sampRate, 'low', dim);
+                pOn_idx = sum(threshCrossing(:,l_valid),2); % error checking to make sure the pulses for each sweep are at the same time
                 [pks, pOn_idx]= findpeaks(double(pOn_idx));
                 assert(~isempty(pOn_idx), 'ERROR: could not locate pulses')
                 assert(all(pks == sum(l_valid)), 'ERROR: Pulse times may not be syncd or there may be different numbers of pulses each sweep')
@@ -116,11 +120,7 @@ function params = anlyMod_avgOuterleave(params)
                 nCh = size(params.avg.trace_pA{fid_idx},2);
                 for i_ch = 1:nCh;
                     subplot(nCh,1,i_ch), hold on,
-                    try
                     plot(params.ax{fid_idx}.tt, params.avg.trace_pA{fid_idx}{i_cond, i_ch}, '-', 'color', clrs(i_fid,:))
-                    catch
-                        keyboard
-                    end
                     t_on = params.ax{fid_idx}.tt(params.tdict{fid_idx}.pOnIdx{i_cond, i_ch}(1));
                     t_off = params.ax{fid_idx}.tt(params.tdict{fid_idx}.pOnIdx{i_cond, i_ch}(end));
                     xlim([t_on, t_off+0.100])
@@ -163,14 +163,14 @@ function out = findGoodSweeps(params, i_ax, i_ch)
     ex = 1;
     while ex <= numel(possibleExclusions)
         if iscell(possibleExclusions{ex})
-            exclude_file = ~isempty(regexpi(completeNames{i_ch}(end-4:end), possibleExclusions{ex}{1}));
+            exclude_file = ~isempty(regexpi(completeNames{i_ax}(end-4:end), possibleExclusions{ex}{1}));
             if exclude_file
                 exclude_sweeps = possibleExclusions{ex}{2};
             end
         else
-            exclude_file = ~isempty(regexpi(completeNames{i_ch}(end-4:end), possibleExclusions{ex}));
+            exclude_file = ~isempty(regexpi(completeNames{i_ax}(end-4:end), possibleExclusions{ex}));
             if exclude_file
-                exclude_sweeps = 1:size(ax.dat,3);
+                exclude_sweeps = 1:size(params.ax{i_ax}.dat,3);
             end
         end
 

@@ -3531,7 +3531,6 @@ params.groups = {'control', [12,13];...
                  'NMDAR', [16:22]};
 params.excludeHS1 = {};
 params.excludeHS2 = {}; 
-params.celldepth = [nan, norm([-361 310])];
 
 % stuff for E/I and AMPA/NMDA ratios
 % key for isolatedCurrents = {<current><group><Vhold><Erev>}

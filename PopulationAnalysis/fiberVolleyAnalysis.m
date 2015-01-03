@@ -135,7 +135,7 @@ for i_tf = 1:numel(TFfields)
             % filter out the high frequency stuff. Filtering shouldn't go
             % below 2000 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 4000;
+            lp_freq = 2500;
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             
             % take the mean
@@ -235,7 +235,7 @@ for i_tf = 1:numel(TFfields)
             xlabel('time (ms)')
             ylabel('LFP amplitude')
             axis tight
-            xlim([-75, tt(find(crossings_off==1, 1,'last'))+75])
+            %xlim([-75, tt(find(crossings_off==1, 1,'last'))+75])
             hold off
             
         end
