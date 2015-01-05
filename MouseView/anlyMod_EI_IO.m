@@ -22,7 +22,6 @@ function params = anlyMod_EI_IO(params)
 
 
 % loop through each file, condition, and channel.
-
 nFiles = numel(params.files{2});
 for i_fid = 1:nFiles;
     
@@ -42,6 +41,31 @@ for i_fid = 1:nFiles;
             % figure out what the driving force is, and make sure that the
             % Vhold is close enough to the desired value specified by the
             % "isolatedCurrents" field in the physology_notes.m
+            vhold = params.avg.vhold{i_fid}{i_cond, i_ch};
+            drivingForce = [];
+            fieldName = [];
+            match = false;
+            i_rev = 1;
+            while ~match && i_rev<=size(params.isolatedCurrents,1);
+                Erev = params.isolatedCurrents{i_rev, 3};
+                if numel(Erev)>1
+                    Erev = Erev(i_ch);
+                end
+                
+                match = abs(vhold-Erev)<1;
+                if match
+                    drivingForce = Erev - params.isolatedCurrents{i_rev, 4};
+                    drivingForce = abs(drivingForce); % in mV
+                    fieldName = params.isolatedCurrents{i_rev, 1};
+                end
+                
+                i_rev = i_rev+1;
+            end
+            
+            if ~match
+                continue
+            end
+            
             
             pOnIdx = params.tdict{i_fid}.pOnIdx{i_cond, i_ch};
             nPulses = numel(pOnIdx);
@@ -51,9 +75,22 @@ for i_fid = 1:nFiles;
                 anlyWindow = pOnIdx(i_pulse)+t_anlyStartIdx : pOnIdx(i_pulse)+t_anlyEndIdx;
                 snippet = params.avg.trace_pA{i_fid}{i_cond, i_ch}(anlyWindow);
                 
+                % now determine the maximal deviation from zero (positive
+                % or negative). 
+                [~, maxidx] = max(abs(snippet));
+                maxval_pA = snippet(maxidx);
+                
+                % convert to conductance
+                maxval_amps = maxval_pA ./ 1e12;
+                drivingForce_volts = drivingForce ./ 1e3;
+                maxval_siemans = maxval_amps ./ drivingForce_volts;
+                maxval_nS = maxval_siemans .* 1e9
+                
+                % store the maxval conductance
                 
             end
             
         end
     end
 end
+
