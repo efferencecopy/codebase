@@ -66,12 +66,13 @@ for i_fid = 1:nFiles;
                 continue
             end
             
-            
+            % pull out the max conductance for each pulse
             pOnIdx = params.tdict{i_fid}.pOnIdx{i_cond, i_ch};
             nPulses = numel(pOnIdx);
             for i_pulse = 1:nPulses
                 
                 % define an analysis window for each pulse
+                assert(t_anlyEndIdx < (pOnIdx(2)-pOnIdx(1)), 'ERROR: analysis window includes following pulse interval');
                 anlyWindow = pOnIdx(i_pulse)+t_anlyStartIdx : pOnIdx(i_pulse)+t_anlyEndIdx;
                 snippet = params.avg.trace_pA{i_fid}{i_cond, i_ch}(anlyWindow);
                 
@@ -84,7 +85,7 @@ for i_fid = 1:nFiles;
                 maxval_amps = maxval_pA ./ 1e12;
                 drivingForce_volts = drivingForce ./ 1e3;
                 maxval_siemans = maxval_amps ./ drivingForce_volts;
-                maxval_nS = maxval_siemans .* 1e9
+                maxval_nS = maxval_siemans .* 1e9;
                 
                 % store the maxval conductance
                 
