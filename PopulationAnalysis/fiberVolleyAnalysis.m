@@ -140,15 +140,9 @@ for i_tf = 1:numel(TFfields)
             
             % take the mean
             average = mean(filtered,2);
-            
-            %     % try to reduce 60 cycle noise
-            %     lines = 60;
-            %     winStart = Rs_testPulse_off + (sampFreq * 0.150);
-            %     winEnd = pulseOnset;
-            %     %average= rmhum(average, sampFreq, winStart, winEnd,  lines, 1);
-            %
-            
             trace.(field_tf).(field_expt)(:,i_ch) = average;
+            
+            
         end
     end
 end
@@ -197,8 +191,29 @@ for i_tf = 1:numel(TFfields)
     end
     
     
+    % try to reduce line noise from a few of the traces
+    conds = {'FV_Na_Ca2_mGluR', 'FV_Na'};
+    for i_cond = 1:numel(conds)
+        
+        if isfield(trace.(field_tf), conds{i_cond})
+            lines = [5.5, 60, 120, 180];
+            winStart_idx = 1;%find(storedCrossings_off{i_tf}==1, 1, 'last') + (sampFreq * 0.010);
+            winEnd_idx = numel(storedCrossings_off{i_tf});
+            tmp_trace = trace.(field_tf).(conds{i_cond});
+            
+            for i_ch = 1:size(tmp_trace,2)
+                tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
+            end
+            
+            trace.(field_tf).(conds{i_cond}) = tmp_trace;
+            
+        end
+    end
+        
     
 end
+
+
 
 
 

@@ -23,14 +23,10 @@ else
 end
 
 
-% only anlyzes a subset of the data that is deemed 'quiet'
-tmp_in = in(winStart:winEnd);
-tmp_in = tmp_in - mean(tmp_in);
-
 
 % make the frequency axis (this is mostly for making good initial guesses
 % for the fminsearch
-N = size(tmp_in,1);
+N = size(in,1);
 if rem(N,2)
     k = -((N-1)./2):((N-1)./2); % pos freqs when N is Odd. For two sided freqs: k = -((N-1)./2):((N-1)./2)
 else
@@ -40,11 +36,18 @@ ff = (k./N).*sampFreq;
 
 
 
-out = tmp_in;
+out = in; % this is what will become the output after subtracting off line noise
 for a = 1:numel(lines)
     
-    % look around to see if that's the correct line freq.
-    coeffs = fftshift(fft(tmp_in.*hamming(numel(tmp_in))));
+    % only anlyzes a subset of the data that is deemed 'quiet'
+    tmp_trace = out(winStart:winEnd);
+    tmp_trace = tmp_trace - mean(tmp_trace);
+    
+    % look around to see if that's the correct line freq. Zero pad the
+    % tmp_trace, so that the resolution in FF is the same as the "in"
+    % trace.
+    tmp_trace_for_ff = [tmp_trace; zeros(numel(in)-numel(tmp_trace), 1)];
+    coeffs = fftshift(fft(tmp_trace_for_ff.*hamming(numel(tmp_trace_for_ff))));
     suspect = lines(a);
     valid_ff = ff'>=(suspect-5) & ff'<=(suspect+5);
     peakVals = findpeaks(abs(coeffs(valid_ff)));
@@ -69,7 +72,7 @@ for a = 1:numel(lines)
     tmp_coeffs(idx) = coeffs(idx);
     ifft_tmp_in = ifft(ifftshift(tmp_coeffs));
     [~, peakIdx] = findpeaks(ifft_tmp_in);
-    tt = [0 : numel(tmp_in)-1]' ./ sampFreq;
+    tt = [0 : numel(tmp_trace)-1]' ./ sampFreq;
     
     timeOfFirstPeak = tt(peakIdx(1));
     period = 1./ff(pos_idx);
@@ -96,17 +99,19 @@ for a = 1:numel(lines)
     
     % meat and potatoes
     errtype = 'dotcorr'; % does a good job with getting the phase and freq
-    initGuess = fminsearch(@minNegCorr, initGuess);
+    initGuess = fminsearch(@errfun, initGuess);
     errtype = 'SSE'; % refines the fit by getting the amplitude
-    params = fminsearch(@minNegCorr, initGuess);
+    params = fminsearch(@errfun, initGuess);
     
     % subtract out the line noise, and advance to the next line...
     %  WHEN SUBTRACTING FROM THE FULL WAVEFORM I NEED TO REDEFINE TIME ZERO
     %  TO BE THAT OF THE TEMPLATE...
-    tt = [0 : numel(tmp_in)-1]' ./ sampFreq;
+    tt = [0 : numel(in)-1]' ./ sampFreq;
+    template_zero = (winStart-1) ./ sampFreq;
+    tt = tt-template_zero; 
     fit = sin(2 .* pi .* (tt+params(2)) .* params(3)) .* params(1);
     out = out - fit;
-    tmp_in = tmp_in-fit;
+
 
 
 
@@ -115,21 +120,15 @@ if UNITTEST || showplot
     figure,
     set(gcf, 'position', [745   123   183   636])
     subplot(3,1,1), hold on,
-    tt = [0 : numel(tmp_in)-1]' ./ sampFreq;
-    plot(tt, tmp_in, 'b')
+    plot(tt, in, 'b')
     plot(tt, fit, 'k', 'linewidth', 2)
-    %plot(tt, ifft_tmp_in, 'g', 'linewidth', 2)
-    %plot(tt(peakIdx(1)), ifft_tmp_in(peakIdx(1)), 'co', 'markerfacecolor', 'c')
-    %xlim([0 0.017]);
     
     subplot(3,1,2), hold on,
-    plot(tt, tmp_in, 'b')
     plot(tt, out, 'r')
-    %xlim([0 0.017]);
     
     subplot(3,1,3), hold on
     plot(ff, fftshift(abs(fft(out)))./numel(fit), 'r');
-    plot(ff, fftshift(abs(fft(tmp_in)))./numel(fit), 'b');
+    plot(ff, fftshift(abs(fft(in)))./numel(fit), 'b');
     xlim([omega-5 omega+5])
 end
 
@@ -138,7 +137,7 @@ end
 
 
 % nested numerical solver
-    function err = minNegCorr(guess)
+    function err = errfun(guess)
         
         A = guess(1);
         P = guess(2);
@@ -148,11 +147,11 @@ end
 
         switch errtype
             case 'dotcorr'
-                rho = (sinwave' * tmp_in(:)) ./ (norm(sinwave).*norm(tmp_in));
+                rho = (sinwave' * tmp_trace(:)) ./ (norm(sinwave).*norm(tmp_trace));
                 err = abs(1-rho);
             case 'SSE'
                 magicScalar = amp*2+1000;
-                err = sum(((tmp_in+magicScalar)-(sinwave+magicScalar)).^2);
+                err = sum(((tmp_trace+magicScalar)-(sinwave+magicScalar)).^2);
                 
         end
         
