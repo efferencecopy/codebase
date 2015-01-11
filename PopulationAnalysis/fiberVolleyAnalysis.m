@@ -42,9 +42,11 @@ for i_fid = 1:numel(fnames)
     
     % remove some sweeps if need be
     if ~isnan(rmsweeps{i_fid})
-        idx = false(size(tmp.dat,3),1);
-        idx(eval(rmsweeps{i_fid})) = true;
-        tmp = tmp.removeSweeps(idx);
+        goodSweeps = true(size(tmp.dat,3),1);
+        badSweeps = eval(['[',rmsweeps{i_fid},']']);
+        goodSweeps(badSweeps) = false;
+        tmp.dat = tmp.dat(:,:,goodSweeps);
+        tmp.wf = tmp.wf(:,:,goodSweeps);
     end
     
     % store the data, grouped by TF. First, I need to figure out the
