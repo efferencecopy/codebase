@@ -1,7 +1,6 @@
-% This script can be run on any computer (including the shadlen cluster).
+% This script can be run on any computer (including the cluster).
 % And is designed to probe many color directions, which in this case, are
-% specified in this script (as opposed to a dtnt run). I'm also going to
-% experiment with running parfor loops on the shadlen cluster.
+% specified in this script (as opposed to a dtnt run). 
 
 % clear out the work space
 fin
@@ -102,6 +101,8 @@ if exist('matlabpool', 'file') == 2;
     matlabpool('close')
     %delete(poolObj);
 end
+
+
 
 % 
 % Repackage the data in a way that is similar to the way DTV1 data is

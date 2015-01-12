@@ -69,7 +69,7 @@ if strcmpi(params.colorselection , 'lots')
     inds = fullfact([tmp, tmp]);
     dirs_pol = [az(inds(:,1))', el(inds(:,2))'];
     [x,y,z] = sph2cart(dirs_pol(:,1), dirs_pol(:,2), ones(size(dirs_pol,1),1));
-    z = z.*3; % scale the s-cone axis
+    z = z.*3; % scale the s-cone axis so that the most highly-curved potion of the elipse is still well-sampled.
     colorDirs = [x,y,z];
     norms = sqrt(sum(colorDirs.^2,2));
     colorDirs = bsxfun(@rdivide, colorDirs, norms);
