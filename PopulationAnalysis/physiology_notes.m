@@ -4007,6 +4007,12 @@ end
 % CH_100614_C (EIAN) Need to check histology
 % CH_141020_A Confirm brain region on cell 2
 
+% CH_141201_A & _B Need to add to the sheet. Practice data file for subtracting
+% the excitation from mixed currents
+
+% CH_141215_A to _F Add to sheet, make sure that pop_anly workbooks are
+% updated.
+
 
 
 

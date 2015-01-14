@@ -123,12 +123,15 @@ end % i_fid
 
 
 
+
+
+
+
 % 
 % OPTIONAL SUMMARY FIGURE 1: PULSE AMPLITUDE IS THE 
 % ONLY VARIABLE THAT'S INTERLEAVED
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % figure out if pulse amp is the only variable interleaved
 bigcondmtx = [];
@@ -163,16 +166,12 @@ if onlyPulseAmp
                 [x, idx] = sort(x);
                 y = cell2mat(params.avg.peak_nS.(group).vals{i_ch});
                 y = y(idx);
-            else
+                plot(abs(x), abs(y), '-ko', 'markerfacecolor', 'k');
                 
-                % make some fake data, just so that I can plot a place holder
-                % figure
-                x = nan;
-                y = nan;
             end
             
-            
-            plot(abs(x), abs(y), '-k.', 'linewidth', 2)
+            % putting this outside the 'if' statement so that axes get titles
+            % even when there's no data...
             xlabel('pulse amplitude (V)')
             ylabel('conductance (nS)')
             title(sprintf('Channel %d', i_ch))
@@ -184,34 +183,151 @@ if onlyPulseAmp
     
     % plot the E/I ratio
     figure
+    set(gcf, 'name', 'EI ratio', 'position', [373    17   452   789]);
+    plothelper(gcf);
+    
     for i_ch = 1:2
         subplot(2,1,i_ch)
-        if isempty(params.avg.peak_nS.excit.vals{i_ch})
-            continue
+        if ~isempty(params.avg.peak_nS.excit.vals{i_ch})
+            
+            excit_nS = cell2mat(params.avg.peak_nS.excit.vals{i_ch});
+            excit_ledV = params.avg.peak_nS.excit.cond{i_ch}(:,1);
+            inhib_nS = cell2mat(params.avg.peak_nS.inhib.vals{i_ch});
+            inhib_ledV = params.avg.peak_nS.inhib.cond{i_ch}(:,1);
+            
+            % make sure that the nS values are sorted identically for the excit and
+            % inhib conditions
+            [excit_ledV, idx] = sort(excit_ledV, 'ascend');
+            inhib_ledV = inhib_ledV(idx);
+            assert(all(inhib_ledV == excit_ledV), 'ERROR: no correspondence b/w excit and inhib LED pow');
+            
+            ei_ratio = abs(excit_nS(idx))./abs(inhib_nS(idx));
+            plot(excit_ledV, ei_ratio, '-ko', 'markerfacecolor', 'k');
+            set(gca, 'yscale', 'log')
         end
-        excit_nS = cell2mat(params.avg.peak_nS.excit.vals{i_ch});
-        excit_ledV = params.avg.peak_nS.excit.cond{i_ch}(:,1);
-        inhib_nS = cell2mat(params.avg.peak_nS.inhib.vals{i_ch});
-        inhib_ledV = params.avg.peak_nS.inhib.cond{i_ch}(:,1);
-        
-        % make sure that the nS values are sorted identically for the excit and
-        % inhib conditions
-        [excit_ledV, idx] = sort(excit_ledV, 'ascend');
-        inhib_ledV = inhib_ledV(idx);
-        assert(all(inhib_ledV == excit_ledV), 'ERROR: no correspondence b/w excit and inhib LED pow');
-        
-        ei_ratio = abs(excit_nS(idx))./abs(inhib_nS(idx));
-        plot(excit_ledV, ei_ratio, '-k.');
-        
-        
+        xlabel('Pulse Voltage (V)')
+        ylabel('EI ratio')
+        title(sprintf('Channel %d', i_ch))
     end
 
 end
 
 
 
+% 
+% OPTIONAL SUMMARY FIGURE 1: MULTIPLE FREQUENCIES AND POSSIBLY MULTIPLE
+% PULSE AMPLITUDES. SAME PULSE WIDTH.
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-
-
+if (nWidths==1) && (nFreqs>1);
+    
+    
+    % simple plot of Pn:P1 conductance as a function of pulse
+    % number
+    for i_group = 1:nGroups
+        
+        group = params.isolatedCurrents{i_group,1};
+        
+        figure
+        set(gcf, 'name', group, 'position', [373    17   452   789]);
+        plothelper(gcf);
+        
+        
+        for i_ch = 1:2
+            subplot(2,1,i_ch), hold on,
+            if ~isempty(params.avg.peak_nS.(group).cond{i_ch})
+                
+                % pull out the data 
+                tmp_cond = params.avg.peak_nS.(group).cond{i_ch};
+                tmp_vals = params.avg.peak_nS.(group).vals{i_ch}; % a cell array
+                
+                
+                nconds = size(tmp_cond,1);
+                legtext = {};
+                cmap = colormap(jet);
+                cidx = round(linspace(1, size(cmap,1),nconds));
+                clrs = cmap(cidx,:);
+                for i_cond = 1:nconds
+                    y = tmp_vals{i_cond};
+                    plot(1:numel(y), y./y(1), '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
+                    legtext = cat(2, legtext, sprintf('%.1f V, %.3f ms, %.0f Hz',...
+                                  tmp_cond(i_cond,1), tmp_cond(i_cond, 2).*1000, tmp_cond(i_cond,3)));
+                end
+                set(gca, 'yscale', 'log')
+                legend(legtext)
+                legend boxoff
+            end
+            
+            xlabel('pulse number')
+            ylabel('conductance (nS)')
+            title(sprintf('Channel %d', i_ch))
+            
+        end
+        
+    end
+    
+    
+    
+    % plot the E/I ratio as a function of pulse number
+    figure
+    set(gcf, 'name', 'DI ratio', 'position', [373    17   452   789]);
+    plothelper(gcf);
+    for i_ch = 1:2
+        subplot(2,1,i_ch), hold on,
+        if ~isempty(params.avg.peak_nS.excit.vals{i_ch})
+            
+            % pull out the data
+            excit_nS = params.avg.peak_nS.excit.vals{i_ch};
+            excit_conds = params.avg.peak_nS.excit.cond{i_ch};
+            inhib_nS = params.avg.peak_nS.inhib.vals{i_ch};
+            inhib_conds = params.avg.peak_nS.inhib.cond{i_ch};
+            
+            % make sure the experimental conditions were identical between
+            % the excitation and inhibition files, and then sort the raw
+            % data accordingly
+            assert(size(inhib_conds,1) == size(excit_conds,1), 'ERROR: condition mismatch between excit and inhib')
+            sortidx = nan(size(inhib_conds,1),1);
+            for a = 1:size(excit_conds,1)
+               idx = ismember(excit_conds,inhib_conds(a,:), 'rows');
+               assert(sum(idx)==1, 'ERROR: too many matches found')
+               sortidx(a) = find(idx);
+            end
+            
+            % since I'm using the excit_conds as a template, reorder just
+            % the inhib_conds and _vals
+            inhib_nS = inhib_nS(sortidx);
+            inhib_conds = inhib_conds(sortidx, :);
+            
+            
+            % now calculate the E/I ratio and plot
+            nconds = size(excit_conds,1);
+            legtext = {};
+            cmap = colormap(jet);
+            cidx = round(linspace(1, size(cmap,1),nconds));
+            clrs = cmap(cidx,:);
+            for i_cond = 1:nconds
+                
+                
+                ei_ratio = abs(excit_nS{i_cond})./abs(inhib_nS{i_cond});
+                plot(1:numel(ei_ratio), ei_ratio, '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
+                
+                
+                legtext = cat(2, legtext, sprintf('%.1f V, %.3f ms, %.0f Hz',...
+                    tmp_cond(i_cond,1), tmp_cond(i_cond, 2).*1000, tmp_cond(i_cond,3)));
+            end
+            set(gca, 'yscale', 'log')
+            legend(legtext, 'location', 'northwest')
+            legend boxoff
+        end
+        
+        xlabel('pulse number')
+        ylabel('E/I ratio')
+        title(sprintf('Channel %d', i_ch))
+        
+    end
+    
+    
+end
 
