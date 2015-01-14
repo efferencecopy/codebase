@@ -27,7 +27,7 @@ nGroups = size(params.isolatedCurrents, 1);
 for i_group = 1:nGroups;
     group = params.isolatedCurrents{i_group,1};
     params.avg.peak_nS.(group).cond = {[] []};
-    params.avg.peak_nS.(group).vals = {[] []};
+    params.avg.peak_nS.(group).vals = {{} {}};
 end
 
 
@@ -112,13 +112,9 @@ for i_fid = 1:nFiles;
             
             % store the maxval conductance once all the pulses have been
             % accounted for
-            
-            % this line won't work for more complicated cases where there
-            % are mulitple frequencies. Consider a cell array for each
-            % i_cond. This would require more complicated unpacking later,
-            % but would allow the concatenation here.
-            params.avg.peak_nS.(fieldName).cond{i_ch} = cat(1, params.avg.peak_nS.(fieldName).cond{i_ch}, params.tdict{i_fid}.conds(i_cond,:));
-            params.avg.peak_nS.(fieldName).vals{i_ch} = cat(1, params.avg.peak_nS.(fieldName).vals{i_ch}, maxval_nS);
+            idx = size(params.avg.peak_nS.(fieldName).cond{i_ch},1) + 1;
+            params.avg.peak_nS.(fieldName).cond{i_ch}(idx,:) = params.tdict{i_fid}.conds(i_cond,:);
+            params.avg.peak_nS.(fieldName).vals{i_ch}{idx,1} = maxval_nS;
             
             
         end % i_ch
@@ -127,58 +123,90 @@ end % i_fid
 
 
 
-% now spit out a summary figure. this will become very complicated
-% depending on which variables are interleaved, but for now, just assume
-% that the only one interleaved is the pulse amplitude. 
-for i_group = 1:nGroups
+% 
+% OPTIONAL SUMMARY FIGURE 1: PULSE AMPLITUDE IS THE 
+% ONLY VARIABLE THAT'S INTERLEAVED
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% figure out if pulse amp is the only variable interleaved
+bigcondmtx = [];
+for i_group = 1:nGroups;
+    for i_ch = 1:2;
+        group = params.isolatedCurrents{i_group,1};
+        bigcondmtx = cat(1, bigcondmtx, params.avg.peak_nS.(group).cond{i_ch});
+    end
+end
+nAmps = numel(unique(bigcondmtx(:,1)));
+nWidths = numel(unique(bigcondmtx(:,2)));
+nFreqs = numel(unique(bigcondmtx(:,3)));
+
+onlyPulseAmp = (nAmps>1) && (nWidths==1) && (nFreqs==1);
+if onlyPulseAmp
+
+    for i_group = 1:nGroups
+        
+        group = params.isolatedCurrents{i_group,1};
+        
+        figure
+        set(gcf, 'name', group, 'position', [373    17   452   789]);
+        plothelper(gcf);
+        
+        
+        for i_ch = 1:2
+            subplot(2,1,i_ch)
+            if ~isempty(params.avg.peak_nS.(group).cond{i_ch})
+                
+                % sort the data and then plot
+                x = params.avg.peak_nS.(group).cond{i_ch}(:,1);
+                [x, idx] = sort(x);
+                y = cell2mat(params.avg.peak_nS.(group).vals{i_ch});
+                y = y(idx);
+            else
+                
+                % make some fake data, just so that I can plot a place holder
+                % figure
+                x = nan;
+                y = nan;
+            end
+            
+            
+            plot(abs(x), abs(y), '-k.', 'linewidth', 2)
+            xlabel('pulse amplitude (V)')
+            ylabel('conductance (nS)')
+            title(sprintf('Channel %d', i_ch))
+            
+            
+        end
+    end
     
-    group = params.isolatedCurrents{i_group,1};
     
+    % plot the E/I ratio
     figure
-    set(gcf, 'name', group);
-    
-    
     for i_ch = 1:2
         subplot(2,1,i_ch)
-        if isempty(params.avg.peak_nS.(group).cond{i_ch})
+        if isempty(params.avg.peak_nS.excit.vals{i_ch})
             continue
         end
-        x = params.avg.peak_nS.(group).cond{i_ch}(:,1);
-        [x, idx] = sort(x);
-        y = params.avg.peak_nS.(group).vals{i_ch};
-        y = y(idx);
-        plot(abs(x), abs(y), '-k.', 'linewidth', 2)
-        xlabel('pulse amplitude (V)')
-        ylabel('conductance (nS)')
+        excit_nS = cell2mat(params.avg.peak_nS.excit.vals{i_ch});
+        excit_ledV = params.avg.peak_nS.excit.cond{i_ch}(:,1);
+        inhib_nS = cell2mat(params.avg.peak_nS.inhib.vals{i_ch});
+        inhib_ledV = params.avg.peak_nS.inhib.cond{i_ch}(:,1);
+        
+        % make sure that the nS values are sorted identically for the excit and
+        % inhib conditions
+        [excit_ledV, idx] = sort(excit_ledV, 'ascend');
+        inhib_ledV = inhib_ledV(idx);
+        assert(all(inhib_ledV == excit_ledV), 'ERROR: no correspondence b/w excit and inhib LED pow');
+        
+        ei_ratio = abs(excit_nS(idx))./abs(inhib_nS(idx));
+        plot(excit_ledV, ei_ratio, '-k.');
+        
+        
     end
-end
-
-
-% plot the E/I ratio
-figure
-for i_ch = 1:2
-    subplot(2,1,i_ch)
-    if isempty(params.avg.peak_nS.excit.vals{i_ch})
-        continue
-    end
-    excit_nS = params.avg.peak_nS.excit.vals{i_ch};
-    excit_ledV = params.avg.peak_nS.excit.cond{i_ch}(:,1);
-    inhib_nS = params.avg.peak_nS.inhib.vals{i_ch};
-    inhib_ledV = params.avg.peak_nS.inhib.cond{i_ch}(:,1);
-    
-    % make sure that the nS values are sorted identically for the excit and
-    % inhib conditions
-    [excit_ledV, idx] = sort(excit_ledV, 'ascend');
-    inhib_ledV = inhib_ledV(idx);
-    assert(all(inhib_ledV == excit_ledV), 'ERROR: no correspondence b/w excit and inhib LED pow');
-    
-    ei_ratio = abs(excit_nS(idx))./abs(inhib_nS(idx));
-    plot(excit_ledV, ei_ratio, '-k.');
-    
 
 end
-
-
 
 
 
