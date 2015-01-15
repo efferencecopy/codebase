@@ -3896,6 +3896,9 @@ fin
 % interleaved stimulus protocol generated in matlab and then imported into
 % clampex
 %
+% Brain area: PM
+% Population analysis: EI_IO_singlePulse
+
 
 %
 % PARAMETERS
@@ -3936,6 +3939,59 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
+
+
+%% CH_141215_A cell 2
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+% More analysis needed. Notice that there are single pulses and trains...
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'CH_141215_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'CH_141215_A_cell2';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2015_01_10_', [9,11]};  % <file name prefix, suffix>
+params.groups = {'control', [9,11]};
+% params.files = {'2015_01_10_', [6,7,8,10]};  % <file name prefix, suffix>
+% params.groups = {'control', [6,7,8,10]};
+params.excludeHS1 = {};
+params.excludeHS2 = {{'_0007', [13]}, {'_0011', [41]}}; 
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -72, 17;...
+                           'inhib', 'control', 17, -72};
+params.tags = {};
+params.filter = 2e3;
+
+HS1loc = [];
+HS2loc = [];
+Pialoc1 = [];
+Pialoc2 = [];
+params.celldepth = [norm(HS1loc-Pialoc1), norm([HS2loc-Pialoc2])];
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_avgOuterleave, @anlyMod_EI_IO};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
 
 
 

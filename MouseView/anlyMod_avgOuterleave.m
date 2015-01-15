@@ -108,8 +108,9 @@ function params = anlyMod_avgOuterleave(params)
         % as params.files. Figure out which files are in each group, and
         % the index to params.avg.trace_pA
         nFiles = numel(params.groups{i_grp,2});
-        clrs = pmkmp(nFiles+1,'IsoL'); % pmkmp bonks when asked for a single color. adding one to avoid the bonking...
-        clrs = clrs(randperm(nFiles), :);
+        clrs = colormap('jet'); % pmkmp bonks when asked for a single color. adding one to avoid the bonking...
+        cidx = round(linspace(1,size(clrs,1), nFiles));
+        clrs = clrs(cidx,:);
         for i_fid = 1:nFiles;
             
             fid_idx = params.files{2} == params.groups{i_grp,2}(i_fid);
