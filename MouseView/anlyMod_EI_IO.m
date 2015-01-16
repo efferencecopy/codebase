@@ -52,10 +52,15 @@ for i_fid = 1:nFiles;
             % Vhold is close enough to the desired value specified by the
             % "isolatedCurrents" field in the physology_notes.m
             vhold = params.avg.vhold{i_fid}{i_cond, i_ch};
+            if isempty(vhold)
+                continue % no data for this channel/condition
+            end
             drivingForce = [];
             fieldName = [];
             match = false;
             i_rev = 1;
+            
+            
             while ~match && i_rev<=size(params.isolatedCurrents,1);
                 Erev = params.isolatedCurrents{i_rev, 3};
                 if numel(Erev)>1
@@ -72,8 +77,9 @@ for i_fid = 1:nFiles;
                 i_rev = i_rev+1;
             end
             
+            
             if ~match
-                continue
+                continue % no data for this channel/condition were collected at the correct vhold...
             end
             
             % pull out the max conductance for each pulse
@@ -123,8 +129,37 @@ end % i_fid
 
 
 
-
-
+%
+% Stop here and make sure that there are no duplicate conditions. This
+% could happen if I collect two datasets with overlapping conditions. When
+% there are duplicates, consolidate the datasets, but plot a figure of each
+% condition separately just as a sanity check.
+%
+%%%%%%%%%%%%%%%%%%%%%%
+for i_group = 1:nGroups
+    group = params.isolatedCurrents{i_group,1};
+    for i_ch = 1:2
+        tmp_conds = params.avg.peak_nS.(group).cond{i_ch};
+        tmp_raw = params.avg.peak_nS.(group).vals{i_ch};
+        
+        %look for duplicates
+        unique_conds = unique(tmp_conds, 'rows');
+        out_raw = {};
+        for i_cond = 1:size(unique_conds,1)
+            list = ismember(tmp_conds, unique_conds(i_cond,:), 'rows');
+            if sum(list)>1
+                warning('Averaging across duplicate conditions')
+            end
+            
+            valsToAverage = cell2mat(tmp_raw(list));
+            out_raw = cat(1, out_raw, {mean(valsToAverage, 1)});
+        end
+        
+        % repackage the 'conds' and 'vals' fields
+        params.avg.peak_nS.(group).cond{i_ch} = unique_conds;
+        params.avg.peak_nS.(group).vals{i_ch} = out_raw;
+    end
+end
 
 
 % 
@@ -154,7 +189,6 @@ if onlyPulseAmp
         
         figure
         set(gcf, 'name', group, 'position', [373    17   452   789]);
-        plothelper(gcf);
         
         
         for i_ch = 1:2
@@ -184,8 +218,6 @@ if onlyPulseAmp
     % plot the E/I ratio
     figure
     set(gcf, 'name', 'EI ratio', 'position', [373    17   452   789]);
-    plothelper(gcf);
-    
     for i_ch = 1:2
         subplot(2,1,i_ch)
         if ~isempty(params.avg.peak_nS.excit.vals{i_ch})
@@ -197,9 +229,13 @@ if onlyPulseAmp
             
             % make sure that the nS values are sorted identically for the excit and
             % inhib conditions
-            [excit_ledV, idx] = sort(excit_ledV, 'ascend');
-            inhib_ledV = inhib_ledV(idx);
-            assert(all(inhib_ledV == excit_ledV), 'ERROR: no correspondence b/w excit and inhib LED pow');
+            [idx_excit, idx_inhib] = sortconditions(excit_ledV, inhib_ledV);
+            excit_nS = excit_nS(idx_excit);
+            excit_ledV = excit_ledV(idx_excit);
+            inhib_nS = inhib_nS(idx_inhib);
+            inhib_ledV = inhib_ledV(idx_inhib);
+            
+            assert(all(excit_ledV==inhib_ledV), 'ERROR: conditions are mismatched')
             
             ei_ratio = abs(excit_nS(idx))./abs(inhib_nS(idx));
             plot(excit_ledV, ei_ratio, '-ko', 'markerfacecolor', 'k');
@@ -215,7 +251,7 @@ end
 
 
 % 
-% OPTIONAL SUMMARY FIGURE 1: MULTIPLE FREQUENCIES AND POSSIBLY MULTIPLE
+% OPTIONAL SUMMARY FIGURE 2: MULTIPLE FREQUENCIES AND POSSIBLY MULTIPLE
 % PULSE AMPLITUDES. SAME PULSE WIDTH.
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -232,7 +268,6 @@ if (nWidths==1) && (nFreqs>1);
         
         figure
         set(gcf, 'name', group, 'position', [373    17   452   789]);
-        plothelper(gcf);
         
         
         for i_ch = 1:2
@@ -272,8 +307,7 @@ if (nWidths==1) && (nFreqs>1);
     
     % plot the E/I ratio as a function of pulse number
     figure
-    set(gcf, 'name', 'DI ratio', 'position', [373    17   452   789]);
-    plothelper(gcf);
+    set(gcf, 'name', 'E/I ratio', 'position', [373    17   452   789]);
     for i_ch = 1:2
         subplot(2,1,i_ch), hold on,
         if ~isempty(params.avg.peak_nS.excit.vals{i_ch})
@@ -287,19 +321,13 @@ if (nWidths==1) && (nFreqs>1);
             % make sure the experimental conditions were identical between
             % the excitation and inhibition files, and then sort the raw
             % data accordingly
-            assert(size(inhib_conds,1) == size(excit_conds,1), 'ERROR: condition mismatch between excit and inhib')
-            sortidx = nan(size(inhib_conds,1),1);
-            for a = 1:size(excit_conds,1)
-               idx = ismember(excit_conds,inhib_conds(a,:), 'rows');
-               assert(sum(idx)==1, 'ERROR: too many matches found')
-               sortidx(a) = find(idx);
-            end
+            [idx_excit, idx_inhib] = sortconditions(excit_conds, inhib_conds);
+            excit_nS = excit_nS(idx_excit);
+            excit_conds = excit_conds(idx_excit,:);
+            inhib_nS = inhib_nS(idx_inhib);
+            inhib_conds = inhib_conds(idx_inhib,:);
             
-            % since I'm using the excit_conds as a template, reorder just
-            % the inhib_conds and _vals
-            inhib_nS = inhib_nS(sortidx);
-            inhib_conds = inhib_conds(sortidx, :);
-            
+            assert(all(excit_conds(:)==inhib_conds(:)), 'ERROR: conditions mismatch');
             
             % now calculate the E/I ratio and plot
             nconds = size(excit_conds,1);
@@ -330,4 +358,55 @@ if (nWidths==1) && (nFreqs>1);
     
     
 end
+
+
+
+end %  MAIN FUNCTION
+
+
+
+function [idx_excit, idx_inhib] = sortconditions(excit_conds, inhib_conds)
+    
+    % make a 1to1 correspondence b/w conditions in the excitation and
+    % inhibition data arrays. This might be difficult becuase not all
+    % trial types will exist and they may be out of order
+    
+    % by default, use the excit_conds as the template, but switch to
+    % inhib_conds if there were fewer inhib_conds
+    if size(excit_conds,1) <= size(inhib_conds,1)
+        template_one = excit_conds;
+        template_two = inhib_conds;
+        normaloutput = true;
+    else
+        template_one = inhib_conds;
+        template_two = excit_conds;
+        normaloutput = false;
+    end
+    
+    
+    % iterate through "template_one" looking for the corresponding
+    % condition in "template_two"
+    nConds = size(template_one, 1);
+    newidx = nan(nConds,1);
+    for i_cond = 1:nConds
+        list = ismember(template_two, template_one(i_cond,:), 'rows');
+        assert(sum(list)==1, 'ERROR: more than 1 match was found');
+        newidx(i_cond) = find(list==1);
+    end
+
+    
+    % asemble the outputs
+    if normaloutput
+        idx_excit = [1:size(excit_conds,1)]';
+        idx_inhib = newidx;
+    else
+        idx_inhib = [1:size(inhib_conds,1)]';
+        idx_excit = newidx;
+    end
+
+end
+
+
+
+
 
