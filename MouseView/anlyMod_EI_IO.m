@@ -315,7 +315,7 @@ if (nWidths==1) && (nFreqs>1);
                 
                 
                 legtext = cat(2, legtext, sprintf('%.1f V, %.3f ms, %.0f Hz',...
-                    tmp_cond(i_cond,1), tmp_cond(i_cond, 2).*1000, tmp_cond(i_cond,3)));
+                    excit_conds(i_cond,1), excit_conds(i_cond, 2).*1000, excit_conds(i_cond,3)));
             end
             set(gca, 'yscale', 'log')
             legend(legtext, 'location', 'northwest')
