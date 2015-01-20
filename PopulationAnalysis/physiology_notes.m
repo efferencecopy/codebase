@@ -3950,9 +3950,10 @@ fin
 %
 %%%%%%%%%%%%%%%%%
 % 
-% More analysis needed. Notice that there are single pulses and trains... I
-% think this is an RS cell, and my notes say that the NB488 fill showed a
-% clear apical dendrite. The recording location was PM.
+% I think this is an RS cell, and my notes say that the NB488 fill showed a
+% clear apical dendrite. The recording location was PM. The inhibition
+% recorded for the single pulses is way too fast. I don't know why this is
+% the case and I don't know how to account for this...
 %
 % Brain area: PM
 

@@ -4,30 +4,14 @@ function params = anlyMod_EI_IO(params)
 % function of pulse intensity/freq/width (all the things that can be
 % interleaved)
 
-% approach: calculate conductance trace, and peak-by-pulse for each data
-% file within a "group". Figure out which ax-files correspond to
-% excitation, and to inhibition. Then match the condition types accordingly
-% (so that excitation and inhibition are compared for the same stimulus).
-% The resulting data could be a list of stimulus conditions and a list of
-% E/I ratios associated with each condition.
-
-% remember that each channel can have a unique holding potential for E or
-% I.
-
-
-% Each pulse should have its own analysis window, from 3 ms after the
-% pulse, to about 15 ms after the pulse. the upper limit should not encroch
-% into the next pulse epoch (if present).
-
-
 
 % initialize the output arguments. this is important b/c I'll concatenate
 % into these arrays, and they must exist prior to the first concatenation.
-nGroups = size(params.isolatedCurrents, 1);
-for i_group = 1:nGroups;
-    group = params.isolatedCurrents{i_group,1};
-    params.avg.peak_nS.(group).cond = {[] []};
-    params.avg.peak_nS.(group).vals = {{} {}};
+n_pA_types = size(params.isolatedCurrents, 1);
+for i_pAType = 1:n_pA_types;
+    pA_type = params.isolatedCurrents{i_pAType,1};
+    params.avg.peak_nS.(pA_type).cond = {[] []};
+    params.avg.peak_nS.(pA_type).vals = {{} {}};
 end
 
 
@@ -136,11 +120,11 @@ end % i_fid
 % condition separately just as a sanity check.
 %
 %%%%%%%%%%%%%%%%%%%%%%
-for i_group = 1:nGroups
-    group = params.isolatedCurrents{i_group,1};
+for i_pAType = 1:n_pA_types
+    pA_type = params.isolatedCurrents{i_pAType,1};
     for i_ch = 1:2
-        tmp_conds = params.avg.peak_nS.(group).cond{i_ch};
-        tmp_raw = params.avg.peak_nS.(group).vals{i_ch};
+        tmp_conds = params.avg.peak_nS.(pA_type).cond{i_ch};
+        tmp_raw = params.avg.peak_nS.(pA_type).vals{i_ch};
         
         %look for duplicates
         unique_conds = unique(tmp_conds, 'rows');
@@ -156,8 +140,8 @@ for i_group = 1:nGroups
         end
         
         % repackage the 'conds' and 'vals' fields
-        params.avg.peak_nS.(group).cond{i_ch} = unique_conds;
-        params.avg.peak_nS.(group).vals{i_ch} = out_raw;
+        params.avg.peak_nS.(pA_type).cond{i_ch} = unique_conds;
+        params.avg.peak_nS.(pA_type).vals{i_ch} = out_raw;
     end
 end
 
@@ -170,10 +154,10 @@ end
 
 % figure out if pulse amp is the only variable interleaved
 bigcondmtx = [];
-for i_group = 1:nGroups;
+for i_pAType = 1:n_pA_types;
     for i_ch = 1:2;
-        group = params.isolatedCurrents{i_group,1};
-        bigcondmtx = cat(1, bigcondmtx, params.avg.peak_nS.(group).cond{i_ch});
+        pA_type = params.isolatedCurrents{i_pAType,1};
+        bigcondmtx = cat(1, bigcondmtx, params.avg.peak_nS.(pA_type).cond{i_ch});
     end
 end
 nAmps = numel(unique(bigcondmtx(:,1)));
@@ -183,22 +167,22 @@ nFreqs = numel(unique(bigcondmtx(:,3)));
 onlyPulseAmp = (nAmps>1) && (nWidths==1) && (nFreqs==1);
 if onlyPulseAmp
 
-    for i_group = 1:nGroups
+    for i_pAType = 1:n_pA_types
         
-        group = params.isolatedCurrents{i_group,1};
+        pA_type = params.isolatedCurrents{i_pAType,1};
         
         figure
-        set(gcf, 'name', group, 'position', [373    17   452   789]);
+        set(gcf, 'name', pA_type, 'position', [373    17   452   789]);
         
         
         for i_ch = 1:2
             subplot(2,1,i_ch)
-            if ~isempty(params.avg.peak_nS.(group).cond{i_ch})
+            if ~isempty(params.avg.peak_nS.(pA_type).cond{i_ch})
                 
                 % sort the data and then plot
-                x = params.avg.peak_nS.(group).cond{i_ch}(:,1);
+                x = params.avg.peak_nS.(pA_type).cond{i_ch}(:,1);
                 [x, idx] = sort(x);
-                y = cell2mat(params.avg.peak_nS.(group).vals{i_ch});
+                y = cell2mat(params.avg.peak_nS.(pA_type).vals{i_ch});
                 y = y(idx);
                 plot(abs(x), abs(y), '-ko', 'markerfacecolor', 'k');
                 
@@ -262,21 +246,21 @@ if (nWidths==1) && (nFreqs>1);
     
     % simple plot of Pn:P1 conductance as a function of pulse
     % number
-    for i_group = 1:nGroups
+    for i_pAType = 1:n_pA_types
         
-        group = params.isolatedCurrents{i_group,1};
+        pA_type = params.isolatedCurrents{i_pAType,1};
         
         figure
-        set(gcf, 'name', group, 'position', [373    17   452   789]);
+        set(gcf, 'name', pA_type, 'position', [373    17   452   789]);
         
         
         for i_ch = 1:2
             subplot(2,1,i_ch), hold on,
-            if ~isempty(params.avg.peak_nS.(group).cond{i_ch})
+            if ~isempty(params.avg.peak_nS.(pA_type).cond{i_ch})
                 
                 % pull out the data 
-                tmp_cond = params.avg.peak_nS.(group).cond{i_ch};
-                tmp_vals = params.avg.peak_nS.(group).vals{i_ch}; % a cell array
+                tmp_cond = params.avg.peak_nS.(pA_type).cond{i_ch};
+                tmp_vals = params.avg.peak_nS.(pA_type).vals{i_ch}; % a cell array
                 
                 
                 nconds = size(tmp_cond,1);

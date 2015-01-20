@@ -39,6 +39,7 @@ function params = anlyMod_avgOuterleave(params)
             ledIdx = params.ax{axIdx}.idx.LED_470;
             tdict = outerleave(params.ax{axIdx}, ledIdx);
             params.(groupName).tdict{i_ax} = tdict;
+            params.(groupName).head{i_ax} = params.ax{axIdx}.head;
             
             
             % calculate the pulse times, which will be used later
@@ -138,18 +139,18 @@ function params = anlyMod_avgOuterleave(params)
         figure
         set(gcf, 'name',groupName, 'position', [298 27 394 757]);
         
-        % stuff in the params.(group).avg.trace_pA array is ordered in the same way
-        % as params.files. Figure out which files are in each group, and
+        % Figure out which files are in each group, and
         % the index to params.avg.trace_pA
         nFiles = numel(params.(groupName).avg.trace_pA);
         nTraces = 0;
         for i_fid = 1:nFiles
             nTraces = nTraces + size(params.(groupName).tdict{i_fid}.conds, 1);
         end
-        clrs = colormap('jet'); 
+        clrs = colormap('lines'); 
         cidx = round(linspace(1,size(clrs,1), nTraces));
         clrs = clrs(cidx,:);
         cidx = 1;
+        xmax = [0 0]; % one for each channel
         for i_fid = 1:nFiles;
             nConds = size(params.(groupName).avg.trace_pA{i_fid},1);
             
@@ -160,9 +161,16 @@ function params = anlyMod_avgOuterleave(params)
                     subplot(nCh,1,i_ch), hold on,
                     
                     if ~all(isnan(params.(groupName).avg.trace_pA{i_fid}{i_cond, i_ch})) % excludes conditions for which there were no sweeps
-                        plot(params.(groupName).avg.trace_pA{i_fid}{i_cond, i_ch}, '-', 'color', clrs(cidx,:))
-%                         t_on = params.ax{sdfg}.tt(params.tdict{asdf}.pOnIdx{i_cond, i_ch}(1));
-%                         t_off = params.ax{asdf}.tt(params.tdict{ads}.pOnIdx{i_cond, i_ch}(end));
+                        N = numel(params.(groupName).avg.trace_pA{i_fid}{i_cond, i_ch});
+                        sampFreq = params.(groupName).head{i_fid}.sampRate;
+                        tt = (0:N-1) ./ sampFreq;
+                        t_on_idx = params.(groupName).tdict{i_fid}.pOnIdx{i_cond, i_ch}(1);
+                        t_on_ms = t_on_idx./sampFreq;
+                        t_off_idx = params.(groupName).tdict{i_fid}.pOnIdx{i_cond, i_ch}(end);
+                        t_off_ms = t_off_idx ./ sampFreq;
+                        xmax(i_ch) = max([t_off_ms, xmax(i_ch)]); % determine the new t_off
+                        plot(tt, params.(groupName).avg.trace_pA{i_fid}{i_cond, i_ch}, '-', 'color', clrs(cidx,:))
+                        xlim([t_on_ms-0.025, xmax(i_ch)+0.075])
                     end
                     
                     xlabel('time (sec)')
