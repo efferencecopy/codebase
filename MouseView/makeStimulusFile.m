@@ -47,6 +47,10 @@ for i_cond = 1:size(conditions, 1)
     tmp_pWidth = params.pWidth(conditions(i_cond, 3));
     samplesPerPulse = ceil(tmp_pWidth ./ params.si) + 1; % need to add 1 b/c this is a 'fence post' problem
     
+    % basic error checking
+    assert(tmp_pAmp<=10, 'ERROR: pulse amp > 10 volts');
+    assert(tmp_pWidth<=1, 'ERROR: pulse amp > 1 second');
+    
     if tmp_pFreq == 0 % only one pulse
         templates{i_cond}(tStartIdx : tStartIdx+samplesPerPulse-1) = tmp_pAmp;
         templates{i_cond}(tStartIdx+samplesPerPulse : end) = 0;
