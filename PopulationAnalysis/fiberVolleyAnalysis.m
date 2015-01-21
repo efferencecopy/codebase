@@ -56,7 +56,7 @@ for i_fid = 1:numel(fnames)
         tdict = outerleave(tmp, tmp.idx.LED_470);
         
         % need to update the tfs array to indicate that there are multiples
-        fileTFs = tdict.conds(:,3);
+        fileTFs = round(tdict.conds(:,3));
         fprintf('     Interleaved tfs: %s\n', num2str(fileTFs'));
         
         for i_tf = 1:numel(fileTFs)
@@ -137,7 +137,7 @@ for i_tf = 1:numel(TFfields)
             % filter out the high frequency stuff. Filtering shouldn't go
             % below 2000 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 2500;
+            lp_freq = 2000;
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             
             % take the mean

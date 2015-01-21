@@ -137,6 +137,9 @@ end
 
 % retrieve the protocol name
 fseps = regexpi(Strings{2}, '\'); % the data are aquired on a PC, so hard code the filesep
+if isempty(fseps)
+    fseps=0;
+end
 h.protocolName = Strings{2}(fseps(end)+1:end);
 
 
