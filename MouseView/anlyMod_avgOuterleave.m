@@ -14,7 +14,7 @@ function params = anlyMod_avgOuterleave(params)
     end
 
     
-    nExptGroups = size(params.groups,2);
+    nExptGroups = size(params.groups,1);
     for i_group = 1:nExptGroups;
         
         groupName = params.groups{i_group,1};
@@ -80,7 +80,7 @@ function params = anlyMod_avgOuterleave(params)
                     l_valid = l_goodSweeps & l_cond;
                     
                     if sum(l_valid) == 0
-                        params.avg.trace_pA{lkjh}{i_cond, i_ch} = nan(Nsamps, 1);
+                        params.(groupName).avg.trace_pA{i_ax}{i_cond, i_ch} = nan(Nsamps, 1);
                         continue
                     end
                     

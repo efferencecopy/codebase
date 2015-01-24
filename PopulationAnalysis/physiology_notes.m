@@ -3907,7 +3907,7 @@ params.mouse = 'CH_141124_C';      % The mouse's name
 params.cellNum = 1;    % The neuron number that day
 params.photo = 'CH_141124_C_cell1';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_12_11_', [4:7]};  % <file name prefix, suffix>
-params.groups = {'control', [4:7]};
+params.groups = {'pulses', [4:7]};
 params.excludeHS1 = {{'_0004', [1:3]}};
 params.excludeHS2 = {{'_0005', [4,5,11,18,21,24,25,29,31]}, {'_0006', [7:11]}}; 
 
@@ -3989,7 +3989,7 @@ params.celldepth = [norm(HS1loc-Pialoc1), norm([HS2loc-Pialoc2])];
 % ANALYZE OR ADD TO PARAMSDB
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
-    params.fxns = {};%{@anlyMod_avgOuterleave, @anlyMod_EI_IO};
+    params.fxns = {@anlyMod_avgOuterleave, @anlyMod_EI_IO};
     params = invitroAnalysisOverview(params);
 end
 
