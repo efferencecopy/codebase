@@ -92,7 +92,13 @@ for i_group = 1:nExptGroups;
                     maxval_pA = snippet(maxidx);
                     
                     % calculate the bkgnd pA
-                    bkgnd_pA = mean(params.(group).avg.trace_pA{i_fid}{i_cond, i_ch}(anlyWindow(1)-120:anlyWindow(1)-40));
+                    switch group
+                        case 'pulses'
+                            Nbkgndpts = ceil(5e-3 .* params.(group).head{i_fid}.sampRate);
+                        case 'trains'
+                            Nbkgndpts = ceil(500e-6 .* params.(group).head{i_fid}.sampRate);
+                    end
+                    bkgnd_pA = mean(params.(group).avg.trace_pA{i_fid}{i_cond, i_ch}(pOnIdx-Nbkgndpts : pOnIdx));
                     
                     % make sure the actual current takes into account the
                     % decaying current it may be riding on
@@ -243,7 +249,7 @@ function summaryFigure_1(params, group)
                 [x, idx] = sort(x);
                 y = cell2mat(params.(group).avg.peak_nS.(pA_type).vals{i_ch});
                 y = y(idx);
-                plot(abs(x), abs(y), '-ko', 'markerfacecolor', 'k');
+                plot(x, abs(y), '-ko', 'markerfacecolor', 'k');
                 
             end
             
@@ -282,12 +288,11 @@ function summaryFigure_1(params, group)
             
             assert(all(excit_ledV==inhib_ledV), 'ERROR: conditions are mismatched')
             
-            ei_ratio = abs(excit_nS(idx))./abs(inhib_nS(idx));
+            ei_ratio = (abs(excit_nS)-abs(inhib_nS)) ./ (abs(excit_nS)+abs(inhib_nS)) ;
             plot(excit_ledV, ei_ratio, '-ko', 'markerfacecolor', 'k');
-            set(gca, 'yscale', 'log')
         end
         xlabel('Pulse Voltage (V)')
-        ylabel('EI ratio')
+        ylabel('(E-I)/(E+I)')
         title(sprintf('Channel %d', i_ch))
     end
 
@@ -376,21 +381,22 @@ function summaryFigure_2(params, group)
             clrs = cmap(cidx,:);
             for i_cond = 1:nconds
                 
+                tmp_e = abs(excit_nS{i_cond});
+                tmp_i = abs(inhib_nS{i_cond});
+                ei_ratio = (tmp_e - tmp_i) ./ (tmp_e + tmp_i);
                 
-                ei_ratio = abs(excit_nS{i_cond})./abs(inhib_nS{i_cond});
                 plot(1:numel(ei_ratio), ei_ratio, '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
                 
                 
                 legtext = cat(2, legtext, sprintf('%.1f V, %.3f ms, %.0f Hz',...
                     excit_conds(i_cond,1), excit_conds(i_cond, 2).*1000, excit_conds(i_cond,3)));
             end
-            set(gca, 'yscale', 'log')
             legend(legtext, 'location', 'northwest')
             legend boxoff
         end
         
         xlabel('pulse number')
-        ylabel('E/I ratio')
+        ylabel('(E-I)/(E+I)')
         title(sprintf('Channel %d', i_ch))
         
     end
