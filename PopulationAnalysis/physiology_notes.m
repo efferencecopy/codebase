@@ -4020,7 +4020,7 @@ params.mouse = 'CH_141215_C';      % The mouse's name
 params.cellNum = 3;    % The neuron number that day
 params.photo = 'CH_141215_C_cell3';      % To assess where the light stimulus was, and the HOA that contains each cell
 params.files = {'2014_12_29_', [12,13,14,17,18,19]};  % <file name prefix, suffix>
-params.groups = {'control', [12,13,14,17,18,19]};
+params.groups = {'trains', [12,13,14,17,18,19]};
 params.excludeHS1 = {};
 params.excludeHS2 = {}; 
 

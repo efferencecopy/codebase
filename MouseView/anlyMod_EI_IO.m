@@ -328,7 +328,11 @@ function summaryFigure_2(params, group)
                 clrs = cmap(cidx,:);
                 for i_cond = 1:nconds
                     y = tmp_vals{i_cond};
-                    plot(1:numel(y), y./y(1), '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
+                    TF = tmp_cond(i_cond, 3);
+                    dt = 1/TF;
+                    tt = 0 : dt : (dt*(numel(y)-1));
+                    tt = tt.* 1000;
+                    plot(tt, y./y(1), '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
                     legtext = cat(2, legtext, sprintf('%.1f V, %.3f ms, %.0f Hz',...
                                   tmp_cond(i_cond,1), tmp_cond(i_cond, 2).*1000, tmp_cond(i_cond,3)));
                 end
@@ -337,7 +341,7 @@ function summaryFigure_2(params, group)
                 legend boxoff
             end
             
-            xlabel('pulse number')
+            xlabel('pulse time (ms)')
             ylabel('conductance (nS)')
             title(sprintf('Channel %d', i_ch))
             
@@ -385,7 +389,12 @@ function summaryFigure_2(params, group)
                 tmp_i = abs(inhib_nS{i_cond});
                 ei_ratio = (tmp_e - tmp_i) ./ (tmp_e + tmp_i);
                 
-                plot(1:numel(ei_ratio), ei_ratio, '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
+                TF = excit_conds(i_cond,3);
+                dt = 1/TF;
+                tt = 0 : dt : (dt*(numel(y)-1));
+                tt = tt.* 1000;
+                
+                plot(tt, ei_ratio, '-o', 'color', clrs(i_cond,:), 'markerfacecolor', clrs(i_cond,:));
                 
                 
                 legtext = cat(2, legtext, sprintf('%.1f V, %.3f ms, %.0f Hz',...

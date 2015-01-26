@@ -1,4 +1,9 @@
-function fiberVolleyAnalysis(exptList, exptWorkbook)
+function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES)
+
+
+if ~exist('PLOTFIGURES', 'var')
+    PLOTFIGURES = true;
+end
 
 
 
@@ -10,6 +15,8 @@ exptConds = exptWorkbook(exptList,5);
 channels = exptWorkbook(exptList, 6:7);
 rmsweeps = exptWorkbook(exptList,9);
 tfs = exptWorkbook(exptList, 4);
+
+
 
 % ERROR CHECKING: check to make sure that the exptConds are correct
 validConds = {'none',...
@@ -144,6 +151,10 @@ for i_tf = 1:numel(TFfields)
             average = mean(filtered,2);
             trace.(field_tf).(field_expt)(:,i_ch) = average;
             
+            % store the pulse onset times for the population analysis
+            info.(field_tf).pulseOn_idx = storedCrossings_on{i_tf};
+            info.(field_tf).sampRate = ax.(field_tf).(field_expt).head.sampRate;
+            
             
         end
     end
@@ -222,41 +233,43 @@ end
 %
 % plot the results (one summary figure for each TF)
 %
-for i_tf = 1:numel(TFfields)
-    
-    % generate the tab labels
-    field_tf = TFfields{i_tf};
-    tabLabels = fieldnames(trace.(field_tf));
-    
-    % one figure for each channel
-    for i_ch = 1:sum(channelConfigs);
+if PLOTFIGURES
+    for i_tf = 1:numel(TFfields)
         
-        % create tabbed GUI
-        hFig = figure;
-        set(gcf, 'position', [40 48 972 711]);
-        set(gcf, 'name', sprintf('%s, site %d, %s, chan: %d', mouseNames{1}, siteNumber{1}, TFfields{i_tf}, channelList(i_ch)))
-        s = warning('off', 'MATLAB:uitabgroup:OldVersion');
-        hTabGroup = uitabgroup('Parent',hFig);
+        % generate the tab labels
+        field_tf = TFfields{i_tf};
+        tabLabels = fieldnames(trace.(field_tf));
         
-        for i_cond = 1:numel(tabLabels)
-
-            hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', tabLabels{i_cond});
-            hAx(i_cond) = axes('Parent', hTabs(i_cond));
-            hold on,
-            tt = tt-tt(pulseOnset);
-            plot(tt, trace.(field_tf).(tabLabels{i_cond})(:,i_ch), 'k', 'linewidth', 3)
-            crossings_on = storedCrossings_on{i_tf};
-            crossings_off = storedCrossings_off{i_tf};
-            plot(tt(crossings_on), zeros(1,sum(crossings_on)), 'ro', 'markerfacecolor', 'r')
-            plot(tt(crossings_off), zeros(1,sum(crossings_off)), 'mo', 'markerfacecolor', 'r')
-            xlabel('time (ms)')
-            ylabel('LFP amplitude')
-            axis tight
-            %xlim([-75, tt(find(crossings_off==1, 1,'last'))+75])
-            hold off
+        % one figure for each channel
+        for i_ch = 1:sum(channelConfigs);
             
+            % create tabbed GUI
+            hFig = figure;
+            set(gcf, 'position', [40 48 972 711]);
+            set(gcf, 'name', sprintf('%s, site %d, %s, chan: %d', mouseNames{1}, siteNumber{1}, TFfields{i_tf}, channelList(i_ch)))
+            s = warning('off', 'MATLAB:uitabgroup:OldVersion');
+            hTabGroup = uitabgroup('Parent',hFig);
+            
+            for i_cond = 1:numel(tabLabels)
+                
+                hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', tabLabels{i_cond});
+                hAx(i_cond) = axes('Parent', hTabs(i_cond));
+                hold on,
+                tt = tt-tt(pulseOnset);
+                plot(tt, trace.(field_tf).(tabLabels{i_cond})(:,i_ch), 'k', 'linewidth', 3)
+                crossings_on = storedCrossings_on{i_tf};
+                crossings_off = storedCrossings_off{i_tf};
+                plot(tt(crossings_on), zeros(1,sum(crossings_on)), 'ro', 'markerfacecolor', 'r')
+                plot(tt(crossings_off), zeros(1,sum(crossings_off)), 'mo', 'markerfacecolor', 'r')
+                xlabel('time (ms)')
+                ylabel('LFP amplitude')
+                axis tight
+                %xlim([-75, tt(find(crossings_off==1, 1,'last'))+75])
+                hold off
+                
+            end
         end
+        
     end
-    
 end
 
