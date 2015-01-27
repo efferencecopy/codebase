@@ -3,7 +3,7 @@
 % clear out the workspace
 fin
 
-% <Mouse Name> <Site>
+% in = {Mouse Name, Site}
 
 in = {'CH_141215_B', 1;...
       'CH_141215_B', 2;...
