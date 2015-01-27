@@ -16,7 +16,7 @@ params.flatPowerSpect = false;
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.aperatureMosaic = true;                  % only for DTV1 experiments
+params.aperatureMosaic = false;                  % only for DTV1 experiments
 
 
 
@@ -32,7 +32,7 @@ params.unitTest = false;            % true or false
 params.eqMosaic = false;            % for debugging. true or false
 
 % make some notes... 
-params.notes = 'DTV1, filtered wt fxn, new gain and semi-desensitization constant, WITH aperature';                  % notes that should be associated the data file?
+params.notes = 'DTV1, filtered wt fxn, modified rgb color dirs based on the same rgbs presented to the monkey';                  % notes that should be associated the data file?
 
 
          
@@ -80,8 +80,7 @@ end
 
 %open a matlabpool
 if exist('matlabpool', 'file') == 2;
-    %poolObj = parpool('local', 4);
-    matlabpool open 16
+    poolObj = parpool(16);
     pause(2)
     fprintf(' *** Using parallel operations *** \n')
 end
@@ -98,8 +97,7 @@ end
 
 % close the workers
 if exist('matlabpool', 'file') == 2;
-    matlabpool('close')
-    %delete(poolObj);
+    delete(poolObj);
 end
 
 
