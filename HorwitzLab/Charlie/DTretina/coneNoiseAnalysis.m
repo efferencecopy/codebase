@@ -258,8 +258,8 @@ end
 clc; close all;
 
 % Set the parameters of the analysis
-observer = 'kali';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
-sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
+observer = 'sedna';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
+sfIdx = logical([0;1;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
 viewSetting = 'isolum';   % could also be 'lm plane', 's vs l+m', 'isolum'
 plottype = '3D';
 

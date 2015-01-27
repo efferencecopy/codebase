@@ -428,6 +428,7 @@ function [mon, params] = initMonitorCalibration(params, gab, eyes)
             mon.frameRate = cal.frameRate;
             mon.monSpectWavelengths = 380:5:780;
             mon.pixperdeg = cal.pixperdeg;
+            mon.Mmtx = reshape(cal.Mmtx,3,3);
             
             % in the case where you load in equalBkgnd cal file, make sure
             % that the stimulus RF position is what we expect. Due to

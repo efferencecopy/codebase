@@ -14,7 +14,7 @@ fin
 params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
 params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
 params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-params.monCalFile = 'DTcals_equal_bkgnd_1200.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
 params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
 params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
@@ -34,7 +34,7 @@ params.unitTest = false;             % true or false
 params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'equal bkgnd for Greg, but normal cone mosaic. 200R*/sec bkgnd';       % notes that should be associated the data file?
+params.notes = 'a run of the model that inocorporate new color dirs \n rgb from monkey experiments should be explicitly used by the model \n but these may not be cone isolating for the model \n';       % notes that should be associated the data file?
 
 
 
@@ -62,7 +62,7 @@ if strcmpi(params.colorselection , 'lots')
     
     
     % define the color directions.... just putting points on a sphere for now
-    nColors = 100;
+    nColors = 200;
     tmp = ceil(sqrt(nColors));
     az = linspace(0, 2*pi, tmp);
     el = linspace(0, pi/2, tmp);
@@ -148,8 +148,7 @@ end
 
 %open a matlabpool
 if exist('matlabpool', 'file') == 2;
-    poolObj = parpool([2 nColors]);
-    %matlabpool open 16
+    poolObj = parpool(min([12 nColors]));
     pause(2)
     fprintf(' *** Using parallel operations *** \n')
 end
