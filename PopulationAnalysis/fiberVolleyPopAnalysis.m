@@ -114,18 +114,20 @@ for i_ex = 1:Nexpts
                             
                             pk2tr = peak-trough;
                             
-                            dat{i_ex}.(TF_fields{i_tf}).peaks.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
+                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
                             
                         case 'nbqx_apv_cd2_ttx'
                             baseline = mean(snippet_baseline);
                             [~, minidx] = min(snippet_pulse);
                             peakval = mean(snippet_pulse(minidx-2:minidx+2));
                             diffval = peakval - baseline;
-                            dat{i_ex}.(TF_fields{i_tf}).peaks.(conds{i_cond}).diffval{i_ch}(i_pulse) = diffval;
+                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = diffval;
                             
                     end
                     
-                    
+                    % calculate the integral of the LFP signal
+                    area = sum(abs(snippet_pulse)) ./ sampRate;
+                    dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
                 end
             end
@@ -197,7 +199,8 @@ for i_ex = 1:Nexpts
         
         
         %
-        % plot the summary stat as a function of pulse number
+        % plot the summary stat (pk2tr or diff from baseline) as a function
+        % of pulse number
         %
         switch cond
             case 'nbqx_apv_cd2_ttx'
@@ -205,7 +208,7 @@ for i_ex = 1:Nexpts
                 subplot(2,Ntfs, Ntfs+1), hold on,
                 for i_tf = 1:Ntfs
                    
-                    diffvals = dat{i_ex}.(TF_fields{i_tf}).peaks.(cond).diffval{i_ch};
+                    diffvals = dat{i_ex}.(TF_fields{i_tf}).stats.(cond).diffval{i_ch};
                     diffvals = abs(diffvals);
                     plot(1:numel(diffvals), diffvals, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
                 end
@@ -219,13 +222,18 @@ for i_ex = 1:Nexpts
                 subplot(2,Ntfs, Ntfs+1), hold on,
                 for i_tf = 1:Ntfs
                    
-                    pk2tr = dat{i_ex}.(TF_fields{i_tf}).peaks.(cond).pk2tr{i_ch};
+                    pk2tr = dat{i_ex}.(TF_fields{i_tf}).stats.(cond).pk2tr{i_ch};
                     plot(1:numel(pk2tr), pk2tr, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
                 end
                 xlabel('Pulse number')
                 ylims = get(gca, 'ylim');
                 set(gca, 'ylim', [0, ylims(2)]);
         end
+        
+        
+        %
+        % plot the integral as a function of pulse number
+        %
         
         
         
