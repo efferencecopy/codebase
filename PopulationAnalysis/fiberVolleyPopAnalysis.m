@@ -141,8 +141,8 @@ end
 
 close all
 
-cond = 'FV_Na';
-%cond = 'nbqx_apv_cd2_ttx';
+%cond = 'FV_Na';
+cond = 'nbqx_apv_cd2_ttx';
 
 for i_ex = 1:Nexpts
     
