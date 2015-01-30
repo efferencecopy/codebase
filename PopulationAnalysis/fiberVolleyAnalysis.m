@@ -100,11 +100,15 @@ for i_tf = 1:numel(TFfields)
     
     conditionFields = fieldnames(ax.(TFfields{i_tf}));
     
-    for i_cond = 1:numel(exptConds)
+    for i_cond = 1:numel(conditionFields)
         
         % generate some field names for extraction and saving
         field_tf = TFfields{i_tf};
-        field_expt = conditionFields{i_cond};
+        try
+            field_expt = conditionFields{i_cond};
+        catch
+            keyboard
+        end
         
         sampFreq = ax.(field_tf).(field_expt).head.sampRate;
         tt = (0:size(ax.(field_tf).(field_expt).dat, 1)-1) ./ sampFreq .* 1000;

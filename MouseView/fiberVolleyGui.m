@@ -13,7 +13,7 @@ clear txt
 % make the list
 TFs = cellfun(@(x) num2str(x), raw(2:end,4), 'uniformoutput', false);
 site = cellfun(@(x) num2str(x), raw(2:end, 2), 'uniformoutput', false);
-list = cellfun(@(x,y,z) [x,'_site',y,'_',z], raw(2:end,1), site, TFs, 'uniformoutput', false);
+list = cellfun(@(x,y,z) [x,'_site',y], raw(2:end,1), site, 'uniformoutput', false);
 [uniquelist, ~, udat.io.unique_idx] = unique(list, 'stable');
 
 

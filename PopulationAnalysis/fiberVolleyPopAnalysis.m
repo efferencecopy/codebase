@@ -7,11 +7,16 @@ fin
 
 in = {'CH_141215_B', 1;...
       'CH_141215_B', 2;...
+      'CH_141215_D', 3;...
       'CH_141215_E', 1;...
       'CH_141215_E', 2;...
+      'CH_141215_F', 1;...
       'CH_150105_A', 1;...
+      'CH_150105_B', 1;...
+      'CH_150105_B', 2;...
       'CH_150105_C', 1;...
-      'CH_150105_D', 2};
+      'CH_150105_D', 2;...
+      'CH_150112_A', 2};
 
 
 
@@ -46,7 +51,7 @@ end
 
 
 
-%% PULL OUT THE STATS FOR FURTHER ANALYSIS
+%% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
 % PEAK TO PEAK AMP
 % INTEGRAL OF THE TRACE
@@ -91,44 +96,15 @@ for i_ex = 1:Nexpts
                     end
                             
                     
-                    % pull out the snippet and store it for each pulse in
-                    % the train
+                    % pull out the snippet, subtract off the baseline and
+                    % store it for each pulse in the train
                     snippet_full = dat{i_ex}.(TF_fields{i_tf}).(conds{i_cond})(snip_idx ,i_ch);
+                    baseline = mean(snippet_full(1:prePulseSamps));
+                    snippet_full = snippet_full - baseline;
+                    
                     dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:) = snippet_full;
                     
-                    
-                    % figure out the peak to peak amplitude of the FV_na or
-                    % the diff from baseline for the _ttx case;
-                    snippet_pulse = snippet_full(prePulseSamps+1 : end);
-                    snippet_baseline = snippet_full(1:prePulseSamps);
-                    
-                    switch conds{i_cond}
-                        case 'FV_Na'
-                            [~, troughidx] = min(snippet_pulse);
-                            [~, peakidx] = max(snippet_pulse);
-                            assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                            %assert(peakidx./sampRate < 0.006, 'ERROR: positivity occurs too late');
-                            
-                            trough = mean(snippet_pulse(troughidx-2:troughidx+2));
-                            peak = mean(snippet_pulse(peakidx-2:peakidx+2));
-                            
-                            pk2tr = peak-trough;
-                            
-                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
-                            
-                        case 'nbqx_apv_cd2_ttx'
-                            baseline = mean(snippet_baseline);
-                            [~, minidx] = min(snippet_pulse);
-                            peakval = mean(snippet_pulse(minidx-2:minidx+2));
-                            diffval = peakval - baseline;
-                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = diffval;
-                            
-                    end
-                    
-                    % calculate the integral of the LFP signal
-                    area = sum(abs(snippet_pulse)) ./ sampRate;
-                    dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
-                    
+                  
                 end
             end
             
@@ -139,12 +115,118 @@ for i_ex = 1:Nexpts
 end
 
 
+%% ANALYZE THE SNIPPETS: PEAK-TO-PEAK, PEAK-2-BASELINE
+
+% REMINDER: this is happening in separate cell-script because I will define
+% the analysis region based off the average first pulse across TF conds.
+% This requires grabbing all the snippets b/4 any analysis can proceed. The
+% preceeding cell will need to be run before this one.
+
+
+for i_ex = 1:Nexpts
+    
+    conds = {'FV_Na', 'nbqx_apv_cd2_ttx'};
+    for i_cond = 1:numel(conds)
+        
+        TF_fields = fieldnames(dat{i_ex});
+        Ntfs = numel(TF_fields);
+        
+        sampRate = info{i_ex}.(TF_fields{1}).sampRate;
+        prePulseSamps = ceil(prePulseTime .* sampRate);
+        postPulseSamps = ceil(postPulseTime .* sampRate);
+        
+        for i_ch = 1:2;
+            
+            % deal with some exceptions
+            if ~info{i_ex}.ignoreChans(i_ch)
+                continue
+            end
+            
+            % a strange case where HS1 was set to Vclamp, and so
+            % HS2's data got put in the first column...
+            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+                if i_ch == 1; error('something went wrong'); end
+                i_ch = 1;
+            end
+            
+            
+            % calculate the analysis windows based off the average 1st pulse,
+            % which should be the same across TFs (within pharmacology
+            % condition and channel).
+            firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
+            for i_tf = 1:Ntfs
+                
+                % I fixed the sampRate above, but make sure it's consistent
+                assert(sampRate == info{i_ex}.(TF_fields{i_tf}).sampRate, 'ERROR: sample rate are not consistent across TFs or conditions');
+                
+                firstPulse(i_tf,:) = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+
+            end
+            firstPulse = mean(firstPulse,1);
+            [~, troughidx] = min(firstPulse(prePulseSamps+1:end)); % only look after the pulse has come on
+            troughidx = troughidx + prePulseSamps;
+            [~, peakidx] = max(firstPulse(prePulseSamps+1:end));
+            peakidx = peakidx + prePulseSamps;
+            
+            % some error checking for the FV case
+            if strcmpi('FV_Na', conds{i_cond})
+                assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+                assert(peakidx./sampRate < 1.007, 'ERROR: positivity occurs too late');
+            end
+            
+            % add a few points on either side of the true trough/peak
+            troughidx = troughidx-2:troughidx+2;
+            peakidx = peakidx-2:peakidx+2;
+            
+            % now do the analysis
+            for i_tf = 1:Ntfs
+                
+                Npulses = sum(info{i_ex}.(TF_fields{i_tf}).pulseOn_idx);
+                for i_pulse = 1:Npulses
+                    
+                    snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);                    
+                    
+                    switch conds{i_cond}
+                        case 'FV_Na'
+                            
+                            trough = mean(snippet(troughidx));
+                            peak = mean(snippet(peakidx));
+                            
+                            pk2tr = peak-trough;
+                            
+                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
+                            
+                        case 'nbqx_apv_cd2_ttx'
+                            
+                            trough = mean(snippet(troughidx));
+                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                            
+                    end
+                    
+                    % calculate the integral of the LFP signal
+                    snippet_pulse = snippet(prePulseSamps+1 : end);
+                    area = sum(abs(snippet_pulse)) ./ sampRate;
+                    dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
+                    
+                    
+                end % pulses
+                
+            end % tfs
+            
+        end % channels
+        
+    end % conditions
+    
+end % expts
+
+
+
 %% MAKE SOME PLOTS
 
 close all
 
-%cond = 'FV_Na';
-cond = 'nbqx_apv_cd2_ttx';
+
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
 
 for i_ex = 1:Nexpts
     
@@ -166,78 +248,90 @@ for i_ex = 1:Nexpts
         figName = sprintf('%s: site %d, ch %d', info{i_ex}.mouse, in{i_ex,2}, i_ch);
         set(gcf, 'name', figName);
         
-        
-        
-        %
-        % plot the raw (Average) traces
-        %
-        TF_fields = fieldnames(dat{i_ex});
-        Ntfs = numel(TF_fields);
-        for i_tf = 1:Ntfs
+        for i_cond = 1:numel(conds)
             
-            tmp_raw = dat{i_ex}.(TF_fields{i_tf}).snips.(cond){i_ch};
-            
-            tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(TF_fields{i_tf}).sampRate;
-            tt = (tt - prePulseTime) ./ 1000;
-            
-            subplot(2, Ntfs, i_tf)
-            cmap = colormap('copper');
-            cidx = round(linspace(1, size(cmap,1), size(tmp_raw,1)));
-            cmap = cmap(cidx,:);
-            set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
-            
-            plot(tt, tmp_raw', 'linewidth', 2)
-            axis tight
-            title(['TF = ', TF_fields{i_tf}(4:end), 'Hz'])
-            xlabel('time (ms)')
-            if i_tf==1;
-                ylabel('LFP amp')
+            %
+            % plot the raw (Average) traces
+            %
+            TF_fields = fieldnames(dat{i_ex});
+            Ntfs = numel(TF_fields);
+            for i_tf = 1:Ntfs
+                
+                tmp_raw = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch};
+                
+                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(TF_fields{i_tf}).sampRate;
+                tt = (tt - prePulseTime) ./ 1000;
+                
+                pltidx = (i_cond-1)*Ntfs + i_tf;
+                subplot(3, Ntfs, pltidx)
+                cmap = colormap('copper');
+                cidx = round(linspace(1, size(cmap,1), size(tmp_raw,1)));
+                cmap = cmap(cidx,:);
+                set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
+                
+                plot(tt, tmp_raw', 'linewidth', 2)
+                axis tight
+                title(['TF = ', TF_fields{i_tf}(4:end), 'Hz'])
+                xlabel('time (ms)')
+                if i_tf==1;
+                    switch conds{i_cond}
+                        case 'nbqx_apv_cd2_ttx'
+                            ylabel('Opsin Only LFP')
+                        case 'FV_Na'
+                            ylabel('Fiber Volley')
+                    end
+                    
+                end
             end
-            
         end
-        
         
         
         %
         % plot the summary stat (pk2tr or diff from baseline) as a function
         % of pulse number
         %
-        switch cond
-            case 'nbqx_apv_cd2_ttx'
-                
-                subplot(2,Ntfs, Ntfs+1), hold on,
-                for i_tf = 1:Ntfs
-                   
-                    diffvals = dat{i_ex}.(TF_fields{i_tf}).stats.(cond).diffval{i_ch};
-                    diffvals = abs(diffvals);
-                    plot(1:numel(diffvals), diffvals, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
-                end
-                xlabel('Pulse number')
-                ylims = get(gca, 'ylim');
-                set(gca, 'ylim', [0, ylims(2)]);
-                
-                
-            case 'FV_Na'
-                
-                subplot(2,Ntfs, Ntfs+1), hold on,
-                for i_tf = 1:Ntfs
-                   
-                    pk2tr = dat{i_ex}.(TF_fields{i_tf}).stats.(cond).pk2tr{i_ch};
-                    plot(1:numel(pk2tr), pk2tr, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
-                end
-                xlabel('Pulse number')
-                ylims = get(gca, 'ylim');
-                set(gca, 'ylim', [0, ylims(2)]);
+        subplot(3,Ntfs, Ntfs*2+1), hold on,
+        for i_tf = 1:Ntfs
+            
+            diffval = dat{i_ex}.(TF_fields{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
+            diffval = abs(diffval);
+            plot(1:numel(diffval), diffval, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
+        end
+        xlabel('Pulse number')
+        ylabel('Opsin Current')
+        xlim([1, numel(diffval)])
+        yvals = get(gca, 'ylim');
+        yvals(1) = min([0, yvals(1)]);
+        set(gca, 'ylim', [0, yvals(2)]);
+        if yvals(1)<0
+            plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
         end
         
         
-        %
-        % plot the integral as a function of pulse number
-        %
+        subplot(3,Ntfs, Ntfs*2+2), hold on,
+        for i_tf = 1:Ntfs
+            
+            pk2tr = dat{i_ex}.(TF_fields{i_tf}).stats.FV_Na.pk2tr{i_ch};
+            plot(1:numel(pk2tr), pk2tr, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
+        end
+        xlabel('Pulse number')
+        ylabel('Fiber Volley')
+        xlim([1, numel(pk2tr)])
+        yvals = get(gca, 'ylim');
+        yvals(1) = min([0, yvals(1)]);
+        set(gca, 'ylim', yvals);
+        if yvals(1)<0
+            plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
+        end
         
         
+        
+        
+        
+
         
     end
 end
+
 
 
