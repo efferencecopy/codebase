@@ -30,8 +30,8 @@ idx = cellfun(@(x,y) regexpi(x,y), exptConds, repmat({validConds}, size(exptCond
 idx = cellfun(@(x) any([x{:}]), idx);
 assert(all(idx), 'ERROR: at least one experimental condition is not recognized');
 
-% ERROR CHECKING: make sure that there tmp.head.validChansis consistency in the chanels used
-% for each input file
+% ERROR CHECKING: make sure that there tmp.head.validChans is consistency
+% in the chanels used for each input file
 channelConfigs = cell2mat(channels);
 channelConfigs = unique(channelConfigs, 'rows');
 channelList = find(channelConfigs);
@@ -58,37 +58,26 @@ for i_fid = 1:numel(fnames)
     
     % store the data, grouped by TF. First, I need to figure out the
     % appropriate field name for each TF instance
-    if strcmpi(tfs{i_fid}, 'interleaved')
+    
+    tdict = outerleave(tmp, tmp.idx.LED_470);
+    
+    fileTFs = round(tdict.conds(:,3));
+    fprintf('     Interleaved tfs: %s\n', num2str(fileTFs'));
+    
+    for i_tf = 1:numel(fileTFs)
         
-        tdict = outerleave(tmp, tmp.idx.LED_470);
-        
-        % need to update the tfs array to indicate that there are multiples
-        fileTFs = round(tdict.conds(:,3));
-        fprintf('     Interleaved tfs: %s\n', num2str(fileTFs'));
-        
-        for i_tf = 1:numel(fileTFs)
-            
-            % new field names
-            field_tf = ['tf_', num2str(fileTFs(i_tf))];
-            field_expt = exptConds{i_fid};
-            
-            % make a franken-abf struct
-            ax.(field_tf).(field_expt).head = tmp.head;
-            ax.(field_tf).(field_expt).dat = tmp.dat(:,:,tdict.trlList == i_tf);
-            ax.(field_tf).(field_expt).idx = tmp.idx;
-        end
-
-    else
-        
-        if isnumeric(tfs{i_fid})
-            field_tf = ['tf_', num2str(tfs{i_fid})];
-        else
-            field_tf = ['tf_', tfs{i_fid}];
-        end
+        % new field names
+        field_tf = ['tf_', num2str(fileTFs(i_tf))];
         field_expt = exptConds{i_fid};
-        ax.(field_tf).(field_expt) = tmp;
         
+        % make a franken-abf struct
+        ax.(field_tf).(field_expt).head = tmp.head;
+        ax.(field_tf).(field_expt).dat = tmp.dat(:,:,tdict.trlList == i_tf);
+        ax.(field_tf).(field_expt).idx = tmp.idx;
+        ax.(field_tf).(field_expt).pAmp = tdict.conds(i_tf,1);
+        ax.(field_tf).(field_expt).pWidth = tdict.conds(i_tf,2);
     end
+
 end
 
 
@@ -104,14 +93,10 @@ for i_tf = 1:numel(TFfields)
         
         % generate some field names for extraction and saving
         field_tf = TFfields{i_tf};
-        try
-            field_expt = conditionFields{i_cond};
-        catch
-            keyboard
-        end
+        field_expt = conditionFields{i_cond};
         
         sampFreq = ax.(field_tf).(field_expt).head.sampRate;
-        tt = (0:size(ax.(field_tf).(field_expt).dat, 1)-1) ./ sampFreq .* 1000;
+        %tt = (0:size(ax.(field_tf).(field_expt).dat, 1)-1) ./ sampFreq .* 1000;
         
         
         % grab the raw data (channel by channel)
@@ -142,27 +127,32 @@ for i_tf = 1:numel(TFfields)
             storedCrossings_off{i_tf} = [tmp_off(2:end); false]; % i think there is an OBO error otherwise...
             pulseOnset = find(template==1, 1, 'first');
             
-            tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-201:pulseOnset-1, :),1));
+            bkgndTime = 0.150; 
+            bkgndSamps = ceil(bkgndTime .* sampFreq);
+            tmp = bsxfun(@minus, tmp, mean(tmp(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             
             
             % filter out the high frequency stuff. Filtering shouldn't go
-            % below 2000 b/c you'll start to carve out the fiber volley
+            % below 2500 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 2000;
+            lp_freq = 2500;
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             
             % take the mean
             average = mean(filtered,2);
             trace.(field_tf).(field_expt)(:,i_ch) = average;
             
-            % store the pulse onset times for the population analysis
-            info.(field_tf).pulseOn_idx = storedCrossings_on{i_tf};
-            info.(field_tf).sampRate = ax.(field_tf).(field_expt).head.sampRate;
-            
-            
-        end
-    end
-end
+        end % i_ch
+        
+        % store the pulse onset times for the population analysis
+        info.(field_tf).(field_expt).pulseOn_idx = storedCrossings_on{i_tf};
+        info.(field_tf).(field_expt).pulseOff_idx = storedCrossings_off{i_tf};
+        info.(field_tf).(field_expt).sampRate = ax.(field_tf).(field_expt).head.sampRate;
+        info.(field_tf).(field_expt).pWidth = ax.(field_tf).(field_expt).pWidth;
+        info.(field_tf).(field_expt).pAmp = ax.(field_tf).(field_expt).pAmp;
+        
+    end % i_cond
+end % i_tf
 
 
 
@@ -186,7 +176,18 @@ for i_tf = 1:numel(TFfields)
     control_Present = isfield(trace.(field_tf), 'none');
     nbqx_apv_Present = isfield(trace.(field_tf), 'nbqx_apv');
     if control_Present && nbqx_apv_Present
+        
+        pWidthMatch = info.(field_tf).none.pWidth == info.(field_tf).nbqx_apv.pWidth;
+        pAmpMatch = info.(field_tf).none.pAmp == info.(field_tf).nbqx_apv.pAmp;
+        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
+        
         trace.(field_tf).synapticTransmission = trace.(field_tf).none - trace.(field_tf).nbqx_apv;
+        
+        info.(field_tf).synapticTransmission.pulseOn_idx = info.(field_tf).none.pulseOn_idx;
+        info.(field_tf).synapticTransmission.pulseOff_idx = info.(field_tf).none.pulseOff_idx;
+        info.(field_tf).synapticTransmission.sampRate = info.(field_tf).none.sampRate;
+        info.(field_tf).synapticTransmission.pWidth = info.(field_tf).none.pWidth;
+        info.(field_tf).synapticTransmission.pAmp = info.(field_tf).none.pAmp;
     end
     
     % is there a ttx condition that can be used to define fiber volley with
@@ -195,16 +196,50 @@ for i_tf = 1:numel(TFfields)
     nbqx_apv_cd2_ttx_Present = isfield(trace.(field_tf), 'nbqx_apv_cd2_ttx');
     assert(~all([nbqx_apv_ttx_Present, nbqx_apv_cd2_ttx_Present]), 'ERROR: multiple TTX files defined');
     if nbqx_apv_Present && nbqx_apv_ttx_Present
+        
+        pWidthMatch = info.(field_tf).nbqx_apv.pWidth == info.(field_tf).nbqx_apv_ttx.pWidth;
+        pAmpMatch = info.(field_tf).nbqx_apv.pAmp == info.(field_tf).nbqx_apv_ttx.pAmp;
+        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
+        
         trace.(field_tf).FV_Na_Ca2_mGluR = trace.(field_tf).nbqx_apv - trace.(field_tf).nbqx_apv_ttx;
+        
+        info.(field_tf).FV_Na_Ca2_mGluR.pulseOn_idx = info.(field_tf).nbqx_apv.pulseOn_idx;
+        info.(field_tf).FV_Na_Ca2_mGluR.pulseOff_idx = info.(field_tf).nbqx_apv.pulseOff_idx;
+        info.(field_tf).FV_Na_Ca2_mGluR.sampRate = info.(field_tf).nbqx_apv.sampRate;
+        info.(field_tf).FV_Na_Ca2_mGluR.pWidth = info.(field_tf).nbqx_apv.pWidth;
+        info.(field_tf).FV_Na_Ca2_mGluR.pAmp = info.(field_tf).nbqx_apv.pAmp;
+    
     elseif nbqx_apv_Present && nbqx_apv_cd2_ttx_Present
+        
+        pWidthMatch = info.(field_tf).nbqx_apv.pWidth == info.(field_tf).nbqx_apv_cd2_ttx.pWidth;
+        pAmpMatch = info.(field_tf).nbqx_apv.pAmp == info.(field_tf).nbqx_apv_cd2_ttx.pAmp;
+        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
+        
         trace.(field_tf).FV_Na_Ca2_mGluR = trace.(field_tf).nbqx_apv - trace.(field_tf).nbqx_apv_cd2_ttx;
+        
+        info.(field_tf).FV_Na_Ca2_mGluR.pulseOn_idx = info.(field_tf).nbqx_apv.pulseOn_idx;
+        info.(field_tf).FV_Na_Ca2_mGluR.pulseOff_idx = info.(field_tf).nbqx_apv.pulseOff_idx;
+        info.(field_tf).FV_Na_Ca2_mGluR.sampRate = info.(field_tf).nbqx_apv.sampRate;
+        info.(field_tf).FV_Na_Ca2_mGluR.pWidth = info.(field_tf).nbqx_apv.pWidth;
+        info.(field_tf).FV_Na_Ca2_mGluR.pAmp = info.(field_tf).nbqx_apv.pAmp;
     end
     
     % is there a ttx+cd condition that can be used to define the fiber
     % volley with just Na+
     nbqx_apv_cd2_Present = isfield(trace.(field_tf), 'nbqx_apv_cd2');
     if nbqx_apv_cd2_Present && nbqx_apv_cd2_ttx_Present
+        
+        pWidthMatch = info.(field_tf).nbqx_apv_cd2.pWidth == info.(field_tf).nbqx_apv_cd2_ttx.pWidth;
+        pAmpMatch = info.(field_tf).nbqx_apv_cd2.pAmp == info.(field_tf).nbqx_apv_cd2_ttx.pAmp;
+        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
+        
         trace.(field_tf).FV_Na = trace.(field_tf).nbqx_apv_cd2 - trace.(field_tf).nbqx_apv_cd2_ttx;
+        
+        info.(field_tf).FV_Na.pulseOn_idx = info.(field_tf).nbqx_apv_cd2.pulseOn_idx;
+        info.(field_tf).FV_Na.pulseOff_idx = info.(field_tf).nbqx_apv_cd2.pulseOff_idx;
+        info.(field_tf).FV_Na.sampRate = info.(field_tf).nbqx_apv_cd2.sampRate;
+        info.(field_tf).FV_Na.pWidth = info.(field_tf).nbqx_apv_cd2.pWidth;
+        info.(field_tf).FV_Na.pAmp = info.(field_tf).nbqx_apv_cd2.pAmp;
     end
     
     
@@ -214,7 +249,7 @@ for i_tf = 1:numel(TFfields)
         
         if isfield(trace.(field_tf), conds{i_cond})
             lines = [5.5, 60, 120, 180];
-            winStart_idx = 1;%find(storedCrossings_off{i_tf}==1, 1, 'last') + (sampFreq * 0.010);
+            winStart_idx = 1; % this takes all the data (even the pulses) but is better then just taking the data after the last pulse b/c long trains have essentially no data after them. 
             winEnd_idx = numel(storedCrossings_off{i_tf});
             tmp_trace = trace.(field_tf).(conds{i_cond});
             
@@ -259,7 +294,10 @@ if PLOTFIGURES
                 hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', tabLabels{i_cond});
                 hAx(i_cond) = axes('Parent', hTabs(i_cond));
                 hold on,
-                tt = tt-tt(pulseOnset);
+                sampFreq = info.(field_tf).(tabLabels{i_cond}).sampRate;
+                tt = (0:size(ax.(field_tf).(field_expt).dat, 1)-1) ./ sampFreq .* 1000;
+                firstPulseIdx = find(info.(field_tf).(tabLabels{i_cond}).pulseOn_idx == 1, 1, 'first');
+                tt = tt-tt(firstPulseIdx);
                 plot(tt, trace.(field_tf).(tabLabels{i_cond})(:,i_ch), 'k', 'linewidth', 3)
                 crossings_on = storedCrossings_on{i_tf};
                 crossings_off = storedCrossings_off{i_tf};

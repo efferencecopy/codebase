@@ -66,16 +66,16 @@ for i_ex = 1:Nexpts
     Ntfs = numel(TF_fields);
     for i_tf = 1:Ntfs
         
-        sampRate = info{i_ex}.(TF_fields{i_tf}).sampRate;
-        prePulseSamps = ceil(prePulseTime .* sampRate);
-        postPulseSamps = ceil(postPulseTime .* sampRate);
-        Nsamps = prePulseSamps + postPulseSamps + 1;
-        
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx'};
         for i_cond = 1:numel(conds)
             
-            Npulses = sum(info{i_ex}.(TF_fields{i_tf}).pulseOn_idx);
-            pulseOn_idx = find(info{i_ex}.(TF_fields{i_tf}).pulseOn_idx);
+            sampRate = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).sampRate;
+            prePulseSamps = ceil(prePulseTime .* sampRate);
+            postPulseSamps = ceil(postPulseTime .* sampRate);
+            Nsamps = prePulseSamps + postPulseSamps + 1;
+            
+            Npulses = sum(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);
+            pulseOn_idx = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);
             dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}) = {nan(Npulses, Nsamps), nan(Npulses, Nsamps)};
             for i_pulse = 1:Npulses
                 
@@ -122,6 +122,10 @@ end
 % This requires grabbing all the snippets b/4 any analysis can proceed. The
 % preceeding cell will need to be run before this one.
 
+% should the analysis window be defined based off the average response
+% following the first pulse (across conditions) or should the analysis
+% window be unique for each pulse?
+FIRSTPULSE = true;
 
 for i_ex = 1:Nexpts
     
@@ -131,17 +135,20 @@ for i_ex = 1:Nexpts
         TF_fields = fieldnames(dat{i_ex});
         Ntfs = numel(TF_fields);
         
-        sampRate = info{i_ex}.(TF_fields{1}).sampRate;
-        prePulseSamps = ceil(prePulseTime .* sampRate);
-        postPulseSamps = ceil(postPulseTime .* sampRate);
+        sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
+        prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
+        postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
+        photoDelay = ceil(0 .* sampRate); % 1ms timeout following pulse offset
         
         for i_ch = 1:2;
             
             % deal with some exceptions
+            % exception 1 (common)
             if ~info{i_ex}.ignoreChans(i_ch)
                 continue
             end
             
+            % exception 2 (uncommon)
             % a strange case where HS1 was set to Vclamp, and so
             % HS2's data got put in the first column...
             if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
@@ -150,42 +157,71 @@ for i_ex = 1:Nexpts
             end
             
             
-            % calculate the analysis windows based off the average 1st pulse,
-            % which should be the same across TFs (within pharmacology
-            % condition and channel).
-            firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
-            for i_tf = 1:Ntfs
-                
-                % I fixed the sampRate above, but make sure it's consistent
-                assert(sampRate == info{i_ex}.(TF_fields{i_tf}).sampRate, 'ERROR: sample rate are not consistent across TFs or conditions');
-                
-                firstPulse(i_tf,:) = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
-
-            end
-            firstPulse = mean(firstPulse,1);
-            [~, troughidx] = min(firstPulse(prePulseSamps+1:end)); % only look after the pulse has come on
-            troughidx = troughidx + prePulseSamps;
-            [~, peakidx] = max(firstPulse(prePulseSamps+1:end));
-            peakidx = peakidx + prePulseSamps;
             
-            % some error checking for the FV case
-            if strcmpi('FV_Na', conds{i_cond})
-                assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                assert(peakidx./sampRate < 1.007, 'ERROR: positivity occurs too late');
+            if FIRSTPULSE
+                % calculate the analysis windows based off the average 1st pulse,
+                % which should be the same across TFs (within pharmacology
+                % condition and channel).
+                firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
+                for i_tf = 1:Ntfs
+                    
+                    firstPulse(i_tf,:) = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+                    
+                end
+                pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
+                pWidthSamps = ceil(pWidth .* sampRate);
+                
+                firstPulse = mean(firstPulse,1);
+                
+                firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+                [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
+                troughidx = troughidx + firstValidPostPulseIdx;
+                [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
+                peakidx = peakidx + firstValidPostPulseIdx;
+                
+                % some error checking for the FV case
+                if strcmpi('FV_Na', conds{i_cond})
+                    assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+                    assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
+                end
+                
+                % add a few points on either side of the true trough/peak
+                troughidx = troughidx-2:troughidx+2;
+                peakidx = peakidx-2:peakidx+2;
             end
             
-            % add a few points on either side of the true trough/peak
-            troughidx = troughidx-2:troughidx+2;
-            peakidx = peakidx-2:peakidx+2;
+            
             
             % now do the analysis
             for i_tf = 1:Ntfs
                 
-                Npulses = sum(info{i_ex}.(TF_fields{i_tf}).pulseOn_idx);
+                Npulses = sum(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);
+                pOnIdx = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);            
                 for i_pulse = 1:Npulses
                     
-                    snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);                    
+                    snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
                     
+%                     if ~FIRSTPULSE
+%                         % dynamically calculate the peak and trough time
+%                         % windows for easampsToPulseOnf =s + pulssSamp;ch pulse
+%    
+%                         
+%                                          prePulseSamps+1              [~, troughidx] = min(snippet(prePsampsToPulseOff)); % only look after the pulse haprePulseSamps                   troughidx = troughidx + prePsampsTprePulseSamps                [~, peakidx] = max(snippet(prePsampsToprePulseSamps                       peakidx = peakidx + prePsampsToPulseOff                      
+%                         peakidx = min([peakidx, numel(snippet)-2]); % so that I don't get OOB errors if the peak is on the last sample of the trace
+%                         
+%                         % some error checking for the FV case
+%                         if strcmpi('FV_Na', conds{i_cond})
+%                             assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+%                         end
+%                         
+%                         % add a few points on either side of the true trough/peak
+%                         troughidx = troughidx-2:troughidx+2;
+%                         peakidx = peakidx-2:peakidx+2;
+%                         
+%                     end
+                    
+                    
+                    % store some stats for each pulse
                     switch conds{i_cond}
                         case 'FV_Na'
                             
@@ -193,18 +229,19 @@ for i_ex = 1:Nexpts
                             peak = mean(snippet(peakidx));
                             
                             pk2tr = peak-trough;
-                            
                             dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
+                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
                         case 'nbqx_apv_cd2_ttx'
                             
                             trough = mean(snippet(troughidx));
+                            
                             dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
                     end
                     
                     % calculate the integral of the LFP signal
-                    snippet_pulse = snippet(prePulseSamps+1 : end);
+                    snippet_pulse = snippet(prePulseSamps+1:end);
                     area = sum(abs(snippet_pulse)) ./ sampRate;
                     dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
@@ -224,7 +261,6 @@ end % expts
 %% MAKE SOME PLOTS
 
 close all
-
 
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
 
@@ -259,7 +295,7 @@ for i_ex = 1:Nexpts
                 
                 tmp_raw = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch};
                 
-                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(TF_fields{i_tf}).sampRate;
+                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) ./ 1000;
                 
                 pltidx = (i_cond-1)*Ntfs + i_tf;
