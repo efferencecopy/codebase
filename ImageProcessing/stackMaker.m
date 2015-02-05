@@ -644,7 +644,7 @@ function img_updateImages(varargin)
     else % monochrome
         currentColor = udat.currentColor;
         tmp_merg = img_applyLUT(udat.raw{sliceNum}.(currentColor), udat.merge{sliceNum}.(currentColor));
-        tmp_merg = repmat(tmp_merg, 1, 1, 3);
+        tmp_merg = repmat(tmp_merg, [1, 1, 3]);
     end
     
     
@@ -771,7 +771,7 @@ function mergeImg = merge_initLUT(udat)
         for color = {'red', 'green', 'blue'}
             mergeImg{a}.(color{1}).lut_hi = udat.raw{a}.(color{1}).info.MaxSampleValue;
             mergeImg{a}.(color{1}).lut_low = udat.raw{a}.(color{1}).info.MinSampleValue;
-            mergeImg{a}.(color{1}).lut_slope = 5; %empirically pretty good for the retiga camera
+            mergeImg{a}.(color{1}).lut_slope = 1; %empirically pretty good for the retiga camera
             mergeImg{a}.(color{1}).lut_yint = 0;
         end
     end

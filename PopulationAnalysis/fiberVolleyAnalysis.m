@@ -76,6 +76,7 @@ for i_fid = 1:numel(fnames)
         ax.(field_tf).(field_expt).idx = tmp.idx;
         ax.(field_tf).(field_expt).pAmp = tdict.conds(i_tf,1);
         ax.(field_tf).(field_expt).pWidth = tdict.conds(i_tf,2);
+        ax.(field_tf).(field_expt).pTF = fileTFs(i_tf);
     end
 
 end
@@ -150,6 +151,7 @@ for i_tf = 1:numel(TFfields)
         info.(field_tf).(field_expt).sampRate = ax.(field_tf).(field_expt).head.sampRate;
         info.(field_tf).(field_expt).pWidth = ax.(field_tf).(field_expt).pWidth;
         info.(field_tf).(field_expt).pAmp = ax.(field_tf).(field_expt).pAmp;
+        info.(field_tf).(field_expt).pTF = ax.(field_tf).(field_expt).pTF;
         
     end % i_cond
 end % i_tf
@@ -188,6 +190,7 @@ for i_tf = 1:numel(TFfields)
         info.(field_tf).synapticTransmission.sampRate = info.(field_tf).none.sampRate;
         info.(field_tf).synapticTransmission.pWidth = info.(field_tf).none.pWidth;
         info.(field_tf).synapticTransmission.pAmp = info.(field_tf).none.pAmp;
+        info.(field_tf).synapticTransmission.pTF = info.(field_tf).none.pTF;
     end
     
     % is there a ttx condition that can be used to define fiber volley with
@@ -208,6 +211,7 @@ for i_tf = 1:numel(TFfields)
         info.(field_tf).FV_Na_Ca2_mGluR.sampRate = info.(field_tf).nbqx_apv.sampRate;
         info.(field_tf).FV_Na_Ca2_mGluR.pWidth = info.(field_tf).nbqx_apv.pWidth;
         info.(field_tf).FV_Na_Ca2_mGluR.pAmp = info.(field_tf).nbqx_apv.pAmp;
+        info.(field_tf).FV_Na_Ca2_mGluR.pTF = info.(field_tf).nbqx_apv.pTF;
     
     elseif nbqx_apv_Present && nbqx_apv_cd2_ttx_Present
         
@@ -222,6 +226,7 @@ for i_tf = 1:numel(TFfields)
         info.(field_tf).FV_Na_Ca2_mGluR.sampRate = info.(field_tf).nbqx_apv.sampRate;
         info.(field_tf).FV_Na_Ca2_mGluR.pWidth = info.(field_tf).nbqx_apv.pWidth;
         info.(field_tf).FV_Na_Ca2_mGluR.pAmp = info.(field_tf).nbqx_apv.pAmp;
+        info.(field_tf).FV_Na_Ca2_mGluR.pTF = info.(field_tf).nbqx_apv.pTF;
     end
     
     % is there a ttx+cd condition that can be used to define the fiber
@@ -240,6 +245,7 @@ for i_tf = 1:numel(TFfields)
         info.(field_tf).FV_Na.sampRate = info.(field_tf).nbqx_apv_cd2.sampRate;
         info.(field_tf).FV_Na.pWidth = info.(field_tf).nbqx_apv_cd2.pWidth;
         info.(field_tf).FV_Na.pAmp = info.(field_tf).nbqx_apv_cd2.pAmp;
+        info.(field_tf).FV_Na.pTF = info.(field_tf).nbqx_apv_cd2.pTF;
     end
     
     

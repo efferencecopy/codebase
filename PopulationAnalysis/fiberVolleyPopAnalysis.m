@@ -51,7 +51,7 @@ end
 
 
 
-%% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
+ %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
 % PEAK TO PEAK AMP
 % INTEGRAL OF THE TRACE
@@ -138,7 +138,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelay = ceil(0 .* sampRate); % 1ms timeout following pulse offset
+        photoDelay = ceil(500e-6 .* sampRate); % 500us timeout following pulse offset
         
         for i_ch = 1:2;
             
@@ -201,24 +201,30 @@ for i_ex = 1:Nexpts
                     
                     snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
                     
-%                     if ~FIRSTPULSE
-%                         % dynamically calculate the peak and trough time
-%                         % windows for easampsToPulseOnf =s + pulssSamp;ch pulse
-%    
-%                         
-%                                          prePulseSamps+1              [~, troughidx] = min(snippet(prePsampsToPulseOff)); % only look after the pulse haprePulseSamps                   troughidx = troughidx + prePsampsTprePulseSamps                [~, peakidx] = max(snippet(prePsampsToprePulseSamps                       peakidx = peakidx + prePsampsToPulseOff                      
-%                         peakidx = min([peakidx, numel(snippet)-2]); % so that I don't get OOB errors if the peak is on the last sample of the trace
-%                         
-%                         % some error checking for the FV case
-%                         if strcmpi('FV_Na', conds{i_cond})
-%                             assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-%                         end
-%                         
-%                         % add a few points on either side of the true trough/peak
-%                         troughidx = troughidx-2:troughidx+2;
-%                         peakidx = peakidx-2:peakidx+2;
-%                         
-%                     end
+                    if ~FIRSTPULSE
+                        % dynamically calculate the peak and trough time windows
+                        pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
+                        pWidthSamps = ceil(pWidth .* sampRate);
+                        
+                        firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+                        [~, troughidx] = min(snippet(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
+                        troughidx = troughidx + firstValidPostPulseIdx;
+                        [~, peakidx] = max(snippet(firstValidPostPulseIdx+1:end));
+                        peakidx = peakidx + firstValidPostPulseIdx;
+                        
+                        peakidx = min([numel(snippet)-3, peakidx]); % prevents OOB errors
+                        
+                        % some error checking for the FV case
+                        if strcmpi('FV_Na', conds{i_cond})
+                            assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+                            assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
+                        end
+                        
+                        % add a few points on either side of the true trough/peak
+                        troughidx = troughidx-2:troughidx+2;
+                        peakidx = peakidx-2:peakidx+2;
+                        
+                    end
                     
                     
                     % store some stats for each pulse
@@ -258,7 +264,7 @@ end % expts
 
 
 
-%% MAKE SOME PLOTS
+%% MAKE SOME PLOTS: ONE SUMMARY PLOT PER RECORDING
 
 close all
 
@@ -360,14 +366,155 @@ for i_ex = 1:Nexpts
             plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
         end
         
-        
-        
-        
-        
-
-        
     end
 end
+
+%% POPULATION SUMMARY PLOTS
+
+
+% plan: loop over opsins. Only consider a single recording channel (distal
+% or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
+% function of pulse number for each frequency
+
+%initialize the outputs
+opsinTypes = {'chr2', 'ochief'};
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+stattype = {'diffval', 'pk2tr', 'area'};
+for i_opsin = 1:numel(opsinTypes)
+    for i_cond = 1:numel(conds)
+        for i_stat = 1:numel(stattype)
+            pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(stattype{i_stat}) = {[],{}}; % {{TF}, {Vals}}
+        end
+    end
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  sort the data
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for i_ex = 1:numel(dat)
+    
+    % a strange case where HS1 was set to Vclamp, and so
+    % HS2's data got put in the first column...
+    if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+        CHANNEL = 1;
+    else
+        CHANNEL = 2;
+    end
+    
+    opsin = lower(info{i_ex}.opsin{1});
+    
+    TF_fields = fieldnames(dat{i_ex});
+    Ntfs = numel(TF_fields);
+    for i_tf = 1:Ntfs
+        
+        for i_cond = 1:numel(conds);
+            
+            stattype = fieldnames(dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}));
+            
+            for i_stat = 1:numel(stattype)
+                
+                % structure the pnp1 data
+                tmp_stat = dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).(stattype{i_stat}){CHANNEL};
+                tmp_pnp1 = tmp_stat ./ tmp_stat(1);
+                
+                % grab the data field of the 'pop' structure
+                tmp_pop = pop.(opsin).pnp1.(conds{i_cond}).(stattype{i_stat});
+                tf = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pTF;
+                
+                % is there already an entry for this TF and drug condition?
+                alreadyThere = any(tmp_pop{1} == tf);
+                if alreadyThere
+                    idx = tmp_pop{1} == tf;
+                    
+                    % deal with cases where there are different numbers of
+                    % pulses
+                    nPulsesExisting = size(tmp_pop{2}{idx},2);
+                    if numel(tmp_pnp1) < nPulsesExisting
+                        tmp_pnp1(1,end+1:nPulsesExisting) = nan;
+                    else
+                        tmp_pop{2}{idx}(:,end+1:numel(tmp_pnp1)) = nan;
+                    end
+                    
+                    tmp_pop{2}{idx} = cat(1, tmp_pop{2}{idx}, tmp_pnp1);
+                else
+                    tmp_pop{1} = cat(1, tmp_pop{1}, tf);
+                    tmp_pop{2} = cat(1, tmp_pop{2}, tmp_pnp1);
+                end
+                
+                % replace the 'pop' structure version with the tmp version
+                pop.(opsin).pnp1.(conds{i_cond}).(stattype{i_stat}) = tmp_pop;
+                
+            end
+        end
+    end
+end
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  plotting routines
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for i_opsin = 1:numel(opsinTypes)
+    
+    for i_cond = 1:numel(conds);
+        
+        figure
+        set(gcf, 'name', [opsinTypes{i_opsin}, ': ', conds{i_cond}])
+        
+        stattype = fieldnames(pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}));
+        
+        for i_stat = 1:numel(stattype)
+            
+            % grab the data
+            tmp_dat = pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(stattype{i_stat});
+            
+            % make sure there's actually data there
+            if isempty(tmp_dat{1}); continue; end % some things are not in the data set
+            
+            % now do the plotting
+            subplot(2,numel(stattype), i_stat)
+            title(stattype{i_stat})
+           
+            tfs = tmp_dat{1};
+            cmap = colormap('copper');
+            cidx = round(linspace(1, size(cmap,1), numel(tfs)));
+            cmap = cmap(cidx,:);
+            set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
+            hold on
+            
+            for i_tf = 1:numel(tfs);
+                
+                xbar = nanmean(tmp_dat{2}{i_tf}, 1);
+                sem = nanstd(tmp_dat{2}{i_tf}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{2}{i_tf}), 1));
+                
+                errorbar(1:numel(xbar), xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2)
+            end
+            axis tight
+            xlabel('Pulse number')
+            ylabel('Pn:P1 ratio')
+            yvals = get(gca, 'ylim');
+            yvals(1) = min([0, yvals(1)]);
+            set(gca, 'ylim', yvals);
+            if yvals(1)<0
+                plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
+            end
+            
+        end
+    end
+end
+
+
+
+
+
+
+
+
 
 
 
