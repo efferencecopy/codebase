@@ -8,13 +8,13 @@ end
 
 
 % figure out the file names, etc.
-mouseNames = exptWorkbook(exptList,1);
-siteNumber = exptWorkbook(exptList,2);
-fnames = exptWorkbook(exptList,3);
-exptConds = exptWorkbook(exptList,5);
-channels = exptWorkbook(exptList, 6:7);
-rmsweeps = exptWorkbook(exptList,9);
-tfs = exptWorkbook(exptList, 4);
+mouseNames = exptWorkbook(exptList, strcmpi(exptWorkbook(1,:), 'Mouse Name'));
+siteNumber = exptWorkbook(exptList, strcmpi(exptWorkbook(1,:), 'site'));
+fnames = exptWorkbook(exptList, strcmpi(exptWorkbook(1,:), 'file name'));
+exptConds = exptWorkbook(exptList, strcmpi(exptWorkbook(1,:), 'drugs'));
+channels = exptWorkbook(exptList, cellfun(@(x) ~isempty(x), regexpi(exptWorkbook(1,:), 'CH\d')));
+rmsweeps = exptWorkbook(exptList, strcmpi(exptWorkbook(1,:), 'rmSweeps'));
+tfs = exptWorkbook(exptList, strcmpi(exptWorkbook(1,:), 'TF'));
 
 
 

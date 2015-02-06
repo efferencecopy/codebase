@@ -1,11 +1,12 @@
-%% WHICH MICE SHOULD CONTRIBUTE TO THE POPULATION ANALYSIS?
+%% WHICH MICE SHOULD CONTRIBUTE? [ALL MICE]
 
 % clear out the workspace
 fin
 
 % in = {Mouse Name, Site}
 
-in = {'CH_141215_B', 1;...
+in = {'CH_141124_B', 1;...
+      'CH_141215_B', 1;...
       'CH_141215_B', 2;...
       'CH_141215_D', 3;...
       'CH_141215_E', 1;...
@@ -16,7 +17,33 @@ in = {'CH_141215_B', 1;...
       'CH_150105_B', 2;...
       'CH_150105_C', 1;...
       'CH_150105_D', 2;...
-      'CH_150112_A', 2};
+      'CH_150112_A', 1;...
+      'CH_150112_A', 2;...
+      'CH_150112_B', 1;...
+      'CH_150112_B', 2};
+
+
+%% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE]
+
+% Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
+
+% clear out the workspace
+fin
+
+% in = {Mouse Name, Site}
+
+in = {'CH_141215_F', 1;...
+      'CH_141215_E', 1;...
+      'CH_141215_E', 2;...
+      'CH_150105_A', 1;...
+      'CH_150105_B', 1;...
+      'CH_150105_B', 2;...
+      'CH_150105_C', 1;...
+      'CH_150105_D', 2;...
+      'CH_150112_A', 1;...
+      'CH_150112_A', 2;...
+      'CH_150112_B', 1;...
+      'CH_150112_B', 2};
 
 
 
@@ -28,6 +55,9 @@ fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
 [~,txt, raw] = xlsread(fname);
 raw(size(txt,1)+1:end, :) = [];
 raw(:,size(txt,2)+1:end) = [];
+channelIdx = cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d'));
+opsinIdx = strcmpi(raw(1,:), 'opsin');
+stimSiteIdx = strcmpi(raw(1,:), 'stim site');
 clear txt
 
 % do the analysis
@@ -37,7 +67,7 @@ for i_ex = 1:Nexpts;
     
     % figure out what rows in the work book to pay attention to
     l_mouse = cellfun(@(x) ~isempty(x), regexp(raw(:,1), in{i_ex,1}));
-    l_site = [false ; cell2mat(raw(2:end,2)) == in{i_ex,2}];
+    l_site = [false ; cell2mat(raw(2:end,2)) == in{i_ex,2}]; % add a leading 'false' to account for the header row in 'raw'
     l_expt = l_mouse & l_site;
     
     % run the analysis
@@ -45,8 +75,12 @@ for i_ex = 1:Nexpts;
     
     % enter a few other useful things into the structure
     info{i_ex}.mouse =  in{i_ex,1};
-    info{i_ex}.opsin = unique(raw(l_expt,8));
-    info{i_ex}.ignoreChans = unique(cell2mat(raw(l_expt,6:7)), 'rows');
+    info{i_ex}.opsin = unique(cell2mat(raw(l_expt, opsinIdx)), 'rows');
+    info{i_ex}.ignoreChans = unique(cell2mat(raw(l_expt, channelIdx)), 'rows');
+    info{i_ex}.stimSite = unique(cell2mat(raw(l_expt, stimSiteIdx)), 'rows');
+    if ischar(info{i_ex}.stimSite); % deals with nans
+        info{i_ex}.stimSite = str2num(info{i_ex}.stimSite);
+    end 
 end
 
 
@@ -202,6 +236,7 @@ for i_ex = 1:Nexpts
                     snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
                     
                     if ~FIRSTPULSE
+                        error('This analysis is not yet confirmed to be working properly')
                         % dynamically calculate the peak and trough time windows
                         pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
                         pWidthSamps = ceil(pWidth .* sampRate);
@@ -288,7 +323,7 @@ for i_ex = 1:Nexpts
         
         figure
         figName = sprintf('%s: site %d, ch %d', info{i_ex}.mouse, in{i_ex,2}, i_ch);
-        set(gcf, 'name', figName);
+        set(gcf, 'name', figName, 'position', [148    33   813   752]);
         
         for i_cond = 1:numel(conds)
             
@@ -318,7 +353,7 @@ for i_ex = 1:Nexpts
                 if i_tf==1;
                     switch conds{i_cond}
                         case 'nbqx_apv_cd2_ttx'
-                            ylabel('Opsin Only LFP')
+                            ylabel(sprintf('%s Current', info{i_ex}.opsin))
                         case 'FV_Na'
                             ylabel('Fiber Volley')
                     end
@@ -340,7 +375,7 @@ for i_ex = 1:Nexpts
             plot(1:numel(diffval), diffval, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
         end
         xlabel('Pulse number')
-        ylabel('Opsin Current')
+        ylabel(sprintf('%s diffVal', info{i_ex}.opsin))
         xlim([1, numel(diffval)])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
@@ -376,6 +411,9 @@ end
 % or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
 % function of pulse number for each frequency
 
+STIMSITE = true;  % true => stimsite,  false => distal site
+
+
 %initialize the outputs
 opsinTypes = {'chr2', 'ochief'};
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
@@ -388,6 +426,8 @@ for i_opsin = 1:numel(opsinTypes)
     end
 end
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  sort the data
@@ -395,15 +435,29 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for i_ex = 1:numel(dat)
     
-    % a strange case where HS1 was set to Vclamp, and so
-    % HS2's data got put in the first column...
-    if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-        CHANNEL = 1;
-    else
-        CHANNEL = 2;
+    
+    % skip cases wehre the led was not targeted to either of the recording
+    % sites
+    if isnan(info{i_ex}.stimSite)
+        continue
     end
     
-    opsin = lower(info{i_ex}.opsin{1});
+    % Determine which recording channel to analyze
+    if strcmpi(info{i_ex}.mouse, 'CH_150105_D') % a strange exception that bucks the rules.
+        CHANNEL = 1;
+    else % all other experiments...
+        if STIMSITE
+            CHANNEL = info{i_ex}.stimSite;
+        else
+            if info{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    opsin = lower(info{i_ex}.opsin);
     
     TF_fields = fieldnames(dat{i_ex});
     Ntfs = numel(TF_fields);
@@ -461,10 +515,11 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for i_opsin = 1:numel(opsinTypes)
     
+    figure
+    set(gcf, 'name', opsinTypes{i_opsin}, 'defaulttextinterpreter', 'none')
+    
+    
     for i_cond = 1:numel(conds);
-        
-        figure
-        set(gcf, 'name', [opsinTypes{i_opsin}, ': ', conds{i_cond}])
         
         stattype = fieldnames(pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}));
         
@@ -477,7 +532,7 @@ for i_opsin = 1:numel(opsinTypes)
             if isempty(tmp_dat{1}); continue; end % some things are not in the data set
             
             % now do the plotting
-            subplot(2,numel(stattype), i_stat)
+            subplot(2, numel(stattype), (i_cond-1).*numel(stattype) + i_stat)
             title(stattype{i_stat})
            
             tfs = tmp_dat{1};
@@ -487,16 +542,30 @@ for i_opsin = 1:numel(opsinTypes)
             set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
             hold on
             
+            legtext = {};
+            [~, tforder] = sort(tmp_dat{1}, 1, 'ascend');
             for i_tf = 1:numel(tfs);
                 
-                xbar = nanmean(tmp_dat{2}{i_tf}, 1);
-                sem = nanstd(tmp_dat{2}{i_tf}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{2}{i_tf}), 1));
+                tf_idx = tforder(i_tf);
+                
+                xbar = nanmean(tmp_dat{2}{tf_idx}, 1);
+                sem = nanstd(tmp_dat{2}{tf_idx}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{2}{tf_idx}), 1));
                 
                 errorbar(1:numel(xbar), xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2)
+                
+                legtext = cat(2, legtext, num2str(tfs(tf_idx)));
             end
             axis tight
             xlabel('Pulse number')
-            ylabel('Pn:P1 ratio')
+            if i_stat==1
+                ylabel(sprintf('%s \n Pn:P1 ratio', conds{i_cond}))
+            else
+                ylabel('Pn:P1 ratio')
+            end
+            if i_stat==1  && i_cond==1
+                legend(legtext, 'location', 'southeast')
+                legend boxoff
+            end
             yvals = get(gca, 'ylim');
             yvals(1) = min([0, yvals(1)]);
             set(gca, 'ylim', yvals);

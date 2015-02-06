@@ -29,7 +29,7 @@ xUp = change == 1;
 xDown = change == -1;
 si = 1./ax.head.sampRate; % the sample interval...
 
-% iterate over the sweeps determining the pulse amplitude
+% iterate over the sweeps determining the pulse amplitude, width, freq
 [pWidth, pAmp, tFreq] = deal(nan(Nsweeps, 1));
 for swp = 1:Nsweeps
     
