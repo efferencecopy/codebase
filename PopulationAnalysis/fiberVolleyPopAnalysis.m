@@ -7,7 +7,7 @@ fin
 
 in = {'CH_141124_B', 1;...
       'CH_141215_B', 1;...
-      'CH_141215_B', 2;...
+%       'CH_141215_B', 2;...
       'CH_141215_D', 3;...
       'CH_141215_E', 1;...
       'CH_141215_E', 2;...
@@ -100,7 +100,7 @@ for i_ex = 1:Nexpts
     Ntfs = numel(TF_fields);
     for i_tf = 1:Ntfs
         
-        conds = {'FV_Na', 'nbqx_apv_cd2_ttx'};
+        conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
         for i_cond = 1:numel(conds)
             
             sampRate = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).sampRate;
@@ -580,7 +580,82 @@ end
 
 
 
+%%  ESTIMATE THE SLOPE OF THE FIELD EPSP
 
+figure, hold on,
+
+
+for i_ex = 1:Nexpts
+    
+    conds = {'synapticTransmission'}; % for loop of one for now, but room to grow...
+    for i_cond = 1:numel(conds)
+        
+        TF_fields = fieldnames(dat{i_ex});
+        Ntfs = numel(TF_fields);
+        
+        sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
+        prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
+        postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
+        photoDelay = ceil(500e-6 .* sampRate); % 500us timeout following pulse offset
+        
+        for i_ch = 1:2;
+            
+            % deal with some exceptions
+            % exception 1 (common)
+            if ~info{i_ex}.ignoreChans(i_ch)
+                continue
+            end
+            
+            % exception 2 (uncommon)
+            % a strange case where HS1 was set to Vclamp, and so
+            % HS2's data got put in the first column...
+            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+                if i_ch == 1; error('something went wrong'); end
+                i_ch = 1; % strange syntax, but only effects this loop... 
+            end
+            
+            
+            firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
+            for i_tf = 1:Ntfs
+                
+                firstPulse(i_tf,:) = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+                
+            end
+            firstPulse = mean(firstPulse,1);
+            firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+            
+            
+            switch conds{i_cond}
+                case 'synapticTransmission'
+                    
+                    % Analyze a time window that's approx 2.5 to 4 ms from
+                    % LED pulse onset
+                    windowStartIdx = prePulseSamps + ceil(0.0025 .* sampRate);
+                    windowStopIdx = prePulseSamps + ceil(0.004 .* sampRate);
+                    avgVal = mean(firstPulse(windowStartIdx:windowStopIdx));
+                    
+                    p1stats{i_ex}.(conds{i_cond}).avgval(1, i_ch) = abs(avgVal);
+            end
+            
+            
+            % provisional plotting (delete later)
+            fPSP = p1stats{i_ex}.(conds{i_cond}).avgval(1, i_ch);
+            pk2tr = dat{i_ex}.(TF_fields{1}).stats.FV_Na.diffval{i_ch};
+            pnp1 = pk2tr(end)./pk2tr(1);
+            switch lower(info{i_ex}.opsin)
+                case 'ochief'
+                    plot(fPSP, pnp1, 'ro')
+                case 'chr2'
+                    plot(fPSP, pnp1, 'bo')
+            end
+            ylabel('diffval')
+            xlabel('fPSP')
+            
+        end % channels
+        
+    end % conditions
+    
+end % expts
 
 
 
