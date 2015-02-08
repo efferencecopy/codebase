@@ -35,15 +35,16 @@ fin
 in = {'CH_141215_F', 1;...
       'CH_141215_E', 1;...
       'CH_141215_E', 2;...
-      'CH_150105_A', 1;...
+      %'CH_150105_A', 1;...  % might get cut
       'CH_150105_B', 1;...
       'CH_150105_B', 2;...
-      'CH_150105_C', 1;...
-      'CH_150105_D', 2;...
-      'CH_150112_A', 1;...
+      %'CH_150105_C', 1;...  % might get cut
+      %'CH_150112_A', 1;...  % might get cut
       'CH_150112_A', 2;...
       'CH_150112_B', 1;...
-      'CH_150112_B', 2};
+      'CH_150112_B', 2;...
+      'CH_150112_D', 1;...
+      'CH_150112_D', 2};
 
 
 
@@ -282,8 +283,12 @@ for i_ex = 1:Nexpts
                     end
                     
                     % calculate the integral of the LFP signal
-                    snippet_pulse = snippet(prePulseSamps+1:end);
-                    area = sum(abs(snippet_pulse)) ./ sampRate;
+                    pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
+                    pWidthSamps = ceil(pWidth .* sampRate);
+                    firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+                    snippet_pulse = snippet(firstValidPostPulseIdx:end);
+                    
+                    area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate);
                     dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
                     
@@ -332,6 +337,7 @@ for i_ex = 1:Nexpts
             %
             TF_fields = fieldnames(dat{i_ex});
             Ntfs = numel(TF_fields);
+            Nplts = max([3, Ntfs]);
             for i_tf = 1:Ntfs
                 
                 tmp_raw = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch};
@@ -339,8 +345,8 @@ for i_ex = 1:Nexpts
                 tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) ./ 1000;
                 
-                pltidx = (i_cond-1)*Ntfs + i_tf;
-                subplot(3, Ntfs, pltidx)
+                pltidx = (i_cond-1)*Nplts + i_tf;
+                subplot(3, Nplts, pltidx)
                 cmap = colormap('copper');
                 cidx = round(linspace(1, size(cmap,1), size(tmp_raw,1)));
                 cmap = cmap(cidx,:);
@@ -367,7 +373,9 @@ for i_ex = 1:Nexpts
         % plot the summary stat (pk2tr or diff from baseline) as a function
         % of pulse number
         %
-        subplot(3,Ntfs, Ntfs*2+1), hold on,
+        
+        % diff val for opsin current
+        subplot(3,Nplts, Nplts*2+1), hold on,
         for i_tf = 1:Ntfs
             
             diffval = dat{i_ex}.(TF_fields{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
@@ -385,14 +393,15 @@ for i_ex = 1:Nexpts
         end
         
         
-        subplot(3,Ntfs, Ntfs*2+2), hold on,
+        % Fiber volley peak to trough
+        subplot(3,Nplts, Nplts*2+2), hold on,
         for i_tf = 1:Ntfs
             
             pk2tr = dat{i_ex}.(TF_fields{i_tf}).stats.FV_Na.pk2tr{i_ch};
             plot(1:numel(pk2tr), pk2tr, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
         end
         xlabel('Pulse number')
-        ylabel('Fiber Volley')
+        ylabel('Fiber Volley pk2tr')
         xlim([1, numel(pk2tr)])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
@@ -400,6 +409,24 @@ for i_ex = 1:Nexpts
         if yvals(1)<0
             plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
         end
+        
+        % fiber volley integral
+        subplot(3,Nplts, Nplts*2+3), hold on,
+        for i_tf = 1:Ntfs
+            
+            area = dat{i_ex}.(TF_fields{i_tf}).stats.FV_Na.area{i_ch};
+            plot(1:numel(area), area, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
+        end
+        xlabel('Pulse number')
+        ylabel('FV Area (mV/sec)')
+        xlim([1, numel(area)])
+        yvals = get(gca, 'ylim');
+        yvals(1) = min([0, yvals(1)]);
+        set(gca, 'ylim', yvals);
+        if yvals(1)<0
+            plot([1,numel(area)], [0,0] , 'k--', 'linewidth', 2)
+        end
+        
         
     end
 end
@@ -436,7 +463,7 @@ end
 for i_ex = 1:numel(dat)
     
     
-    % skip cases wehre the led was not targeted to either of the recording
+    % skip cases where the led was not targeted to either of the recording
     % sites
     if isnan(info{i_ex}.stimSite)
         continue
@@ -537,7 +564,7 @@ for i_opsin = 1:numel(opsinTypes)
            
             tfs = tmp_dat{1};
             cmap = colormap('copper');
-            cidx = round(linspace(1, size(cmap,1), numel(tfs)));
+            cidx = round(linspace(1, size(cmap,1), 6));
             cmap = cmap(cidx,:);
             set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
             hold on
