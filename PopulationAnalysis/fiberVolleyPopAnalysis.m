@@ -20,7 +20,10 @@ in = {'CH_141124_B', 1;...
       'CH_150112_A', 1;...
       'CH_150112_A', 2;...
       'CH_150112_B', 1;...
-      'CH_150112_B', 2};
+      'CH_150112_B', 2;...
+      'CH_150112_D', 1;...
+      'CH_150112_D', 2;...
+      'CH_150112_C', 1};
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE]
@@ -44,7 +47,8 @@ in = {'CH_141215_F', 1;...
       'CH_150112_B', 1;...
       'CH_150112_B', 2;...
       'CH_150112_D', 1;...
-      'CH_150112_D', 2};
+      'CH_150112_D', 2;...
+      'CH_150112_C', 1};
 
 
 
@@ -173,7 +177,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelay = ceil(500e-6 .* sampRate); % 500us timeout following pulse offset
+        photoDelaySamps = ceil(0 .* sampRate); % timeout following pulse offset
         
         for i_ch = 1:2;
             
@@ -208,7 +212,7 @@ for i_ex = 1:Nexpts
                 
                 firstPulse = mean(firstPulse,1);
                 
-                firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+                firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
                 [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
                 troughidx = troughidx + firstValidPostPulseIdx;
                 [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
@@ -218,6 +222,7 @@ for i_ex = 1:Nexpts
                 if strcmpi('FV_Na', conds{i_cond})
                     assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
                     assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
+                    assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
                 end
                 
                 % add a few points on either side of the true trough/peak
@@ -234,34 +239,7 @@ for i_ex = 1:Nexpts
                 pOnIdx = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);            
                 for i_pulse = 1:Npulses
                     
-                    snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
-                    
-                    if ~FIRSTPULSE
-                        error('This analysis is not yet confirmed to be working properly')
-                        % dynamically calculate the peak and trough time windows
-                        pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
-                        pWidthSamps = ceil(pWidth .* sampRate);
-                        
-                        firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
-                        [~, troughidx] = min(snippet(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
-                        troughidx = troughidx + firstValidPostPulseIdx;
-                        [~, peakidx] = max(snippet(firstValidPostPulseIdx+1:end));
-                        peakidx = peakidx + firstValidPostPulseIdx;
-                        
-                        peakidx = min([numel(snippet)-3, peakidx]); % prevents OOB errors
-                        
-                        % some error checking for the FV case
-                        if strcmpi('FV_Na', conds{i_cond})
-                            assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                            assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
-                        end
-                        
-                        % add a few points on either side of the true trough/peak
-                        troughidx = troughidx-2:troughidx+2;
-                        peakidx = peakidx-2:peakidx+2;
-                        
-                    end
-                    
+                    snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);                   
                     
                     % store some stats for each pulse
                     switch conds{i_cond}
@@ -282,10 +260,13 @@ for i_ex = 1:Nexpts
                             
                     end
                     
-                    % calculate the integral of the LFP signal
+                    % calculate the integral of the LFP signal. This
+                    % integral will get adjusted later to reflect the
+                    % integral of a noisy signal with no response to the
+                    % LED...
                     pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
                     pWidthSamps = ceil(pWidth .* sampRate);
-                    firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+                    firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
                     snippet_pulse = snippet(firstValidPostPulseIdx:end);
                     
                     area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate);
@@ -293,6 +274,28 @@ for i_ex = 1:Nexpts
                     
                     
                 end % pulses
+                
+                
+                % now calculate the integral of part of the signal
+                % preceeding the LED pulses and use this to correct the
+                % integral calculated above. The idea is that the integral
+                % can be positive even if there is no response to the LED.
+                Nsamps = numel(snippet_pulse);
+                fullsweep = dat{i_ex}.(TF_fields{i_tf}).(conds{i_cond})(:,i_ch);
+                firstPulseOn = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx, 1, 'first');
+                maxstartidx = firstPulseOn-Nsamps-1;
+                randStartIdx = unidrnd(maxstartidx, 1e4, 1);
+                indexMtx = repmat(0:Nsamps-1, size(randStartIdx,1), 1);
+                indexMtx = bsxfun(@plus, randStartIdx, indexMtx);
+                shuffleBaseline = fullsweep(indexMtx);
+                noiseIntegral = sum(abs(shuffleBaseline), 2) ./ (Nsamps ./ sampRate);
+                noiseIntegral = mean(noiseIntegral);
+                
+                % correct the integral from above, based on the shuffle
+                % corrected noiseIntegral.
+                tmp = dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch};
+                tmp = tmp - noiseIntegral;
+                dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch} = tmp;
                 
             end % tfs
             
@@ -438,7 +441,7 @@ end
 % or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
 % function of pulse number for each frequency
 
-STIMSITE = true;  % true => stimsite,  false => distal site
+STIMSITE = false;  % true => stimsite,  false => distal site
 
 
 %initialize the outputs
@@ -623,7 +626,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelay = ceil(500e-6 .* sampRate); % 500us timeout following pulse offset
+        photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
         
         for i_ch = 1:2;
             
@@ -649,7 +652,7 @@ for i_ex = 1:Nexpts
                 
             end
             firstPulse = mean(firstPulse,1);
-            firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelay;
+            firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
             
             
             switch conds{i_cond}
