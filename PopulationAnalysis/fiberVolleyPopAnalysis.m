@@ -7,7 +7,7 @@ fin
 
 in = {'CH_141124_B', 1;...
       'CH_141215_B', 1;...
-%       'CH_141215_B', 2;...
+      'CH_141215_B', 2;...
       'CH_141215_D', 3;...
       'CH_141215_E', 1;...
       'CH_141215_E', 2;...
@@ -101,21 +101,21 @@ postPulseTime = 0.009; % in sec
 
 for i_ex = 1:Nexpts
     
-    TF_fields = fieldnames(dat{i_ex});
-    Ntfs = numel(TF_fields);
+    pTypes = fieldnames(dat{i_ex});
+    Ntfs = numel(pTypes);
     for i_tf = 1:Ntfs
         
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
         for i_cond = 1:numel(conds)
             
-            sampRate = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).sampRate;
+            sampRate = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
             prePulseSamps = ceil(prePulseTime .* sampRate);
             postPulseSamps = ceil(postPulseTime .* sampRate);
             Nsamps = prePulseSamps + postPulseSamps + 1;
             
-            Npulses = sum(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);
-            pulseOn_idx = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);
-            dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}) = {nan(Npulses, Nsamps), nan(Npulses, Nsamps)};
+            Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+            pulseOn_idx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+            dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}) = {nan(Npulses, Nsamps), nan(Npulses, Nsamps)};
             for i_pulse = 1:Npulses
                 
                 snip_idx = pulseOn_idx(i_pulse)-prePulseSamps : 1 : pulseOn_idx(i_pulse)+postPulseSamps;
@@ -137,11 +137,11 @@ for i_ex = 1:Nexpts
                     
                     % pull out the snippet, subtract off the baseline and
                     % store it for each pulse in the train
-                    snippet_full = dat{i_ex}.(TF_fields{i_tf}).(conds{i_cond})(snip_idx ,i_ch);
+                    snippet_full = dat{i_ex}.(pTypes{i_tf}).(conds{i_cond})(snip_idx ,i_ch);
                     baseline = mean(snippet_full(1:prePulseSamps));
                     snippet_full = snippet_full - baseline;
                     
-                    dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:) = snippet_full;
+                    dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:) = snippet_full;
                     
                   
                 end
@@ -171,10 +171,10 @@ for i_ex = 1:Nexpts
     conds = {'FV_Na', 'nbqx_apv_cd2_ttx'};
     for i_cond = 1:numel(conds)
         
-        TF_fields = fieldnames(dat{i_ex});
-        Ntfs = numel(TF_fields);
+        pTypes = fieldnames(dat{i_ex});
+        Ntfs = numel(pTypes);
         
-        sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
+        sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         photoDelaySamps = ceil(0 .* sampRate); % timeout following pulse offset
@@ -204,10 +204,10 @@ for i_ex = 1:Nexpts
                 firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
                 for i_tf = 1:Ntfs
                     
-                    firstPulse(i_tf,:) = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+                    firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
                     
                 end
-                pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
+                pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
                 pWidthSamps = ceil(pWidth .* sampRate);
                 
                 firstPulse = mean(firstPulse,1);
@@ -235,11 +235,11 @@ for i_ex = 1:Nexpts
             % now do the analysis
             for i_tf = 1:Ntfs
                 
-                Npulses = sum(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);
-                pOnIdx = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx);            
+                Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+                pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);            
                 for i_pulse = 1:Npulses
                     
-                    snippet = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);                   
+                    snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);                   
                     
                     % store some stats for each pulse
                     switch conds{i_cond}
@@ -249,14 +249,14 @@ for i_ex = 1:Nexpts
                             peak = mean(snippet(peakidx));
                             
                             pk2tr = peak-trough;
-                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
-                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
                         case 'nbqx_apv_cd2_ttx'
                             
                             trough = mean(snippet(troughidx));
                             
-                            dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
                     end
                     
@@ -264,13 +264,13 @@ for i_ex = 1:Nexpts
                     % integral will get adjusted later to reflect the
                     % integral of a noisy signal with no response to the
                     % LED...
-                    pWidth = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pWidth;
+                    pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
                     pWidthSamps = ceil(pWidth .* sampRate);
                     firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
                     snippet_pulse = snippet(firstValidPostPulseIdx:end);
                     
                     area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate);
-                    dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
+                    dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
                     
                 end % pulses
@@ -281,8 +281,8 @@ for i_ex = 1:Nexpts
                 % integral calculated above. The idea is that the integral
                 % can be positive even if there is no response to the LED.
                 Nsamps = numel(snippet_pulse);
-                fullsweep = dat{i_ex}.(TF_fields{i_tf}).(conds{i_cond})(:,i_ch);
-                firstPulseOn = find(info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pulseOn_idx, 1, 'first');
+                fullsweep = dat{i_ex}.(pTypes{i_tf}).(conds{i_cond})(:,i_ch);
+                firstPulseOn = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx, 1, 'first');
                 maxstartidx = firstPulseOn-Nsamps-1;
                 randStartIdx = unidrnd(maxstartidx, 1e4, 1);
                 indexMtx = repmat(0:Nsamps-1, size(randStartIdx,1), 1);
@@ -293,9 +293,9 @@ for i_ex = 1:Nexpts
                 
                 % correct the integral from above, based on the shuffle
                 % corrected noiseIntegral.
-                tmp = dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch};
+                tmp = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch};
                 tmp = tmp - noiseIntegral;
-                dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).area{i_ch} = tmp;
+                dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch} = tmp;
                 
             end % tfs
             
@@ -338,14 +338,14 @@ for i_ex = 1:Nexpts
             %
             % plot the raw (Average) traces
             %
-            TF_fields = fieldnames(dat{i_ex});
-            Ntfs = numel(TF_fields);
+            pTypes = fieldnames(dat{i_ex});
+            Ntfs = numel(pTypes);
             Nplts = max([3, Ntfs]);
             for i_tf = 1:Ntfs
                 
-                tmp_raw = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch};
+                tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch};
                 
-                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).sampRate;
+                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) ./ 1000;
                 
                 pltidx = (i_cond-1)*Nplts + i_tf;
@@ -357,7 +357,7 @@ for i_ex = 1:Nexpts
                 
                 plot(tt, tmp_raw', 'linewidth', 2)
                 axis tight
-                title(['TF = ', TF_fields{i_tf}(4:end), 'Hz'])
+                title(['TF = ', pTypes{i_tf}(4:end), 'Hz'])
                 xlabel('time (ms)')
                 if i_tf==1;
                     switch conds{i_cond}
@@ -381,7 +381,7 @@ for i_ex = 1:Nexpts
         subplot(3,Nplts, Nplts*2+1), hold on,
         for i_tf = 1:Ntfs
             
-            diffval = dat{i_ex}.(TF_fields{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
+            diffval = dat{i_ex}.(pTypes{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
             diffval = abs(diffval);
             plot(1:numel(diffval), diffval, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
         end
@@ -400,7 +400,7 @@ for i_ex = 1:Nexpts
         subplot(3,Nplts, Nplts*2+2), hold on,
         for i_tf = 1:Ntfs
             
-            pk2tr = dat{i_ex}.(TF_fields{i_tf}).stats.FV_Na.pk2tr{i_ch};
+            pk2tr = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch};
             plot(1:numel(pk2tr), pk2tr, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
         end
         xlabel('Pulse number')
@@ -417,7 +417,7 @@ for i_ex = 1:Nexpts
         subplot(3,Nplts, Nplts*2+3), hold on,
         for i_tf = 1:Ntfs
             
-            area = dat{i_ex}.(TF_fields{i_tf}).stats.FV_Na.area{i_ch};
+            area = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.area{i_ch};
             plot(1:numel(area), area, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
         end
         xlabel('Pulse number')
@@ -489,23 +489,23 @@ for i_ex = 1:numel(dat)
     
     opsin = lower(info{i_ex}.opsin);
     
-    TF_fields = fieldnames(dat{i_ex});
-    Ntfs = numel(TF_fields);
+    pTypes = fieldnames(dat{i_ex});
+    Ntfs = numel(pTypes);
     for i_tf = 1:Ntfs
         
         for i_cond = 1:numel(conds);
             
-            stattype = fieldnames(dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}));
+            stattype = fieldnames(dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}));
             
             for i_stat = 1:numel(stattype)
                 
                 % structure the pnp1 data
-                tmp_stat = dat{i_ex}.(TF_fields{i_tf}).stats.(conds{i_cond}).(stattype{i_stat}){CHANNEL};
+                tmp_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(stattype{i_stat}){CHANNEL};
                 tmp_pnp1 = tmp_stat ./ tmp_stat(1);
                 
                 % grab the data field of the 'pop' structure
                 tmp_pop = pop.(opsin).pnp1.(conds{i_cond}).(stattype{i_stat});
-                tf = info{i_ex}.(TF_fields{i_tf}).(conds{i_cond}).pTF;
+                tf = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF;
                 
                 % is there already an entry for this TF and drug condition?
                 alreadyThere = any(tmp_pop{1} == tf);
@@ -620,10 +620,10 @@ for i_ex = 1:Nexpts
     conds = {'synapticTransmission'}; % for loop of one for now, but room to grow...
     for i_cond = 1:numel(conds)
         
-        TF_fields = fieldnames(dat{i_ex});
-        Ntfs = numel(TF_fields);
+        pTypes = fieldnames(dat{i_ex});
+        Ntfs = numel(pTypes);
         
-        sampRate = info{i_ex}.(TF_fields{1}).(conds{i_cond}).sampRate;
+        sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
@@ -648,7 +648,7 @@ for i_ex = 1:Nexpts
             firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
             for i_tf = 1:Ntfs
                 
-                firstPulse(i_tf,:) = dat{i_ex}.(TF_fields{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+                firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
                 
             end
             firstPulse = mean(firstPulse,1);
@@ -670,7 +670,7 @@ for i_ex = 1:Nexpts
             
             % provisional plotting (delete later)
             fPSP = p1stats{i_ex}.(conds{i_cond}).avgval(1, i_ch);
-            pk2tr = dat{i_ex}.(TF_fields{1}).stats.FV_Na.diffval{i_ch};
+            pk2tr = dat{i_ex}.(pTypes{1}).stats.FV_Na.diffval{i_ch};
             pnp1 = pk2tr(end)./pk2tr(1);
             switch lower(info{i_ex}.opsin)
                 case 'ochief'
