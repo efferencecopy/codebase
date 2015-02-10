@@ -770,7 +770,298 @@ set(gcf, 'position', [256 5 1150 824]);
 hand = surf(X,Y,Z,maxMask);
 set(hand, 'edgealpha', 0);
 axis equal
-%% COMPARING RETINA, V1, AND BEHAVIOR
+
+
+%% COMPARING RETINA, V1, AND BEHAVIOR: THRESHOLD RATIOS AND NEUROMETRIC THRESHOLDS
+
+fin
+
+%
+% (1) load in the batch data file
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+cd /Users/charliehass/LabStuff/Huskies/DTcones/Data/
+[fname, fpath] = uigetfile();
+load([fpath, fname])
+
+%iterate over expts and compile the necessary data
+for a = 1:length(out.dat);
+    rawV1TRs(a,:) = out.dat(a).c.alpha(:)' ./ out.dat(a).m.alpha(:)'; %transpose so that colors go across rows.
+    rawV1NTs(a,:) = out.dat(a).c.alpha(:)';
+    rawPTs(a,:) = out.dat(a).m.alpha(:)';
+    
+    rawRetTRs(a,:) = ret.dat(a).alpha(:)' ./ out.dat(a).m.alpha(:)';
+    rawRetNTs(a,:) = ret.dat(a).alpha(:)';
+    
+    prefCards(a,:) = out.dat(a).prefCard;
+    prefInts(a,:) = out.dat(a).prefInt;
+    prefIsolum(a,:) = out.dat(a).prefIsolum;
+    monkInitials(a,1) = out.fnames{a}{1}(1);
+end
+
+%retrieve the indices to elements in the 'errors' matrix.
+lt16DTtrialsInd = strmatch('<16DTtrials', out.errorTypes);
+orientMismatchInd = strmatch('orientMismatch', out.errorTypes);
+posMismatchInd = strmatch('posMismatch', out.errorTypes);
+commonExclusions = sum(out.errors(:,[lt16DTtrialsInd, orientMismatchInd, posMismatchInd]),2)>0;
+
+
+%
+% TRs and NTs by color
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%cycle through the expts and pull out the indicies to the TRs for each
+%color direction
+[sTR.ret,lvmTR.ret,swmTR.ret,swlTR.ret] = deal([]);
+[sNT.ret,lvmNT.ret,swmNT.ret,swlNT.ret] = deal([]);
+[sTR.v1,lvmTR.v1,swmTR.v1,swlTR.v1] = deal([]);
+[sNT.v1,lvmNT.v1,swmNT.v1,swlNT.v1] = deal([]);
+[sPT, lvmPT, swmPT, swlPT] = deal([]);
+for a = find(~commonExclusions)';
+    
+    tmpColor = sign(out.dat(a).expt.standColors);
+    
+    %deal with the cardinal TR
+    if ismember([0 0 1], tmpColor, 'rows')
+        [~,idx] = ismember([0 0 1], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            sTR.ret(end+1,1) = rawRetTRs(a,idx');
+            sNT.ret(end+1,1) = rawRetNTs(a,idx');
+            sTR.v1(end+1,1) = rawV1TRs(a,idx');
+            sNT.v1(end+1,1) = rawV1NTs(a,idx');
+            sPT(end+1,1) = rawPTs(a,idx');
+        end
+    elseif ismember([1 -1 0], tmpColor, 'rows')
+        [~,idx] = ismember([1 -1 0], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            lvmTR.ret(end+1,1) = rawRetTRs(a,idx');
+            lvmNT.ret(end+1,1) = rawRetNTs(a,idx');
+            lvmTR.v1(end+1,1) = rawV1TRs(a,idx');
+            lvmNT.v1(end+1,1) = rawV1NTs(a,idx');
+            lvmPT(end+1,1) = rawPTs(a,idx');
+        end
+    end
+    
+    %deal with the intermediate TR
+    if ismember([1 -1 1], tmpColor, 'rows')
+        [~,idx] = ismember([1 -1 1], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            swlTR.ret(end+1,1) = rawRetTRs(a,idx');
+            swlNT.ret(end+1,1) = rawRetNTs(a,idx');
+            swlTR.v1(end+1,1) = rawV1TRs(a,idx');
+            swlNT.v1(end+1,1) = rawV1NTs(a,idx');
+            swlPT(end+1,1) = rawPTs(a,idx');
+        end
+    elseif ismember([1 -1 -1], tmpColor, 'rows')
+        [~,idx] = ismember([1 -1 -1], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            swmTR.ret(end+1,1) = rawRetTRs(a,idx');
+            swmNT.ret(end+1,1) = rawRetNTs(a,idx');
+            swmTR.v1(end+1,1) = rawV1TRs(a,idx');
+            swmNT.v1(end+1,1) = rawV1NTs(a,idx');
+            swmPT(end+1,1) = rawPTs(a,idx');
+        end
+    end
+end
+
+%
+% PLOTTING ALL THE NT'S AND PT'S
+% FROM MONKEY, V1, AND MODEL
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+figure
+set(gcf, 'position', [193     8   206   821])
+
+subplot(5,1,1) %monk NTs
+monkPT = [sPT(:); lvmPT(:); swmPT(:); swlPT(:)];
+monkGroup = char(repmat('Siso', length(sPT),1), repmat('LvM', length(lvmPT),1), repmat('SwM', length(swmPT),1), repmat('SwL', length(swlPT),1));
+boxplot(monkPT, monkGroup, 'symbol', '')
+ylim([0, 0.2])
+title('Monkey PTs')
+
+subplot(5,1,2) % V1 NTs
+v1data = [sNT.v1(:); lvmNT.v1(:); swmNT.v1(:); swlNT.v1(:)];
+v1group = char(repmat('Siso', length(sNT.v1),1), repmat('LvM', length(lvmNT.v1),1), repmat('SwM', length(swmNT.v1),1), repmat('SwL', length(swlNT.v1),1));
+boxplot(v1data, v1group, 'symbol', '')
+ylim([0, 0.2])
+title('V1 NTs')
+
+
+subplot(5,1,3) % model NTs
+retdata = [sNT.ret(:); lvmNT.ret(:); swmNT.ret(:); swlNT.ret(:)];
+retgroup = char(repmat('Siso', length(sNT.ret),1), repmat('LvM', length(lvmNT.ret),1), repmat('SwM', length(swmNT.ret),1), repmat('SwL', length(swlNT.ret),1));
+boxplot(retdata, retgroup)
+title('Retina NTs')
+
+
+subplot(5,1,4) % Model to Monk TRs
+retdata = [sTR.ret(:); lvmTR.ret(:); swmTR.ret(:); swlTR.ret(:)];
+retgroup = char(repmat('Siso', length(sTR.ret),1), repmat('LvM', length(lvmTR.ret),1), repmat('SwM', length(swmTR.ret),1), repmat('SwL', length(swlTR.ret),1));
+boxplot(retdata, retgroup)
+set(gca, 'yscale', 'log')
+title('Retina to Monkey TRs')
+
+subplot(5,1,5) % Model to V1 TRs
+v1NTs = [sNT.v1(:); lvmNT.v1(:); swmNT.v1(:); swlNT.v1(:)];
+modNTs = [sNT.ret(:); lvmNT.ret(:); swmNT.ret(:); swlNT.ret(:)];
+ratio = modNTs./v1NTs;
+group = char(repmat('Siso', length(sNT.ret),1), repmat('LvM', length(lvmNT.ret),1), repmat('SwM', length(swmNT.ret),1), repmat('SwL', length(swlNT.ret),1));
+boxplot(ratio, group, 'symbol', '')
+set(gca, 'yscale', 'log')
+title('Retina to V1 TRs')
+
+
+%
+% 2D AND 3D SCATTER PLOTS OF NTs AND PTs
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+v1_nt = {sNT.v1, lvmNT.v1, swmNT.v1, swlNT.v1};
+v1_xbar = cellfun(@mean, v1_nt);
+v1_sem = cellfun(@(x) nanstd(x)./sqrt(numel(x)), v1_nt);
+
+ret_nt = {sNT.ret, lvmNT.ret, swmNT.ret, swlNT.ret};
+ret_xbar = cellfun(@mean, ret_nt);
+ret_sem = cellfun(@(x) nanstd(x)./sqrt(numel(x)), ret_nt);
+
+monk_pt = {sPT, lvmPT, swmPT, swlPT};
+monk_xbar = cellfun(@mean, monk_pt);
+monk_sem = cellfun(@(x) nanstd(x)./sqrt(numel(x)), monk_pt);
+
+colororder = {'b', 'r', [255./256, 140./256, 0], 'm'};
+
+f = figure; hold on
+for a = 1:4;
+    for d = 1:numel(v1_nt{a})
+        plot3(monk_pt{a}(d), ret_nt{a}(d), v1_nt{a}(d), '.', 'color', colororder{a})
+    end
+    
+    p = plot3(monk_xbar(a), ret_xbar(a), v1_xbar(a), 's');
+    set(p, 'markerfacecolor', colororder{a},...
+        'markeredgecolor', colororder{a},...
+        'markersize', 25)
+end
+set(gca, 'view', [14 18],...
+         'xscale', 'log',...
+         'yscale', 'log',...
+         'zscale', 'log',...
+         'xlim', [1e-2, 1],...
+         'ylim', [1e-3 1e-1],...
+         'zlim', [5e-3 5e-1],...
+         'tickdir', 'out',...
+         'linewidth', 2);
+xlabel('Monkey');
+ylabel('Cones');
+zlabel('V1');
+axis square
+
+%
+% ORTHOGONAL REGRESSION IN 3D  
+%
+%%%%%%%%%%%%%%%%%%%%
+v1NTs = [sNT.v1(:); lvmNT.v1(:); swmNT.v1(:); swlNT.v1(:)];
+modNTs = [sNT.ret(:); lvmNT.ret(:); swmNT.ret(:); swlNT.ret(:)];
+monkPT = [sPT(:); lvmPT(:); swmPT(:); swlPT(:)];
+dat = [monkPT, modNTs, v1NTs];
+log_dat = log10(dat);
+var_log_dat = var(log_dat,[],1)
+tmp = bsxfun(@minus, log_dat, mean(log_dat,1));
+covMtx = (tmp' * tmp) ./ (size(log_dat,1)-1);
+[vec, val] = eig(covMtx);
+[~, idx] = max(diag(val));
+PC1 = abs(vec(:,idx));
+norms = linspace(-2, 1, 100);
+xyz = bsxfun(@times, PC1, norms)';
+xyz = bsxfun(@plus, xyz, mean(log_dat,1));
+xyz = 10.^xyz;
+figure(f); hold on,
+plot3(xyz(:,1), xyz(:,2), xyz(:,3), '-k', 'linewidth', 3)
+
+
+% orth regression for just the means
+log_dat = log10([monk_xbar(:), ret_xbar(:), v1_xbar(:)]);
+[vec, val] = eig(cov(log_dat));
+[~, idx] = max(diag(val));
+PC1 = abs(vec(:,idx));
+norms = linspace(-2, 1, 100);
+xyz = bsxfun(@times, PC1, norms)';
+xyz = bsxfun(@plus, xyz, mean(log_dat,1));
+diffVal = xyz(end,:)-xyz(1,:)
+xyz = 10.^xyz;
+figure(f); hold on,
+plot3(xyz(:,1), xyz(:,2), xyz(:,3), '-c', 'linewidth', 3)
+
+
+%
+% ORTHOGONAL REGRESSION IN 2D
+%
+%%%%%%%%%%%%%%%%%%%%
+for ax = 1:3;
+    if ax == 1
+        dat = [ret_xbar(:), monk_xbar(:)];
+        semX = ret_sem;
+        semY = monk_sem;
+    elseif ax == 2
+        dat = [ret_xbar(:), v1_xbar(:)];
+        semX = ret_sem;
+        semY = v1_sem;
+    elseif ax == 3
+        dat = [monk_xbar(:), v1_xbar(:)];
+        semX = monk_sem;
+        semY = v1_sem;
+    end
+    covMtx = cov(dat);
+    [vec, val] = eig(covMtx);
+    [~, idx] = max(diag(val));
+    PC1 = abs(vec(:,idx));
+    norms = linspace(-0.2, 0.2, 100);
+    xy = bsxfun(@times, PC1, norms)';
+    xy = bsxfun(@plus, xy, mean(dat,1));
+    diffVal = xy(end,:)-xy(1,:);
+    m = diffVal(2)./diffVal(1);
+    
+    % plot the regression
+    f = figure; hold on
+    plot(xy(:,1), xy(:,2), 'k', 'linewidth', 3)
+    
+    % the data points for the mean
+    for a = 1:4;
+        p = plot(dat(a,1), dat(a,2), 's');
+        set(p, 'markerfacecolor', colororder{a},...
+               'markeredgecolor', colororder{a},...
+               'markersize', 25)
+    end
+    
+    % error bars
+    for a = 1:4;
+        p = plot([dat(a,1)-semX(a); dat(a,1)+semX(a)], [dat(a,2)', dat(a,2)'], '-');
+        set(p, 'color', colororder{a}, 'linewidth', 2);
+        
+        p = plot([dat(a,1)', dat(a,1)'], [dat(a,2)-semY(a); dat(a,2)+semY(a)], '-');
+        set(p, 'color', colororder{a}, 'linewidth', 2);
+    end
+    
+    set(gca, 'xlim', [0, max(dat(:,1)).*1.15],...
+             'ylim', [0, max(dat(:,2)).*1.15],...
+             'tickdir', 'out',...
+             'linewidth', 2);
+    if ax == 1 || ax == 2;
+        xlabel('Cones');
+    else
+        xlabel('Monkey')
+    end
+    if ax == 1
+        ylabel('Monkey');
+    elseif ax == 2 || ax == 3
+        ylabel('V1')
+    end
+    axis square
+    title(sprintf('Slope: %.3f', m));
+end
+
+
+
+%% COMPARING RETINA, V1, AND BEHAVIOR: Old code
 fin
 
 %

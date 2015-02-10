@@ -50,6 +50,17 @@ in = {'CH_141215_F', 1;...
       'CH_150112_D', 2;...
       'CH_150112_C', 1};
 
+  
+%% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
+
+% Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
+
+% clear out the workspace
+fin
+
+% in = {Mouse Name, Site}
+
+in = {'CH_150112_C', 2};
 
 
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
@@ -331,7 +342,9 @@ for i_ex = 1:Nexpts
         
         figure
         figName = sprintf('%s: site %d, ch %d', info{i_ex}.mouse, in{i_ex,2}, i_ch);
-        set(gcf, 'name', figName, 'position', [148    33   813   752]);
+        set(gcf, 'name', figName,...
+                 'position', [148    33   813   752],...
+                 'defaulttextinterpreter', 'none');
         
         for i_cond = 1:numel(conds)
             
@@ -357,7 +370,7 @@ for i_ex = 1:Nexpts
                 
                 plot(tt, tmp_raw', 'linewidth', 2)
                 axis tight
-                title(['TF = ', pTypes{i_tf}(4:end), 'Hz'])
+                title(pTypes{i_tf})
                 xlabel('time (ms)')
                 if i_tf==1;
                     switch conds{i_cond}
@@ -653,7 +666,7 @@ for i_ex = 1:Nexpts
             end
             firstPulse = mean(firstPulse,1);
             firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-            
+           
             
             switch conds{i_cond}
                 case 'synapticTransmission'
@@ -680,6 +693,71 @@ for i_ex = 1:Nexpts
             end
             ylabel('diffval')
             xlabel('fPSP')
+            
+        end % channels
+        
+    end % conditions
+    
+end % expts
+
+
+
+%%  SHAPE OF THE FIRST FIBER VOLLEY PULSE FOR oChIEF AND ChR2
+
+figure, hold on,
+
+
+for i_ex = 1:Nexpts
+    
+    conds = {'FV_Na'}; % for loop of one for now, but room to grow...
+    for i_cond = 1:numel(conds)
+        
+        pTypes = fieldnames(dat{i_ex});
+        Ntfs = numel(pTypes);
+        
+        sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
+        prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
+        postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
+        photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
+        
+        for i_ch = 1:2;
+            
+            % deal with some exceptions
+            % exception 1 (common)
+            if ~info{i_ex}.ignoreChans(i_ch)
+                continue
+            end
+            
+            % exception 2 (uncommon)
+            % a strange case where HS1 was set to Vclamp, and so
+            % HS2's data got put in the first column...
+            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+                if i_ch == 1; error('something went wrong'); end
+                i_ch = 1; % strange syntax, but only effects this loop... 
+            end
+            
+            
+            firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
+            for i_tf = 1:Ntfs
+                
+                firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+                
+            end
+            firstPulse = mean(firstPulse,1);
+            normFact = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch}(1);
+            firstPulse = firstPulse ./ normFact;
+            
+
+            switch lower(info{i_ex}.opsin)
+                case 'ochief'
+                    tt = (0:numel(firstPulse)-1)./sampRate;
+                    plot(tt,firstPulse, 'r')
+                case 'chr2'
+                    tt = (0:numel(firstPulse)-1)./sampRate;
+                    plot(tt,firstPulse, 'b')
+            end
+            ylabel('Normalized LFP Signal')
+            xlabel('time (sec)')
             
         end % channels
         
