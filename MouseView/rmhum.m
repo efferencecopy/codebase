@@ -46,16 +46,18 @@ for a = 1:numel(lines)
     % look around to see if that's the correct line freq. Zero pad the
     % tmp_trace, so that the resolution in FF is the same as the "in"
     % trace.
-    tmp_trace_for_ff = [tmp_trace; zeros(numel(in)-numel(tmp_trace), 1)];
+    tmp_trace_for_ff = [tmp_trace; zeros(numel(in)-numel(tmp_trace), 1)]; % makes the FF domain resolution the same in cases where tmp_trace is shorter than "in"
     coeffs = fftshift(fft(tmp_trace_for_ff.*hamming(numel(tmp_trace_for_ff))));
     suspect = lines(a);
     valid_ff = ff'>=(suspect-5) & ff'<=(suspect+5);
     peakVals = findpeaks(abs(coeffs(valid_ff)));
+    if isempty(peakVals)
+        disp('could not find line')
+        continue % this line noise freq doesn't exist
+    end
     maxVal = max(peakVals);
     idx = (abs(coeffs) == maxVal);
     suspect = ff(idx&valid_ff);
-    
-    
     
     % find the bins closest idx to the +/-linenoise
     [~, pos_idx] = min(abs(ff - suspect));
@@ -94,8 +96,8 @@ for a = 1:numel(lines)
     
     % things that are uesful for fminsearch (are are in the scope of the
     % nested sub-function)
-    LB = [0, -inf, omega-1];
-    UB =[inf,  inf, omega+1];
+    LB = [0, -inf, omega-5];
+    UB =[inf,  inf, omega+5];
     
     % meat and potatoes
     errtype = 'dotcorr'; % does a good job with getting the phase and freq
