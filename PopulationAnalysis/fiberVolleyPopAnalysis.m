@@ -23,7 +23,10 @@ in = {'CH_141124_B', 1;...
     'CH_150112_B', 2;...
     'CH_150112_D', 1;...
     'CH_150112_D', 2;...
-    'CH_150112_C', 1};
+    'CH_150112_C', 1;...
+    'CH_150112_C', 2;...
+    'CH_150119_D', 1;...
+    'CH_150119_D', 2};
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE]
@@ -50,19 +53,21 @@ in = {'CH_141215_F', 1;...
     'CH_150112_D', 2;...
     'CH_150112_C', 1;...
     'CH_150119_C', 1;...
-    'CH_150119_C', 2};
+    'CH_150119_C', 2;...
+    'CH_150119_D', 1;...
+    'CH_150119_D', 2};
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
-% Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
-
-% clear out the workspace
-fin
-
-% in = {Mouse Name, Site}
-
-in = {'CH_150112_C', 2};
+% % Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
+% 
+% % clear out the workspace
+% fin
+% 
+% % in = {Mouse Name, Site}
+% 
+% in = {'CH_150112_C', 2};
 
 
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
@@ -239,8 +244,8 @@ for i_ex = 1:Nexpts
                 end
                 
                 % add a few points on either side of the true trough/peak
-                troughidx = troughidx-2:troughidx+2;
-                peakidx = peakidx-2:peakidx+2;
+                troughidx = troughidx-4:troughidx+4;
+                peakidx = peakidx-4:peakidx+4;
             end
             
             
