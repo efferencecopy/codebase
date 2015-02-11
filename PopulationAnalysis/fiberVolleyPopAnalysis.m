@@ -6,24 +6,24 @@ fin
 % in = {Mouse Name, Site}
 
 in = {'CH_141124_B', 1;...
-      'CH_141215_B', 1;...
-      'CH_141215_B', 2;...
-      'CH_141215_D', 3;...
-      'CH_141215_E', 1;...
-      'CH_141215_E', 2;...
-      'CH_141215_F', 1;...
-      'CH_150105_A', 1;...
-      'CH_150105_B', 1;...
-      'CH_150105_B', 2;...
-      'CH_150105_C', 1;...
-      'CH_150105_D', 2;...
-      'CH_150112_A', 1;...
-      'CH_150112_A', 2;...
-      'CH_150112_B', 1;...
-      'CH_150112_B', 2;...
-      'CH_150112_D', 1;...
-      'CH_150112_D', 2;...
-      'CH_150112_C', 1};
+    'CH_141215_B', 1;...
+    'CH_141215_B', 2;...
+    'CH_141215_D', 3;...
+    'CH_141215_E', 1;...
+    'CH_141215_E', 2;...
+    'CH_141215_F', 1;...
+    'CH_150105_A', 1;...
+    'CH_150105_B', 1;...
+    'CH_150105_B', 2;...
+    'CH_150105_C', 1;...
+    'CH_150105_D', 2;...
+    'CH_150112_A', 1;...
+    'CH_150112_A', 2;...
+    'CH_150112_B', 1;...
+    'CH_150112_B', 2;...
+    'CH_150112_D', 1;...
+    'CH_150112_D', 2;...
+    'CH_150112_C', 1};
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE]
@@ -36,21 +36,23 @@ fin
 % in = {Mouse Name, Site}
 
 in = {'CH_141215_F', 1;...
-      'CH_141215_E', 1;...
-      'CH_141215_E', 2;...
-      %'CH_150105_A', 1;...  % might get cut
-      'CH_150105_B', 1;...
-      'CH_150105_B', 2;...
-      %'CH_150105_C', 1;...  % might get cut
-      %'CH_150112_A', 1;...  % might get cut
-      'CH_150112_A', 2;...
-      'CH_150112_B', 1;...
-      'CH_150112_B', 2;...
-      'CH_150112_D', 1;...
-      'CH_150112_D', 2;...
-      'CH_150112_C', 1};
+    'CH_141215_E', 1;...
+    'CH_141215_E', 2;...
+    %'CH_150105_A', 1;...  % might get cut
+    'CH_150105_B', 1;...
+    'CH_150105_B', 2;...
+    %'CH_150105_C', 1;...  % might get cut
+    %'CH_150112_A', 1;...  % might get cut
+    'CH_150112_A', 2;...
+    'CH_150112_B', 1;...
+    'CH_150112_B', 2;...
+    'CH_150112_D', 1;...
+    'CH_150112_D', 2;...
+    'CH_150112_C', 1;...
+    'CH_150119_C', 1;...
+    'CH_150119_C', 2};
 
-  
+
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
 % Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
@@ -96,12 +98,12 @@ for i_ex = 1:Nexpts;
     info{i_ex}.stimSite = unique(cell2mat(raw(l_expt, stimSiteIdx)), 'rows');
     if ischar(info{i_ex}.stimSite); % deals with nans
         info{i_ex}.stimSite = str2num(info{i_ex}.stimSite);
-    end 
+    end
 end
 
 
 
- %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
+%% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
 % PEAK TO PEAK AMP
 % INTEGRAL OF THE TRACE
@@ -131,7 +133,7 @@ for i_ex = 1:Nexpts
                 
                 snip_idx = pulseOn_idx(i_pulse)-prePulseSamps : 1 : pulseOn_idx(i_pulse)+postPulseSamps;
                 
-               for i_ch = 1:2;
+                for i_ch = 1:2;
                     
                     % deal with some exceptions
                     if ~info{i_ex}.ignoreChans(i_ch)
@@ -144,7 +146,7 @@ for i_ex = 1:Nexpts
                         if i_ch == 1; error('something went wrong'); end
                         i_ch = 1;
                     end
-                            
+                    
                     
                     % pull out the snippet, subtract off the baseline and
                     % store it for each pulse in the train
@@ -154,7 +156,7 @@ for i_ex = 1:Nexpts
                     
                     dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:) = snippet_full;
                     
-                  
+                    
                 end
             end
             
@@ -247,10 +249,10 @@ for i_ex = 1:Nexpts
             for i_tf = 1:Ntfs
                 
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
-                pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);            
+                pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 for i_pulse = 1:Npulses
                     
-                    snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);                   
+                    snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
                     
                     % store some stats for each pulse
                     switch conds{i_cond}
@@ -343,8 +345,8 @@ for i_ex = 1:Nexpts
         figure
         figName = sprintf('%s: site %d, ch %d', info{i_ex}.mouse, in{i_ex,2}, i_ch);
         set(gcf, 'name', figName,...
-                 'position', [148    33   813   752],...
-                 'defaulttextinterpreter', 'none');
+            'position', [148    33   813   752],...
+            'defaulttextinterpreter', 'none');
         
         for i_cond = 1:numel(conds)
             
@@ -454,7 +456,7 @@ end
 % or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
 % function of pulse number for each frequency
 
-STIMSITE = false;  % true => stimsite,  false => distal site
+STIMSITE = true;  % true => stimsite,  false => distal site
 
 
 %initialize the outputs
@@ -577,7 +579,7 @@ for i_opsin = 1:numel(opsinTypes)
             % now do the plotting
             subplot(2, numel(stattype), (i_cond-1).*numel(stattype) + i_stat)
             title(stattype{i_stat})
-           
+            
             tfs = tmp_dat{1};
             cmap = colormap('copper');
             cidx = round(linspace(1, size(cmap,1), 6));
@@ -625,12 +627,36 @@ end
 
 %%  ESTIMATE THE SLOPE OF THE FIELD EPSP
 
+
+STIMSITE = true;  % true => stimsite,  false => distal site
+
 figure, hold on,
-
-
 for i_ex = 1:Nexpts
     
-    conds = {'synapticTransmission'}; % for loop of one for now, but room to grow...
+    
+    % skip cases where the led was not targeted to either of the recording
+    % sites
+    if isnan(info{i_ex}.stimSite)
+        continue
+    end
+    
+    % Determine which recording channel to analyze
+    if strcmpi(info{i_ex}.mouse, 'CH_150105_D') % a strange exception that bucks the rules.
+        CHANNEL = 1;
+    else % all other experiments...
+        if STIMSITE
+            CHANNEL = info{i_ex}.stimSite;
+        else
+            if info{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    
+    conds = {'synapticTransmission'}; % 'for loop' of one for now, but room to grow...
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -641,60 +667,44 @@ for i_ex = 1:Nexpts
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
         
-        for i_ch = 1:2;
+        
+        
+        firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
+        for i_tf = 1:Ntfs
             
-            % deal with some exceptions
-            % exception 1 (common)
-            if ~info{i_ex}.ignoreChans(i_ch)
-                continue
-            end
+            firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
             
-            % exception 2 (uncommon)
-            % a strange case where HS1 was set to Vclamp, and so
-            % HS2's data got put in the first column...
-            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-                if i_ch == 1; error('something went wrong'); end
-                i_ch = 1; % strange syntax, but only effects this loop... 
-            end
-            
-            
-            firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
-            for i_tf = 1:Ntfs
+        end
+        firstPulse = mean(firstPulse,1);
+        firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
+        
+        
+        switch conds{i_cond}
+            case 'synapticTransmission'
                 
-                firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
+                % Analyze a time window that's approx 2.5 to 4 ms from
+                % LED pulse onset
+                windowStartIdx = prePulseSamps + ceil(0.0025 .* sampRate);
+                windowStopIdx = prePulseSamps + ceil(0.004 .* sampRate);
+                avgVal = mean(firstPulse(windowStartIdx:windowStopIdx));
                 
-            end
-            firstPulse = mean(firstPulse,1);
-            firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-           
-            
-            switch conds{i_cond}
-                case 'synapticTransmission'
-                    
-                    % Analyze a time window that's approx 2.5 to 4 ms from
-                    % LED pulse onset
-                    windowStartIdx = prePulseSamps + ceil(0.0025 .* sampRate);
-                    windowStopIdx = prePulseSamps + ceil(0.004 .* sampRate);
-                    avgVal = mean(firstPulse(windowStartIdx:windowStopIdx));
-                    
-                    p1stats{i_ex}.(conds{i_cond}).avgval(1, i_ch) = abs(avgVal);
-            end
-            
-            
-            % provisional plotting (delete later)
-            fPSP = p1stats{i_ex}.(conds{i_cond}).avgval(1, i_ch);
-            pk2tr = dat{i_ex}.(pTypes{1}).stats.FV_Na.diffval{i_ch};
-            pnp1 = pk2tr(end)./pk2tr(1);
-            switch lower(info{i_ex}.opsin)
-                case 'ochief'
-                    plot(fPSP, pnp1, 'ro')
-                case 'chr2'
-                    plot(fPSP, pnp1, 'bo')
-            end
-            ylabel('diffval')
-            xlabel('fPSP')
-            
-        end % channels
+                p1stats{i_ex}.(conds{i_cond}).avgval(1, CHANNEL) = abs(avgVal);
+        end
+        
+        
+        % provisional plotting (delete later)
+        fPSP = p1stats{i_ex}.(conds{i_cond}).avgval(1, CHANNEL);
+        pk2tr = dat{i_ex}.(pTypes{1}).stats.FV_Na.pk2tr{CHANNEL};
+        pnp1 = pk2tr(end)./pk2tr(1);
+        switch lower(info{i_ex}.opsin)
+            case 'ochief'
+                plot(fPSP, pnp1, 'ro')
+            case 'chr2'
+                plot(fPSP, pnp1, 'bo')
+        end
+        ylabel('diffval')
+        xlabel('fPSP')
+        
         
     end % conditions
     
@@ -704,10 +714,35 @@ end % expts
 
 %%  SHAPE OF THE FIRST FIBER VOLLEY PULSE FOR oChIEF AND ChR2
 
-figure, hold on,
+close all
+STIMSITE = true;
 
-
+chr2_examp = [];
+ochief_examp = [];
 for i_ex = 1:Nexpts
+    
+    
+    % skip cases where the led was not targeted to either of the recording
+    % sites
+    if isnan(info{i_ex}.stimSite)
+        continue
+    end
+    
+    % Determine which recording channel to analyze
+    if strcmpi(info{i_ex}.mouse, 'CH_150105_D') % a strange exception that bucks the rules.
+        CHANNEL = 1;
+    else % all other experiments...
+        if STIMSITE
+            CHANNEL = info{i_ex}.stimSite;
+        else
+            if info{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
     
     conds = {'FV_Na'}; % for loop of one for now, but room to grow...
     for i_cond = 1:numel(conds)
@@ -720,50 +755,61 @@ for i_ex = 1:Nexpts
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
         
-        for i_ch = 1:2;
+        
+        firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
+        for i_tf = 1:Ntfs
             
-            % deal with some exceptions
-            % exception 1 (common)
-            if ~info{i_ex}.ignoreChans(i_ch)
-                continue
-            end
+            firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
             
-            % exception 2 (uncommon)
-            % a strange case where HS1 was set to Vclamp, and so
-            % HS2's data got put in the first column...
-            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-                if i_ch == 1; error('something went wrong'); end
-                i_ch = 1; % strange syntax, but only effects this loop... 
-            end
-            
-            
-            firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
-            for i_tf = 1:Ntfs
-                
-                firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
-                
-            end
-            firstPulse = mean(firstPulse,1);
-            normFact = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch}(1);
-            firstPulse = firstPulse ./ normFact;
-            
-
+        end
+        firstPulse = mean(firstPulse,1);
+        normFact = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{CHANNEL}(1);
+        firstPulse = firstPulse ./ normFact;
+        
+        
+        % store the first pulse according to the opsin type, but only
+        % if the sampling rate = 20kHz (so that the sampling latice is
+        % the same...)
+        correctSR = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate == 20e3;
+        correctCond = strcmpi(conds{i_cond}, 'FV_Na');
+        if correctSR && correctCond
             switch lower(info{i_ex}.opsin)
                 case 'ochief'
-                    tt = (0:numel(firstPulse)-1)./sampRate;
-                    plot(tt,firstPulse, 'r')
+                    ochief_examp = cat(1, ochief_examp, firstPulse);
                 case 'chr2'
-                    tt = (0:numel(firstPulse)-1)./sampRate;
-                    plot(tt,firstPulse, 'b')
+                    chr2_examp = cat(1, chr2_examp, firstPulse);
             end
-            ylabel('Normalized LFP Signal')
-            xlabel('time (sec)')
-            
-        end % channels
+        end
+        
         
     end % conditions
     
 end % expts
+
+
+% the example first pulse FV
+tt = (0:size(ochief_examp,2)-1)./20e3;
+tt = tt-tt(prePulseSamps);
+tt = tt.*1000;
+figure, hold on,
+plot(tt, ochief_examp', 'm');
+plot(tt, chr2_examp', 'c');
+plot(tt, mean(ochief_examp, 1), 'r', 'linewidth', 4);
+plot(tt, mean(chr2_examp, 1), 'b', 'linewidth', 4);
+xlabel('time (msec)')
+ylabel('Normalized LFP amplitude')
+title('Average FV for first pulse')
+axis tight
+
+
+
+figure, hold on,
+plot(tt, cumsum(-mean(ochief_examp, 1)), 'r', 'linewidth', 4);
+plot(tt, cumsum(-mean(chr2_examp, 1)), 'b', 'linewidth', 4);
+xlabel('time (msec)')
+ylabel('Normalized LFP amplitude')
+title('Integral of (negative) FV pulse')
+axis tight
 
 
 

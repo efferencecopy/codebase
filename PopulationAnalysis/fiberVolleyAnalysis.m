@@ -255,10 +255,22 @@ for i_tf = 1:numel(structFields)
     for i_cond = 1:numel(conds)
         
         if isfield(trace.(tType), conds{i_cond})
-            lines = [5.5, 60, 120, 180];
-            winStart_idx = 1; % this takes all the data (even the pulses) but is better then just taking the data after the last pulse b/c long trains have essentially no data after them. 
-            winEnd_idx = numel(storedCrossings_off{i_tf});
+            
             tmp_trace = trace.(tType).(conds{i_cond});
+            
+            lines = [5.5, 60.*(1:4)];
+            winEnd_idx = size(tmp_trace,1);
+            if info.(tType).(conds{i_cond}).pTF >= 40;
+                % just look at the data following the last pulse.
+                lastpulse = find(info.(tType).(conds{i_cond}).pulseOff_idx==1, 1, 'last');
+                sampRate = info.(tType).(conds{i_cond}).sampRate;
+                winStart_idx = lastpulse + ceil(0.100 ./ sampRate);
+            else
+                % this takes all the data (even the pulses) but is better
+                % then just taking the data after the last pulse b/c long
+                % trains have essentially no data after them.
+                winStart_idx = 1; 
+            end
             
             for i_ch = 1:size(tmp_trace,2)
                 tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
