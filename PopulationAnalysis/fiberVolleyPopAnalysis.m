@@ -366,7 +366,7 @@ for i_ex = 1:Nexpts
                 tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch};
                 
                 tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
-                tt = (tt - prePulseTime) ./ 1000;
+                tt = (tt - prePulseTime) .* 1000;
                 
                 pltidx = (i_cond-1)*Nplts + i_tf;
                 subplot(3, Nplts, pltidx)
@@ -399,55 +399,92 @@ for i_ex = 1:Nexpts
         
         % diff val for opsin current
         subplot(3,Nplts, Nplts*2+1), hold on,
+        legtext = {};
+        diffval={};
+        tmptfs = [];
         for i_tf = 1:Ntfs
-            
-            diffval = dat{i_ex}.(pTypes{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
-            diffval = abs(diffval);
-            plot(1:numel(diffval), diffval, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
+            tmp = dat{i_ex}.(pTypes{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
+            tmp = abs(tmp);
+            diffval = cat(1,diffval, [tmp]);
+            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+        end
+        [~, order] = sort(tmptfs);
+        for i_plt = 1:numel(order)
+            idx = order(i_plt);
+            plot(1:numel(diffval{idx}), diffval{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
+            legtext = cat(2, legtext, num2str(tmptfs(idx)));
         end
         xlabel('Pulse number')
         ylabel(sprintf('%s diffVal', info{i_ex}.opsin))
-        xlim([1, numel(diffval)])
+        legend(legtext, 'location', 'southwest')
+        legend boxoff
+        xlim([1, max(cellfun(@numel, diffval))])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
         set(gca, 'ylim', [0, yvals(2)]);
         if yvals(1)<0
-            plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
+            plot([1,max(cellfun(@numel, diffval))], [0,0] , 'k--', 'linewidth', 2)
         end
         
         
         % Fiber volley peak to trough
         subplot(3,Nplts, Nplts*2+2), hold on,
+        legtext = {};
+        pk2tr={};
+        tmptfs = [];
         for i_tf = 1:Ntfs
             
-            pk2tr = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch};
-            plot(1:numel(pk2tr), pk2tr, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
+            tmp = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch};
+            pk2tr = cat(1, pk2tr, [tmp]);
+            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+            
+        end
+        [~, order] = sort(tmptfs);
+        for i_plt = 1:numel(order)
+            idx = order(i_plt);
+            plot(1:numel(pk2tr{idx}), pk2tr{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
+            legtext = cat(2, legtext, num2str(tmptfs(idx)));
         end
         xlabel('Pulse number')
         ylabel('Fiber Volley pk2tr')
-        xlim([1, numel(pk2tr)])
+%         legend(legtext, 'location', 'southwest')
+%         legend boxoff
+        xlim([1, max(cellfun(@numel, pk2tr))])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
         set(gca, 'ylim', yvals);
         if yvals(1)<0
-            plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
+            plot([1,max(cellfun(@numel, pk2tr))], [0,0] , 'k--', 'linewidth', 2)
         end
         
         % fiber volley integral
         subplot(3,Nplts, Nplts*2+3), hold on,
+        legtext = {};
+        area={};
+        tmptfs = [];
         for i_tf = 1:Ntfs
             
-            area = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.area{i_ch};
-            plot(1:numel(area), area, 'o-', 'color', cmap(i_tf,:), 'linewidth', 2)
+            tmp = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.area{i_ch};
+            area = cat(1, area, [tmp]);
+            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+             
+        end
+        [~, order] = sort(tmptfs);
+        for i_plt = 1:numel(order)
+            idx = order(i_plt);
+            plot(1:numel(area{idx}), area{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
+            legtext = cat(2, legtext, num2str(tmptfs(idx)));
         end
         xlabel('Pulse number')
         ylabel('FV Area (mV/sec)')
-        xlim([1, numel(area)])
+%         legend(legtext, 'location', 'southwest')
+%         legend boxoff
+        xlim([1, max(cellfun(@numel, area))])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
         set(gca, 'ylim', yvals);
         if yvals(1)<0
-            plot([1,numel(area)], [0,0] , 'k--', 'linewidth', 2)
+            plot([1,max(cellfun(@numel, area))], [0,0] , 'k--', 'linewidth', 2)
         end
         
         
@@ -601,7 +638,8 @@ for i_opsin = 1:numel(opsinTypes)
                 xbar = nanmean(tmp_dat{2}{tf_idx}, 1);
                 sem = nanstd(tmp_dat{2}{tf_idx}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{2}{tf_idx}), 1));
                 
-                errorbar(1:numel(xbar), xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2)
+                %errorbar(1:numel(xbar), xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2)
+                errorbar(1:7, xbar(1:7), sem(1:7), 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
                 
                 legtext = cat(2, legtext, num2str(tfs(tf_idx)));
             end
@@ -620,7 +658,7 @@ for i_opsin = 1:numel(opsinTypes)
             yvals(1) = min([0, yvals(1)]);
             set(gca, 'ylim', yvals);
             if yvals(1)<0
-                plot([1,numel(diffval)], [0,0] , 'k--', 'linewidth', 2)
+                plot([1,numel(xbar)], [0,0] , 'k--', 'linewidth', 2)
             end
             
         end
