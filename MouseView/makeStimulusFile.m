@@ -2,16 +2,18 @@ function makeStimulusFile(params)
 
 % params should have
 %
-% params.name     =>  the name of the output .atf file
-% params.type     =>  'train', 'pulse'
-% params.si       =>  the sample INTERVAL (needs to be an iteger)
-% params.swpDur   =>  The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
-% params.tStart   =>  the time of the first pulse
-% params.pAmp     =>  A vector of amplitudes for the pulse height [interleaved variable]
-% params.pFreq    =>  A vector of frequencies for the pulse train [interleaved variable]
-% params.nPulses  =>  The number of pulses in a pulse train
-% params.pWidth   =>  A vector of pulse widths (in seconds)  [interleaved variable]
-% params.nReps    =>  Number of repeates each stimulus should be presented
+% params.name           =>  the name of the output .atf file
+% params.type           =>  'train', 'pulse'
+% params.si             =>  the sample INTERVAL (needs to be an iteger)
+% params.swpDur         =>  The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
+% params.tStart         =>  the time of the first pulse
+% params.pAmp           =>  A vector of amplitudes for the pulse height [interleaved variable]
+% params.pFreq          =>  A vector of frequencies for the pulse train [interleaved variable]
+% params.nPulses        =>  The number of pulses in a pulse train
+% params.pWidth         =>  A vector of pulse widths (in seconds)  [interleaved variable]
+% params.recovery       =>  true/false, should there be a recovery pulse?
+% params.recoveryTime   =>  A vector of numbers corresponding to the recovery time in seconds [interleaved variable]
+% params.nReps          =>  Number of repeates each stimulus should be presented
 
 
 % force default frequency to be zero (only one pulse)
@@ -26,11 +28,12 @@ end
 nAmps = numel(params.pAmp);
 nFreqs = numel(params.pFreq);
 nPulseWidths = numel(params.pWidth);
-nSweeps = nAmps .* nFreqs .* nPulseWidths .* params.nReps;
+nRecoveryTimes = numel(params.recoveryTime);
+nSweeps = nAmps .* nFreqs .* nPulseWidths .* nRecoveryTimes .* params.nReps;
 
 tt = [0:params.swpDur-1]' .* params.si;
 tStartIdx = ceil(params.tStart ./ params.si);
-conditions = fullfact([nAmps, nFreqs, nPulseWidths]);
+conditions = fullfact([nAmps, nFreqs, nPulseWidths, nRecoveryTimes]);
 
 templates = repmat({nan(numel(tt), 1)}, 1, size(conditions, 1));
 
@@ -56,7 +59,7 @@ for i_cond = 1:size(conditions, 1)
         templates{i_cond}(tStartIdx+samplesPerPulse : end) = 0;
         
     else % multiple pulses
-        samplesPerPeriod = ceil(1./tmp_pFreq ./ params.si); % adding 1 b/c this is a fence post problem
+        samplesPerPeriod = ceil(1./tmp_pFreq ./ params.si);
         samplesPerIPI = samplesPerPeriod - samplesPerPulse;
         motif = zeros(1,samplesPerPeriod);
         motif(1:samplesPerPulse) = tmp_pAmp;
@@ -73,7 +76,23 @@ for i_cond = 1:size(conditions, 1)
             idx = idx + samplesPerPeriod;
         end
         templates{i_cond}(idx:end) = 0; % add the trailing zeros
+        
+        % add a recovery pulse if desired.
+        if params.recovery
+            recoveryTime = params.recoveryTime(conditions(i_cond, 4));
+            recoveryTimeInSamps = ceil(recoveryTime./params.si) + 1;
+            idx = idx - samplesPerIPI + recoveryTimeInSamps;
+            
+            assert(idx + samplesPerPulse < numel(tt), 'ERROR: Train and recovery pulse can not fit in the sweep-time specified')
+            
+            templates{i_cond}(idx:idx+samplesPerPulse-1) = tmp_pAmp;
+        end
+        
+    
     end
+    
+    
+    
 
 end
 
