@@ -719,7 +719,6 @@ end % expts
 
 %%  SHAPE OF THE FIRST FIBER VOLLEY PULSE FOR oChIEF AND ChR2
 
-close all
 STIMSITE = true;
 
 chr2_examp = [];

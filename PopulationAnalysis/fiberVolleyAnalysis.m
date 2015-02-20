@@ -273,8 +273,7 @@ for i_tf = 1:numel(structFields)
             end
             
             for i_ch = 1:size(tmp_trace,2)
-                warning('RMHUM not in the loop')
-                %tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
+                tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
             end
             
             trace.(tType).(conds{i_cond}) = tmp_trace;
