@@ -382,8 +382,6 @@ function lms_Rstar = getGaborRstar(clr, cnt, gab, mon, params, cones)
         % convert the device specific rgbs into lms units for the cone
         % model
         lms_Rstar = mon.rgb2Rstar * gaborrgb_deviceSpecific(:);
-%         diffval = lms_Rstar - mon.bkgndlms_Rstar
-%         Rstar_colorDir = diffval ./ mon.bkgndlms_Rstar
         
         % a simple error check on the cone sampling rate
         if rem(cones.samplingRate,mon.frameRate) > 1e-2 % cones.samplingRate should be (nearly) an integer multiple of the mon refresh rate

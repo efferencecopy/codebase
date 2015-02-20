@@ -55,7 +55,9 @@ in = {'CH_141215_F', 1;...
     'CH_150119_C', 1;...
     'CH_150119_C', 2;...
     'CH_150119_D', 1;...
-    'CH_150119_D', 2};
+    'CH_150119_D', 2;...
+    'CH_150119_B', 1;...
+    'CH_150119_B', 2};
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
@@ -757,7 +759,7 @@ end % expts
 
 %%  SHAPE OF THE FIRST FIBER VOLLEY PULSE FOR oChIEF AND ChR2
 
-close all
+
 STIMSITE = true;
 
 chr2_examp = [];
