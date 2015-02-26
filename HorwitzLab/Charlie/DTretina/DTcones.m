@@ -372,12 +372,12 @@ function lms_Rstar = getGaborRstar(clr, cnt, gab, mon, params, cones)
         % vector that specifies the lms values of the stimulus
         CC = gab.contrasts{clr}(cnt);
         colorDir_CC = colorDir_generic .* CC;
-        bkgndlms_deviceSpecific = mon.Mmtx * mon.bkgndrgb(:);
-        gaborlms_deviceSpecific = bkgndlms_deviceSpecific .* (1+colorDir_CC(:));
+        bkgndlms_deviceSpecific_smj = mon.Mmtx * mon.bkgndrgb(:);
+        gaborlms_deviceSpecific_smj = bkgndlms_deviceSpecific_smj .* (1+colorDir_CC(:));
         
         % determine what rgb direction this would correspond to on the
         % moniotor used in the monkey experiments
-        gaborrgb_deviceSpecific = mon.Mmtx \ gaborlms_deviceSpecific;
+        gaborrgb_deviceSpecific = mon.Mmtx \ gaborlms_deviceSpecific_smj;
         
         % convert the device specific rgbs into lms units for the cone
         % model
