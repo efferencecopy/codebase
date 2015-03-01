@@ -217,7 +217,7 @@ function [gab, params] = initGabor(params)
             gab.sf = in.sfs;
             gab.contrasts = {};
             for a = 1:numel(in.alphas);
-                gab.contrasts{a} = [0, logspace(log10(0.0005), log10(in.alphas(a)), nContrasts)];
+                gab.contrasts{a} = [0, logspace(log10(0.0003), log10(in.alphas(a)), nContrasts)];
             end
             
         case 'absthresh'

@@ -133,6 +133,12 @@ for a = 1:numel(out.dat)
     ret.dat(a).respMean = idlob.analyticMean;
     ret.dat(a).respVar = idlob.analyticVar;
     
+    % other useful info for calibration etc.
+    ret.expt(a).Mmtx = mon.Mmtx;
+    ret.expt(a).bkgndlms_Rstar = mon.bkgndlms_Rstar;
+    ret.expt(a).bkgndrgb = mon.bkgndrgb;
+    ret.expt(a).rgb2Rstar = mon.rgb2Rstar;
+    
     % Compute the ROC values for each color/contrast
     nContrasts = size(idlob.resp,2);
     nColors = size(idlob.resp,1);

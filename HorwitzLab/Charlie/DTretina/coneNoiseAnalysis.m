@@ -36,6 +36,14 @@ MONTECARLO = size(idlob.resp,3) > 0
 % identify the presence/absence of V1 data
 V1DATA = exist('monk', 'var')
 
+% convert the color directions and contrasts to Rstar space if need be
+CONVERT_TO_RSTAR_SPACE = true;
+if CONVERT_TO_RSTAR_SPACE
+    warning('converting to Rstar space')
+    [gab.colorDirs, gab.contrasts] = convert_to_Rstar_colordirs(gab.colorDirs, gab.contrasts, mon);
+end
+
+
 % Calculate the area under the ROC curve, and the response as a function of
 % contrast (if need be, e.g., obsMethods that require LDA), and fit the
 % neurometric function
@@ -259,7 +267,7 @@ clc; close all;
 
 % Set the parameters of the analysis
 observer = 'sedna';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
-sfIdx = logical([0;1;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
+sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
 viewSetting = 'isolum';   % could also be 'lm plane', 's vs l+m', 'isolum'
 plottype = '3D';
 
@@ -340,6 +348,7 @@ title(sprintf('Spatial Frequency = %.2f cpd', sfs(sfIdx)))
 threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
 
 subplot(1,2,2)% cone noise data
+hold on,
 title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
 threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
 
@@ -783,6 +792,107 @@ fin
 cd /Users/charliehass/LabStuff/Huskies/DTcones/Data/
 [fname, fpath] = uigetfile();
 load([fpath, fname])
+
+% model runs after 2/2015 use the physically idential stimulus as the
+% monkey (in rgbs). But the color directions are saved in the SMJ
+% representation. Thresholds are also fit in SMJ space. To convert to model
+% cone contrast space, i need to convert all the contrasts to Rstar space
+% and then re-fit thresholds. If that is desired, evauate the following
+% block oc code
+CONVERT_TO_RSTAR_SPACE = true;
+if CONVERT_TO_RSTAR_SPACE
+    
+    
+    % this is a canonical rgb2Rstar matrix that was calculated using the
+    % traditional DTcals.mat. It's not the correct one for all DT
+    % experiments, but I'll check to make sure the monSPD is similar enough
+    % to justify using just one.
+    load rgb2Rstar_0215.mat
+    mon.rgb2Rstar = rgb2Rstar;
+    
+    
+    %loop over experiments
+    for i_ex = 1:numel(out.dat);
+        
+        % deal with the stimuli from the monkey experiments. Since I need
+        % the Mmtx and bkgndrgbs, and b/c they are different from file to
+        % file, I need to go back to the .nex files.... going back to the
+        % .nex file is important b/c some of the expts used 2º or 10º
+        % fundamentals and I don't know which is which... Currently, the
+        % .nex file info get's inhereited in the 'ret' struct at runtime.
+        colorDirs_in = out.dat(i_ex).expt.standColors;
+        contrasts_in = out.dat(i_ex).expt.norms;
+        mon = ret.expt(a);
+        [~, out.dat(i_ex).expt.norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
+        
+        
+        % deal with the stimuli from the model experiments
+        colorDirs_in = ret.dat(i_ex).colors;
+        contrasts_in = ret.dat(i_ex).norms;
+        [~, ret.dat(i_ex).norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
+        
+        
+        % check to make sure the colors are still the same between monkey
+        % and model
+        
+        
+        
+        for i_clr = 1:2
+            
+            observer = {'monkey', 'v1', 'model'};
+            for i_obs = 1:numel(observer)
+                
+                % define the variables according to the obsever
+                switch observer{i_obs}
+                    case 'monkey'
+                        norms = 
+                        performance = 
+                        nTrialsByCntrst = 
+                    case 'v1'
+                        norms = 
+                        performance = 
+                        nTrialsByCntrst = 
+                    case 'model'
+                        norms = 
+                        performance =
+                end
+                
+                
+                % fit via SSE
+                zeroInd = norms == 0; %don't consider the zero contrast condition
+                tmpNorms = norms(~zeroInd);
+                errs = abs(0.82-performance(~zeroInd));
+                aGuess = tmpNorms(find(errs == min(errs), 1, 'last'));
+                [aSSE, bSSE, ~, success(1)] = weibullFit(norms, performance, 'sse', [aGuess 1]);
+                
+                if any(strcmpi(observer{i_obs}, {'monkey', 'v1'}))
+                    % fit via MLE. this part only for monkey & v1_cells. Not for model
+                    correctByContrast = (performance.*nTrialsByCntrst);
+                    wrongByContrast = (nTrialsByCntrst - correctByContrast);
+                    [alpha, beta, gamma, success(2)] = weibullFit(norms, [correctByContrast(:), wrongByContrast(:)], 'mle', [aSSE, bSSE]);
+                    dNorm = min(diff(norms{a,b}))./100;
+                    
+                    if ~all(success);
+                        %nans are used to denote unsucessful fits during subsequent analyses
+                        alpha = NaN;
+                        beta = NaN;
+                    end
+                end
+                
+                
+                % organize the outputs according to the obsever
+                switch observer{i_obs}
+                    case 'monkey'
+                    case 'v1'
+                    case 'model'
+                end
+                
+            end
+            
+        end % i_clr
+    end % i_experiments
+end 
+
 
 %iterate over expts and compile the necessary data
 for a = 1:length(out.dat);
