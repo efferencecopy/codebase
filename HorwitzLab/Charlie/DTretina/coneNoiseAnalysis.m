@@ -784,6 +784,7 @@ axis equal
 %% COMPARING RETINA, V1, AND BEHAVIOR: THRESHOLD RATIOS AND NEUROMETRIC THRESHOLDS
 
 fin
+PLOTFIG = false;
 
 %
 % (1) load in the batch data file
@@ -798,21 +799,23 @@ load([fpath, fname])
 % representation. Thresholds are also fit in SMJ space. To convert to model
 % cone contrast space, i need to convert all the contrasts to Rstar space
 % and then re-fit thresholds. If that is desired, evauate the following
-% block oc code
-CONVERT_TO_RSTAR_SPACE = true;
+% block of code
+CONVERT_TO_RSTAR_SPACE = false;
 if CONVERT_TO_RSTAR_SPACE
     
     
-    % this is a canonical rgb2Rstar matrix that was calculated using the
-    % traditional DTcals.mat. It's not the correct one for all DT
-    % experiments, but I'll check to make sure the monSPD is similar enough
-    % to justify using just one.
-    load rgb2Rstar_0215.mat
-    mon.rgb2Rstar = rgb2Rstar;
+%     % this is a canonical rgb2Rstar matrix that was calculated using the
+%     % traditional DTcals.mat. It's not the correct one for all DT
+%     % experiments, but I'll check to make sure the monSPD is similar enough
+%     % to justify using just one.
+%     load rgb2Rstar_0215.mat
+%     mon.rgb2Rstar = rgb2Rstar;
     
     
     %loop over experiments
     for i_ex = 1:numel(out.dat);
+        
+        if ~rem(i_ex, 10); fprintf('ex: %d\n', i_ex); end
         
         % deal with the stimuli from the monkey experiments. Since I need
         % the Mmtx and bkgndrgbs, and b/c they are different from file to
@@ -822,7 +825,7 @@ if CONVERT_TO_RSTAR_SPACE
         % .nex file info get's inhereited in the 'ret' struct at runtime.
         colorDirs_in = out.dat(i_ex).expt.standColors;
         contrasts_in = out.dat(i_ex).expt.norms;
-        mon = ret.expt(a);
+        mon = ret.expt(i_ex);
         [~, out.dat(i_ex).expt.norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
         
         
@@ -834,9 +837,12 @@ if CONVERT_TO_RSTAR_SPACE
         
         % check to make sure the colors are still the same between monkey
         % and model
+        allColorsEqual = all([out.dat(i_ex).expt.standColors(:) == ret.dat(i_ex).colors(:)]);
+        assert(allColorsEqual, 'Not all colors match between model and monkey')
         
         
-        
+        % now fit the new psychometric/neurometric functions
+        if PLOTFIG; figure; end
         for i_clr = 1:2
             
             observer = {'monkey', 'v1', 'model'};
@@ -845,16 +851,16 @@ if CONVERT_TO_RSTAR_SPACE
                 % define the variables according to the obsever
                 switch observer{i_obs}
                     case 'monkey'
-                        norms = 
-                        performance = 
-                        nTrialsByCntrst = 
+                        norms = out.dat(i_ex).expt.norms{i_clr};
+                        performance = out.dat(i_ex).m.performance{i_clr};
+                        nTrialsByCntrst = out.dat(i_ex).m.nTrials{i_clr};
                     case 'v1'
-                        norms = 
-                        performance = 
-                        nTrialsByCntrst = 
+                        norms = out.dat(i_ex).expt.norms{i_clr};
+                        performance = out.dat(i_ex).c.roc{i_clr};
+                        nTrialsByCntrst = out.dat(i_ex).m.nTrials{i_clr};
                     case 'model'
-                        norms = 
-                        performance =
+                        norms = ret.dat(i_ex).norms{i_clr};
+                        performance = ret.dat(i_ex).roc_analytic{i_clr};
                 end
                 
                 
@@ -869,23 +875,62 @@ if CONVERT_TO_RSTAR_SPACE
                     % fit via MLE. this part only for monkey & v1_cells. Not for model
                     correctByContrast = (performance.*nTrialsByCntrst);
                     wrongByContrast = (nTrialsByCntrst - correctByContrast);
-                    [alpha, beta, gamma, success(2)] = weibullFit(norms, [correctByContrast(:), wrongByContrast(:)], 'mle', [aSSE, bSSE]);
-                    dNorm = min(diff(norms{a,b}))./100;
+                    [aMLE, bMLE, gMLE, success(2)] = weibullFit(norms, [correctByContrast(:), wrongByContrast(:)], 'mle', [aSSE, bSSE]);
+                    
                     
                     if ~all(success);
                         %nans are used to denote unsucessful fits during subsequent analyses
-                        alpha = NaN;
-                        beta = NaN;
+                        aMLE = NaN;
+                        bMLE = NaN;
                     end
                 end
+                
+                
+                % catch the cases where the neuroFun did not rise above 80%
+                if ~any(performance > 0.80)
+                    aMLE = nan;
+                    bMLE = nan;
+                end
+                
                 
                 
                 % organize the outputs according to the obsever
                 switch observer{i_obs}
                     case 'monkey'
+                        out.dat(i_ex).m.alpha(i_clr,1) = aMLE;
+                        out.dat(i_ex).m.beta(i_clr,1) = bMLE;
+                        out.dat(i_ex).m.gamma(i_clr,1) = gMLE;
+                        alpha = aMLE;
+                        beta = bMLE;
+                        
                     case 'v1'
+                        out.dat(i_ex).c.alpha(i_clr,1) = aMLE;
+                        out.dat(i_ex).c.beta(i_clr,1) = bMLE;
+                        out.dat(i_ex).c.gamma(i_clr,1) = gMLE;
+                        alpha = aMLE;
+                        beta = bMLE;
+                        
                     case 'model'
+                        ret.dat(i_ex).alpha(i_clr,1) = aSSE;
+                        ret.dat(i_ex).beta(i_clr,1) = aSSE;
+                        alpha = aSSE;
+                        beta = bSSE;
                 end
+                
+                
+                if PLOTFIG
+                   subplot(2,3, ((i_clr-1)*3)+i_obs), hold on,
+                   dNorm = min(diff(norms))./100;
+                   xx = [norms(2)*0.85 : dNorm : norms(end).*1.05];
+                   fit = 1-0.5.*exp(-((xx./alpha).^beta));
+                   plot(norms(2:end), performance(2:end), 'ko')
+                   plot(xx, fit, 'b');
+                   set(gca, 'xscale', 'log')
+                   xlim([norms(2)*0.9 norms(end).*1.05])
+                   ylim([0.49, 1.01])
+                   title(sprintf('alpha = %.3f', alpha))
+                end
+                
                 
             end
             
