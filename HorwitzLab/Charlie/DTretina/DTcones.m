@@ -897,7 +897,6 @@ function cones = makeConePowerSpectrum(cones, gab, params)
     % to zero makes the power effectively zero for all frequencies in the
     % first bin. If the first bin is from 0 to 2.5 Hz, than these non-zero
     % frequencies will have less noise than would be expected...
-    % cones.modelNoise_ps(1) = 0;
     if cones.modelNoise_ps(1) == 0; error('Noise at DC set to zero'); end
     
     
@@ -1699,7 +1698,48 @@ function [cones, mon] = setupAbsThreshParams(cones, mon, params)
 end
 
 
-function saveDataToDisk(gab, cones, mon, idlob, params)
+
+function prefDiam = getAperatureTuning(stro, spikenum)
+    
+    % CAH: I stole this code from getGratingsTuning.m
+    
+    diams = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'diam'));
+    protocols = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'protocol'));
+    stimon_t = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_on'));
+    stimoff_t= stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_off'));
+
+
+    spikerates = [];
+    baseline_t = 0.25;
+    for i = 1:size(stro.trial,1)
+        spiketimes = stro.ras{i,spikenum};
+        nspikes = sum(spiketimes > stimon_t(i) & spiketimes < stimoff_t(i));
+        spikerates = [spikerates; nspikes./(stimoff_t(i)-stimon_t(i))];
+        nspikes = sum(spiketimes > stimon_t(i)-baseline_t & spiketimes < stimon_t(i));
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Looking at area summation curve
+    if (any(protocols == 5))
+        Lprotocol = protocols == 5;
+        x = diams(Lprotocol);
+        y = spikerates(Lprotocol);
+        pp = csape(x,y,'not-a-knot');
+        xx = linspace(min(diams),max(diams),100);
+        fit = ppval(pp,xx);
+        prefDiam = xx(find(fit == max(fit),1));
+
+    else
+        prefDiam = nan;
+    end
+
+
+
+end
+
+
+
+function saveDataToDisk(gab, cones, mon, idlob, params) %#ok<INUSL>
     fprintf('  Saving the data...\n')
     
     % grab the contents of the .m file used to generate the data (i.e.,
@@ -2560,46 +2600,6 @@ function test_phaseInvariance(gab, cones, mon, params)
     
     % reassign the TF
     gab.driftRate = oldTF;
-end
-
-
-
-
-
-function prefDiam = getAperatureTuning(stro, spikenum)
-
-diams = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'diam'));
-protocols = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'protocol'));
-stimon_t = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_on'));
-stimoff_t= stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_off'));
-
-
-spikerates = [];
-baseline_t = 0.25;
-for i = 1:size(stro.trial,1)
-    spiketimes = stro.ras{i,spikenum};
-    nspikes = sum(spiketimes > stimon_t(i) & spiketimes < stimoff_t(i));
-    spikerates = [spikerates; nspikes./(stimoff_t(i)-stimon_t(i))];
-    nspikes = sum(spiketimes > stimon_t(i)-baseline_t & spiketimes < stimon_t(i));
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Looking at area summation curve
-if (any(protocols == 5))
-    Lprotocol = protocols == 5;
-    x = diams(Lprotocol);
-    y = spikerates(Lprotocol);
-    pp = csape(x,y,'not-a-knot');
-    xx = linspace(min(diams),max(diams),100);
-    fit = ppval(pp,xx);
-    prefDiam = xx(find(fit == max(fit),1));
-    
-else
-    prefDiam = nan;
-end
-
-
-
 end
 
 

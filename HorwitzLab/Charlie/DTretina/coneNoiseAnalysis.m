@@ -800,7 +800,7 @@ load([fpath, fname])
 % cone contrast space, i need to convert all the contrasts to Rstar space
 % and then re-fit thresholds. If that is desired, evauate the following
 % block of code
-CONVERT_TO_RSTAR_SPACE = false;
+CONVERT_TO_RSTAR_SPACE = true;
 if CONVERT_TO_RSTAR_SPACE
     
     
@@ -828,12 +828,10 @@ if CONVERT_TO_RSTAR_SPACE
         mon = ret.expt(i_ex);
         [~, out.dat(i_ex).expt.norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
         
-        
         % deal with the stimuli from the model experiments
         colorDirs_in = ret.dat(i_ex).colors;
         contrasts_in = ret.dat(i_ex).norms;
         [~, ret.dat(i_ex).norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
-        
         
         % check to make sure the colors are still the same between monkey
         % and model

@@ -1,10 +1,12 @@
 %% NOTE FOR HOW TO CREATE SPATIAL CONTRAST SENSITIVITY PLOTS IDENTICAL TO THOSE PRODUCED FOR KALI
 
+fin
+
 % PICK AN OBSERVER:
-%observer = '/Users/charliehass/LabStuff/NexFiles/Charlie/Kali/text files/questCSFdata.txt' %kali
+% observer = '~/LabStuff/Huskies/NexFiles/Charlie/Kali/text files/questCSFdata.txt' %kali
 % observer = 'N:\NexFiles\Charlie\Kali\text files\questCSFnewchamber.txt'; %kali, new axis of action
- observer = '/Users/charliehass/LabStuff/NexFiles/Charlie/Sedna/text files/quest.txt'; %sedna
-% observer = '/Users/charliehass/LabStuff/NexFiles/Charlie/Apollo/text files/questTraining.txt'; %Apollo
+ observer = '~/LabStuff/Huskies/NexFiles/Charlie/Sedna/text files/quest.txt'; %sedna
+% observer = '~/LabStuff/Huskies/NexFiles/Charlie/Apollo/text files/questTraining.txt'; %Apollo
 % observer = 'N:\NexFiles\Charlie\CharliePsychophysics\Text Files\charlieTrainingSet.txt'; %charlie
 
 
