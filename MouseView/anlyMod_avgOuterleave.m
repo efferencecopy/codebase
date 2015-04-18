@@ -110,15 +110,17 @@ function params = anlyMod_avgOuterleave(params)
                     params.(groupName).avg.trace_pA{i_ax}{i_cond, i_ch} = mean(tmp_raw,2); % average across sweeps.
                     
                     % store the holding potential (if Vclamp)
-                    idx = secondaryChIdx(i_ch);
-                    vclamp = strcmpi(params.ax{axIdx}.head.recChUnits{idx}, 'mv');
-                    if vclamp
-                        tmp_raw = params.ax{axIdx}.dat(:,idx,l_valid);
-                        tmp_raw = permute(tmp_raw, [1,3,2]);
-                        vhold = mean(tmp_raw(baseline_idx,:),1); % vhold for each sweep
-                        assert(range(vhold)<=1, 'ERROR: difference in Vhold exceeds tolerance');
-                        
-                        params.(groupName).avg.vhold{i_ax}{i_cond, i_ch} = mean(vhold);
+                    if ~isempty(secondaryChIdx)
+                        idx = secondaryChIdx(i_ch);
+                        vclamp = strcmpi(params.ax{axIdx}.head.recChUnits{idx}, 'mv');
+                        if vclamp
+                            tmp_raw = params.ax{axIdx}.dat(:,idx,l_valid);
+                            tmp_raw = permute(tmp_raw, [1,3,2]);
+                            vhold = mean(tmp_raw(baseline_idx,:),1); % vhold for each sweep
+                            assert(range(vhold)<=1, 'ERROR: difference in Vhold exceeds tolerance');
+                            
+                            params.(groupName).avg.vhold{i_ax}{i_cond, i_ch} = mean(vhold);
+                        end
                     end
                     
                 end
