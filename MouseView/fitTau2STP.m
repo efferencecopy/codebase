@@ -1,3 +1,5 @@
+%function [d, f, dTau, fTau] = fitTau2STP(group)
+
 % game plan
 %
 %
@@ -28,3 +30,55 @@
 % Step 2.1: For each trial type in the tdict, determine what the predicted
 % pulse amplitude would be given a set of parameters. Do fminsearch to find
 % the best fitting paramters.
+
+
+
+i_fid = 1; % just looking at the first file for now
+i_ch = 2; % just looking at the second channel for now (HS2)
+
+
+% pull out the average current records and the pOn_times
+raw_pa = group.avg.trace_pA{i_fid}(:,i_ch);
+
+% preallocate the output based on the number of pulses presented:
+psc_amp_pa = cellfun(@(x) x.* nan, group.tdict{i_fid}.pOnIdx(:,i_ch), 'uniformoutput', false);
+
+
+% calculate the psc amplitude following each LED pulse
+sampRate = group.head{i_fid}.sampRate;
+preTime_idx = ceil(0.003 .* sampRate);
+postTime_idx = ceil(0.010 .* sampRate);
+artifactTimeout_idx = ceil(0.0015 .* sampRate);
+
+Ntraintypes = size(group.tdict{i_fid}.pOnIdx, 1);
+for i_train = 1:Ntraintypes
+    
+    Npulses = numel(group.tdict{i_fid}.pOnIdx{i_train});
+    for i_pulse = 1:Npulses;
+        pOn_idx = group.tdict{i_fid}.pOnIdx{i_train}(i_pulse);
+        psc_idx = (pOn_idx+artifactTimeout_idx) : (pOn_idx+postTime_idx);
+        baseline_idx = (pOn_idx-preTime_idx) : (pOn_idx+1);
+        
+        % the raw data
+        psc_raw = raw_pa{i_train}(psc_idx);
+        baseline_raw = raw_pa{i_train}(baseline_idx);
+        
+        % baseline subtract things
+        psc_raw = psc_raw - mean(baseline_raw);
+        
+        % calculate the psc_amp
+        [min_val, min_idx] = min(psc_raw);
+        psc_amp_pa{i_train}(i_pulse) = abs(min_val);
+        
+    end
+end
+
+
+
+
+
+
+
+
+
+

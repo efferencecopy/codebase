@@ -121,6 +121,8 @@ function params = anlyMod_avgOuterleave(params)
                             
                             params.(groupName).avg.vhold{i_ax}{i_cond, i_ch} = mean(vhold);
                         end
+                    else
+                        params.(groupName).avg.vhold{i_ax}{i_cond, i_ch} = nan;
                     end
                     
                 end
