@@ -1,4 +1,4 @@
-%function [d, f, dTau, fTau] = fitTau2STP(group)
+function [d, f, dTau, fTau] = fitTau2STP(group)
 
 % game plan
 %
@@ -55,7 +55,7 @@ for i_train = 1:Ntraintypes
     
     Npulses = numel(group.tdict{i_fid}.pOnIdx{i_train});
     for i_pulse = 1:Npulses;
-        pOn_idx = group.tdict{i_fid}.pOnIdx{i_train}(i_pulse);
+        pOn_idx = group.tdict{i_fid}.pOnIdx{i_train, i_ch}(i_pulse);
         psc_idx = (pOn_idx+artifactTimeout_idx) : (pOn_idx+postTime_idx);
         baseline_idx = (pOn_idx-preTime_idx) : (pOn_idx+1);
         
@@ -72,6 +72,87 @@ for i_train = 1:Ntraintypes
         
     end
 end
+
+
+% a quick figure as a sanity check
+tmp = [psc_amp_pa{:}]';
+tmp = bsxfun(@rdivide, tmp, tmp(:,1));
+[x,y] = meshgrid(1:size(tmp,2),1:size(tmp,1));
+figure
+surf(x,y,tmp,'facealpha', 0.8, 'linewidth', 2)
+set(gca, 'zscale', 'log')
+
+
+
+%
+% now go about finding the best fitting STP parameters.
+%
+%%%%%%%%%%%%%%%%%%%%
+
+% initialize the dynamical variables and Tau's
+nD = 2; % the number of depression factors
+nF = 1; % the number of facilitation factors
+[d, dTau] = deal(nan(1,nD));
+[f, fTau] = deal(nan(1,nF));
+
+
+% pull out the actual pulse times
+pOn_idx = [group.tdict{i_fid}.pOnIdx{:, i_ch}]';
+pOn_idx = bsxfun(@minus, pOn_idx, pOn_idx(:,1)); % relative to first pulse
+pOn_time = pOn_idx ./ sampRate;
+
+% make the raw data a matrix as well (instead of a cell array...)
+psc_amp_pa = [psc_amp_pa{:}]';
+
+% do the fminsearch
+guesses = [0.5 0.8 0.030 0.075 1.05 0.250]; % [d1, d2, ?d1, ?d2, f1, ?f1]
+
+[out, success, fval] = fminsearch(@(x) fittau_rms(x, psc_amp_pa, pOn_time) , guesses);
+
+
+
+
+
+
+
+
+end %main function
+
+
+function rms = fittau_rms(params, rawdata, ptimes)
+    
+    d1 = params(1);
+    d2 = params(2);
+    tau_d1 = params(3);
+    tau_d2 = params(4);
+    f1 = params(5);
+    tau_f1 = params(6);
+    
+    % use reverse euler's technique to numerically solve the dynamical
+    % system and determine the predicted data give the spike times and
+    % params
+    
+    pred = nan(size(rawdata));
+    A0 = rawdata(:,1);
+    [D1, D2, F1] = deal([1]); % all dynamical variables start at one.
+    for i_pulse = 2:size(ptimes,2);
+        % update Ds and Fs
+        ipi = ptimes(:,i_pulse) - ptimes(:,i_pulse-1);
+        
+        % let the system recover according to the time constants and the
+        % asympototic values of D and F (all = 0)
+        
+        
+        % now add the per-spike plasticity (d, f).
+        
+        
+    end
+    
+    
+end
+
+
+
 
 
 
