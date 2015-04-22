@@ -79,7 +79,7 @@ tmp = [psc_amp_pa{:}]';
 tmp = bsxfun(@rdivide, tmp, tmp(:,1));
 [x,y] = meshgrid(1:size(tmp,2),1:size(tmp,1));
 figure
-surf(x,y,tmp,'facealpha', 0.8, 'linewidth', 2)
+surf(x,y,tmp,'facealpha', 0.8, 'linewidth', 1)
 set(gca, 'zscale', 'log')
 
 
@@ -128,12 +128,13 @@ function rms = fittau_rms(params, rawdata, ptimes)
     f1 = params(5);
     tau_f1 = params(6);
     
-    % use reverse euler's technique to numerically solve the dynamical
+    % use forward euler's technique to numerically solve the dynamical
     % system and determine the predicted data give the spike times and
     % params
     
     pred = nan(size(rawdata));
     A0 = rawdata(:,1);
+    pred(:,1) = A0;
     [D1, D2, F1] = deal([1]); % all dynamical variables start at one.
     for i_pulse = 2:size(ptimes,2);
         % update Ds and Fs
@@ -141,10 +142,17 @@ function rms = fittau_rms(params, rawdata, ptimes)
         
         % let the system recover according to the time constants and the
         % asympototic values of D and F (all = 0)
-        
+        D1 = D1 + (1-D1) .* exp(-ipi./tau_d1);
+        D2 = D2 + (1-D2) .* exp(-ipi./tau_d2);
+        F1 = F1 - (F1-1) .* exp(-ipi./tau_f1);
         
         % now add the per-spike plasticity (d, f).
+        D1 = D1 .* d1;
+        D2 = D2 .* d2;
+        F1 = F1 + f1
         
+        % make a prediction
+        pred(:,i_pulse) = A0 .* D1 .* D2 .* F1;
         
     end
     
