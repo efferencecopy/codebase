@@ -38,7 +38,8 @@ fin
 
 % in = {Mouse Name, Site}
 
-in = {'CH_141215_F', 1;...
+in = {
+    'CH_141215_F', 1;...
     'CH_141215_E', 1;...
     'CH_141215_E', 2;...
     %'CH_150105_A', 1;...  % might get cut
@@ -57,7 +58,8 @@ in = {'CH_141215_F', 1;...
     'CH_150119_D', 1;...
     'CH_150119_D', 2;...
     'CH_150119_B', 1;...
-    'CH_150119_B', 2};
+    'CH_150119_B', 2
+        };
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
@@ -125,7 +127,7 @@ for i_ex = 1:Nexpts
     Ntfs = numel(pTypes);
     for i_tf = 1:Ntfs
         
-        conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+        conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
         for i_cond = 1:numel(conds)
             
             sampRate = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
@@ -332,10 +334,15 @@ end % expts
 close all
 
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+conds = {'synapticTransmission', 'FV_Na'}; % alternate plots
 
 for i_ex = 1:Nexpts
     
     for i_ch = 1:2;
+        
+        if i_ch ~= info{i_ex}.stimSite
+            continue
+        end
         
         % deal with data and channels that need to be ignored.
         if ~info{i_ex}.ignoreChans(i_ch)
