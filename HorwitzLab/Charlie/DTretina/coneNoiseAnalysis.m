@@ -1637,9 +1637,9 @@ for a = 1:nColors
             axis tight
             
             if MONTECARLO
-                title(sprintf('MC: %.3f  ANLY: %.3f', auc_mc, auc_anly));
+                title(sprintf('MC: %.1f A: %.1f', auc_mc*100, auc_anly*100));
             else
-                title(sprintf('MC: %.3f  ANLY: %.3f', auc_mc, auc_anly));
+                title(sprintf('MC: %.1f A: %.1f', auc_mc*100, auc_anly*100));
             end
             hold off
             

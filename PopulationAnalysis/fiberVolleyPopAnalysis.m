@@ -62,7 +62,6 @@ in = {'CH_141215_F', 1;...
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
-% % Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
 % 
 % % clear out the workspace
 % fin
@@ -500,7 +499,7 @@ end
 % or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
 % function of pulse number for each frequency
 
-STIMSITE = true;  % true => stimsite,  false => distal site
+STIMSITE = false;  % true => stimsite,  false => distal site
 
 
 %initialize the outputs
