@@ -28,7 +28,8 @@ classdef abfobj
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
-                    mdb = initMouseDB(false, true);
+                    suppressVerbose = true;
+                    mdb = initMouseDB('update', suppressVerbose);
                 end
                 mouseNames = mdb.search(fileName(1:10)); %ignore the exact file name and just look at the date
                 assert(~isempty(mouseNames), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
@@ -61,6 +62,9 @@ classdef abfobj
                 for a = 1:numel(obj.head.DACchNames)
                     fieldname = deblank(obj.head.DACchNames{a}); % sometimes the ouput ch is improperly named....
                     fieldname = fieldname(~isspace(fieldname));
+                    if cell2mat(regexpi(fieldname(1), {'\d', '_'})); %fixes leading underscores and numbers
+                        fieldname = fieldname(2:end);
+                    end
                     obj.idx.(fieldname) = a;
                 end
             end

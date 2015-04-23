@@ -37,7 +37,7 @@ for swp = 1:Nsweeps
         
         % was there a recovery pulse?
         lastIPI = round([pOnTimes(end)-pOnTimes(end-1)]*1000); % in milliseconds
-        if lastIPI > ((1./tFreq(swp))+25) % needs to be 25 ms longer than the typical IPI
+        if lastIPI > ((1./tFreq(swp))+0.025)*1000 % needs to be 25 ms longer than the typical IPI
             tRecov(swp) = lastIPI;
         end
         

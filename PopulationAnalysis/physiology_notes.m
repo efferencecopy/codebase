@@ -6179,6 +6179,62 @@ if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
     addPopAnlyParamsToMDB(params);
 end
 
+
+%% EB_150326_A cell 2
+
+fin
+
+%
+% Notes
+%
+%%%%%%%%%%%%%%%%%
+% 
+%
+
+%
+% PARAMETERS
+%%%%%%%%%%%%%%%%%%%
+params.mouse = 'EB_150326_A';      % The mouse's name
+params.cellNum = 2;    % The neuron number that day
+params.photo = 'EB_150326_A_cell2';      % To assess where the light stimulus was, and the HOA that contains each cell
+params.files = {'2015_04_17_', [4]};  % <file name prefix, suffix>
+params.groups = {'recovery', [4]};
+params.excludeHS1 = {};
+params.excludeHS2 = {}; 
+
+
+% stuff for E/I and AMPA/NMDA ratios
+% key for isolatedCurrents = {<current><group><Vhold><Erev>}
+% Erev is to calculate driving force for conversion from pA to pS
+params.isolatedCurrents = {'excit', 'control', -85, 17};
+params.tags = {};
+params.filter = 2e3;
+
+HS1loc = [];
+HS2loc = [];
+Pialoc1 = [];
+Pialoc2 = [];
+params.celldepth = [norm(HS1loc-Pialoc1), norm([HS2loc-Pialoc2])];
+
+
+%
+% ANALYZE OR ADD TO PARAMSDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if ~exist('GL_SUPPRESS_ANALYSIS', 'var') || ~GL_SUPPRESS_ANALYSIS
+    params.fxns = {@anlyMod_avgOuterleave};
+    params = invitroAnalysisOverview(params);
+end
+
+if exist('GL_ADD_TO_MDB', 'var') && GL_ADD_TO_MDB
+    addPopAnlyParamsToMDB(params);
+end
+
+
+
+
+
+
+
 %% BOOKMARK FOR EB MICE
 % Added to population analyses up to here
 
