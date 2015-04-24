@@ -58,7 +58,8 @@ in = {
     'CH_150119_D', 1;...
     'CH_150119_D', 2;...
     'CH_150119_B', 1;...
-    'CH_150119_B', 2
+    'CH_150119_B', 2;...
+    %'CH_150302_C', 1;... % different led powers, good for avg oChIEF wavefor, but nothing else
         };
 
 
@@ -70,8 +71,11 @@ in = {
 % 
 % % in = {Mouse Name, Site}
 % 
-% in = {'CH_150112_C', 2};
-
+% in = {
+%       %'CH_150112_C', 2;...
+%       %'CH_150302_C', 1;...
+%       };
+% 
 
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
 
@@ -334,6 +338,8 @@ close all
 
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
 conds = {'synapticTransmission', 'FV_Na'}; % alternate plots
+%conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
+%conds = {'none', 'nbqx_apv'};
 
 for i_ex = 1:Nexpts
     
