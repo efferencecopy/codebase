@@ -65,17 +65,18 @@ in = {
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
-% 
-% % clear out the workspace
-% fin
-% 
-% % in = {Mouse Name, Site}
-% 
-% in = {
-%       %'CH_150112_C', 2;...
-%       %'CH_150302_C', 1;...
-%       };
-% 
+
+% clear out the workspace
+fin
+
+% in = {Mouse Name, Site}
+
+in = {
+      'CH_150112_C', 2;...
+      'CH_150302_C', 1;...
+      'CH_150302_A', 1;...
+      };
+
 
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
 
@@ -337,7 +338,7 @@ end % expts
 close all
 
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
-conds = {'synapticTransmission', 'FV_Na'}; % alternate plots
+%conds = {'synapticTransmission', 'FV_Na'}; % alternate plots
 %conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
 %conds = {'none', 'nbqx_apv'};
 
