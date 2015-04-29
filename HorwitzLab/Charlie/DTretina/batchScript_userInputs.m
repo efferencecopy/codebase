@@ -20,7 +20,7 @@ params.flatPowerSpect = false;                   % if true, PS is flat w/same in
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
+params.colorselection = 'specific';              % could be: 'lots', 'specific', 'guniso'
 
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
@@ -34,7 +34,7 @@ params.unitTest = false;             % true or false
 params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'a run of the model that inocorporate new color dirs \n rgb from monkey experiments should be explicitly used by the model \n but these may not be cone isolating for the model \n';       % notes that should be associated the data file?
+params.notes = 'trying to test the filteredWtFxn analytical and monte carlo methods\n more trials in this file';       % notes that should be associated the data file?
 
 
 
@@ -47,12 +47,12 @@ params.notes = 'a run of the model that inocorporate new color dirs \n rgb from 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dtnt.rf_x = -50;     % in tenths of dva
 dtnt.rf_y = -35;       % in tenths of dva
-dtnt.sigma = 4;    % in tenths of dva
-dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
+dtnt.sigma = 3;    % in tenths of dva
+dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
 dtnt.theta = 0;
 dtnt.gamma = 1;
-dtnt.length = .666;  % in seconds
-dtnt.speed = 3;
+dtnt.length = .500;  % in seconds
+dtnt.speed = 4;
 dtnt.sfs = 1;
 dtnt.alphas = []; % gets filled in later
 dtnt.colorDirs = []; % gets filled in later
@@ -81,9 +81,9 @@ if strcmpi(params.colorselection , 'lots')
 elseif strcmpi(params.colorselection , 'specific')
     
     % In case I want to test a specific set of colors...
-    colorDirs = [1 0 0; 0 1 0; 0 0 1];
+    colorDirs = [1 1 1; 1 -1 0; 0 0 1; 1 -1 -1];
     colorDirs = bsxfun(@rdivide, colorDirs, sqrt(sum(colorDirs.^2, 2))); % as unit vectors
-    alphas = [1, 1, 1];
+    alphas = [0.05 0.04 0.1 0.05];
     nColors = size(colorDirs,1);
     
 elseif strcmpi(params.colorselection , 'guniso')
@@ -148,7 +148,7 @@ end
 
 %open a matlabpool
 if exist('matlabpool', 'file') == 2;
-    poolObj = parpool(min([12 nColors]));
+    poolObj = parpool(min([32 nColors]));
     pause(2)
     fprintf(' *** Using parallel operations *** \n')
 end

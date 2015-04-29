@@ -105,12 +105,9 @@ pOn_time = pOn_idx ./ sampRate;
 psc_amp_pa = [psc_amp_pa{:}]';
 
 % do the fminsearch
-guesses = [0.5 0.8 0.030 0.075 1.05 0.250]; % [d1, d2, ?d1, ?d2, f1, ?f1]
+guesses = [0.5 0.8 0.030 0.075 1.5 0.250]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 
 [out, success, fval] = fminsearch(@(x) fittau_rms(x, psc_amp_pa, pOn_time) , guesses);
-
-
-
 
 
 
@@ -141,20 +138,23 @@ function rms = fittau_rms(params, rawdata, ptimes)
         ipi = ptimes(:,i_pulse) - ptimes(:,i_pulse-1);
         
         % let the system recover according to the time constants and the
-        % asympototic values of D and F (all = 0)
-        D1 = D1 + (1-D1) .* exp(-ipi./tau_d1);
-        D2 = D2 + (1-D2) .* exp(-ipi./tau_d2);
-        F1 = F1 - (F1-1) .* exp(-ipi./tau_f1);
+        % asympototic values of D and F (all = 0)        
+        D1 = 1 - ((1-D1) .* exp(-ipi./tau_d1));
+        D2 = 1 - ((1-D2) .* exp(-ipi./tau_d2));
+        F1 = (F1-1) .* exp(-ipi./tau_f1) + 1;
         
         % now add the per-spike plasticity (d, f).
         D1 = D1 .* d1;
         D2 = D2 .* d2;
-        F1 = F1 + f1
+        F1 = F1 + (f1-1);
         
         % make a prediction
         pred(:,i_pulse) = A0 .* D1 .* D2 .* F1;
         
     end
+    
+    errs = pred-rawdata;
+    rms = sqrt(mean(errs(:).^2));
     
     
 end
@@ -167,7 +167,52 @@ end
 
 
 
+%
+%
+%  TESTING ROUTINES
+%
+%
 
+
+
+
+function test_recovery() %#ok<*DEFNU>
+
+    % this simulation just verifies that the dynamical variables (D1, D2,
+    % F1) recover according to 1st order kinetics
+
+    d1 = 0.5;
+    d2 = 0.8;
+    tau_d1 = 0.5;
+    tau_d2 = 1;
+    f1 = 1.8;
+    tau_f1 = 0.8;
+    
+    % The simulation assumes that a presynaptic action potential occurs at
+    % time zero, and then keeps track of D1, D2, and F1 following the
+    % spike.
+    dt = 0.001;
+    tt = 0:dt:5;
+    [D1, D2, F1] = deal(nan(1, numel(tt)));
+    D1(1) = d1;
+    D2(1) = d2;
+    F1(1) = f1;
+    
+    
+    for i_t = 2:numel(tt);
+       
+        % let the system recover according to the time constants and the
+        % asympototic values of D and F (all = 0)
+        D1(i_t) = 1 - ((1-d1) .* exp(-tt(i_t)./tau_d1));
+        D2(i_t) = 1 - ((1-d2) .* exp(-tt(i_t)./tau_d2));
+        F1(i_t) = (f1-1) .* exp(-tt(i_t)./tau_f1) + 1;
+    end
+
+    
+    figure, hold on,
+    plot(tt, [D1(:), D2(:), F1(:)])
+   
+end
 
 
 
