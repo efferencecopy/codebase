@@ -39,25 +39,25 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-%     'CH_141215_F', 1;...
-%     'CH_141215_E', 1;...
-%     'CH_141215_E', 2;...
-%     %'CH_150105_A', 1;...  % might get cut
-%     'CH_150105_B', 1;...
-%     'CH_150105_B', 2;...
-%     %'CH_150105_C', 1;...  % might get cut
-%     %'CH_150112_A', 1;...  % might get cut
-%     'CH_150112_A', 2;...
-%     'CH_150112_B', 1;...
-%     'CH_150112_B', 2;...
-%     'CH_150112_D', 1;...
-%     'CH_150112_D', 2;...
-%     'CH_150112_C', 1;...
-%     'CH_150119_C', 1;...
-%     'CH_150119_C', 2;...
-%     'CH_150119_D', 1;...
-%     'CH_150119_D', 2;...
-%     'CH_150119_B', 1;...
+    'CH_141215_F', 1;...
+    'CH_141215_E', 1;...
+    'CH_141215_E', 2;...
+    %'CH_150105_A', 1;...  % might get cut
+    'CH_150105_B', 1;...
+    'CH_150105_B', 2;...
+    %'CH_150105_C', 1;...  % might get cut
+    %'CH_150112_A', 1;...  % might get cut
+    'CH_150112_A', 2;...
+    'CH_150112_B', 1;...
+    'CH_150112_B', 2;...
+    'CH_150112_D', 1;...
+    'CH_150112_D', 2;...
+    'CH_150112_C', 1;...
+    'CH_150119_C', 1;...
+    'CH_150119_C', 2;...
+    'CH_150119_D', 1;...
+    'CH_150119_D', 2;...
+    'CH_150119_B', 1;...
     'CH_150119_B', 2;...
     %'CH_150302_C', 1;... % different led powers, good for avg oChIEF wavefor, but nothing else
         };
@@ -191,7 +191,7 @@ end
 % should the analysis window be defined based off the average response
 % following the first pulse (across conditions) or should the analysis
 % window be unique for each pulse?
-FIRSTPULSE = true;
+FIRSTPULSE = false;
 
 for i_ex = 1:Nexpts
     
@@ -204,7 +204,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelaySamps = ceil(0 .* sampRate); % timeout following pulse offset
+        photoDelay= 0.0006; % timeout following pulse offset
         
         for i_ch = 1:2;
             
@@ -250,17 +250,11 @@ for i_ex = 1:Nexpts
                 % some error checking for the FV case
                 if strcmpi('FV_Na', conds{i_cond})
                     assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                    assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
-                    assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
                 end
                 
-                % add a few points on either side of the true trough/peak
-                troughidx = troughidx-4:troughidx+4;
-                peakidx = peakidx-4:peakidx+4;
             end
             
-            
-            
+
             % now do the analysis
             for i_tf = 1:Ntfs
                 
@@ -269,35 +263,52 @@ for i_ex = 1:Nexpts
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
-                    
+                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate;
                     
                     if ~FIRSTPULSE
-                        pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                        pWidthSamps = ceil(pWidth .* sampRate);
-                        firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-                        [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
-                        troughidx = troughidx + firstValidPostPulseIdx;
-                        [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
-                        peakidx = peakidx + firstValidPostPulseIdx;
                         
-                        % some error checking for the FV case
-                        if strcmpi('FV_Na', conds{i_cond})
-                            assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                            assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
-                            assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
+                        pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
+                        
+                        switch conds{i_cond}
+                            case 'nbqx_apv_cd2_ttx'
+                                trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
+                                troughval = min(snippet(trough_window)); % only look after the pulse has come on
+                                troughidx = find(snippet == troughval);
+                                assert(numel(troughidx)==1, 'ERROR: too many trough vals')
+                                
+                                peakidx = nan;
+                                
+                            case  'FV_Na'
+                                trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.004);
+                                troughval = min(snippet(trough_window)); % only look after the pulse has come on
+                                troughidx = find(snippet == troughval);
+                                troughtime = tt(troughidx);
+                                assert(numel(troughidx)==1, 'ERROR: too many trough vals')
+                                
+                                peak_window = (tt > troughtime) & (tt <= 0.0065);
+                                peakval = max(snippet(peak_window)); % only look after the pulse has come on
+                                peakidx = find(snippet == peakval);
+                                assert(numel(peakidx)==1, 'ERROR: too many peak vals')
+                                assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
                         end
                         
-                        % add a few points on either side of the true trough/peak
-                        troughidx = troughidx-4:troughidx+4;
-                        peakidx = peakidx-4:peakidx+4;
                     end
+                    
+                    % store the peak and trough indicies for plotting later (if
+                    % desired)
+                    dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch}(i_pulse,:) = [troughidx, peakidx];
+                    
+                    % add a few points on either side of the true trough/peak
+                    trough_window = troughidx-4: min([troughidx+4, numel(snippet)]);
+                    peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
+                    
                     
                     % store some stats for each pulse
                     switch conds{i_cond}
                         case 'FV_Na'
                             
-                            trough = mean(snippet(troughidx));
-                            peak = mean(snippet(peakidx));
+                            trough = mean(snippet(trough_window));
+                            peak = mean(snippet(peak_window));
                             
                             pk2tr = peak-trough;
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
@@ -305,7 +316,7 @@ for i_ex = 1:Nexpts
                             
                         case 'nbqx_apv_cd2_ttx'
                             
-                            trough = mean(snippet(troughidx));
+                            trough = mean(snippet(trough_window));
                             
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
@@ -349,7 +360,6 @@ for i_ex = 1:Nexpts
                 dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch} = tmp;
                 
             end % tfs
-            
         end % channels
         
     end % conditions
@@ -367,12 +377,16 @@ conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
 %conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
 %conds = {'none', 'nbqx_apv'};
 
+RESTRICT_TO_STIM_SITE = false;
+
 for i_ex = 1:Nexpts
     
     for i_ch = 1:2;
         
-        if i_ch ~= info{i_ex}.stimSite
-            continue
+        if RESTRICT_TO_STIM_SITE
+            if i_ch ~= info{i_ex}.stimSite
+                continue
+            end
         end
         
         % deal with data and channels that need to be ignored.
@@ -403,19 +417,28 @@ for i_ex = 1:Nexpts
             Nplts = max([3, Ntfs]);
             for i_tf = 1:Ntfs
                 
-                tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch};
+                tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
+                inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch};
+                Ntime = size(tmp_raw,1);
+                Ncols = size(tmp_raw,2);
+                inds_tt = inds;
+                inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
                 
-                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
+                tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) .* 1000;
                 
                 pltidx = (i_cond-1)*Nplts + i_tf;
-                subplot(3, Nplts, pltidx)
+                subplot(3, Nplts, pltidx), 
                 cmap = colormap('copper');
-                cidx = round(linspace(1, size(cmap,1), size(tmp_raw,1)));
+                cidx = round(linspace(1, size(cmap,1), size(tmp_raw,2)));
                 cmap = cmap(cidx,:);
                 set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
                 
-                plot(tt, tmp_raw', 'linewidth', 2)
+                plot(tt, tmp_raw, 'linewidth', 2), hold on,
+                plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
+                if strcmpi(conds{i_cond}, 'FV_Na')
+                    plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
+                end
                 axis tight
                 title(pTypes{i_tf})
                 xlabel('time (ms)')
@@ -595,6 +618,10 @@ for i_ex = 1:numel(dat)
             stattype = fieldnames(dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}));
             
             for i_stat = 1:numel(stattype)
+                
+                if strcmpi(stattype{i_stat}, 'trpk_inds')
+                        continue
+                end
                 
                 % structure the pnp1 data
                 tmp_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(stattype{i_stat}){CHANNEL};
