@@ -239,28 +239,25 @@ for i_ex = 1:Nexpts
                 
                 firstPulse = mean(firstPulse,1);
                 
-            else
-                % here is where the code can go to find the peak/trough for
-                % each pulse separately.
-            end
                 
-            firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-            [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
-            troughidx = troughidx + firstValidPostPulseIdx;
-            [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
-            peakidx = peakidx + firstValidPostPulseIdx;
-            
-            % some error checking for the FV case
-            if strcmpi('FV_Na', conds{i_cond})
-                assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
-                assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
+                
+                firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
+                [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
+                troughidx = troughidx + firstValidPostPulseIdx;
+                [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
+                peakidx = peakidx + firstValidPostPulseIdx;
+                
+                % some error checking for the FV case
+                if strcmpi('FV_Na', conds{i_cond})
+                    assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+                    assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
+                    assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
+                end
+                
+                % add a few points on either side of the true trough/peak
+                troughidx = troughidx-4:troughidx+4;
+                peakidx = peakidx-4:peakidx+4;
             end
-            
-            % add a few points on either side of the true trough/peak
-            troughidx = troughidx-4:troughidx+4;
-            peakidx = peakidx-4:peakidx+4;
-            
             
             
             
@@ -272,6 +269,28 @@ for i_ex = 1:Nexpts
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
+                    
+                    
+                    if ~FIRSTPULSE
+                        pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
+                        pWidthSamps = ceil(pWidth .* sampRate);
+                        firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
+                        [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
+                        troughidx = troughidx + firstValidPostPulseIdx;
+                        [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
+                        peakidx = peakidx + firstValidPostPulseIdx;
+                        
+                        % some error checking for the FV case
+                        if strcmpi('FV_Na', conds{i_cond})
+                            assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+                            assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
+                            assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
+                        end
+                        
+                        % add a few points on either side of the true trough/peak
+                        troughidx = troughidx-4:troughidx+4;
+                        peakidx = peakidx-4:peakidx+4;
+                    end
                     
                     % store some stats for each pulse
                     switch conds{i_cond}
