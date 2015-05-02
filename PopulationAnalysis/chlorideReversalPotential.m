@@ -86,6 +86,9 @@ in = {'CH_061614_D', '2014_07_09_', 3,       (37:90), 1;... % 18 minutes, holdin
 
 
 
+
+
+
 for ex = 1:size(in,1);
     fprintf('now working on experiment %d\n', ex)
     
@@ -208,8 +211,89 @@ xlabel('Holding potential (mV)')
 ylabel('IPSC magnitude (pA)')
 
 
+%% Erev Cl- for K-gluconate made on 4/10/15
 
 
+fin
+
+% THE DATA: < MOUSE NAME, DATA PREFIX, DATA FILE NUMBER, removeSweeps, CELL NUMBER >
+in = {
+     'EB_150410_A', '2015_04_28_', [0:5], {[] [] [] [] [] [5]}, 1;...
+     'EB_150410_A', '2015_04_28_', [6:10], {[] [] [] [] [12:25]} 2;...
+     'EB_150410_B', '2015_04_27_', [0:7], {[] [] [] [] [] [] [] []}, 3;...
+     'EB_150410_B', '2015_04_27_', [8:14], {[] [] [] [] [] [] []}, 4;...
+     'EB_150410_B', '2015_04_27_', [17:23], {[] [] [] [] [] [] []}, 5;...
+     };
+ 
+ 
+ 
+ 
+
+ 
+Nexpts = size(in,1);
+pA = {};
+vhold = {};
+for i_ex = 1:Nexpts
+    
+      
+    % make a bunch of abfobj files
+    snippet = [];
+    for i_ax = 1:numel(in{i_ex,3})
+        suffix = num2str(in{i_ex,3}(i_ax));
+        nZerosNeeded = 4-numel(suffix);
+        suffix = [repmat('0',1,nZerosNeeded), suffix];
+        fname = [in{i_ex, 2}, suffix];
+        ax = abfobj(fname);
+        ax.removeSweeps(in{i_ex, 4}{i_ax});
+        
+        
+        % do the analysis, store the average traces for plotting
+        raw = ax.dat(:, ax.idx.HS2_Im, :);
+        raw = squeeze(mean(raw, 3));
+        
+        pOffIdx = ax.threshold(0.04, [ax.idx.LEDcmd_470, 1], 'd');
+        pOffIdx = find(pOffIdx);
+        assert(numel(pOffIdx)==1, 'Error: too many pulses')
+        
+        postSamps = ceil(ax.head.sampRate .* 0.025);
+        preSamps = ceil(ax.head.sampRate .* 0.005);
+        
+        raw = raw(pOffIdx-preSamps : pOffIdx+postSamps);
+        snippet(:,i_ax) = raw - mean(raw(1:(preSamps-20)));
+        tt = [(pOffIdx-preSamps : pOffIdx+postSamps)-pOffIdx] ./ ax.head.sampRate;
+        
+        
+        % find the max current
+        twind = (tt>0.002) & (tt<0.0025);
+        pA{i_ex}(i_ax) = mean(snippet(twind', i_ax));
+        
+        % find the holding potential
+        vhold_raw = ax.dat(:, ax.idx.HS2_secVm,:);
+        vhold{i_ex}(i_ax) = mean(mean(vhold_raw, 3));
+        
+
+    end
+    
+    
+    figure
+    plot(tt, snippet)
+    
+    
+    
+end
+
+figure, hold on,
+for i_ex = 1:Nexpts
+    
+    tmp_pA = pA{i_ex};
+    tmp_vhold = vhold{i_ex};
+    
+    [tmp_vhold, idx] = sort(tmp_vhold);
+    tmp_pA= tmp_pA(idx);
+    
+    plot(tmp_vhold, tmp_pA, '-o')
+    
+end
 
 
   

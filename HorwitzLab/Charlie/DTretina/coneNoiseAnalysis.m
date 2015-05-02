@@ -36,6 +36,14 @@ MONTECARLO = size(idlob.resp,3) > 0
 % identify the presence/absence of V1 data
 V1DATA = exist('monk', 'var')
 
+% convert the color directions and contrasts to Rstar space if need be
+CONVERT_TO_RSTAR_SPACE = true;
+if CONVERT_TO_RSTAR_SPACE
+    warning('converting to Rstar space')
+    [gab.colorDirs, gab.contrasts] = convert_to_Rstar_colordirs(gab.colorDirs, gab.contrasts, mon);
+end
+
+
 % Calculate the area under the ROC curve, and the response as a function of
 % contrast (if need be, e.g., obsMethods that require LDA), and fit the
 % neurometric function
@@ -258,7 +266,7 @@ end
 clc; close all;
 
 % Set the parameters of the analysis
-observer = 'kali';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
+observer = 'sedna';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
 sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
 viewSetting = 'isolum';   % could also be 'lm plane', 's vs l+m', 'isolum'
 plottype = '3D';
@@ -340,6 +348,7 @@ title(sprintf('Spatial Frequency = %.2f cpd', sfs(sfIdx)))
 threshSurfPlot(colors, alphas, viewSetting, plottype, fpar_monkey)
 
 subplot(1,2,2)% cone noise data
+hold on,
 title(sprintf('Spatial Frequency = %.2f cpd', gab.sf))
 threshSurfPlot(gab.colorDirs, cones.alpha_analytic, viewSetting, plottype, fpar_cones)
 
@@ -770,7 +779,442 @@ set(gcf, 'position', [256 5 1150 824]);
 hand = surf(X,Y,Z,maxMask);
 set(hand, 'edgealpha', 0);
 axis equal
-%% COMPARING RETINA, V1, AND BEHAVIOR
+
+
+%% COMPARING RETINA, V1, AND BEHAVIOR: THRESHOLD RATIOS AND NEUROMETRIC THRESHOLDS
+
+fin
+PLOTFIG = false;
+
+%
+% (1) load in the batch data file
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+cd /Users/charliehass/LabStuff/Huskies/DTcones/Data/
+[fname, fpath] = uigetfile();
+load([fpath, fname])
+
+% model runs after 2/2015 use the physically idential stimulus as the
+% monkey (in rgbs). But the color directions are saved in the SMJ
+% representation. Thresholds are also fit in SMJ space. To convert to model
+% cone contrast space, i need to convert all the contrasts to Rstar space
+% and then re-fit thresholds. If that is desired, evauate the following
+% block of code
+CONVERT_TO_RSTAR_SPACE = true;
+if CONVERT_TO_RSTAR_SPACE
+    
+    
+%     % this is a canonical rgb2Rstar matrix that was calculated using the
+%     % traditional DTcals.mat. It's not the correct one for all DT
+%     % experiments, but I'll check to make sure the monSPD is similar enough
+%     % to justify using just one.
+%     load rgb2Rstar_0215.mat
+%     mon.rgb2Rstar = rgb2Rstar;
+    
+    
+    %loop over experiments
+    for i_ex = 1:numel(out.dat);
+        
+        if ~rem(i_ex, 10); fprintf('ex: %d\n', i_ex); end
+        
+        % deal with the stimuli from the monkey experiments. Since I need
+        % the Mmtx and bkgndrgbs, and b/c they are different from file to
+        % file, I need to go back to the .nex files.... going back to the
+        % .nex file is important b/c some of the expts used 2º or 10º
+        % fundamentals and I don't know which is which... Currently, the
+        % .nex file info get's inhereited in the 'ret' struct at runtime.
+        colorDirs_in = out.dat(i_ex).expt.standColors;
+        contrasts_in = out.dat(i_ex).expt.norms;
+        mon = ret.expt(i_ex);
+        [~, out.dat(i_ex).expt.norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
+        
+        % deal with the stimuli from the model experiments
+        colorDirs_in = ret.dat(i_ex).colors;
+        contrasts_in = ret.dat(i_ex).norms;
+        [~, ret.dat(i_ex).norms] = convert_to_Rstar_colordirs(colorDirs_in, contrasts_in, mon);
+        
+        % check to make sure the colors are still the same between monkey
+        % and model
+        allColorsEqual = all([out.dat(i_ex).expt.standColors(:) == ret.dat(i_ex).colors(:)]);
+        assert(allColorsEqual, 'Not all colors match between model and monkey')
+        
+        
+        % now fit the new psychometric/neurometric functions
+        if PLOTFIG; figure; end
+        for i_clr = 1:2
+            
+            observer = {'monkey', 'v1', 'model'};
+            for i_obs = 1:numel(observer)
+                
+                % define the variables according to the obsever
+                switch observer{i_obs}
+                    case 'monkey'
+                        norms = out.dat(i_ex).expt.norms{i_clr};
+                        performance = out.dat(i_ex).m.performance{i_clr};
+                        nTrialsByCntrst = out.dat(i_ex).m.nTrials{i_clr};
+                    case 'v1'
+                        norms = out.dat(i_ex).expt.norms{i_clr};
+                        performance = out.dat(i_ex).c.roc{i_clr};
+                        nTrialsByCntrst = out.dat(i_ex).m.nTrials{i_clr};
+                    case 'model'
+                        norms = ret.dat(i_ex).norms{i_clr};
+                        performance = ret.dat(i_ex).roc_analytic{i_clr};
+                end
+                
+                
+                % fit via SSE
+                zeroInd = norms == 0; %don't consider the zero contrast condition
+                tmpNorms = norms(~zeroInd);
+                errs = abs(0.82-performance(~zeroInd));
+                aGuess = tmpNorms(find(errs == min(errs), 1, 'last'));
+                [aSSE, bSSE, ~, success(1)] = weibullFit(norms, performance, 'sse', [aGuess 1]);
+                
+                if any(strcmpi(observer{i_obs}, {'monkey', 'v1'}))
+                    % fit via MLE. this part only for monkey & v1_cells. Not for model
+                    correctByContrast = (performance.*nTrialsByCntrst);
+                    wrongByContrast = (nTrialsByCntrst - correctByContrast);
+                    [aMLE, bMLE, gMLE, success(2)] = weibullFit(norms, [correctByContrast(:), wrongByContrast(:)], 'mle', [aSSE, bSSE]);
+                    
+                    
+                    if ~all(success);
+                        %nans are used to denote unsucessful fits during subsequent analyses
+                        aMLE = NaN;
+                        bMLE = NaN;
+                    end
+                end
+                
+                
+                % catch the cases where the neuroFun did not rise above 80%
+                if ~any(performance > 0.80)
+                    aMLE = nan;
+                    bMLE = nan;
+                end
+                
+                
+                
+                % organize the outputs according to the obsever
+                switch observer{i_obs}
+                    case 'monkey'
+                        out.dat(i_ex).m.alpha(i_clr,1) = aMLE;
+                        out.dat(i_ex).m.beta(i_clr,1) = bMLE;
+                        out.dat(i_ex).m.gamma(i_clr,1) = gMLE;
+                        alpha = aMLE;
+                        beta = bMLE;
+                        
+                    case 'v1'
+                        out.dat(i_ex).c.alpha(i_clr,1) = aMLE;
+                        out.dat(i_ex).c.beta(i_clr,1) = bMLE;
+                        out.dat(i_ex).c.gamma(i_clr,1) = gMLE;
+                        alpha = aMLE;
+                        beta = bMLE;
+                        
+                    case 'model'
+                        ret.dat(i_ex).alpha(i_clr,1) = aSSE;
+                        ret.dat(i_ex).beta(i_clr,1) = aSSE;
+                        alpha = aSSE;
+                        beta = bSSE;
+                end
+                
+                
+                if PLOTFIG
+                   subplot(2,3, ((i_clr-1)*3)+i_obs), hold on,
+                   dNorm = min(diff(norms))./100;
+                   xx = [norms(2)*0.85 : dNorm : norms(end).*1.05];
+                   fit = 1-0.5.*exp(-((xx./alpha).^beta));
+                   plot(norms(2:end), performance(2:end), 'ko')
+                   plot(xx, fit, 'b');
+                   set(gca, 'xscale', 'log')
+                   xlim([norms(2)*0.9 norms(end).*1.05])
+                   ylim([0.49, 1.01])
+                   title(sprintf('alpha = %.3f', alpha))
+                end
+                
+                
+            end
+            
+        end % i_clr
+    end % i_experiments
+end 
+
+
+%iterate over expts and compile the necessary data
+for a = 1:length(out.dat);
+    rawV1TRs(a,:) = out.dat(a).c.alpha(:)' ./ out.dat(a).m.alpha(:)'; %transpose so that colors go across rows.
+    rawV1NTs(a,:) = out.dat(a).c.alpha(:)';
+    rawPTs(a,:) = out.dat(a).m.alpha(:)';
+    
+    rawRetTRs(a,:) = ret.dat(a).alpha(:)' ./ out.dat(a).m.alpha(:)';
+    rawRetNTs(a,:) = ret.dat(a).alpha(:)';
+    
+    prefCards(a,:) = out.dat(a).prefCard;
+    prefInts(a,:) = out.dat(a).prefInt;
+    prefIsolum(a,:) = out.dat(a).prefIsolum;
+    monkInitials(a,1) = out.fnames{a}{1}(1);
+end
+
+%retrieve the indices to elements in the 'errors' matrix.
+lt16DTtrialsInd = strmatch('<16DTtrials', out.errorTypes);
+orientMismatchInd = strmatch('orientMismatch', out.errorTypes);
+posMismatchInd = strmatch('posMismatch', out.errorTypes);
+commonExclusions = sum(out.errors(:,[lt16DTtrialsInd, orientMismatchInd, posMismatchInd]),2)>0;
+
+
+%
+% TRs and NTs by color
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%cycle through the expts and pull out the indicies to the TRs for each
+%color direction
+[sTR.ret,lvmTR.ret,swmTR.ret,swlTR.ret] = deal([]);
+[sNT.ret,lvmNT.ret,swmNT.ret,swlNT.ret] = deal([]);
+[sTR.v1,lvmTR.v1,swmTR.v1,swlTR.v1] = deal([]);
+[sNT.v1,lvmNT.v1,swmNT.v1,swlNT.v1] = deal([]);
+[sPT, lvmPT, swmPT, swlPT] = deal([]);
+for a = find(~commonExclusions)';
+    
+    tmpColor = sign(out.dat(a).expt.standColors);
+    
+    %deal with the cardinal TR
+    if ismember([0 0 1], tmpColor, 'rows')
+        [~,idx] = ismember([0 0 1], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            sTR.ret(end+1,1) = rawRetTRs(a,idx');
+            sNT.ret(end+1,1) = rawRetNTs(a,idx');
+            sTR.v1(end+1,1) = rawV1TRs(a,idx');
+            sNT.v1(end+1,1) = rawV1NTs(a,idx');
+            sPT(end+1,1) = rawPTs(a,idx');
+        end
+    elseif ismember([1 -1 0], tmpColor, 'rows')
+        [~,idx] = ismember([1 -1 0], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            lvmTR.ret(end+1,1) = rawRetTRs(a,idx');
+            lvmNT.ret(end+1,1) = rawRetNTs(a,idx');
+            lvmTR.v1(end+1,1) = rawV1TRs(a,idx');
+            lvmNT.v1(end+1,1) = rawV1NTs(a,idx');
+            lvmPT(end+1,1) = rawPTs(a,idx');
+        end
+    end
+    
+    %deal with the intermediate TR
+    if ismember([1 -1 1], tmpColor, 'rows')
+        [~,idx] = ismember([1 -1 1], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            swlTR.ret(end+1,1) = rawRetTRs(a,idx');
+            swlNT.ret(end+1,1) = rawRetNTs(a,idx');
+            swlTR.v1(end+1,1) = rawV1TRs(a,idx');
+            swlNT.v1(end+1,1) = rawV1NTs(a,idx');
+            swlPT(end+1,1) = rawPTs(a,idx');
+        end
+    elseif ismember([1 -1 -1], tmpColor, 'rows')
+        [~,idx] = ismember([1 -1 -1], tmpColor, 'rows');
+        if ~isnan(rawV1TRs(a,idx'))
+            swmTR.ret(end+1,1) = rawRetTRs(a,idx');
+            swmNT.ret(end+1,1) = rawRetNTs(a,idx');
+            swmTR.v1(end+1,1) = rawV1TRs(a,idx');
+            swmNT.v1(end+1,1) = rawV1NTs(a,idx');
+            swmPT(end+1,1) = rawPTs(a,idx');
+        end
+    end
+end
+
+%
+% PLOTTING ALL THE NT'S AND PT'S
+% FROM MONKEY, V1, AND MODEL
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+figure
+set(gcf, 'position', [193     8   206   821])
+
+subplot(5,1,1) %monk NTs
+monkPT = [sPT(:); lvmPT(:); swmPT(:); swlPT(:)];
+monkGroup = char(repmat('Siso', length(sPT),1), repmat('LvM', length(lvmPT),1), repmat('SwM', length(swmPT),1), repmat('SwL', length(swlPT),1));
+boxplot(monkPT, monkGroup, 'symbol', '')
+ylim([0, 0.2])
+title('Monkey PTs')
+
+subplot(5,1,2) % V1 NTs
+v1data = [sNT.v1(:); lvmNT.v1(:); swmNT.v1(:); swlNT.v1(:)];
+v1group = char(repmat('Siso', length(sNT.v1),1), repmat('LvM', length(lvmNT.v1),1), repmat('SwM', length(swmNT.v1),1), repmat('SwL', length(swlNT.v1),1));
+boxplot(v1data, v1group, 'symbol', '')
+ylim([0, 0.2])
+title('V1 NTs')
+
+
+subplot(5,1,3) % model NTs
+retdata = [sNT.ret(:); lvmNT.ret(:); swmNT.ret(:); swlNT.ret(:)];
+retgroup = char(repmat('Siso', length(sNT.ret),1), repmat('LvM', length(lvmNT.ret),1), repmat('SwM', length(swmNT.ret),1), repmat('SwL', length(swlNT.ret),1));
+boxplot(retdata, retgroup)
+title('Retina NTs')
+
+
+subplot(5,1,4) % Model to Monk TRs
+retdata = [sTR.ret(:); lvmTR.ret(:); swmTR.ret(:); swlTR.ret(:)];
+retgroup = char(repmat('Siso', length(sTR.ret),1), repmat('LvM', length(lvmTR.ret),1), repmat('SwM', length(swmTR.ret),1), repmat('SwL', length(swlTR.ret),1));
+boxplot(retdata, retgroup)
+set(gca, 'yscale', 'log')
+title('Retina to Monkey TRs')
+
+subplot(5,1,5) % Model to V1 TRs
+v1NTs = [sNT.v1(:); lvmNT.v1(:); swmNT.v1(:); swlNT.v1(:)];
+modNTs = [sNT.ret(:); lvmNT.ret(:); swmNT.ret(:); swlNT.ret(:)];
+ratio = modNTs./v1NTs;
+group = char(repmat('Siso', length(sNT.ret),1), repmat('LvM', length(lvmNT.ret),1), repmat('SwM', length(swmNT.ret),1), repmat('SwL', length(swlNT.ret),1));
+boxplot(ratio, group, 'symbol', '')
+set(gca, 'yscale', 'log')
+title('Retina to V1 TRs')
+
+
+%
+% 2D AND 3D SCATTER PLOTS OF NTs AND PTs
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+v1_nt = {sNT.v1, lvmNT.v1, swmNT.v1, swlNT.v1};
+v1_xbar = cellfun(@mean, v1_nt);
+v1_sem = cellfun(@(x) nanstd(x)./sqrt(numel(x)), v1_nt);
+
+ret_nt = {sNT.ret, lvmNT.ret, swmNT.ret, swlNT.ret};
+ret_xbar = cellfun(@mean, ret_nt);
+ret_sem = cellfun(@(x) nanstd(x)./sqrt(numel(x)), ret_nt);
+
+monk_pt = {sPT, lvmPT, swmPT, swlPT};
+monk_xbar = cellfun(@mean, monk_pt);
+monk_sem = cellfun(@(x) nanstd(x)./sqrt(numel(x)), monk_pt);
+
+colororder = {'b', 'r', [255./256, 140./256, 0], 'm'};
+
+f = figure; hold on
+for a = 1:4;
+    for d = 1:numel(v1_nt{a})
+        plot3(monk_pt{a}(d), ret_nt{a}(d), v1_nt{a}(d), '.', 'color', colororder{a})
+    end
+    
+    p = plot3(monk_xbar(a), ret_xbar(a), v1_xbar(a), 's');
+    set(p, 'markerfacecolor', colororder{a},...
+        'markeredgecolor', colororder{a},...
+        'markersize', 25)
+end
+set(gca, 'view', [14 18],...
+         'xscale', 'log',...
+         'yscale', 'log',...
+         'zscale', 'log',...
+         'xlim', [1e-2, 1],...
+         'ylim', [1e-3 1e-1],...
+         'zlim', [5e-3 5e-1],...
+         'tickdir', 'out',...
+         'linewidth', 2);
+xlabel('Monkey');
+ylabel('Cones');
+zlabel('V1');
+axis square
+
+%
+% ORTHOGONAL REGRESSION IN 3D  
+%
+%%%%%%%%%%%%%%%%%%%%
+v1NTs = [sNT.v1(:); lvmNT.v1(:); swmNT.v1(:); swlNT.v1(:)];
+modNTs = [sNT.ret(:); lvmNT.ret(:); swmNT.ret(:); swlNT.ret(:)];
+monkPT = [sPT(:); lvmPT(:); swmPT(:); swlPT(:)];
+dat = [monkPT, modNTs, v1NTs];
+log_dat = log10(dat);
+var_log_dat = var(log_dat,[],1)
+tmp = bsxfun(@minus, log_dat, mean(log_dat,1));
+covMtx = (tmp' * tmp) ./ (size(log_dat,1)-1);
+[vec, val] = eig(covMtx);
+[~, idx] = max(diag(val));
+PC1 = abs(vec(:,idx));
+norms = linspace(-2, 1, 100);
+xyz = bsxfun(@times, PC1, norms)';
+xyz = bsxfun(@plus, xyz, mean(log_dat,1));
+xyz = 10.^xyz;
+figure(f); hold on,
+plot3(xyz(:,1), xyz(:,2), xyz(:,3), '-k', 'linewidth', 3)
+
+
+% orth regression for just the means
+log_dat = log10([monk_xbar(:), ret_xbar(:), v1_xbar(:)]);
+[vec, val] = eig(cov(log_dat));
+[~, idx] = max(diag(val));
+PC1 = abs(vec(:,idx));
+norms = linspace(-2, 1, 100);
+xyz = bsxfun(@times, PC1, norms)';
+xyz = bsxfun(@plus, xyz, mean(log_dat,1));
+diffVal = xyz(end,:)-xyz(1,:)
+xyz = 10.^xyz;
+figure(f); hold on,
+plot3(xyz(:,1), xyz(:,2), xyz(:,3), '-c', 'linewidth', 3)
+
+
+%
+% ORTHOGONAL REGRESSION IN 2D
+%
+%%%%%%%%%%%%%%%%%%%%
+for ax = 1:3;
+    if ax == 1
+        dat = [ret_xbar(:), monk_xbar(:)];
+        semX = ret_sem;
+        semY = monk_sem;
+    elseif ax == 2
+        dat = [ret_xbar(:), v1_xbar(:)];
+        semX = ret_sem;
+        semY = v1_sem;
+    elseif ax == 3
+        dat = [monk_xbar(:), v1_xbar(:)];
+        semX = monk_sem;
+        semY = v1_sem;
+    end
+    covMtx = cov(dat);
+    [vec, val] = eig(covMtx);
+    [~, idx] = max(diag(val));
+    PC1 = abs(vec(:,idx));
+    norms = linspace(-0.2, 0.2, 100);
+    xy = bsxfun(@times, PC1, norms)';
+    xy = bsxfun(@plus, xy, mean(dat,1));
+    diffVal = xy(end,:)-xy(1,:);
+    m = diffVal(2)./diffVal(1);
+    
+    % plot the regression
+    f = figure; hold on
+    plot(xy(:,1), xy(:,2), 'k', 'linewidth', 3)
+    
+    % the data points for the mean
+    for a = 1:4;
+        p = plot(dat(a,1), dat(a,2), 's');
+        set(p, 'markerfacecolor', colororder{a},...
+               'markeredgecolor', colororder{a},...
+               'markersize', 25)
+    end
+    
+    % error bars
+    for a = 1:4;
+        p = plot([dat(a,1)-semX(a); dat(a,1)+semX(a)], [dat(a,2)', dat(a,2)'], '-');
+        set(p, 'color', colororder{a}, 'linewidth', 2);
+        
+        p = plot([dat(a,1)', dat(a,1)'], [dat(a,2)-semY(a); dat(a,2)+semY(a)], '-');
+        set(p, 'color', colororder{a}, 'linewidth', 2);
+    end
+    
+    set(gca, 'xlim', [0, max(dat(:,1)).*1.15],...
+             'ylim', [0, max(dat(:,2)).*1.15],...
+             'tickdir', 'out',...
+             'linewidth', 2);
+    if ax == 1 || ax == 2;
+        xlabel('Cones');
+    else
+        xlabel('Monkey')
+    end
+    if ax == 1
+        ylabel('Monkey');
+    elseif ax == 2 || ax == 3
+        ylabel('V1')
+    end
+    axis square
+    title(sprintf('Slope: %.3f', m));
+end
+
+
+
+%% COMPARING RETINA, V1, AND BEHAVIOR: Old code
 fin
 
 %
@@ -1193,9 +1637,9 @@ for a = 1:nColors
             axis tight
             
             if MONTECARLO
-                title(sprintf('MC: %.3f  ANLY: %.3f', auc_mc, auc_anly));
+                title(sprintf('MC: %.1f A: %.1f', auc_mc*100, auc_anly*100));
             else
-                title(sprintf('MC: %.3f  ANLY: %.3f', auc_mc, auc_anly));
+                title(sprintf('MC: %.1f A: %.1f', auc_mc*100, auc_anly*100));
             end
             hold off
             

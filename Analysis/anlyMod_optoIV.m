@@ -121,13 +121,20 @@ for a = 1:Ngroups
             % do a litte work to make sure there is no runup or rundown in
             % the size of the currents. store the peak currents on a sweep
             % by sweep basis.
+            %
+            % NOTE: SINCE I'M TAKING THE ABS(CURRENT) THERE IS A
+            % POSSIBILITY THAT NOISE WILL MAKE THE MEASUREMENTS INACCURATE,
+            % FOR EXAMPLE, WHEN THE CURRENT IS SUPPOSED TO BE INWARD,
+            % BUT THERE IS A BIG POSTIVE GOING TRANSIENT...
             analysispoints = round(ax.head.sampRate .* 0.050);
             sweep_snips = sweeps(:,baselinePoints:baselinePoints+analysispoints);
             [~, inds] = max(abs(sweep_snips), [],2);
             peakInd = round(mean(inds));
+            peakInd = max([peakInd, 4]); % this line is a hack to make the next line work when the sweep_snip is a flat line or the max idx is the first index
             peak_pA = mean(sweep_snips(:,peakInd-3:peakInd+3), 2);
             ivdat.(params.groups{a,1}).peakBySweep_pA{ch}{ch_specific_idx(ch)} = peak_pA;
-            
+
+
             % now store the Access resistance, and the Vclamp errors for
             % the same sweeps
             out = ax.getRa();
@@ -135,14 +142,13 @@ for a = 1:Ngroups
             Verr = permute(out.Verr, [3,2,1]);
             
             % an ugly hack. Need to do this in cases where CH 1 isn't
-            % defined.
-            if size(Ra, 2)<2
-                warning('implementing an ugly hack')
-                
+            % defined. This line of code doesn't know which channel is
+            % absent but I don't think there are consequences down the line
+            % if I shove one channel's data into both channels...
+            if size(Ra, 2)<2               
                 Ra = [Ra, Ra];
                 Verr = [Verr, Verr];
             end
-            
             ivdat.(params.groups{a,1}).Racc{ch}{ch_specific_idx(ch)} = Ra(l_goodSweeps, ch);
             ivdat.(params.groups{a,1}).Verr{ch}{ch_specific_idx(ch)} = Verr(l_goodSweeps, ch);
             ivdat.(params.groups{a,1}).holdingCurrent{ch}{ch_specific_idx(ch)} = baseline;

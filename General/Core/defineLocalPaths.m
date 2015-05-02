@@ -24,7 +24,7 @@ switch whoami
     case 'hass_linux'
         GL_DATPATH = '~/Crash/Data/Mice/';
         GL_POPDATPATH = '~/Crash/Data/population_analysis_DBs/';
-        GL_DOCUPATH = '~/DocuBase/';
+        GL_DOCUPATH = '~/Documents/CodeRepos/docubase/';
         defaultpath = '~/Crash/';
         
     case 'glick_rig1'

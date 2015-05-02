@@ -11,7 +11,7 @@ BLPLFP = 'blp_DTbatch.mat';
 
 global cardVsIntBatchPath blpBatchPath cardVsCardBatchPath
 if ismac %charlie's laptop
-    prefix = '/Users/charliehass/LabStuff/NexFiles/Charlie/Batch Data And Text Files/';
+    prefix = '~/LabStuff/Huskies/NexFiles/Charlie/Batch Data And Text Files/';
 elseif strcmpi(license,  '367516') % when logged into cahass at wanprc on the server
     prefix = 'C:\NO BACKUP\NexFiles\Charlie\Batch Data And Text Files\';
 else %assume all other pc's

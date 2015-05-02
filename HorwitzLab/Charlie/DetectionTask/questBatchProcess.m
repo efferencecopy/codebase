@@ -53,7 +53,6 @@ for a = 1:nExpts
     expt(a).t = thresh;
     expt(a).sfs = exptSfs;
     expt(a).col = exptColors;
-    keyboard
 
 
     %aggregate data across experimental sessions

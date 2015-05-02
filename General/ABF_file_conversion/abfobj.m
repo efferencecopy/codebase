@@ -28,7 +28,8 @@ classdef abfobj
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
-                    mdb = initMouseDB(false, true);
+                    suppressVerbose = true;
+                    mdb = initMouseDB('update', suppressVerbose);
                 end
                 mouseNames = mdb.search(fileName(1:10)); %ignore the exact file name and just look at the date
                 assert(~isempty(mouseNames), 'ABFOBJ ERROR: could not find data file <%s>', fileName);
@@ -59,7 +60,12 @@ classdef abfobj
             % define the indices into the columns of the waveforms (obj.wf)
             if isfield(obj.head, 'DACchNames')
                 for a = 1:numel(obj.head.DACchNames)
-                    obj.idx.(obj.head.DACchNames{a}) = a;
+                    fieldname = deblank(obj.head.DACchNames{a}); % sometimes the ouput ch is improperly named....
+                    fieldname = fieldname(~isspace(fieldname));
+                    if cell2mat(regexpi(fieldname(1), {'\d', '_'})); %fixes leading underscores and numbers
+                        fieldname = fieldname(2:end);
+                    end
+                    obj.idx.(fieldname) = a;
                 end
             end
             
@@ -67,8 +73,15 @@ classdef abfobj
         
         function obj = removeSweeps(obj, idx)
             
+            %error checking
             assert(size(obj.dat,3)>1, 'ABFOBJ ERROR: only one sweep present, nothing to delete')
-            obj.dat(:,:,idx) = [];
+            
+            % make a logical vector
+            newidx = true(1,size(obj.dat,3));
+            newidx(idx) = false;
+            
+            obj.dat = obj.dat(:,:,newidx);
+            obj.wf = obj.wf(:,:,newidx);
         end
         
         function out = getvals(obj, ch, sweep, timeStart, timeEnd)
@@ -131,13 +144,14 @@ classdef abfobj
                 if isempty(vclamp); continue; end
                 
                 % the index to the recorded membrane current
-                tmp = eval(['obj.idx.', validChName{1}, 'Im']);
-                idx_Im = [idx_Im, tmp];
-                
-                % the index to the comand waveform
-                tmp = eval(['obj.idx.', validChName{1}, 'Vclamp']);
-                idx_Vclamp = [idx_Vclamp, tmp];              
-                
+                if all(isfield(obj.idx, {[validChName{1}, 'Im'], [validChName{1}, 'Vclamp']}));
+                    tmp = obj.idx.([validChName{1}, 'Im']);
+                    idx_Im = [idx_Im, tmp];
+                    
+                    % the index to the comand waveform
+                    tmp = obj.idx.([validChName{1}, 'Vclamp']);
+                    idx_Vclamp = [idx_Vclamp, tmp];
+                end
             end
             
             % figure out which fitting method to use. Once exponential fits
@@ -157,6 +171,7 @@ classdef abfobj
             Nchannels = numel(idx_Im);
             Ra.chNames = obj.head.recChNames(idx_Im);
             Ra.dat = nan(1, Nchannels, Nsweeps);
+            Ra.Verr = nan(1, Nchannels, Nsweeps);
             for ch = 1:numel(idx_Im)
                 for swp = 1:Nsweeps;
                     

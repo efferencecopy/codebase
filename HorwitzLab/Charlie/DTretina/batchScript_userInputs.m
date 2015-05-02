@@ -12,15 +12,15 @@ fin
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 params.runType = 'dtnt';                         % 'dtnt', or 'absThresh'
-params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
+params.obsMethod = 'obsMethod_filteredWtFxn';    % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
 params.Ncones = NaN;                             % set to NaN, except when using the absThresh functionality
-params.monCalFile = 'DTcals_equal_bkgnd.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
+params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat', 'DTcals_apollo_macpig.mat',  or 'DTcals_equal_bkgnd.mat'
 params.impulseResponse = 'rieke';                %  'rieke', or 'deltafxn'
 params.flatPowerSpect = false;                   % if true, PS is flat w/same integral as the normal PS.
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
+params.colorselection = 'specific';              % could be: 'lots', 'specific', 'guniso'
 
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
@@ -34,7 +34,7 @@ params.unitTest = false;             % true or false
 params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'equal bkgnd for Greg, but normal cone mosaic';       % notes that should be associated the data file?
+params.notes = 'trying to test the filteredWtFxn analytical and monte carlo methods\n more trials in this file';       % notes that should be associated the data file?
 
 
 
@@ -47,12 +47,12 @@ params.notes = 'equal bkgnd for Greg, but normal cone mosaic';       % notes tha
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dtnt.rf_x = -50;     % in tenths of dva
 dtnt.rf_y = -35;       % in tenths of dva
-dtnt.sigma = 4;    % in tenths of dva
-dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
+dtnt.sigma = 3;    % in tenths of dva
+dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
 dtnt.theta = 0;
 dtnt.gamma = 1;
-dtnt.length = .666;  % in seconds
-dtnt.speed = 3;
+dtnt.length = .500;  % in seconds
+dtnt.speed = 4;
 dtnt.sfs = 1;
 dtnt.alphas = []; % gets filled in later
 dtnt.colorDirs = []; % gets filled in later
@@ -62,14 +62,14 @@ if strcmpi(params.colorselection , 'lots')
     
     
     % define the color directions.... just putting points on a sphere for now
-    nColors = 100;
+    nColors = 200;
     tmp = ceil(sqrt(nColors));
     az = linspace(0, 2*pi, tmp);
     el = linspace(0, pi/2, tmp);
     inds = fullfact([tmp, tmp]);
     dirs_pol = [az(inds(:,1))', el(inds(:,2))'];
     [x,y,z] = sph2cart(dirs_pol(:,1), dirs_pol(:,2), ones(size(dirs_pol,1),1));
-    z = z.*3; % scale the s-cone axis
+    z = z.*3; % scale the s-cone axis so that the most highly-curved potion of the elipse is still well-sampled.
     colorDirs = [x,y,z];
     norms = sqrt(sum(colorDirs.^2,2));
     colorDirs = bsxfun(@rdivide, colorDirs, norms);
@@ -81,9 +81,9 @@ if strcmpi(params.colorselection , 'lots')
 elseif strcmpi(params.colorselection , 'specific')
     
     % In case I want to test a specific set of colors...
-    colorDirs = [1 0 0; 0 1 0; 0 0 1];
+    colorDirs = [1 1 1; 1 -1 0; 0 0 1; 1 -1 -1];
     colorDirs = bsxfun(@rdivide, colorDirs, sqrt(sum(colorDirs.^2, 2))); % as unit vectors
-    alphas = [1, 1, 1];
+    alphas = [0.05 0.04 0.1 0.05];
     nColors = size(colorDirs,1);
     
 elseif strcmpi(params.colorselection , 'guniso')
@@ -148,8 +148,7 @@ end
 
 %open a matlabpool
 if exist('matlabpool', 'file') == 2;
-    poolObj = parpool([2 nColors]);
-    %matlabpool open 16
+    poolObj = parpool(min([32 nColors]));
     pause(2)
     fprintf(' *** Using parallel operations *** \n')
 end

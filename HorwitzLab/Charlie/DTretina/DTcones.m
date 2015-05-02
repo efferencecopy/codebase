@@ -23,7 +23,7 @@ function DTcones(params)
     %create/initialize the structures that will define the simulation
     [gab, params] = initGabor(params);
     eyes = initEyeParams(params);
-    mon = initMonitorCalibration(params, gab, eyes);
+    [mon, params] = initMonitorCalibration(params, gab, eyes);
     cones = initConeMosaic(gab, mon, eyes);
     [cones, gab] = makeConeLinearFilter(params, cones, mon, gab);
     cones = defineConeGainScaleFactor(cones, mon);
@@ -110,8 +110,8 @@ end
 function [gab, params] = initGabor(params)
     
     % common to both methods:
-    nContrasts = 22;
-    gab.nTrials = 0;
+    nContrasts = 6;
+    gab.nTrials = 5000;
     
     switch lower(params.runType)
         
@@ -185,12 +185,12 @@ function [gab, params] = initGabor(params)
                     if size(RGB, 1) ~= 1; error('more than one RGB per color direction'); end
                     rgb = [gammaTable(RGB(1), 1), gammaTable(RGB(2), 2), gammaTable(RGB(3), 3)];
                     lms = M * rgb(:);
-                    gab.V1_CCs{clr}(:,cnt) = norm((lms-bkgndlms)./bkgndlms);
+                    V1_CCs{clr}(:,cnt) = norm((lms-bkgndlms)./bkgndlms);
                 end
                 
                 % instead of sampling the same contrasts as the DT expt. Resample a
                 % range from very low contrast to the max contrast used in the expt
-                gab.contrasts{clr} = [0, logspace(log10(0.00001), log10(gab.V1_CCs{clr}(end)), nContrasts)];
+                gab.contrasts{clr} = [0, logspace(log10(0.00001), log10(V1_CCs{clr}(end)), nContrasts)];
             end
             
             % package the stro file (here named 'DT') so that other
@@ -217,7 +217,7 @@ function [gab, params] = initGabor(params)
             gab.sf = in.sfs;
             gab.contrasts = {};
             for a = 1:numel(in.alphas);
-                gab.contrasts{a} = [0, logspace(log10(0.0005), log10(in.alphas(a)), nContrasts)];
+                gab.contrasts{a} = [0, logspace(log10(0.0003), log10(in.alphas(a)), nContrasts)];
             end
             
         case 'absthresh'
@@ -350,12 +350,38 @@ function lms_Rstar = getGaborRstar(clr, cnt, gab, mon, params, cones)
         pulseWidth = 0.010; %only works if refresh and cone sampling rates are set correctly
         RStarPerSec = gab.contrasts{clr}(cnt) ./ pulseWidth; %an integer number of photons delivered in one time step (expressed in R*/sec)
         lms_Rstar = [RStarPerSec; 0; 0]; % only deliver the stimulus to the Lcone mosaic
-    else
-        colorDir = gab.colorDirs(clr,:);
-        colorDir = colorDir ./ norm(colorDir); %make sure it's a unit vector
-        CC = gab.contrasts{clr}(cnt); %cone contrast in vector norms
-        LMS = colorDir .* CC;
-        lms_Rstar = (1+LMS(:)) .* mon.bkgndlms_Rstar(:);
+    
+    else % 'default', 'dtnt', or 'dtv1' type runs...
+        
+        % the color dirs are specified in LMS CC units. This corresonds to
+        % a vector in LMS CC space, where the space is defined by what ever
+        % cone fundamentals are specified by DTcals.mat. To emulate the
+        % ACTUAL stimuli used in a physiology/behvioral experiment, I'm
+        % goint to take the LMS values specified by the user (in
+        % gab.colorDirs) and determine what rgb directions this would be
+        % for the monitor used in the monkey experiments. Then I'll convert
+        % into LMS_R* units for the cone model. This way, the cone model is
+        % tested on the identical stimuli (in rgb units) as the monkeys
+        
+        % determine the LMS color dir asked for and force it to be a unit
+        % vector
+        colorDir_generic = gab.colorDirs(clr,:);
+        colorDir_generic = colorDir_generic ./ norm(colorDir_generic); %make sure it's a unit vector
+        
+        % determine the LMS cone contrast color and convert this into a
+        % vector that specifies the lms values of the stimulus
+        CC = gab.contrasts{clr}(cnt);
+        colorDir_CC = colorDir_generic .* CC;
+        bkgndlms_deviceSpecific_smj = mon.Mmtx * mon.bkgndrgb(:);
+        gaborlms_deviceSpecific_smj = bkgndlms_deviceSpecific_smj .* (1+colorDir_CC(:));
+        
+        % determine what rgb direction this would correspond to on the
+        % moniotor used in the monkey experiments
+        gaborrgb_deviceSpecific = mon.Mmtx \ gaborlms_deviceSpecific_smj;
+        
+        % convert the device specific rgbs into lms units for the cone
+        % model
+        lms_Rstar = mon.rgb2Rstar * gaborrgb_deviceSpecific(:);
         
         % a simple error check on the cone sampling rate
         if rem(cones.samplingRate,mon.frameRate) > 1e-2 % cones.samplingRate should be (nearly) an integer multiple of the mon refresh rate
@@ -384,7 +410,7 @@ function eyes = initEyeParams(params)
     end
 end
 
-function mon = initMonitorCalibration(params, gab, eyes)
+function [mon, params] = initMonitorCalibration(params, gab, eyes)
 
     % load in some information about the monitor.
     switch lower(params.runType)
@@ -400,6 +426,7 @@ function mon = initMonitorCalibration(params, gab, eyes)
             mon.frameRate = cal.frameRate;
             mon.monSpectWavelengths = 380:5:780;
             mon.pixperdeg = cal.pixperdeg;
+            mon.Mmtx = reshape(cal.Mmtx,3,3);
             
             % in the case where you load in equalBkgnd cal file, make sure
             % that the stimulus RF position is what we expect. Due to
@@ -417,6 +444,8 @@ function mon = initMonitorCalibration(params, gab, eyes)
             mon.frameRate = DT.sum.exptParams.frame_rate;
             mon.monSpectWavelengths = 380:5:780;
             mon.pixperdeg = DT.sum.exptParams.pixperdeg;
+            mon.Mmtx = reshape(DT.sum.exptParams.m_mtx,3,3);
+            params = rmfield(params, 'V1stro'); % no longer need the V1 stro struct
     end
     
     % the monitor spectra are in units of spectral radiance (W/(str*M^2)).
@@ -466,7 +495,6 @@ function mon = initMonitorCalibration(params, gab, eyes)
     
     % determine the R* due to the background intensity of the monitor
     mon.bkgndlms_Rstar = mon.rgb2Rstar * mon.bkgndrgb(:);
-    mon.rgb2Rstar * mon.bkgndrgb(:)
     
     % generate a rod-absorPTance spectum and determine the rod R* due to the background
     rodActionSpectra = coneActionSpectra('rod',mon.monSpectWavelengths);
@@ -869,7 +897,6 @@ function cones = makeConePowerSpectrum(cones, gab, params)
     % to zero makes the power effectively zero for all frequencies in the
     % first bin. If the first bin is from 0 to 2.5 Hz, than these non-zero
     % frequencies will have less noise than would be expected...
-    % cones.modelNoise_ps(1) = 0;
     if cones.modelNoise_ps(1) == 0; error('Noise at DC set to zero'); end
     
     
@@ -1671,7 +1698,48 @@ function [cones, mon] = setupAbsThreshParams(cones, mon, params)
 end
 
 
-function saveDataToDisk(gab, cones, mon, idlob, params)
+
+function prefDiam = getAperatureTuning(stro, spikenum)
+    
+    % CAH: I stole this code from getGratingsTuning.m
+    
+    diams = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'diam'));
+    protocols = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'protocol'));
+    stimon_t = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_on'));
+    stimoff_t= stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_off'));
+
+
+    spikerates = [];
+    baseline_t = 0.25;
+    for i = 1:size(stro.trial,1)
+        spiketimes = stro.ras{i,spikenum};
+        nspikes = sum(spiketimes > stimon_t(i) & spiketimes < stimoff_t(i));
+        spikerates = [spikerates; nspikes./(stimoff_t(i)-stimon_t(i))];
+        nspikes = sum(spiketimes > stimon_t(i)-baseline_t & spiketimes < stimon_t(i));
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Looking at area summation curve
+    if (any(protocols == 5))
+        Lprotocol = protocols == 5;
+        x = diams(Lprotocol);
+        y = spikerates(Lprotocol);
+        pp = csape(x,y,'not-a-knot');
+        xx = linspace(min(diams),max(diams),100);
+        fit = ppval(pp,xx);
+        prefDiam = xx(find(fit == max(fit),1));
+
+    else
+        prefDiam = nan;
+    end
+
+
+
+end
+
+
+
+function saveDataToDisk(gab, cones, mon, idlob, params) %#ok<INUSL>
     fprintf('  Saving the data...\n')
     
     % grab the contents of the .m file used to generate the data (i.e.,
@@ -2532,46 +2600,6 @@ function test_phaseInvariance(gab, cones, mon, params)
     
     % reassign the TF
     gab.driftRate = oldTF;
-end
-
-
-
-
-
-function prefDiam = getAperatureTuning(stro, spikenum)
-
-diams = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'diam'));
-protocols = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'protocol'));
-stimon_t = stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_on'));
-stimoff_t= stro.trial(:,strcmp(stro.sum.trialFields(1,:),'stim_off'));
-
-
-spikerates = [];
-baseline_t = 0.25;
-for i = 1:size(stro.trial,1)
-    spiketimes = stro.ras{i,spikenum};
-    nspikes = sum(spiketimes > stimon_t(i) & spiketimes < stimoff_t(i));
-    spikerates = [spikerates; nspikes./(stimoff_t(i)-stimon_t(i))];
-    nspikes = sum(spiketimes > stimon_t(i)-baseline_t & spiketimes < stimon_t(i));
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Looking at area summation curve
-if (any(protocols == 5))
-    Lprotocol = protocols == 5;
-    x = diams(Lprotocol);
-    y = spikerates(Lprotocol);
-    pp = csape(x,y,'not-a-knot');
-    xx = linspace(min(diams),max(diams),100);
-    fit = ppval(pp,xx);
-    prefDiam = xx(find(fit == max(fit),1));
-    
-else
-    prefDiam = nan;
-end
-
-
-
 end
 
 
