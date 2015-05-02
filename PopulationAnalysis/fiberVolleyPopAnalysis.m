@@ -223,87 +223,67 @@ for i_ex = 1:Nexpts
             end
             
             
-            
+            %
+            % For each 'condition', I need to identify keep points on the
+            % raw waveforms (eg., trough time, peak time, etc.). These
+            % time points will be estimated from the first pulse in the
+            % train (averaged across TF conditions) or on a pulse-by-pulse
+            % basis.
+            %
+            %%%%%%%%%%%%%%%%%%%%%%%%%
             if FIRSTPULSE
+                
                 % calculate the analysis windows based off the average 1st pulse,
                 % which should be the same across TFs (within pharmacology
                 % condition and channel).
                 firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
                 for i_tf = 1:Ntfs
-                    
                     firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
-                    
                 end
-                pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                pWidthSamps = ceil(pWidth .* sampRate);
                 
                 firstPulse = mean(firstPulse,1);
-                
-                
-                
-                firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-                [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
-                troughidx = troughidx + firstValidPostPulseIdx;
-                [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
-                peakidx = peakidx + firstValidPostPulseIdx;
-                
-                % some error checking for the FV case
-                if strcmpi('FV_Na', conds{i_cond})
-                    assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                end
+                pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
+                tt = ([0:numel(firstPulse)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
+                [troughidx, peakidx, takeoff]  = anlyMod_getWFepochs(firstPulse, tt, conds{i_cond}, pWidth, photoDelay);
                 
             end
             
 
-            % now do the analysis
+            % 
+            % Now do the analysis on a pulse by pulse basis. Loop over TF
+            % conditions, and pulses. If the important time points haven't
+            % already been determined, do so right before the analysis.
+            %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             for i_tf = 1:Ntfs
                 
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+                
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
-                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate;
+                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
                     
                     if ~FIRSTPULSE
                         
                         pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                        
-                        switch conds{i_cond}
-                            case 'nbqx_apv_cd2_ttx'
-                                trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
-                                troughval = min(snippet(trough_window)); % only look after the pulse has come on
-                                troughidx = find(snippet == troughval);
-                                assert(numel(troughidx)==1, 'ERROR: too many trough vals')
-                                
-                                peakidx = nan;
-                                
-                            case  'FV_Na'
-                                trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.004);
-                                troughval = min(snippet(trough_window)); % only look after the pulse has come on
-                                troughidx = find(snippet == troughval);
-                                troughtime = tt(troughidx);
-                                assert(numel(troughidx)==1, 'ERROR: too many trough vals')
-                                
-                                peak_window = (tt > troughtime) & (tt <= 0.0065);
-                                peakval = max(snippet(peak_window)); % only look after the pulse has come on
-                                peakidx = find(snippet == peakval);
-                                assert(numel(peakidx)==1, 'ERROR: too many peak vals')
-                                assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                        end
+                        [troughidx, peakidx, takeoff]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay);
                         
                     end
                     
-                    % store the peak and trough indicies for plotting later (if
-                    % desired)
+                    % store the peak and trough indicies for plotting later (if desired)
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch}(i_pulse,:) = [troughidx, peakidx];
+                    
                     
                     % add a few points on either side of the true trough/peak
                     trough_window = troughidx-4: min([troughidx+4, numel(snippet)]);
                     peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
                     
-                    
+                    %
                     % store some stats for each pulse
+                    %
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%
                     switch conds{i_cond}
                         case 'FV_Na'
                             
@@ -317,21 +297,21 @@ for i_ex = 1:Nexpts
                         case 'nbqx_apv_cd2_ttx'
                             
                             trough = mean(snippet(trough_window));
-                            
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
                     end
                     
+                    
+                    %
                     % calculate the integral of the LFP signal. This
                     % integral will get adjusted later to reflect the
                     % integral of a noisy signal with no response to the
                     % LED...
+                    %%%%%%%%%%%%%%%%%%%%%%
                     pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                    pWidthSamps = ceil(pWidth .* sampRate);
-                    firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-                    snippet_pulse = snippet(firstValidPostPulseIdx:end);
-                    
-                    area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate);
+                    pulse_window = (tt >= (pWidth+photoDelay)) & (tt < 0.008);
+                    snippet_pulse = snippet(pulse_window);
+                    area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate); % adjusts for differences in sample rate between experiments
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
                     
