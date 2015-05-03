@@ -1,7 +1,7 @@
-function [troughidx, peakidx, takeoff]  = anlyMod_getWFepochs(snippet, tt, condition, pWidth, photoDelay)
+function [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, condition, pWidth, photoDelay)
 
 % initialize the outputs
-[troughidx, peakidx,takeoff] = deal(nan);
+[troughidx, peakidx] = deal(nan);
 
 switch condition
     case 'nbqx_apv_cd2_ttx'
@@ -31,4 +31,5 @@ switch condition
         troughval = min(snippet(trough_window)); % only look after the pulse has come on
         troughidx = find(snippet == troughval);
         assert(numel(troughidx)==1, 'ERROR: too many trough vals')
+        
 end
