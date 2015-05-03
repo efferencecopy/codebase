@@ -24,4 +24,11 @@ switch condition
         peakidx = find(snippet == peakval);
         assert(numel(peakidx)==1, 'ERROR: too many peak vals')
         assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
+        
+    case 'synapticTransmission'
+        
+        trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
+        troughval = min(snippet(trough_window)); % only look after the pulse has come on
+        troughidx = find(snippet == troughval);
+        assert(numel(troughidx)==1, 'ERROR: too many trough vals')
 end

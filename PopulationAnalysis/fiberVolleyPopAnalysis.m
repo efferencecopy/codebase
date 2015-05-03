@@ -195,7 +195,7 @@ FIRSTPULSE = false;
 
 for i_ex = 1:Nexpts
     
-    conds = {'FV_Na', 'nbqx_apv_cd2_ttx'};
+    conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -352,11 +352,9 @@ end % expts
 
 close all
 
-conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
-%conds = {'synapticTransmission', 'FV_Na'}; % alternate plots
-%conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
-%conds = {'none', 'nbqx_apv'};
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
+CHECKTRIALSTATS = true;
 RESTRICT_TO_STIM_SITE = false;
 
 for i_ex = 1:Nexpts
@@ -381,20 +379,23 @@ for i_ex = 1:Nexpts
             end
         end
         
-        figure
-        figName = sprintf('%s: site %d, ch %d', info{i_ex}.mouse, in{i_ex,2}, i_ch);
-        set(gcf, 'name', figName,...
-            'position', [148    33   813   752],...
-            'defaulttextinterpreter', 'none');
+        hFig = figure;
+        set(gcf, 'position', [11 364 1421 393]);
+        set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, info{i_ex}.stimSite, i_ch))
+        s = warning('off', 'MATLAB:uitabgroup:OldVersion');
+        hTabGroup = uitabgroup('Parent',hFig);
         
         for i_cond = 1:numel(conds)
+            
+            hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', conds{i_cond});
+            hAx(i_cond) = axes('Parent', hTabs(i_cond));
+            hold on,
             
             %
             % plot the raw (Average) traces
             %
             pTypes = fieldnames(dat{i_ex});
             Ntfs = numel(pTypes);
-            Nplts = max([3, Ntfs]);
             for i_tf = 1:Ntfs
                 
                 tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
@@ -407,18 +408,21 @@ for i_ex = 1:Nexpts
                 tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) .* 1000;
                 
-                pltidx = (i_cond-1)*Nplts + i_tf;
-                subplot(3, Nplts, pltidx), 
+                subplot(1, Ntfs, i_tf), 
                 cmap = colormap('copper');
                 cidx = round(linspace(1, size(cmap,1), size(tmp_raw,2)));
                 cmap = cmap(cidx,:);
                 set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
                 
                 plot(tt, tmp_raw, 'linewidth', 2), hold on,
-                plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
-                if strcmpi(conds{i_cond}, 'FV_Na')
-                    plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
+                
+                if CHECKTRIALSTATS
+                    plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
+                    if strcmpi(conds{i_cond}, 'FV_Na')
+                        plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
+                    end
                 end
+                
                 axis tight
                 title(pTypes{i_tf})
                 xlabel('time (ms)')
@@ -428,20 +432,23 @@ for i_ex = 1:Nexpts
                             ylabel(sprintf('%s Current', info{i_ex}.opsin))
                         case 'FV_Na'
                             ylabel('Fiber Volley')
+                        case 'synapticTransmission'
+                            ylabel('Field PSP')
                     end
                     
                 end
+
             end
         end
         
         
-        %
-        % plot the summary stat (pk2tr or diff from baseline) as a function
-        % of pulse number
-        %
+        hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary');
+        hAx(i_cond) = axes('Parent', hTabs(i_cond));
+        hold on,
+
         
         % diff val for opsin current
-        subplot(3,Nplts, Nplts*2+1), hold on,
+        subplot(1,3,1), hold on,
         legtext = {};
         diffval={};
         tmptfs = [];
@@ -471,7 +478,7 @@ for i_ex = 1:Nexpts
         
         
         % Fiber volley peak to trough
-        subplot(3,Nplts, Nplts*2+2), hold on,
+        subplot(1,3,2), hold on,
         legtext = {};
         pk2tr={};
         tmptfs = [];
@@ -490,8 +497,8 @@ for i_ex = 1:Nexpts
         end
         xlabel('Pulse number')
         ylabel('Fiber Volley pk2tr')
-%         legend(legtext, 'location', 'southwest')
-%         legend boxoff
+        legend(legtext, 'location', 'southwest')
+        legend boxoff
         xlim([1, max(cellfun(@numel, pk2tr))])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
@@ -501,7 +508,7 @@ for i_ex = 1:Nexpts
         end
         
         % fiber volley integral
-        subplot(3,Nplts, Nplts*2+3), hold on,
+        subplot(1,3,3), hold on,
         legtext = {};
         area={};
         tmptfs = [];
@@ -520,8 +527,8 @@ for i_ex = 1:Nexpts
         end
         xlabel('Pulse number')
         ylabel('FV Area (mV/sec)')
-%         legend(legtext, 'location', 'southwest')
-%         legend boxoff
+        legend(legtext, 'location', 'southwest')
+        legend boxoff
         xlim([1, max(cellfun(@numel, area))])
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
