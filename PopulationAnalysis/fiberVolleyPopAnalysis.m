@@ -299,6 +299,11 @@ for i_ex = 1:Nexpts
                             trough = mean(snippet(trough_window));
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
+                        case 'synapticTransmission'
+                            
+                            trough = mean(snippet(trough_window));
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                            
                     end
                     
                     
@@ -356,6 +361,7 @@ conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
 CHECKTRIALSTATS = true;
 RESTRICT_TO_STIM_SITE = false;
+NORMTOPULSE1 = true;
 
 for i_ex = 1:Nexpts
     
@@ -380,22 +386,23 @@ for i_ex = 1:Nexpts
         end
         
         hFig = figure;
-        set(gcf, 'position', [11 364 1421 393]);
+        set(gcf, 'position', [87 6 1260 799]);
         set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, info{i_ex}.stimSite, i_ch))
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
         
+        
+        hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Raw Data');
+        hAx(i_cond) = axes('Parent', hTabs(i_cond));
+        hold on,
         for i_cond = 1:numel(conds)
-            
-            hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', conds{i_cond});
-            hAx(i_cond) = axes('Parent', hTabs(i_cond));
-            hold on,
             
             %
             % plot the raw (Average) traces
             %
             pTypes = fieldnames(dat{i_ex});
             Ntfs = numel(pTypes);
+            Nconds = numel(conds);
             for i_tf = 1:Ntfs
                 
                 tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
@@ -408,7 +415,7 @@ for i_ex = 1:Nexpts
                 tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) .* 1000;
                 
-                subplot(1, Ntfs, i_tf), 
+                subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs)), 
                 cmap = colormap('copper');
                 cidx = round(linspace(1, size(cmap,1), size(tmp_raw,2)));
                 cmap = cmap(cidx,:);
@@ -442,101 +449,68 @@ for i_ex = 1:Nexpts
         end
         
         
-        hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary');
+        %
+        % Now plot the summary statistics
+        %
+        %%%%%%%%%%%%%%%%%%
+        
+        
+        hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary Stats');
         hAx(i_cond) = axes('Parent', hTabs(i_cond));
         hold on,
-
-        
-        % diff val for opsin current
-        subplot(1,3,1), hold on,
-        legtext = {};
-        diffval={};
-        tmptfs = [];
-        for i_tf = 1:Ntfs
-            tmp = dat{i_ex}.(pTypes{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
-            tmp = abs(tmp);
-            diffval = cat(1,diffval, [tmp]);
-            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
-        end
-        [~, order] = sort(tmptfs);
-        for i_plt = 1:numel(order)
-            idx = order(i_plt);
-            plot(1:numel(diffval{idx}), diffval{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-            legtext = cat(2, legtext, num2str(tmptfs(idx)));
-        end
-        xlabel('Pulse number')
-        ylabel(sprintf('%s diffVal', info{i_ex}.opsin))
-        legend(legtext, 'location', 'southwest')
-        legend boxoff
-        xlim([1, max(cellfun(@numel, diffval))])
-        yvals = get(gca, 'ylim');
-        yvals(1) = min([0, yvals(1)]);
-        set(gca, 'ylim', [0, yvals(2)]);
-        if yvals(1)<0
-            plot([1,max(cellfun(@numel, diffval))], [0,0] , 'k--', 'linewidth', 2)
-        end
-        
-        
-        % Fiber volley peak to trough
-        subplot(1,3,2), hold on,
-        legtext = {};
-        pk2tr={};
-        tmptfs = [];
-        for i_tf = 1:Ntfs
+        statTypes = {'diffval', 'area', 'pk2tr', 'slopeOn', 'slopeOff'};
+        Nstats = numel(statTypes);
+        for i_cond = 1:Nconds
             
-            tmp = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch};
-            pk2tr = cat(1, pk2tr, [tmp]);
-            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+            for i_stat = 1:Nstats
+                
+                if ~isfield(dat{i_ex}.(pTypes{1}).stats.(conds{i_cond}), statTypes{i_stat})
+                    continue
+                end
+                
+                subplot(Nconds, Nstats, i_stat+((i_cond-1)*Nstats)), hold on,
+                legtext = {};
+                rawvals={};
+                tmptfs = [];
+                for i_tf = 1:Ntfs
+                    tmp = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){i_ch};
+                    if NORMTOPULSE1
+                        tmp = tmp ./ tmp(1);
+                    end
+                    rawvals = cat(1, rawvals, tmp);
+                    tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+                end
+                [~, order] = sort(tmptfs);
+                
+                for i_plt = 1:numel(order)
+                    idx = order(i_plt);
+                    plot(1:numel(rawvals{idx}), rawvals{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
+                    legtext = cat(2, legtext, num2str(tmptfs(idx)));
+                end
+                xlabel('Pulse number')
+                legend(legtext, 'location', 'southwest')
+                legend boxoff
+                xlim([1, max(cellfun(@numel, rawvals))])
+                yvals = get(gca, 'ylim');
+                yvals(1) = min([0, yvals(1)]);
+                set(gca, 'ylim', [0, yvals(2)]);
+                title(sprintf('%s', statTypes{i_stat}));
+                if i_stat == 1
+                    switch conds{i_cond}
+                        case 'nbqx_apv_cd2_ttx'
+                            ylabel(sprintf('%s current', info{i_ex}.opsin))
+                        case 'FV_Na'
+                            ylabel('Fiber Volley')
+                        case 'synapticTransmission'
+                            ylabel('field PSP')
+                    end
+                end
+                
+            end
+            
+            drawnow % force the uitab plot to update in quasi real time
             
         end
-        [~, order] = sort(tmptfs);
-        for i_plt = 1:numel(order)
-            idx = order(i_plt);
-            plot(1:numel(pk2tr{idx}), pk2tr{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-            legtext = cat(2, legtext, num2str(tmptfs(idx)));
-        end
-        xlabel('Pulse number')
-        ylabel('Fiber Volley pk2tr')
-        legend(legtext, 'location', 'southwest')
-        legend boxoff
-        xlim([1, max(cellfun(@numel, pk2tr))])
-        yvals = get(gca, 'ylim');
-        yvals(1) = min([0, yvals(1)]);
-        set(gca, 'ylim', yvals);
-        if yvals(1)<0
-            plot([1,max(cellfun(@numel, pk2tr))], [0,0] , 'k--', 'linewidth', 2)
-        end
-        
-        % fiber volley integral
-        subplot(1,3,3), hold on,
-        legtext = {};
-        area={};
-        tmptfs = [];
-        for i_tf = 1:Ntfs
-            
-            tmp = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.area{i_ch};
-            area = cat(1, area, [tmp]);
-            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
-             
-        end
-        [~, order] = sort(tmptfs);
-        for i_plt = 1:numel(order)
-            idx = order(i_plt);
-            plot(1:numel(area{idx}), area{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-            legtext = cat(2, legtext, num2str(tmptfs(idx)));
-        end
-        xlabel('Pulse number')
-        ylabel('FV Area (mV/sec)')
-        legend(legtext, 'location', 'southwest')
-        legend boxoff
-        xlim([1, max(cellfun(@numel, area))])
-        yvals = get(gca, 'ylim');
-        yvals(1) = min([0, yvals(1)]);
-        set(gca, 'ylim', yvals);
-        if yvals(1)<0
-            plot([1,max(cellfun(@numel, area))], [0,0] , 'k--', 'linewidth', 2)
-        end
-        
         
     end
 end
