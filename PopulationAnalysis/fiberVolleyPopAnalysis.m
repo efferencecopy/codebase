@@ -39,43 +39,44 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-    'CH_141215_F', 1;...
-    'CH_141215_E', 1;...
-    'CH_141215_E', 2;...
-    %'CH_150105_A', 1;...  % might get cut
-    'CH_150105_B', 1;...
-    'CH_150105_B', 2;...
-    %'CH_150105_C', 1;...  % might get cut
-    %'CH_150112_A', 1;...  % might get cut
-    'CH_150112_A', 2;...
-    'CH_150112_B', 1;...
-    'CH_150112_B', 2;...
-    'CH_150112_D', 1;...
-    'CH_150112_D', 2;...
-    'CH_150112_C', 1;...
-    'CH_150119_C', 1;...
-    'CH_150119_C', 2;...
-    'CH_150119_D', 1;...
-    'CH_150119_D', 2;...
-    'CH_150119_B', 1;...
-    'CH_150119_B', 2;...
-    %'CH_150302_C', 1;... % different led powers, good for avg oChIEF wavefor, but nothing else
+        'CH_141215_F', 1;...
+        'CH_141215_E', 1;...
+        'CH_141215_E', 2;...
+        %'CH_150105_A', 1;...  % might get cut
+        'CH_150105_B', 1;...
+        'CH_150105_B', 2;...
+        %'CH_150105_C', 1;...  % might get cut
+        %'CH_150112_A', 1;...  % might get cut
+        'CH_150112_A', 2;...
+        'CH_150112_B', 1;...
+        'CH_150112_B', 2;...
+        'CH_150112_D', 1;...
+        'CH_150112_D', 2;...
+        'CH_150112_C', 1;...
+        'CH_150119_C', 1;...
+        'CH_150119_C', 2;...
+        'CH_150119_D', 1;...
+        'CH_150119_D', 2;...
+        'CH_150119_B', 1;...
+        'CH_150119_B', 2;...
+        %'CH_150302_C', 1;... % different led powers, good for avg oChIEF waveform, but nothing else
         };
 
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
-
-% clear out the workspace
-fin
-
-% in = {Mouse Name, Site}
-
-in = {
-      'CH_150112_C', 2;...
-      'CH_150302_C', 1;...
-      'CH_150302_A', 1;...
-      };
+% 
+% % clear out the workspace
+% fin
+% 
+% % in = {Mouse Name, Site}
+% 
+% in = {
+%       'CH_150112_C', 2;...
+%       'CH_150302_C', 1;...
+%       'CH_150302_A', 1;...
+%       'CH_150302_D', 1;...
+%       };
 
 
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
@@ -180,7 +181,7 @@ for i_ex = 1:Nexpts
 end
 
 
-%% ANALYZE THE SNIPPETS: PEAK-TO-PEAK, PEAK-2-BASELINE
+%% ANALYZE THE SNIPPETS AND CALCULATE VARIOUS STATS
 
 % REMINDER: this is happening in separate cell-script because I will define
 % the analysis region based off the average first pulse across TF conds.
@@ -190,11 +191,11 @@ end
 % should the analysis window be defined based off the average response
 % following the first pulse (across conditions) or should the analysis
 % window be unique for each pulse?
-FIRSTPULSE = true;
+FIRSTPULSE = false;
 
 for i_ex = 1:Nexpts
     
-    conds = {'FV_Na', 'nbqx_apv_cd2_ttx'};
+    conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -203,7 +204,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelaySamps = ceil(0 .* sampRate); % timeout following pulse offset
+        photoDelay= 0.0006; % timeout following pulse offset
         
         for i_ch = 1:2;
             
@@ -222,57 +223,72 @@ for i_ex = 1:Nexpts
             end
             
             
-            
+            %
+            % For each 'condition', I need to identify keep points on the
+            % raw waveforms (eg., trough time, peak time, etc.). These
+            % time points will be estimated from the first pulse in the
+            % train (averaged across TF conditions) or on a pulse-by-pulse
+            % basis.
+            %
+            %%%%%%%%%%%%%%%%%%%%%%%%%
             if FIRSTPULSE
+                
                 % calculate the analysis windows based off the average 1st pulse,
                 % which should be the same across TFs (within pharmacology
                 % condition and channel).
                 firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
                 for i_tf = 1:Ntfs
-                    
                     firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(1,:);
-                    
                 end
-                pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                pWidthSamps = ceil(pWidth .* sampRate);
                 
                 firstPulse = mean(firstPulse,1);
+                pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
+                tt = ([0:numel(firstPulse)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
+                [troughidx, peakidx, takeoff]  = anlyMod_getWFepochs(firstPulse, tt, conds{i_cond}, pWidth, photoDelay);
                 
-                firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-                [~, troughidx] = min(firstPulse(firstValidPostPulseIdx+1:end)); % only look after the pulse has come on
-                troughidx = troughidx + firstValidPostPulseIdx;
-                [~, peakidx] = max(firstPulse(firstValidPostPulseIdx+1:end));
-                peakidx = peakidx + firstValidPostPulseIdx;
-                
-                % some error checking for the FV case
-                if strcmpi('FV_Na', conds{i_cond})
-                    assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
-                    assert(peakidx./sampRate < 0.007, 'ERROR: positivity occurs too late');
-                    assert(peakidx./sampRate > 250e-6, 'ERROR: positivity occurs too early');
-                end
-                
-                % add a few points on either side of the true trough/peak
-                troughidx = troughidx-4:troughidx+4;
-                peakidx = peakidx-4:peakidx+4;
             end
             
-            
-            
-            % now do the analysis
+
+            % 
+            % Now do the analysis on a pulse by pulse basis. Loop over TF
+            % conditions, and pulses. If the important time points haven't
+            % already been determined, do so right before the analysis.
+            %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             for i_tf = 1:Ntfs
                 
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+                
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
+                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
                     
+                    if ~FIRSTPULSE
+                        
+                        pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
+                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay);
+                        
+                    end
+                    
+                    % store the peak and trough indicies for plotting later (if desired)
+                    dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch}(i_pulse,:) = [troughidx, peakidx];
+                    
+                    
+                    % add a few points on either side of the true trough/peak
+                    trough_window = troughidx-4: min([troughidx+4, numel(snippet)]);
+                    peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
+                    
+                    %
                     % store some stats for each pulse
+                    %
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%
                     switch conds{i_cond}
                         case 'FV_Na'
                             
-                            trough = mean(snippet(troughidx));
-                            peak = mean(snippet(peakidx));
+                            trough = mean(snippet(trough_window));
+                            peak = mean(snippet(peak_window));
                             
                             pk2tr = peak-trough;
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
@@ -280,22 +296,86 @@ for i_ex = 1:Nexpts
                             
                         case 'nbqx_apv_cd2_ttx'
                             
-                            trough = mean(snippet(troughidx));
-                            
+                            trough = mean(snippet(trough_window));
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                            
+                            % fit a single tau to the decay using OLS
+                            startVal = snippet(troughidx) .* 0.80;
+                            startIdx = find((snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
+                            fit_tt = tt(startIdx : end);
+                            fit_dat = snippet(startIdx : end);
+                            
+                            % make sure none of the fit_dat points are
+                            % positive because the fitting routine will
+                            % assume that all the points are negative
+                            critval = -0.005;
+                            if any(fit_dat > critval)
+                                l_pos = fit_dat > critval;
+                                fit_tt = fit_tt(~l_pos);
+                                fit_dat = fit_dat(~l_pos);
+                            end
+
+                            betas = [fit_tt(:), ones(size(fit_tt(:)))] \ log(abs(fit_dat(:)));
+                            
+%                             if strcmpi(info{i_ex}.mouse, 'CH_150119_C') && (info{i_ex}.stimSite == 1) && (i_pulse > 1) && (info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF > 70)
+%                                 keyboard;
+%                             end
+                            
+                            % store the slope params
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse) = betas(1);
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse) = betas(2);
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
+                            
+                            
+                        case 'synapticTransmission'
+                            
+                            trough = mean(snippet(trough_window));
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                            
+                            %
+                            % fit the slope using OLS regression
+                            %%%%%%%%%%%%%%%%
+                            synapseDelay = 0.0018;
+                            startSlopeVal = snippet(troughidx) .* 0.20;
+                            slopeStartIdx = find((tt >= synapseDelay) & (snippet <= startSlopeVal), 1, 'first');
+                            stopSlopeVal = trough .* 0.80;
+                            slopeStopIdx = find((tt < tt(troughidx)) & (snippet >= stopSlopeVal) , 1, 'last');
+                            fit_dat = snippet(slopeStartIdx : slopeStopIdx);
+                            fit_tt = tt(slopeStartIdx : slopeStopIdx);
+                            
+                            %check to make sure the waveform is not
+                            %contaminated by two peaks
+                            critval = -2 ./ sampRate; % empirically pretty good at catching non-monotonic trends
+                            posslope = diff(fit_dat)> critval; 
+                            consecPosSlope = conv(double(posslope), [1 1]);
+                            if any(consecPosSlope >= 2);
+                                posSlopeIdx = find(consecPosSlope == 2, 1, 'first')-2;
+                                slopeStopIdx = slopeStartIdx + posSlopeIdx;
+                                fit_dat = snippet(slopeStartIdx : slopeStopIdx);
+                                fit_tt = tt(slopeStartIdx : slopeStopIdx);
+                            end
+                            
+                            % do the fit
+                            betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
+                            
+                            % store the slope params
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse) = betas(1);
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_intercept{i_ch}(i_pulse) = betas(2);
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,:) = [slopeStartIdx, slopeStopIdx];
                             
                     end
                     
+                    
+                    %
                     % calculate the integral of the LFP signal. This
                     % integral will get adjusted later to reflect the
                     % integral of a noisy signal with no response to the
                     % LED...
+                    %%%%%%%%%%%%%%%%%%%%%%
                     pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                    pWidthSamps = ceil(pWidth .* sampRate);
-                    firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-                    snippet_pulse = snippet(firstValidPostPulseIdx:end);
-                    
-                    area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate);
+                    pulse_window = (tt >= (pWidth+photoDelay)) & (tt < 0.008);
+                    snippet_pulse = snippet(pulse_window);
+                    area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate); % adjusts for differences in sample rate between experiments
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
                     
@@ -324,7 +404,6 @@ for i_ex = 1:Nexpts
                 dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch} = tmp;
                 
             end % tfs
-            
         end % channels
         
     end % conditions
@@ -337,17 +416,20 @@ end % expts
 
 close all
 
-conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
-%conds = {'synapticTransmission', 'FV_Na'}; % alternate plots
-%conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
-%conds = {'none', 'nbqx_apv'};
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
+
+CHECK_TRIAL_STATS = true;
+RESTRICT_TO_STIM_SITE = false;
+NORM_TO_PULSE1 = false;
 
 for i_ex = 1:Nexpts
     
     for i_ch = 1:2;
         
-        if i_ch ~= info{i_ex}.stimSite
-            continue
+        if RESTRICT_TO_STIM_SITE
+            if i_ch ~= info{i_ex}.stimSite
+                continue
+            end
         end
         
         % deal with data and channels that need to be ignored.
@@ -362,12 +444,17 @@ for i_ex = 1:Nexpts
             end
         end
         
-        figure
-        figName = sprintf('%s: site %d, ch %d', info{i_ex}.mouse, in{i_ex,2}, i_ch);
-        set(gcf, 'name', figName,...
-            'position', [148    33   813   752],...
-            'defaulttextinterpreter', 'none');
+        hFig = figure;
+        set(gcf, 'position', [87 6 1260 799]);
+        set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, info{i_ex}.stimSite, i_ch))
+        set(gcf, 'defaulttextinterpreter', 'none')
+        s = warning('off', 'MATLAB:uitabgroup:OldVersion');
+        hTabGroup = uitabgroup('Parent',hFig);
         
+        
+        hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Raw Data');
+        hAx(i_cond) = axes('Parent', hTabs(i_cond));
+        hold on,
         for i_cond = 1:numel(conds)
             
             %
@@ -375,22 +462,66 @@ for i_ex = 1:Nexpts
             %
             pTypes = fieldnames(dat{i_ex});
             Ntfs = numel(pTypes);
-            Nplts = max([3, Ntfs]);
+            Nconds = numel(conds);
             for i_tf = 1:Ntfs
                 
-                tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch};
+                tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
+                inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch};
+                Ntime = size(tmp_raw,1);
+                Ncols = size(tmp_raw,2);
+                inds_tt = inds;
+                inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
                 
-                tt = (0:size(tmp_raw,2)-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
-                tt = (tt - prePulseTime) .* 1000;
+                tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
+                tt = (tt - prePulseTime) .* 1000; % in ms.
                 
-                pltidx = (i_cond-1)*Nplts + i_tf;
-                subplot(3, Nplts, pltidx)
+                subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs)), 
                 cmap = colormap('copper');
-                cidx = round(linspace(1, size(cmap,1), size(tmp_raw,1)));
+                cidx = round(linspace(1, size(cmap,1), size(tmp_raw,2)));
                 cmap = cmap(cidx,:);
                 set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
                 
-                plot(tt, tmp_raw', 'linewidth', 2)
+                plot(tt, tmp_raw, 'linewidth', 2), hold on,
+                
+                if CHECK_TRIAL_STATS
+                    
+                    % check the peak and trough indicies
+                    plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
+                    if strcmpi(conds{i_cond}, 'FV_Na')
+                        plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
+                    end
+                    
+                    % check slope fitting for the field PSP
+                    if strcmpi(conds{i_cond}, 'synapticTransmission')
+                        for i_pulse = 1:size(tmp_raw,2);
+                            startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,1);
+                            stopIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,2);
+                            m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse);
+                            m = m./1000; % slope was calculated in seconds, but ploting is in ms.
+                            b = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_intercept{i_ch}(i_pulse);
+                            fit_tt = tt(startIdx:stopIdx);
+                            fit_vals = m .* fit_tt + b;
+                            plot(fit_tt, fit_vals, 'g-')
+                        end
+                    end
+                    
+                    
+                    % check best fitting decay tau for the opsin current
+                    if strcmpi(conds{i_cond}, 'nbqx_apv_cd2_ttx')
+                        for i_pulse = 1:size(tmp_raw,2);
+                            startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse);
+                            m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse);
+                            m = m./1000; % slope was calculated in seconds, but ploting is in ms.
+                            b = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse);
+                            fit_tt = tt(startIdx:end);
+                            fit_vals = exp(m .* fit_tt) .* exp(b);
+                            fit_vals = -fit_vals; % compensate for the fact that the fit was on abs(rawdata), but opsin current is negative
+                            plot(fit_tt, fit_vals, 'm-')
+                        end
+                    end
+                    
+                end
+                
                 axis tight
                 title(pTypes{i_tf})
                 xlabel('time (ms)')
@@ -400,108 +531,82 @@ for i_ex = 1:Nexpts
                             ylabel(sprintf('%s Current', info{i_ex}.opsin))
                         case 'FV_Na'
                             ylabel('Fiber Volley')
+                        case 'synapticTransmission'
+                            ylabel('Field PSP')
                     end
                     
                 end
+
             end
         end
         
         
         %
-        % plot the summary stat (pk2tr or diff from baseline) as a function
-        % of pulse number
+        % Now plot the summary statistics
         %
-        
-        % diff val for opsin current
-        subplot(3,Nplts, Nplts*2+1), hold on,
-        legtext = {};
-        diffval={};
-        tmptfs = [];
-        for i_tf = 1:Ntfs
-            tmp = dat{i_ex}.(pTypes{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{i_ch};
-            tmp = abs(tmp);
-            diffval = cat(1,diffval, [tmp]);
-            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
-        end
-        [~, order] = sort(tmptfs);
-        for i_plt = 1:numel(order)
-            idx = order(i_plt);
-            plot(1:numel(diffval{idx}), diffval{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-            legtext = cat(2, legtext, num2str(tmptfs(idx)));
-        end
-        xlabel('Pulse number')
-        ylabel(sprintf('%s diffVal', info{i_ex}.opsin))
-        legend(legtext, 'location', 'southwest')
-        legend boxoff
-        xlim([1, max(cellfun(@numel, diffval))])
-        yvals = get(gca, 'ylim');
-        yvals(1) = min([0, yvals(1)]);
-        set(gca, 'ylim', [0, yvals(2)]);
-        if yvals(1)<0
-            plot([1,max(cellfun(@numel, diffval))], [0,0] , 'k--', 'linewidth', 2)
-        end
+        %%%%%%%%%%%%%%%%%%
         
         
-        % Fiber volley peak to trough
-        subplot(3,Nplts, Nplts*2+2), hold on,
-        legtext = {};
-        pk2tr={};
-        tmptfs = [];
-        for i_tf = 1:Ntfs
+        hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary Stats');
+        hAx(i_cond) = axes('Parent', hTabs(i_cond));
+        hold on,
+        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
+        Nstats = numel(statTypes);
+        for i_cond = 1:Nconds
             
-            tmp = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{i_ch};
-            pk2tr = cat(1, pk2tr, [tmp]);
-            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+            for i_stat = 1:Nstats
+                
+                if ~isfield(dat{i_ex}.(pTypes{1}).stats.(conds{i_cond}), statTypes{i_stat})
+                    continue
+                end
+                
+                subplot(Nconds, Nstats, i_stat+((i_cond-1)*Nstats)), hold on,
+                legtext = {};
+                rawvals={};
+                tmptfs = [];
+                for i_tf = 1:Ntfs
+                    tmp = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){i_ch};
+                    if NORM_TO_PULSE1
+                        tmp = tmp ./ tmp(1);
+                    end
+                    rawvals = cat(1, rawvals, tmp);
+                    tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+                end
+                [~, order] = sort(tmptfs);
+                
+                for i_plt = 1:numel(order)
+                    idx = order(i_plt);
+                    plot(1:numel(rawvals{idx}), rawvals{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
+                    legtext = cat(2, legtext, num2str(tmptfs(idx)));
+                end
+                xlabel('Pulse number')
+                xlim([1, max(cellfun(@numel, rawvals))])
+                title(sprintf('%s', statTypes{i_stat}));
+                if NORM_TO_PULSE1
+                    yvals = get(gca, 'ylim');
+                    yvals(1) = min([0, yvals(1)]);
+                    set(gca, 'ylim', [0, yvals(2)]);
+                end
+                if all([i_cond, i_stat] == [2,1])
+                    legend(legtext, 'location', 'best')
+                    legend boxoff
+                end
+                if i_stat == 1
+                    switch conds{i_cond}
+                        case 'nbqx_apv_cd2_ttx'
+                            ylabel(sprintf('%s current', info{i_ex}.opsin))
+                        case 'FV_Na'
+                            ylabel('Fiber Volley')
+                        case 'synapticTransmission'
+                            ylabel('field PSP')
+                    end
+                end
+                
+            end
+            
+            drawnow % force the uitab plot to update in quasi real time
             
         end
-        [~, order] = sort(tmptfs);
-        for i_plt = 1:numel(order)
-            idx = order(i_plt);
-            plot(1:numel(pk2tr{idx}), pk2tr{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-            legtext = cat(2, legtext, num2str(tmptfs(idx)));
-        end
-        xlabel('Pulse number')
-        ylabel('Fiber Volley pk2tr')
-%         legend(legtext, 'location', 'southwest')
-%         legend boxoff
-        xlim([1, max(cellfun(@numel, pk2tr))])
-        yvals = get(gca, 'ylim');
-        yvals(1) = min([0, yvals(1)]);
-        set(gca, 'ylim', yvals);
-        if yvals(1)<0
-            plot([1,max(cellfun(@numel, pk2tr))], [0,0] , 'k--', 'linewidth', 2)
-        end
-        
-        % fiber volley integral
-        subplot(3,Nplts, Nplts*2+3), hold on,
-        legtext = {};
-        area={};
-        tmptfs = [];
-        for i_tf = 1:Ntfs
-            
-            tmp = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.area{i_ch};
-            area = cat(1, area, [tmp]);
-            tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
-             
-        end
-        [~, order] = sort(tmptfs);
-        for i_plt = 1:numel(order)
-            idx = order(i_plt);
-            plot(1:numel(area{idx}), area{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-            legtext = cat(2, legtext, num2str(tmptfs(idx)));
-        end
-        xlabel('Pulse number')
-        ylabel('FV Area (mV/sec)')
-%         legend(legtext, 'location', 'southwest')
-%         legend boxoff
-        xlim([1, max(cellfun(@numel, area))])
-        yvals = get(gca, 'ylim');
-        yvals(1) = min([0, yvals(1)]);
-        set(gca, 'ylim', yvals);
-        if yvals(1)<0
-            plot([1,max(cellfun(@numel, area))], [0,0] , 'k--', 'linewidth', 2)
-        end
-        
         
     end
 end
@@ -513,17 +618,17 @@ end
 % or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
 % function of pulse number for each frequency
 
-STIMSITE = false;  % true => stimsite,  false => distal site
+STIMSITE = true;  % true => stimsite,  false => distal site
 
 
 %initialize the outputs
 opsinTypes = {'chr2', 'ochief'};
-conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
-stattype = {'diffval', 'pk2tr', 'area'};
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
+statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
-        for i_stat = 1:numel(stattype)
-            pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(stattype{i_stat}) = {[],{}}; % {{TF}, {Vals}}
+        for i_stat = 1:numel(statTypes)
+            pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat}) = {[],{}}; % {{TF}, {Vals}}
         end
     end
 end
@@ -567,16 +672,22 @@ for i_ex = 1:numel(dat)
         
         for i_cond = 1:numel(conds);
             
-            stattype = fieldnames(dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}));
-            
-            for i_stat = 1:numel(stattype)
+            for i_stat = 1:numel(statTypes)
+                
+                % skip instances where the data do not exist
+                if ~isfield(dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}), statTypes{i_stat})
+                    continue
+                end
                 
                 % structure the pnp1 data
-                tmp_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(stattype{i_stat}){CHANNEL};
+                tmp_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
+                if strcmpi(statTypes{i_stat}, 'tau_m')
+                    tmp_stat = 1./tmp_stat; % tau_m isn't a tau, need to convert to tau
+                end
                 tmp_pnp1 = tmp_stat ./ tmp_stat(1);
                 
                 % grab the data field of the 'pop' structure
-                tmp_pop = pop.(opsin).pnp1.(conds{i_cond}).(stattype{i_stat});
+                tmp_pop = pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat});
                 tf = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF;
                 
                 % is there already an entry for this TF and drug condition?
@@ -600,7 +711,7 @@ for i_ex = 1:numel(dat)
                 end
                 
                 % replace the 'pop' structure version with the tmp version
-                pop.(opsin).pnp1.(conds{i_cond}).(stattype{i_stat}) = tmp_pop;
+                pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat}) = tmp_pop;
                 
             end
         end
@@ -619,23 +730,23 @@ for i_opsin = 1:numel(opsinTypes)
     
     figure
     set(gcf, 'name', opsinTypes{i_opsin}, 'defaulttextinterpreter', 'none')
+    set(gcf, 'position', [109    31   891   754])
     
-    
-    for i_cond = 1:numel(conds);
+    Nconds = numel(conds);
+    for i_cond = 1:Nconds;
         
-        stattype = fieldnames(pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}));
-        
-        for i_stat = 1:numel(stattype)
+        Nstats = numel(statTypes);
+        for i_stat = 1:Nstats
             
             % grab the data
-            tmp_dat = pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(stattype{i_stat});
+            tmp_dat = pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat});
             
             % make sure there's actually data there
             if isempty(tmp_dat{1}); continue; end % some things are not in the data set
             
             % now do the plotting
-            subplot(2, numel(stattype), (i_cond-1).*numel(stattype) + i_stat)
-            title(stattype{i_stat})
+            subplot(Nconds, Nstats, (i_cond-1).*Nstats + i_stat)
+            title(statTypes{i_stat})
             
             tfs = tmp_dat{1};
             cmap = colormap('copper');
@@ -662,11 +773,9 @@ for i_opsin = 1:numel(opsinTypes)
             xlabel('Pulse number')
             if i_stat==1
                 ylabel(sprintf('%s \n Pn:P1 ratio', conds{i_cond}))
-            else
-                ylabel('Pn:P1 ratio')
             end
-            if i_stat==1  && i_cond==1
-                legend(legtext, 'location', 'southeast')
+            if i_stat==1  && i_cond==2
+                legend(legtext, 'location', 'best')
                 legend boxoff
             end
             yvals = get(gca, 'ylim');
@@ -682,101 +791,14 @@ end
 
 
 
-
-%%  ESTIMATE THE SLOPE OF THE FIELD EPSP
-
-
-STIMSITE = true;  % true => stimsite,  false => distal site
-
-figure, hold on,
-for i_ex = 1:Nexpts
-    
-    
-    % skip cases where the led was not targeted to either of the recording
-    % sites
-    if isnan(info{i_ex}.stimSite)
-        continue
-    end
-    
-    % Determine which recording channel to analyze
-    if strcmpi(info{i_ex}.mouse, 'CH_150105_D') % a strange exception that bucks the rules.
-        CHANNEL = 1;
-    else % all other experiments...
-        if STIMSITE
-            CHANNEL = info{i_ex}.stimSite;
-        else
-            if info{i_ex}.stimSite == 1
-                CHANNEL = 2;
-            elseif info{i_ex}.stimSite == 2
-                CHANNEL = 1;
-            end
-        end
-    end
-    
-    
-    conds = {'synapticTransmission'}; % 'for loop' of one for now, but room to grow...
-    for i_cond = 1:numel(conds)
-        
-        pTypes = fieldnames(dat{i_ex});
-        Ntfs = numel(pTypes);
-        
-        sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
-        prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
-        postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
-        
-        
-        
-        firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
-        for i_tf = 1:Ntfs
-            
-            firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
-            
-        end
-        firstPulse = mean(firstPulse,1);
-        firstValidPostPulseIdx = prePulseSamps + pWidthSamps + photoDelaySamps;
-        
-        
-        switch conds{i_cond}
-            case 'synapticTransmission'
-                
-                % Analyze a time window that's approx 2.5 to 4 ms from
-                % LED pulse onset
-                windowStartIdx = prePulseSamps + ceil(0.0025 .* sampRate);
-                windowStopIdx = prePulseSamps + ceil(0.004 .* sampRate);
-                avgVal = mean(firstPulse(windowStartIdx:windowStopIdx));
-                
-                p1stats{i_ex}.(conds{i_cond}).avgval(1, CHANNEL) = abs(avgVal);
-        end
-        
-        
-        % provisional plotting (delete later)
-        fPSP = p1stats{i_ex}.(conds{i_cond}).avgval(1, CHANNEL);
-        pk2tr = dat{i_ex}.(pTypes{1}).stats.FV_Na.pk2tr{CHANNEL};
-        pnp1 = pk2tr(end)./pk2tr(1);
-        switch lower(info{i_ex}.opsin)
-            case 'ochief'
-                plot(fPSP, pnp1, 'ro')
-            case 'chr2'
-                plot(fPSP, pnp1, 'bo')
-        end
-        ylabel('diffval')
-        xlabel('fPSP')
-        
-        
-    end % conditions
-    
-end % expts
-
-
-
-%%  SHAPE OF THE FIRST FIBER VOLLEY PULSE FOR oChIEF AND ChR2
+%%  SHAPE OF THE FIRST PULSE RESPONSE FOR oChIEF AND ChR2
 
 
 STIMSITE = true;
 
-chr2_examp = [];
-ochief_examp = [];
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+chr2_examp = {[] []};
+ochief_examp = {[] []};
 for i_ex = 1:Nexpts
     
     
@@ -801,8 +823,7 @@ for i_ex = 1:Nexpts
         end
     end
     
-    
-    conds = {'FV_Na'}; % for loop of one for now, but room to grow...
+     
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -811,65 +832,90 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
         
         
         firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
         for i_tf = 1:Ntfs
             
-            firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
+            tmp_dat = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
+            switch conds{i_cond}
+                case 'FV_Na'
+                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{CHANNEL}(1);
+                case 'nbqx_apv_cd2_ttx'
+                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
+            end
+            
+            firstPulse(i_tf,:) = tmp_dat ./ normFact;
             
         end
+        
+        % take the average, and normalize
         firstPulse = mean(firstPulse,1);
-        normFact = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{CHANNEL}(1);
-        firstPulse = firstPulse ./ normFact;
         
         
         % store the first pulse according to the opsin type, but only
         % if the sampling rate = 20kHz (so that the sampling latice is
         % the same...)
         correctSR = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate == 20e3;
-        correctCond = strcmpi(conds{i_cond}, 'FV_Na');
-        if correctSR && correctCond
-            switch lower(info{i_ex}.opsin)
-                case 'ochief'
-                    ochief_examp = cat(1, ochief_examp, firstPulse);
-                case 'chr2'
-                    chr2_examp = cat(1, chr2_examp, firstPulse);
-            end
+        if ~correctSR
+            
+            oldSampRate = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
+            old_tt = [0 : numel(firstPulse)-1] ./ oldSampRate;
+            
+            totalTime = numel(firstPulse) ./ oldSampRate;
+            newSampRate = 20e3;
+            newNumSamps = ceil(totalTime .* newSampRate);
+            new_tt = [0 : newNumSamps-1] ./ newSampRate;
+            firstPulse = interp1(old_tt, firstPulse, new_tt);
+            
         end
-        
+        switch lower(info{i_ex}.opsin)
+                case 'ochief'
+                    ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
+                case 'chr2'
+                    chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
+        end
         
     end % conditions
     
 end % expts
 
 
-% the example first pulse FV
-tt = (0:size(ochief_examp,2)-1)./20e3;
-tt = tt-tt(prePulseSamps);
-tt = tt.*1000;
-figure, hold on,
-plot(tt, ochief_examp', 'm');
-plot(tt, chr2_examp', 'c');
-plot(tt, mean(ochief_examp, 1), 'r', 'linewidth', 4);
-plot(tt, mean(chr2_examp, 1), 'b', 'linewidth', 4);
-xlabel('time (msec)')
-ylabel('Normalized LFP amplitude')
-title('Average FV for first pulse')
-axis tight
-
-
-
-figure, hold on,
-plot(tt, cumsum(-mean(ochief_examp, 1)), 'r', 'linewidth', 4);
-plot(tt, cumsum(-mean(chr2_examp, 1)), 'b', 'linewidth', 4);
-xlabel('time (msec)')
-ylabel('Normalized LFP amplitude')
-title('Integral of (negative) FV pulse')
-axis tight
-
-
+for i_cond = 1:numel(conds)
+    
+    % the example first 
+    tt = (0:size(ochief_examp{i_cond},2)-1)./20e3;
+    tt = tt-tt(prePulseSamps);
+    tt = tt.*1000;
+    
+    figure, hold on,
+    plot(tt, ochief_examp{i_cond}', 'm');
+    plot(tt, chr2_examp{i_cond}', 'c');
+    plot(tt, mean(ochief_examp{i_cond}, 1), 'r', 'linewidth', 4);
+    plot(tt, mean(chr2_examp{i_cond}, 1), 'b', 'linewidth', 4);
+    xlabel('time (msec)')
+    ylabel('Normalized LFP amplitude')
+    axis tight
+    switch conds{i_cond}
+        case 'FV_Na'
+            title('Average FV for first pulse')
+        case 'nbqx_apv_cd2_ttx'
+            title('Average opsin current for first pulse')
+    end
+    
+    
+    
+    if strcmpi(conds{i_cond}, 'FV_Na')
+        figure, hold on,
+        plot(tt, cumsum(-mean(ochief_examp{i_cond}, 1)), 'r', 'linewidth', 4);
+        plot(tt, cumsum(-mean(chr2_examp{i_cond}, 1)), 'b', 'linewidth', 4);
+        xlabel('time (msec)')
+        ylabel('Normalized LFP amplitude')
+        title('Integral of (negative) FV pulse')
+        axis tight
+    end
+    
+end
 
 
 

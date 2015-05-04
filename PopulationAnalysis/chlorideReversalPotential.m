@@ -222,7 +222,7 @@ in = {
      'EB_150410_A', '2015_04_28_', [6:10], {[] [] [] [] [12:25]} 2;...
      'EB_150410_B', '2015_04_27_', [0:7], {[] [] [] [] [] [] [] []}, 3;...
      'EB_150410_B', '2015_04_27_', [8:14], {[] [] [] [] [] [] []}, 4;...
-     'EB_150410_B', '2015_04_27_', [17:23], {[[] [] [] [] [] [] []]}, 5;...
+     'EB_150410_B', '2015_04_27_', [17:23], {[] [] [] [] [] [] []}, 5;...
      };
  
  
@@ -244,7 +244,7 @@ for i_ex = 1:Nexpts
         suffix = [repmat('0',1,nZerosNeeded), suffix];
         fname = [in{i_ex, 2}, suffix];
         ax = abfobj(fname);
-        ax.removeSweeps(in{i_ex, 4});
+        ax.removeSweeps(in{i_ex, 4}{i_ax});
         
         
         % do the analysis, store the average traces for plotting
