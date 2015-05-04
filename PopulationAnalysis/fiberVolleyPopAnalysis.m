@@ -299,6 +299,34 @@ for i_ex = 1:Nexpts
                             trough = mean(snippet(trough_window));
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
+                            % fit a single tau to the decay using OLS
+                            startVal = snippet(troughidx) .* 0.80;
+                            startIdx = find((snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
+                            fit_tt = tt(startIdx : end);
+                            fit_dat = snippet(startIdx : end);
+                            
+                            % make sure none of the fit_dat points are
+                            % positive because the fitting routine will
+                            % assume that all the points are negative
+                            critval = -0.005;
+                            if any(fit_dat > critval)
+                                l_pos = fit_dat > critval;
+                                fit_tt = fit_tt(~l_pos);
+                                fit_dat = fit_dat(~l_pos);
+                            end
+
+                            betas = [fit_tt(:), ones(size(fit_tt(:)))] \ log(abs(fit_dat(:)));
+                            
+%                             if strcmpi(info{i_ex}.mouse, 'CH_150119_C') && (info{i_ex}.stimSite == 1) && (i_pulse > 1) && (info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF > 70)
+%                                 keyboard;
+%                             end
+                            
+                            % store the slope params
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse) = betas(1);
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse) = betas(2);
+                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
+                            
+                            
                         case 'synapticTransmission'
                             
                             trough = mean(snippet(trough_window));
@@ -391,7 +419,7 @@ close all
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = true;
+RESTRICT_TO_STIM_SITE = false;
 NORM_TO_PULSE1 = false;
 
 for i_ex = 1:Nexpts
@@ -419,6 +447,7 @@ for i_ex = 1:Nexpts
         hFig = figure;
         set(gcf, 'position', [87 6 1260 799]);
         set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, info{i_ex}.stimSite, i_ch))
+        set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
         
@@ -476,6 +505,21 @@ for i_ex = 1:Nexpts
                         end
                     end
                     
+                    
+                    % check best fitting decay tau for the opsin current
+                    if strcmpi(conds{i_cond}, 'nbqx_apv_cd2_ttx')
+                        for i_pulse = 1:size(tmp_raw,2);
+                            startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse);
+                            m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse);
+                            m = m./1000; % slope was calculated in seconds, but ploting is in ms.
+                            b = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse);
+                            fit_tt = tt(startIdx:end);
+                            fit_vals = exp(m .* fit_tt) .* exp(b);
+                            fit_vals = -fit_vals; % compensate for the fact that the fit was on abs(rawdata), but opsin current is negative
+                            plot(fit_tt, fit_vals, 'm-')
+                        end
+                    end
+                    
                 end
                 
                 axis tight
@@ -506,7 +550,7 @@ for i_ex = 1:Nexpts
         hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary Stats');
         hAx(i_cond) = axes('Parent', hTabs(i_cond));
         hold on,
-        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tauoff'};
+        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
         Nstats = numel(statTypes);
         for i_cond = 1:Nconds
             
@@ -580,7 +624,7 @@ STIMSITE = true;  % true => stimsite,  false => distal site
 %initialize the outputs
 opsinTypes = {'chr2', 'ochief'};
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
-statTypes = {'diffval', 'area', 'pk2tr', 'slope'};
+statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
@@ -637,6 +681,9 @@ for i_ex = 1:numel(dat)
                 
                 % structure the pnp1 data
                 tmp_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
+                if strcmpi(statTypes{i_stat}, 'tau_m')
+                    tmp_stat = 1./tmp_stat; % tau_m isn't a tau, need to convert to tau
+                end
                 tmp_pnp1 = tmp_stat ./ tmp_stat(1);
                 
                 % grab the data field of the 'pop' structure
@@ -744,13 +791,14 @@ end
 
 
 
-%%  SHAPE OF THE FIRST FIBER VOLLEY PULSE FOR oChIEF AND ChR2
+%%  SHAPE OF THE FIRST PULSE RESPONSE FOR oChIEF AND ChR2
 
 
 STIMSITE = true;
 
-chr2_examp = [];
-ochief_examp = [];
+conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+chr2_examp = {[] []};
+ochief_examp = {[] []};
 for i_ex = 1:Nexpts
     
     
@@ -775,8 +823,7 @@ for i_ex = 1:Nexpts
         end
     end
     
-    
-    conds = {'FV_Na'}; % for loop of one for now, but room to grow...
+     
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -785,65 +832,90 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelaySamps = ceil(0 .* sampRate); % 500us timeout following pulse offset
         
         
         firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
         for i_tf = 1:Ntfs
             
-            firstPulse(i_tf,:) = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
+            tmp_dat = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
+            switch conds{i_cond}
+                case 'FV_Na'
+                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{CHANNEL}(1);
+                case 'nbqx_apv_cd2_ttx'
+                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
+            end
+            
+            firstPulse(i_tf,:) = tmp_dat ./ normFact;
             
         end
+        
+        % take the average, and normalize
         firstPulse = mean(firstPulse,1);
-        normFact = dat{i_ex}.(pTypes{i_tf}).stats.FV_Na.pk2tr{CHANNEL}(1);
-        firstPulse = firstPulse ./ normFact;
         
         
         % store the first pulse according to the opsin type, but only
         % if the sampling rate = 20kHz (so that the sampling latice is
         % the same...)
         correctSR = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate == 20e3;
-        correctCond = strcmpi(conds{i_cond}, 'FV_Na');
-        if correctSR && correctCond
-            switch lower(info{i_ex}.opsin)
-                case 'ochief'
-                    ochief_examp = cat(1, ochief_examp, firstPulse);
-                case 'chr2'
-                    chr2_examp = cat(1, chr2_examp, firstPulse);
-            end
+        if ~correctSR
+            
+            oldSampRate = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
+            old_tt = [0 : numel(firstPulse)-1] ./ oldSampRate;
+            
+            totalTime = numel(firstPulse) ./ oldSampRate;
+            newSampRate = 20e3;
+            newNumSamps = ceil(totalTime .* newSampRate);
+            new_tt = [0 : newNumSamps-1] ./ newSampRate;
+            firstPulse = interp1(old_tt, firstPulse, new_tt);
+            
         end
-        
+        switch lower(info{i_ex}.opsin)
+                case 'ochief'
+                    ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
+                case 'chr2'
+                    chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
+        end
         
     end % conditions
     
 end % expts
 
 
-% the example first pulse FV
-tt = (0:size(ochief_examp,2)-1)./20e3;
-tt = tt-tt(prePulseSamps);
-tt = tt.*1000;
-figure, hold on,
-plot(tt, ochief_examp', 'm');
-plot(tt, chr2_examp', 'c');
-plot(tt, mean(ochief_examp, 1), 'r', 'linewidth', 4);
-plot(tt, mean(chr2_examp, 1), 'b', 'linewidth', 4);
-xlabel('time (msec)')
-ylabel('Normalized LFP amplitude')
-title('Average FV for first pulse')
-axis tight
-
-
-
-figure, hold on,
-plot(tt, cumsum(-mean(ochief_examp, 1)), 'r', 'linewidth', 4);
-plot(tt, cumsum(-mean(chr2_examp, 1)), 'b', 'linewidth', 4);
-xlabel('time (msec)')
-ylabel('Normalized LFP amplitude')
-title('Integral of (negative) FV pulse')
-axis tight
-
-
+for i_cond = 1:numel(conds)
+    
+    % the example first 
+    tt = (0:size(ochief_examp{i_cond},2)-1)./20e3;
+    tt = tt-tt(prePulseSamps);
+    tt = tt.*1000;
+    
+    figure, hold on,
+    plot(tt, ochief_examp{i_cond}', 'm');
+    plot(tt, chr2_examp{i_cond}', 'c');
+    plot(tt, mean(ochief_examp{i_cond}, 1), 'r', 'linewidth', 4);
+    plot(tt, mean(chr2_examp{i_cond}, 1), 'b', 'linewidth', 4);
+    xlabel('time (msec)')
+    ylabel('Normalized LFP amplitude')
+    axis tight
+    switch conds{i_cond}
+        case 'FV_Na'
+            title('Average FV for first pulse')
+        case 'nbqx_apv_cd2_ttx'
+            title('Average opsin current for first pulse')
+    end
+    
+    
+    
+    if strcmpi(conds{i_cond}, 'FV_Na')
+        figure, hold on,
+        plot(tt, cumsum(-mean(ochief_examp{i_cond}, 1)), 'r', 'linewidth', 4);
+        plot(tt, cumsum(-mean(chr2_examp{i_cond}, 1)), 'b', 'linewidth', 4);
+        xlabel('time (msec)')
+        ylabel('Normalized LFP amplitude')
+        title('Integral of (negative) FV pulse')
+        axis tight
+    end
+    
+end
 
 
 
