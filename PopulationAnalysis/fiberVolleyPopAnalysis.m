@@ -65,7 +65,7 @@ in = {
 
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
-% 
+
 % % clear out the workspace
 % fin
 % 
@@ -419,8 +419,8 @@ close all
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = false;
-NORM_TO_PULSE1 = false;
+RESTRICT_TO_STIM_SITE = true;
+NORM_TO_PULSE1 = true;
 
 for i_ex = 1:Nexpts
     
@@ -629,6 +629,7 @@ for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
             pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat}) = {[],{}}; % {{TF}, {Vals}}
+            pop.(opsinTypes{i_opsin}).raw.(conds{i_cond}).(statTypes{i_stat}) = {[],{}}; % {{TF}, {Vals}}
         end
     end
 end
@@ -680,38 +681,50 @@ for i_ex = 1:numel(dat)
                 end
                 
                 % structure the pnp1 data
-                tmp_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
+                ex_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
                 if strcmpi(statTypes{i_stat}, 'tau_m')
-                    tmp_stat = 1./tmp_stat; % tau_m isn't a tau, need to convert to tau
+                    ex_stat = 1./ex_stat; % tau_m isn't a tau, need to convert to tau
                 end
-                tmp_pnp1 = tmp_stat ./ tmp_stat(1);
+                
+                % convert to paired pulse measures by normalizing by the
+                % height of the first pulse.
+                ex_p1p2 = ex_stat ./ ex_stat(1);
                 
                 % grab the data field of the 'pop' structure
-                tmp_pop = pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat});
+                tmp_pop_p1p2 = pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat});
+                tmp_pop_raw = pop.(opsin).raw.(conds{i_cond}).(statTypes{i_stat});
                 tf = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF;
                 
                 % is there already an entry for this TF and drug condition?
-                alreadyThere = any(tmp_pop{1} == tf);
+                alreadyThere = any(tmp_pop_p1p2{1} == tf);
                 if alreadyThere
-                    idx = tmp_pop{1} == tf;
+                    idx = tmp_pop_p1p2{1} == tf;
                     
                     % deal with cases where there are different numbers of
                     % pulses
-                    nPulsesExisting = size(tmp_pop{2}{idx},2);
-                    if numel(tmp_pnp1) < nPulsesExisting
-                        tmp_pnp1(1,end+1:nPulsesExisting) = nan;
+                    nPulsesExisting = size(tmp_pop_p1p2{2}{idx},2);
+                    if numel(ex_p1p2) < nPulsesExisting
+                        ex_p1p2(1,end+1:nPulsesExisting) = nan;
+                        ex_stat(1,end+1:nPulsesExisting) = nan;
                     else
-                        tmp_pop{2}{idx}(:,end+1:numel(tmp_pnp1)) = nan;
+                        tmp_pop_p1p2{2}{idx}(:,end+1:numel(ex_p1p2)) = nan;
+                        tmp_pop_raw{2}{idx}(:,end+1:numel(ex_p1p2)) = nan;
                     end
                     
-                    tmp_pop{2}{idx} = cat(1, tmp_pop{2}{idx}, tmp_pnp1);
+                    tmp_pop_p1p2{2}{idx} = cat(1, tmp_pop_p1p2{2}{idx}, ex_p1p2);
+                    tmp_pop_raw{2}{idx} = cat(1, tmp_pop_raw{2}{idx}, ex_stat);
+                    
                 else
-                    tmp_pop{1} = cat(1, tmp_pop{1}, tf);
-                    tmp_pop{2} = cat(1, tmp_pop{2}, tmp_pnp1);
+                    tmp_pop_p1p2{1} = cat(1, tmp_pop_p1p2{1}, tf);
+                    tmp_pop_p1p2{2} = cat(1, tmp_pop_p1p2{2}, ex_p1p2);
+                    
+                    tmp_pop_raw{1} = cat(1, tmp_pop_raw{1}, tf);
+                    tmp_pop_raw{2} = cat(1, tmp_pop_raw{2}, ex_stat);
                 end
                 
                 % replace the 'pop' structure version with the tmp version
-                pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat}) = tmp_pop;
+                pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat}) = tmp_pop_p1p2;
+                pop.(opsin).raw.(conds{i_cond}).(statTypes{i_stat}) = tmp_pop_raw;
                 
             end
         end
@@ -788,6 +801,55 @@ for i_opsin = 1:numel(opsinTypes)
         end
     end
 end
+
+
+
+%% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2
+
+
+FV_STAT = 'pk2tr';
+OPSIN_STAT = 'area';
+STAT_TYPE = 'raw';
+TFs = [10,20,40, 60, 100];
+
+
+cmap = colormap('copper');
+cidx = round(linspace(1, size(cmap,1), 6));
+cmap = cmap(cidx,:);
+figure, hold on,
+
+for i_tf = 1:numel(TFs)
+   
+    % pull out the data for ChR2:
+    tf_idx = pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
+    if sum(tf_idx == 1);
+        chr2_fv_raw = pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){2}{tf_idx};
+        chr2_opsin_raw = pop.chr2.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){2}{tf_idx};
+    else
+        chr2_fv_raw = nan(5,7); % a hack to allow plotting of tf conds for oChIEF that don't exist for ChR2
+        chr2_opsin_raw = nan(5,7);
+    end
+    
+    % pull out the data for oChIEF:
+    tf_idx = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
+    ochief_fv_raw = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){2}{tf_idx};
+    ochief_opsin_raw = pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){2}{tf_idx};
+    
+    
+    for i_pulse = 1:6
+        plot(chr2_opsin_raw(:,i_pulse), chr2_fv_raw(:,i_pulse), '+', 'markeredgecolor', cmap(i_pulse,:))
+        plot(ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse), 'o', 'markeredgecolor', cmap(i_pulse,:))
+    end
+    plot(mean(chr2_opsin_raw(:,1:6),1), mean(chr2_fv_raw(:,1:6),1), '-sb', 'markerfacecolor', 'b')
+    plot(mean(ochief_opsin_raw(:,1:6),1), mean(ochief_fv_raw(:,1:6),1), '-sr', 'markerfacecolor', 'r')
+    
+    
+    
+    
+end
+
+
+
 
 
 
