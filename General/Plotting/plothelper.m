@@ -11,6 +11,7 @@ end
 
 switch lower(type)
     case 'big'
-        set(hand, 'DefaultAxesFontSize', 20)
+        set(hand, 'DefaultAxesFontName','Arial')
+        set(hand, 'DefaultAxesFontSize', 26)
         set(hand, 'DefaultLineLinewidth', 2)
 end

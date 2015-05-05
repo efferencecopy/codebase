@@ -807,32 +807,34 @@ end
 %% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2
 
 
-FV_STAT = 'pk2tr';
+FV_STAT = 'area';
 OPSIN_STAT = 'area';
-STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
-PLOT_RAW = true;
-PLOT_AVG = false;
+STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
+PLOT_RAW = false;
+PLOT_AVG = true;
 PLOT_ERR = true;
-REMOVE_OUTLIER = false;
+REMOVE_OUTLIER = true;
 INDIVIDUAL_PLOTS = false;
+N_PULSES = 6;
 TFs = [10,20,40,60,100];
 
 
 if ~INDIVIDUAL_PLOTS
-    figure, hold on,
+    figure, plothelper; hold on,
     cmap = colormap('copper');
-    cidx = round(linspace(1, size(cmap,1), 6));
-    cmap = cmap(cidx,:);
+    cidx = round(linspace(1, size(cmap,1), N_PULSES+1));
+    cmap = cmap(cidx(1:end-1),:);
 end
 
+TF_line_scalar = linspace(0,0.7,numel(TFs));
 
 for i_tf = 1:numel(TFs)
     
     if INDIVIDUAL_PLOTS
         figure, hold on,
         cmap = colormap('copper');
-        cidx = round(linspace(1, size(cmap,1), 6));
-        cmap = cmap(cidx,:);
+        cidx = round(linspace(1, size(cmap,1), N_PULSES+1));
+        cmap = cmap(cidx(1:end-1),:);
     end
     
    
@@ -852,37 +854,40 @@ for i_tf = 1:numel(TFs)
     ochief_opsin_raw = pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){2}{tf_idx};
     if REMOVE_OUTLIER && any(ochief_opsin_raw(:)>1400)
         l_bad = sum(ochief_opsin_raw>1400,2) > 0;
-        ochief_opsin_raw(l_bad) = [];
-        ochief_fv_raw(l_bad) = [];
+        ochief_opsin_raw(l_bad,:) = [];
+        ochief_fv_raw(l_bad,:) = [];
     end
     
     if PLOT_RAW
-        for i_pulse = 1:6
+        for i_pulse = 1:N_PULSES
             plot(chr2_opsin_raw(:,i_pulse), chr2_fv_raw(:,i_pulse), '+', 'markeredgecolor', cmap(i_pulse,:))
             plot(ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse), 'o', 'markeredgecolor', cmap(i_pulse,:))
+            [ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse)]
         end
     end
     
     if PLOT_AVG
         % plot the avereages across conditions
-        plot(mean(chr2_opsin_raw(:,1:6),1), mean(chr2_fv_raw(:,1:6),1), '-sb', 'markerfacecolor', 'b')
-        plot(mean(ochief_opsin_raw(:,1:6),1), mean(ochief_fv_raw(:,1:6),1), '-sr', 'markerfacecolor', 'r')
+        ochiefclr = [1, TF_line_scalar(i_tf), TF_line_scalar(i_tf)];
+        chr2clr = [TF_line_scalar(i_tf), TF_line_scalar(i_tf), 1];
+        plot(mean(chr2_opsin_raw(:,1:N_PULSES),1), mean(chr2_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', chr2clr, 'color', chr2clr, 'markeredgecolor', chr2clr, 'markersize', 10, 'linewidth', 2)
+        plot(mean(ochief_opsin_raw(:,1:N_PULSES),1), mean(ochief_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', ochiefclr, 'color', ochiefclr, 'markeredgecolor', ochiefclr,  'markersize', 10, 'linewidth', 2)
         
         % plot SEM for the various conditions
         if PLOT_ERR
-            tmpX = mean(chr2_opsin_raw(:,1:6),1);
-            tmpY = mean(chr2_fv_raw(:,1:6),1);
-            SEM_X = nanstd(chr2_opsin_raw(:,1:6), [] ,1) ./ sqrt(sum(~isnan(chr2_opsin_raw(:,1:6)), 1));
-            SEM_Y = nanstd(chr2_fv_raw(:,1:6), [] ,1) ./ sqrt(sum(~isnan(chr2_fv_raw(:,1:6)), 1));
-            plot([tmpX-SEM_X/2; tmpX+SEM_X/2] , [tmpY; tmpY], 'b')
-            plot([tmpX ; tmpX], [tmpY-SEM_Y/2; tmpY+SEM_Y/2], 'b')
+            tmpX = mean(chr2_opsin_raw(:,1:N_PULSES),1);
+            tmpY = mean(chr2_fv_raw(:,1:N_PULSES),1);
+            SEM_X = nanstd(chr2_opsin_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(chr2_opsin_raw(:,1:N_PULSES)), 1));
+            SEM_Y = nanstd(chr2_fv_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(chr2_fv_raw(:,1:N_PULSES)), 1));
+            plot([tmpX-SEM_X/2; tmpX+SEM_X/2] , [tmpY; tmpY], 'color', chr2clr)
+            plot([tmpX ; tmpX], [tmpY-SEM_Y/2; tmpY+SEM_Y/2], 'color', chr2clr)
             
-            tmpX = mean(ochief_opsin_raw(:,1:6),1);
-            tmpY = mean(ochief_fv_raw(:,1:6),1);
-            SEM_X = nanstd(ochief_opsin_raw(:,1:6), [] ,1) ./ sqrt(sum(~isnan(ochief_opsin_raw(:,1:6)), 1));
-            SEM_Y = nanstd(ochief_fv_raw(:,1:6), [] ,1) ./ sqrt(sum(~isnan(ochief_fv_raw(:,1:6)), 1));
-            plot([tmpX-SEM_X/2; tmpX+SEM_X/2] , [tmpY; tmpY], 'r')
-            plot([tmpX ; tmpX], [tmpY-SEM_Y/2; tmpY+SEM_Y/2], 'r')
+            tmpX = mean(ochief_opsin_raw(:,1:N_PULSES),1);
+            tmpY = mean(ochief_fv_raw(:,1:N_PULSES),1);
+            SEM_X = nanstd(ochief_opsin_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(ochief_opsin_raw(:,1:N_PULSES)), 1));
+            SEM_Y = nanstd(ochief_fv_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(ochief_fv_raw(:,1:N_PULSES)), 1));
+            plot([tmpX-SEM_X/2; tmpX+SEM_X/2] , [tmpY; tmpY], 'color', ochiefclr)
+            plot([tmpX ; tmpX], [tmpY-SEM_Y/2; tmpY+SEM_Y/2], 'color', ochiefclr)
         end
     end
     
