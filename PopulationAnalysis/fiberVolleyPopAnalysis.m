@@ -419,7 +419,7 @@ close all
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = false;
+RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = false;
 
 for i_ex = 1:Nexpts
