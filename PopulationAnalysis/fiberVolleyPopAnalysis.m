@@ -375,7 +375,8 @@ for i_ex = 1:Nexpts
                     pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
                     pulse_window = (tt >= (pWidth+photoDelay)) & (tt < 0.008);
                     snippet_pulse = snippet(pulse_window);
-                    area = sum(abs(snippet_pulse)) ./ (numel(snippet_pulse) ./sampRate); % adjusts for differences in sample rate between experiments
+                    dt = 1./sampRate;
+                    area = sum(abs(snippet_pulse)) .* dt; % adjusts for differences in sample rate between experiments
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     
                     
@@ -394,7 +395,8 @@ for i_ex = 1:Nexpts
                 indexMtx = repmat(0:Nsamps-1, size(randStartIdx,1), 1);
                 indexMtx = bsxfun(@plus, randStartIdx, indexMtx);
                 shuffleBaseline = fullsweep(indexMtx);
-                noiseIntegral = sum(abs(shuffleBaseline), 2) ./ (Nsamps ./ sampRate);
+                dt = 1./sampRate;
+                noiseIntegral = sum(abs(shuffleBaseline), 2) .* dt;
                 noiseIntegral = mean(noiseIntegral);
                 
                 % correct the integral from above, based on the shuffle
@@ -809,18 +811,18 @@ end
 
 FV_STAT = 'area';
 OPSIN_STAT = 'area';
-STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
-PLOT_RAW = false;
-PLOT_AVG = true;
+STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
+PLOT_RAW = true;
+PLOT_AVG = false;
 PLOT_ERR = true;
 REMOVE_OUTLIER = true;
 INDIVIDUAL_PLOTS = false;
-N_PULSES = 6;
+N_PULSES = 1;
 TFs = [10,20,40,60,100];
 
 
 if ~INDIVIDUAL_PLOTS
-    figure, plothelper; hold on,
+    figure, hold on,
     cmap = colormap('copper');
     cidx = round(linspace(1, size(cmap,1), N_PULSES+1));
     cmap = cmap(cidx(1:end-1),:);
@@ -858,18 +860,19 @@ for i_tf = 1:numel(TFs)
         ochief_fv_raw(l_bad,:) = [];
     end
     
+    
+    ochiefclr = [1, TF_line_scalar(i_tf), TF_line_scalar(i_tf)];
+    chr2clr = [TF_line_scalar(i_tf), TF_line_scalar(i_tf), 1];
+    
     if PLOT_RAW
         for i_pulse = 1:N_PULSES
-            plot(chr2_opsin_raw(:,i_pulse), chr2_fv_raw(:,i_pulse), '+', 'markeredgecolor', cmap(i_pulse,:))
-            plot(ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse), 'o', 'markeredgecolor', cmap(i_pulse,:))
-            [ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse)]
+            plot(chr2_opsin_raw(:,i_pulse), chr2_fv_raw(:,i_pulse), '+', 'markeredgecolor', chr2clr)
+            plot(ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse), 'o', 'markeredgecolor', ochiefclr)
         end
     end
     
     if PLOT_AVG
         % plot the avereages across conditions
-        ochiefclr = [1, TF_line_scalar(i_tf), TF_line_scalar(i_tf)];
-        chr2clr = [TF_line_scalar(i_tf), TF_line_scalar(i_tf), 1];
         plot(mean(chr2_opsin_raw(:,1:N_PULSES),1), mean(chr2_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', chr2clr, 'color', chr2clr, 'markeredgecolor', chr2clr, 'markersize', 10, 'linewidth', 2)
         plot(mean(ochief_opsin_raw(:,1:N_PULSES),1), mean(ochief_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', ochiefclr, 'color', ochiefclr, 'markeredgecolor', ochiefclr,  'markersize', 10, 'linewidth', 2)
         
