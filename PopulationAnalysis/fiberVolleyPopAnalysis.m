@@ -336,23 +336,30 @@ for i_ex = 1:Nexpts
                             % fit the slope using OLS regression
                             %%%%%%%%%%%%%%%%
                             synapseDelay = 0.0018;
-                            startSlopeVal = snippet(troughidx) .* 0.20;
-                            slopeStartIdx = find((tt >= synapseDelay) & (snippet <= startSlopeVal), 1, 'first');
                             stopSlopeVal = trough .* 0.80;
                             slopeStopIdx = find((tt < tt(troughidx)) & (snippet >= stopSlopeVal) , 1, 'last');
+                            startSlopeVal = snippet(troughidx) .* 0.15;
+                            slopeStartIdx = (snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
+                            slopeStartIdx = find(slopeStartIdx, 1, 'last');
+                            slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]);
                             fit_dat = snippet(slopeStartIdx : slopeStopIdx);
                             fit_tt = tt(slopeStartIdx : slopeStopIdx);
                             
                             %check to make sure the waveform is not
                             %contaminated by two peaks
-                            critval = -2 ./ sampRate; % empirically pretty good at catching non-monotonic trends
+                            critval = -4 ./ sampRate; % empirically pretty good at catching non-monotonic trends
                             posslope = diff(fit_dat)> critval; 
                             consecPosSlope = conv(double(posslope), [1 1]);
                             if any(consecPosSlope >= 2);
-                                posSlopeIdx = find(consecPosSlope == 2, 1, 'first')-2;
+                                delayInSamps = ceil(250e-6 .* sampRate);
+                                posSlopeIdx = find(consecPosSlope == 2, 1, 'first')-delayInSamps;
                                 slopeStopIdx = slopeStartIdx + posSlopeIdx;
                                 fit_dat = snippet(slopeStartIdx : slopeStopIdx);
                                 fit_tt = tt(slopeStartIdx : slopeStopIdx);
+                            end
+                            
+                            if isempty(fit_dat)
+                                keyboard
                             end
                             
                             % do the fit
