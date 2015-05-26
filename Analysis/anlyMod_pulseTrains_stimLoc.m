@@ -85,7 +85,7 @@ for i = 1:numel(params.files)
     
     % find the peaks
     isi = mean(diff(cross_time));
-    window = .5e-3; % seconds on either side of the peak
+    window = .2e-3; % seconds on either side of the peak
     ptsPerWindow = ceil(window .* params.ax{i}.head.sampRate);
     params.TF(i) = 1/isi;
     
@@ -93,7 +93,7 @@ for i = 1:numel(params.files)
     Npulses = numel(cross_time);
     for a = 1:Npulses
         
-        timeStart = cross_time(a) + 1e-3; % add a little to avoid the LED artifact
+        timeStart = cross_time(a); % add a little to avoid the LED artifact
         timeEnd = timeStart + isi - 2e-3; % subtract a little to avoid the next pulse's LED artifact
         idx_pulse = (params.ax{i}.tt >= timeStart) & (params.ax{i}.tt < timeEnd);
         
@@ -109,7 +109,11 @@ for i = 1:numel(params.files)
         
         % compute the average
         idx = [minIdx-ptsPerWindow : minIdx+ptsPerWindow];
+        try
         amp{i}(a) = mean(vals(idx));
+        catch
+            keyboard
+        end
         
         % subtract off the decaying current from this PSC from the average
         % trace so that subsequent currents are judged from the correct
