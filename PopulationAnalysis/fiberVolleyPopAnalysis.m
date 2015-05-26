@@ -66,17 +66,18 @@ in = {
 %% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
 
 
-% % clear out the workspace
-% fin
-% 
-% % in = {Mouse Name, Site}
-% 
-% in = {
+% clear out the workspace
+fin
+
+% in = {Mouse Name, Site}
+
+in = {
 %       'CH_150112_C', 2;...
 %       'CH_150302_C', 1;...
 %       'CH_150302_A', 1;...
 %       'CH_150302_D', 1;...
-%       };
+      'EB_150417_B', 1;...
+      };
 
 
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
@@ -278,7 +279,11 @@ for i_ex = 1:Nexpts
                     
                     % add a few points on either side of the true trough/peak
                     trough_window = troughidx-4: min([troughidx+4, numel(snippet)]);
-                    peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
+                    assert(~isempty(trough_window) && numel(trough_window)==9, 'ERROR: no data for trough window')
+                    if strcmpi(conds{i_cond}, 'FV_Na')
+                        peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
+                        assert(~isempty(peak_window) && numel(peak_window)==9, 'ERROR: no data for peak windwo')
+                    end
                     
                     %
                     % store some stats for each pulse
@@ -308,18 +313,21 @@ for i_ex = 1:Nexpts
                             % make sure none of the fit_dat points are
                             % positive because the fitting routine will
                             % assume that all the points are negative
-                            critval = -0.005;
-                            if any(fit_dat > critval)
-                                l_pos = fit_dat > critval;
-                                fit_tt = fit_tt(~l_pos);
-                                fit_dat = fit_dat(~l_pos);
+                            critval = log(abs(fit_dat(1))) - 2; % two orders of magnitude
+                            if any(log(abs(fit_dat)) < critval)
+                                l_zero = log(abs(fit_dat)) <= critval;
+                                stopIdx = find(l_zero==1, 1, 'first')-1;
+                                fit_tt = fit_tt(1:stopIdx);
+                                fit_dat = fit_dat(1:stopIdx);
                             end
 
                             betas = [fit_tt(:), ones(size(fit_tt(:)))] \ log(abs(fit_dat(:)));
                             
-%                             if strcmpi(info{i_ex}.mouse, 'CH_150119_C') && (info{i_ex}.stimSite == 1) && (i_pulse > 1) && (info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF > 70)
-%                                 keyboard;
-%                             end
+                            if isempty(fit_dat)
+                                keyboard
+                                warning('no data for tau, betas set to nan')
+                                betas = [nan, nan];
+                            end
                             
                             % store the slope params
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse) = betas(1);
@@ -341,7 +349,7 @@ for i_ex = 1:Nexpts
                             startSlopeVal = snippet(troughidx) .* 0.15;
                             slopeStartIdx = (snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
                             slopeStartIdx = find(slopeStartIdx, 1, 'last');
-                            slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]);
+                            slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]); % make sure that you don't encroach into the synaptic delay timeout
                             fit_dat = snippet(slopeStartIdx : slopeStopIdx);
                             fit_tt = tt(slopeStartIdx : slopeStopIdx);
                             
@@ -358,12 +366,15 @@ for i_ex = 1:Nexpts
                                 fit_tt = tt(slopeStartIdx : slopeStopIdx);
                             end
                             
-                            if isempty(fit_dat)
-                                keyboard
-                            end
+                            
                             
                             % do the fit
                             betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
+                            
+                            if isempty(fit_dat)
+                                warning('no data for slope, betas set to nan')
+                                betas = [nan, nan];
+                            end
                             
                             % store the slope params
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse) = betas(1);
@@ -385,7 +396,10 @@ for i_ex = 1:Nexpts
                     dt = 1./sampRate;
                     area = sum(abs(snippet_pulse)) .* dt; % adjusts for differences in sample rate between experiments
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
-                    
+                    areaStartIdx = find(tt >= (pWidth+photoDelay), 1, 'first');
+                    areaStopIdx = find(tt >= 0.008, 1, 'first');
+                    dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area_inds{i_ch}(i_pulse,:) = [areaStartIdx, areaStopIdx];
+                            
                     
                 end % pulses
                 
@@ -475,11 +489,8 @@ for i_ex = 1:Nexpts
             for i_tf = 1:Ntfs
                 
                 tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
-                inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch};
                 Ntime = size(tmp_raw,1);
                 Ncols = size(tmp_raw,2);
-                inds_tt = inds;
-                inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
                 
                 tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) .* 1000; % in ms.
@@ -495,10 +506,17 @@ for i_ex = 1:Nexpts
                 if CHECK_TRIAL_STATS
                     
                     % check the peak and trough indicies
+                    inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch};
+                    inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
                     plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
                     if strcmpi(conds{i_cond}, 'FV_Na')
                         plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
                     end
+                    
+                    % check the area start/stop inds
+                    inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area_inds{i_ch};
+                    inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
+                    plot(tt(inds), tmp_raw(inds_idx), 'ko', 'markerfacecolor', 'k')
                     
                     % check slope fitting for the field PSP
                     if strcmpi(conds{i_cond}, 'synapticTransmission')
@@ -816,15 +834,15 @@ end
 %% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2
 
 
-FV_STAT = 'area';
-OPSIN_STAT = 'area';
-STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
-PLOT_RAW = true;
-PLOT_AVG = false;
+FV_STAT = 'pk2tr';
+OPSIN_STAT = 'diffval';
+STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
+PLOT_RAW = false;
+PLOT_AVG = true;
 PLOT_ERR = true;
-REMOVE_OUTLIER = true;
+REMOVE_OUTLIER = false;
 INDIVIDUAL_PLOTS = false;
-N_PULSES = 1;
+N_PULSES = 6;
 TFs = [10,20,40,60,100];
 
 
