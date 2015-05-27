@@ -16,17 +16,15 @@ avgCurrent = {};
 tt = {}; % unique tvec for each file in case there are diffs in acquisition length
 for a = 1:numel(params.files)
     idx_Im = eval(['params.ax{a}.idx.',params.validCh,'Im']);
-    idx_SecVm = regexpi(params.ax{a}.head.recChUnits, 'mV', 'match');
-    idx_SecVm = cellfun(@(x) ~isempty(x), idx_SecVm);
+    idx_SecVm = eval(['params.ax{a}.idx.',params.validCh,'secVm']);
     
     % check the Vhold
-    if sum(idx_SecVm) == 1;
-        actVhold = params.ax{a}.dat(1:100, idx_SecVm, :);
-        actVhold = mean(mean(actVhold, 3));
-        if (actVhold-params.vHold(a)) > 1; error('Vhold is wrong'); end
-    else
-        warning('Holding potential could not be verified on file %s', params.files{a})
-    end
+    assert(numel(idx_SecVm) == 1, 'ERROR: could not locate secondary Vm channel');
+    actVhold = params.ax{a}.dat(1:100, idx_SecVm, :);
+    actVhold = mean(mean(actVhold, 3));
+    assert((actVhold-params.vHold(a)) < 1, 'ERROR: Vhold is wrong')
+
+
     
     % change the tt (time vector) so that time=0 is the onset of the first
     % pulse
@@ -39,7 +37,7 @@ for a = 1:numel(params.files)
     % pull out the data. baseline subtract everything. define baseline as
     % the time directly prior to the first pulse.
     raw = mean(params.ax{a}.dat(:,idx_Im,:),3);
-    bkgndTimeInPts = params.ax{a}.head.sampRate .* 0.100; % 100 msec.
+    bkgndTimeInPts = round(params.ax{a}.head.sampRate .* 0.100); % 100 msec.
     raw = raw - mean(raw((idx_pulseOn-bkgndTimeInPts):idx_pulseOn));
     avgCurrent{a} = raw;
     
@@ -93,8 +91,10 @@ for i = 1:numel(params.files)
     Npulses = numel(cross_time);
     for a = 1:Npulses
         
-        timeStart = cross_time(a); % add a little to avoid the LED artifact
-        timeEnd = timeStart + isi - 2e-3; % subtract a little to avoid the next pulse's LED artifact
+        timeStart = cross_time(a) + 2e-3; % add a little to avoid the LED artifact
+        time_fromISI = timeStart + isi - 2e-3;
+        time_default = timeStart + 7e-3;
+        timeEnd = min([time_fromISI, time_default]); % subtract a little to avoid the next pulse's LED artifact
         idx_pulse = (params.ax{i}.tt >= timeStart) & (params.ax{i}.tt < timeEnd);
         
         % find the max
@@ -103,17 +103,12 @@ for i = 1:numel(params.files)
         
         % check for out of bounds errors
         if minIdx<ptsPerWindow
-            minIdx = ptsPerWindow+1;
-            warning('No valid start point located')
+            error('No valid start point located')
         end
         
         % compute the average
         idx = [minIdx-ptsPerWindow : minIdx+ptsPerWindow];
-        try
         amp{i}(a) = mean(vals(idx));
-        catch
-            keyboard
-        end
         
         % subtract off the decaying current from this PSC from the average
         % trace so that subsequent currents are judged from the correct

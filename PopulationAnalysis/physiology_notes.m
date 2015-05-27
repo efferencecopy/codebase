@@ -4062,7 +4062,8 @@ fin
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 
 % LFP measurements. Only including here to visualize the stimulation sites
-% relative to the axon cloud
+% relative to the axon cloud. to see the analysis data, look at the .m file
+% in this mouse's data directory.
 
 
 %
@@ -6272,7 +6273,8 @@ fin
 % NOTES (cell type, location, experiment type, etc).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% 
+% GIN cell recorded in response to ChR2 activation at different LED
+% positions and pulse train frequencies. 
 
 
 %
