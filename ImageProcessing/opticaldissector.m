@@ -465,8 +465,8 @@ mean_inside = mean(tmpraw(cellmask));
 mean_surround = mean(tmpraw(surroundmask));
 SNR = mean_inside/mean_surround;
 
-% only accept SNR > 1.4
-if SNR < 1.5
+% only accept SNR > 1.3
+if SNR < 1.6
     fprintf('SNR was too low: %.3f\n', SNR)
     return
 end

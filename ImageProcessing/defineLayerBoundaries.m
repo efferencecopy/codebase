@@ -78,7 +78,7 @@ function gui_initialize(raw, mask, fpath)
     
     % for the main GUI window
     h.fig.main = figure;
-    set(h.fig.main, 'position', [1000 151 337 462]);
+    set(h.fig.main, 'position', [807 211 337 462]);
     
     % define a bunch of buttons to define the laminar boundaries
     h.gui.boundary1 = uicontrol('style', 'togglebutton',...
@@ -150,7 +150,8 @@ function gui_initialize(raw, mask, fpath)
    % display the raw image and the mask
    h.fig.mask = figure;
    proj = max(mask.img,[],3);
-   h.mask.proj = imshow(proj./max(proj(:)));
+   proj(proj>0) = 0.85;
+   h.mask.proj = imshow(proj);
    hold on
    
    % add the lines for different boundaries
@@ -159,7 +160,7 @@ function gui_initialize(raw, mask, fpath)
    h.mask.boundLine3 = plot(nan, nan, 'g--', 'linewidth', 3);
    h.mask.boundLine4 = plot(nan, nan, 'y--', 'linewidth', 3);
    h.mask.boundLine5 = plot(nan, nan, 'b--', 'linewidth', 3);
-   set(gcf, 'position', [487 4 360 681])
+   set(gcf, 'position', [407 47 360 681])
    
    
    h.fig.raw = figure;
@@ -170,7 +171,7 @@ function gui_initialize(raw, mask, fpath)
    h.raw.boundLine3 = plot(nan, nan, 'g--', 'linewidth', 3);
    h.raw.boundLine4 = plot(nan, nan, 'y--', 'linewidth', 3);
    h.raw.boundLine5 = plot(nan, nan, 'b--', 'linewidth', 3);
-   set(gcf, 'position', [110 4 354 681])
+   set(gcf, 'position', [25 42 354 681])
    
    % set the user data field in the main gui window
    udat.raw = raw;
