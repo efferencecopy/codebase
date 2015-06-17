@@ -5,11 +5,15 @@ fin
 % read in the spreadsheet that defines a bunch of things for the population
 % analysis
 %
-% sheet 1 = PV cells
-% sheet 2 = SOM+ cells.
+% sheet 1 = PV-Cre cells
+% sheet 2 = GIN cells
+% sheet 3 = SOM-Cre cells
 %
+
+CELLTYPE = 3;
+
 cd ~/Crash/Data/SOM_PV_Density
-[~,txt] =xlsread('counting_data_sheet.xlsx', 3);
+[~,txt] =xlsread('counting_data_sheet.xlsx', CELLTYPE);
 mouseName = txt(2:end, 1);
 fileName = txt(2:end, 2);
 brainArea = txt(2:end,3);
@@ -57,7 +61,16 @@ Nareas = size(unique(brainArea), 1);
 mice = unique(mouseName);
 areas = unique(brainArea);
 
+% Pre-assemble the population structure. Assume that all mice were tested in
+% every brain area, and that there are 4 layers per brain area. This is not
+% true in every case, so pad with NaNs.
 popdat = [];
+allHVAs = {'PM','AL', 'ERC', 'RL'};
+for i_area = 1:numel(allHVAs)
+    popdat.(allHVAs{i_area}).totalVolume = nan(4, Nmice); %The array is Nlayers x Nmice
+    popdat.(allHVAs{i_area}).cellCount = nan(4, Nmice);
+end
+
 for i_mouse = 1:Nmice
    
     for i_area = 1:Nareas
@@ -65,10 +78,15 @@ for i_mouse = 1:Nmice
         % grab the raw data;
         idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea, areas{i_area});
         if sum(idx)==0
-            tmp_volume = nan(4,1);
-            tmp_counts = nan(4,1);
+         
+            continue % this brain area was not tested in this mouse.
             
         elseif sum(idx) == 4
+            
+            % make sure that there are no duplicate files
+            assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
+            
+            % combine data across the 4 brain slices
             tmp_volume = cat(2, results(idx).volumeByLayer);
             tmp_counts = cat(2, results(idx).cellsByLayer);
             
@@ -76,6 +94,7 @@ for i_mouse = 1:Nmice
             % each mouse
             tmp_volume = sum(tmp_volume, 2);
             tmp_counts = sum(tmp_counts, 2);
+            
         else
             error('Incorrect number of matches')
         end
@@ -93,7 +112,7 @@ end
 
 
 % simple plot of volume, counts, density for each area and layer
-areas = {'PM','AL', 'ERC'};
+areas = {'PM','AL', 'ERC', 'RL'};
 figure
 set(gcf, 'position', [184    35   764   746])
 for i_area = 1:numel(areas);
@@ -106,7 +125,7 @@ for i_area = 1:numel(areas);
     counts{i_area} = tmp_counts;
     density{i_area} = tmp_counts ./ tmp_volume;
     
-    subplot(3, 3, (i_area-1)*3 + 1)
+    subplot(4, 3, (i_area-1)*3 + 1)
     plot(tmp_counts, '.-')
     xlabel('layer')
     ylabel('counts')
@@ -114,7 +133,7 @@ for i_area = 1:numel(areas);
     box off
     axis tight
     
-    subplot(3, 3, (i_area-1)*3 + 2)
+    subplot(4, 3, (i_area-1)*3 + 2)
     plot(tmp_volume, '.-')
     xlabel('layer')
     ylabel('volume')
@@ -122,7 +141,7 @@ for i_area = 1:numel(areas);
     box off
     axis tight
     
-    subplot(3, 3, (i_area-1)*3 + 3)
+    subplot(4, 3, (i_area-1)*3 + 3)
     plot(density{i_area}, '.-')
     xlabel('layer')
     ylabel('density')
@@ -144,9 +163,9 @@ for i_layer = 1:4
     tmp_volume = [];
     tmp_counts = [];
     for i_area = 1:numel(areas)
-        tmp_density(i_area, :) = density{i_area}(i_layer,:); % [Nareas, Nmice]
-        tmp_volume(i_area,:) = volume{i_area}(i_layer,:); % [Nareas, Nmice]
-        tmp_counts(i_area,:) = counts{i_area}(i_layer,:); % [Nareas, Nmice]
+            tmp_density(i_area, :) = density{i_area}(i_layer,:); % [Nareas, Nmice]
+            tmp_volume(i_area,:) = volume{i_area}(i_layer,:); % [Nareas, Nmice]
+            tmp_counts(i_area,:) = counts{i_area}(i_layer,:); % [Nareas, Nmice]
     end
     
     subplot(4,3, (i_layer-1)*3 +1)
@@ -213,8 +232,8 @@ set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 
 
 % concatenate the data across mice and slices
-areas = unique(brainArea);
-for i_area = 1:Nareas
+areas = {'PM','AL', 'ERC', 'RL'};
+for i_area = 1:numel(areas)
     
     % grab the raw data;
     idx = strcmpi(brainArea, areas{i_area});
@@ -226,10 +245,11 @@ end
 % plot a histogram of cell sizes
 figure
 set(gcf, 'position', [104   164   871   601])
-areas = {'PM','AL', 'ERC'};
+areas = {'PM','AL', 'ERC', 'RL'};
 bigdataset = [];
 for i_area = 1:numel(areas)
-    subplot(Nareas,1,i_area)
+    
+    subplot(numel(areas),1,i_area)
     tmp = popdat.(areas{i_area}).cellSize;
     bigdataset = cat(1, bigdataset, tmp);
     bins = linspace(0, 2500, 200);
@@ -248,7 +268,7 @@ end
 
 % plot cell sizes across all areas
 figure
-bins = linspace(0, 2500, 200);
+bins = linspace(0, 2500, 100);
 hist(bigdataset, bins);
 set(get(gca, 'children'), 'edgealpha', 0.1)
 ylims = get(gca, 'ylim');
@@ -261,9 +281,10 @@ xlabel('cell volume')
 % plot a histograms of cell depths
 figure
 set(gcf, 'position', [108    88   863   663])
-areas = {'PM','AL', 'ERC'};
+areas = {'PM','AL', 'ERC', 'RL'};
 for i_area = 1:numel(areas)
-    subplot(Nareas,1,i_area)
+    
+    subplot(numel(areas),1,i_area)
     tmp = popdat.(areas{i_area}).cellDepth;
     bins = linspace(0, 1000, 100);
     hist(tmp, bins)
@@ -286,9 +307,10 @@ end
 % scatter plot of cell size vs. cell depth
 figure
 set(gcf, 'position', [108    88   863   663])
-areas = {'PM','AL', 'ERC'};
+areas = {'PM','AL', 'ERC', 'RL'};
 for i_area = 1:numel(areas)
-    subplot(1,Nareas,i_area)
+    
+    subplot(1,numel(areas),i_area)
     tmp_depth = popdat.(areas{i_area}).cellDepth;
     tmp_size = popdat.(areas{i_area}).cellSize;
     plot(tmp_depth, tmp_size, '.')
