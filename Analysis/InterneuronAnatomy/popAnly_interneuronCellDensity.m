@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 3;
+CELLTYPE = 2;
 
 cd ~/Crash/Data/SOM_PV_Density
 [~,txt] =xlsread('counting_data_sheet.xlsx', CELLTYPE);
@@ -112,7 +112,7 @@ end
 
 
 % simple plot of volume, counts, density for each area and layer
-areas = {'PM','AL', 'ERC', 'RL'};
+areas = {'PM','AL', 'RL', 'ERC'};
 figure
 set(gcf, 'position', [184    35   764   746])
 for i_area = 1:numel(areas);
@@ -232,7 +232,7 @@ set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 
 
 % concatenate the data across mice and slices
-areas = {'PM','AL', 'ERC', 'RL'};
+areas = {'PM','AL', 'RL', 'ERC'};
 for i_area = 1:numel(areas)
     
     % grab the raw data;
@@ -245,7 +245,6 @@ end
 % plot a histogram of cell sizes
 figure
 set(gcf, 'position', [104   164   871   601])
-areas = {'PM','AL', 'ERC', 'RL'};
 bigdataset = [];
 for i_area = 1:numel(areas)
     
@@ -281,7 +280,6 @@ xlabel('cell volume')
 % plot a histograms of cell depths
 figure
 set(gcf, 'position', [108    88   863   663])
-areas = {'PM','AL', 'ERC', 'RL'};
 for i_area = 1:numel(areas)
     
     subplot(numel(areas),1,i_area)
@@ -307,7 +305,6 @@ end
 % scatter plot of cell size vs. cell depth
 figure
 set(gcf, 'position', [108    88   863   663])
-areas = {'PM','AL', 'ERC', 'RL'};
 for i_area = 1:numel(areas)
     
     subplot(1,numel(areas),i_area)
