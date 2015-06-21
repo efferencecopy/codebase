@@ -17,7 +17,7 @@ cd ~/Crash/Data/SOM_PV_Density
 mouseName = txt(2:end, 1);
 fileName = txt(2:end, 2);
 brainArea = txt(2:end,3);
-startingPath = '~/Crash/Data/SOM_PV_Density/Data/';
+startingPath = '~/Crash/Data/SOM_PV_Density/';
 
 
 % initalize the output variables
