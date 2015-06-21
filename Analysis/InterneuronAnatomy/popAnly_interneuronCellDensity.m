@@ -10,14 +10,14 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 3;
+CELLTYPE = 2;
 
 cd ~/Crash/Data/SOM_PV_Density
 [~,txt] =xlsread('counting_data_sheet.xlsx', CELLTYPE);
 mouseName = txt(2:end, 1);
 fileName = txt(2:end, 2);
 brainArea = txt(2:end,3);
-startingPath = '~/Crash/Data/SOM_PV_Density/Data/';
+startingPath = '~/Crash/Data/SOM_PV_Density/';
 
 
 % initalize the output variables
