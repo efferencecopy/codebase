@@ -12,11 +12,16 @@ fin
 
 CELLTYPE = 2;
 
-cd ~/Crash/Data/SOM_PV_Density
-[~,txt] =xlsread('counting_data_sheet.xlsx', CELLTYPE);
+xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
+[~, txt, raw] =xlsread(xlspath, CELLTYPE);
 mouseName = txt(2:end, 1);
 fileName = txt(2:end, 2);
 brainArea = txt(2:end,3);
+Nfiles = size(fileName, 1);
+ap_dist = cat(1, raw{2:end,6});
+ap_dist(Nfiles+1:end) = []; % cut the junk that come along for the ride
+ml_dist = cat(1, raw{2:end,7});
+ml_dist(Nfiles+1:end) = [];
 startingPath = '~/Crash/Data/SOM_PV_Density/';
 
 
@@ -64,6 +69,7 @@ areas = unique(brainArea);
 % Pre-assemble the population structure. Assume that all mice were tested in
 % every brain area, and that there are 4 layers per brain area. This is not
 % true in every case, so pad with NaNs.
+
 popdat = [];
 allHVAs = {'PM','AL', 'ERC', 'RL'};
 for i_area = 1:numel(allHVAs)
@@ -81,10 +87,9 @@ for i_mouse = 1:Nmice
          
             continue % this brain area was not tested in this mouse.
             
-        elseif sum(idx) == 4
-            
+        elseif sum(idx) >= 4
             % make sure that there are no duplicate files
-            assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
+            %assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
             
             % combine data across the 4 brain slices
             tmp_volume = cat(2, results(idx).volumeByLayer);
@@ -96,7 +101,7 @@ for i_mouse = 1:Nmice
             tmp_counts = sum(tmp_counts, 2);
             
         else
-            error('Incorrect number of matches')
+            %error('Incorrect number of matches')
         end
         
         % the population data. The array is Nlayers x Nmice
@@ -203,8 +208,11 @@ end
 layers = [1:3]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
-    tmp_density = density{i_area};
-    tmp_density = sum(tmp_density(layers, :), 1); % there could be some NaNs, but I'm preserving them (and not using nansum) b/c I want to get an accurate N for the SEM...
+    
+    tmp_volume = volume{i_area}(layers,:); % [Nareas, Nmice]
+    tmp_counts = counts{i_area}(layers,:); % [Nareas, Nmice]
+    
+    tmp_density = sum(tmp_counts, 1) ./ sum(tmp_volume, 1);
     densityAcrossLayers(i_area,:) = tmp_density; % notice that the dim is [Nareas x Nmice]
 end
 
@@ -316,6 +324,37 @@ for i_area = 1:numel(areas)
 end
 
 
+%% TOPOGRAPHY OF CELL DENSITY 
+
+close all
+
+% integrate the cell counts and volume across all layers. The output is a
+% single value for each data file
+layers = [1:4];
+tmp_counts = cat(2, results(:).cellsByLayer);
+tmp_counts = sum(tmp_counts(layers, :), 1);
+tmp_volume = cat(2, results(:).volumeByLayer);
+tmp_volume = sum(tmp_volume(layers, :), 1);
+tmp_density = tmp_counts ./ tmp_volume;
+
+
+figure
+set(gcf, 'position', [294    31   379   754])
+subplot(2,1,1)
+plot(ml_dist, tmp_density, 'o')
+xlabel('M/L distance from midline')
+ylabel('Density')
+subplot(2,1,2)
+plot(-ap_dist, tmp_density, 'o')
+xlabel('A/P distance from Callosum')
+ylabel('Density')
+
+
+figure
+plot3(ml_dist, -ap_dist, tmp_density, 'o')
+xlabel('M/L distance from midline')
+ylabel('A/P distance from Callosum')
+zlabel('Density')
 
 
 
