@@ -22,7 +22,7 @@ ap_dist = cat(1, raw{2:end,6});
 ap_dist(Nfiles+1:end) = []; % cut the junk that come along for the ride
 ml_dist = cat(1, raw{2:end,7});
 ml_dist(Nfiles+1:end) = [];
-startingPath = '~/Crash/Data/SOM_PV_Density/';
+startingPath = [GL_DATPATH(1:end-5), 'SOM_PV_Density', filesep];
 
 
 % initalize the output variables
@@ -88,8 +88,22 @@ for i_mouse = 1:Nmice
             continue % this brain area was not tested in this mouse.
             
         elseif sum(idx) >= 4
+            
+            % A hack to only include 4 of the slices from EB_150427_A
+            if strcmpi(mice{i_mouse}, 'EB_150427_A')
+                tmp_inds = find(idx);
+                if strcmpi(areas(i_area), 'pm')
+                    idx(1:tmp_inds(end)-4) = false;
+                elseif strcmpi(areas(i_area), 'al')
+                    idx(tmp_inds(1):tmp_inds(1)+3) = false;
+                    idx(tmp_inds(1)+4+4:tmp_inds(end)) = false;
+                end
+            end
+                    
+            
+            
             % make sure that there are no duplicate files
-            %assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
+            assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
             
             % combine data across the 4 brain slices
             tmp_volume = cat(2, results(idx).volumeByLayer);
@@ -101,7 +115,7 @@ for i_mouse = 1:Nmice
             tmp_counts = sum(tmp_counts, 2);
             
         else
-            %error('Incorrect number of matches')
+            error('Incorrect number of matches')
         end
         
         % the population data. The array is Nlayers x Nmice
