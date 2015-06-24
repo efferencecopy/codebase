@@ -219,7 +219,7 @@ end
 
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
-layers = [1:3]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+layers = [4]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
     
@@ -240,14 +240,15 @@ set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 
 % now plotting percent change relative to PM
 figure, hold on,
-prcnt_change_from_PM = bsxfun(@rdivide, densityAcrossLayers, densityAcrossLayers(1,:));
+diff_from_PM = bsxfun(@minus, densityAcrossLayers, densityAcrossLayers(1,:));
+prcnt_change_from_PM = bsxfun(@rdivide, diff_from_PM, densityAcrossLayers(1,:));
 plot(prcnt_change_from_PM, '.--')
 nareas = numel(areas);
 xbar = nanmean(prcnt_change_from_PM, 2);
 sem = nanstd(prcnt_change_from_PM,[], 2) ./ sqrt(sum(~isnan(prcnt_change_from_PM), 2));
 errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
-
+ylabel('percent change (relative to PM)')
 
 %% PLOTTING ROUTINES: CELL DEPTH AND SIZE
 

@@ -1,35 +1,4 @@
-%% WHICH MICE SHOULD CONTRIBUTE? [ALL MICE]
-
-% clear out the workspace
-fin
-
-% in = {Mouse Name, Site}
-
-in = {'CH_141124_B', 1;...
-    'CH_141215_B', 1;...
-    'CH_141215_B', 2;...
-    'CH_141215_D', 3;...
-    'CH_141215_E', 1;...
-    'CH_141215_E', 2;...
-    'CH_141215_F', 1;...
-    'CH_150105_A', 1;...
-    'CH_150105_B', 1;...
-    'CH_150105_B', 2;...
-    'CH_150105_C', 1;...
-    'CH_150105_D', 2;...
-    'CH_150112_A', 1;...
-    'CH_150112_A', 2;...
-    'CH_150112_B', 1;...
-    'CH_150112_B', 2;...
-    'CH_150112_D', 1;...
-    'CH_150112_D', 2;...
-    'CH_150112_C', 1;...
-    'CH_150112_C', 2;...
-    'CH_150119_D', 1;...
-    'CH_150119_D', 2};
-
-
-%% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE]
+%% WHICH MICE SHOULD CONTRIBUTE?  [Main project]
 
 % Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
 
@@ -59,11 +28,10 @@ in = {
         'CH_150119_D', 2;...
         'CH_150119_B', 1;...
         'CH_150119_B', 2;...
-        %'CH_150302_C', 1;... % different led powers, good for avg oChIEF waveform, but nothing else
         };
 
 
-%% WHICH MICE SHOULD CONTRIBUTE?  [GOOD MICE FOR DIFFERENT PULSE AMP EXPTS]
+%% WHICH MICE SHOULD CONTRIBUTE?  [Different pulse amps]
 
 
 % clear out the workspace
@@ -72,11 +40,10 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-%       'CH_150112_C', 2;...
-%       'CH_150302_C', 1;...
-%       'CH_150302_A', 1;...
-%       'CH_150302_D', 1;...
-      'EB_150417_B', 1;...
+      'CH_150112_C', 2;...
+      'CH_150302_C', 1;...
+      'CH_150302_A', 1;...
+      'CH_150302_D', 1;...
       };
 
 
@@ -655,8 +622,8 @@ statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
-            pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat}) = {[],{}}; % {{TF}, {Vals}}
-            pop.(opsinTypes{i_opsin}).raw.(conds{i_cond}).(statTypes{i_stat}) = {[],{}}; % {{TF}, {Vals}}
+            pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat}) = {[],[],{}}; % {[TF], [pulseAmp], {Vals}}
+            pop.(opsinTypes{i_opsin}).raw.(conds{i_cond}).(statTypes{i_stat}) = {[],[],{}}; % {[TF], [pulseAmp], {Vals}}
         end
     end
 end
@@ -695,20 +662,20 @@ for i_ex = 1:numel(dat)
     opsin = lower(info{i_ex}.opsin);
     
     pTypes = fieldnames(dat{i_ex});
-    Ntfs = numel(pTypes);
-    for i_tf = 1:Ntfs
+    Nptypes = numel(pTypes);
+    for i_ptype = 1:Nptypes
         
         for i_cond = 1:numel(conds);
             
             for i_stat = 1:numel(statTypes)
                 
                 % skip instances where the data do not exist
-                if ~isfield(dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}), statTypes{i_stat})
+                if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats.(conds{i_cond}), statTypes{i_stat})
                     continue
                 end
                 
                 % structure the pnp1 data
-                ex_stat = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
+                ex_stat = dat{i_ex}.(pTypes{i_ptype}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
                 if strcmpi(statTypes{i_stat}, 'tau_m')
                     ex_stat = 1./ex_stat; % tau_m isn't a tau, need to convert to tau
                 end
@@ -720,33 +687,39 @@ for i_ex = 1:numel(dat)
                 % grab the data field of the 'pop' structure
                 tmp_pop_p1p2 = pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat});
                 tmp_pop_raw = pop.(opsin).raw.(conds{i_cond}).(statTypes{i_stat});
-                tf = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF;
+                tf = info{i_ex}.(pTypes{i_ptype}).(conds{i_cond}).pTF;
+                pAmp = info{i_ex}.(pTypes{i_ptype}).(conds{i_cond}).pAmp;
                 
                 % is there already an entry for this TF and drug condition?
-                alreadyThere = any(tmp_pop_p1p2{1} == tf);
+                l_tf_match = tmp_pop_p1p2{1} == tf;
+                l_pAmp_match = tmp_pop_p1p2{2} == pAmp;
+                alreadyThere = any(l_tf_match & l_pAmp_match);
                 if alreadyThere
-                    idx = tmp_pop_p1p2{1} == tf;
+                    
+                    idx = l_tf_match & l_pAmp_match;
                     
                     % deal with cases where there are different numbers of
                     % pulses
-                    nPulsesExisting = size(tmp_pop_p1p2{2}{idx},2);
+                    nPulsesExisting = size(tmp_pop_p1p2{3}{idx},2);
                     if numel(ex_p1p2) < nPulsesExisting
                         ex_p1p2(1,end+1:nPulsesExisting) = nan;
                         ex_stat(1,end+1:nPulsesExisting) = nan;
                     else
-                        tmp_pop_p1p2{2}{idx}(:,end+1:numel(ex_p1p2)) = nan;
-                        tmp_pop_raw{2}{idx}(:,end+1:numel(ex_p1p2)) = nan;
+                        tmp_pop_p1p2{3}{idx}(:,end+1:numel(ex_p1p2)) = nan;
+                        tmp_pop_raw{3}{idx}(:,end+1:numel(ex_p1p2)) = nan;
                     end
                     
-                    tmp_pop_p1p2{2}{idx} = cat(1, tmp_pop_p1p2{2}{idx}, ex_p1p2);
-                    tmp_pop_raw{2}{idx} = cat(1, tmp_pop_raw{2}{idx}, ex_stat);
+                    tmp_pop_p1p2{3}{idx} = cat(1, tmp_pop_p1p2{3}{idx}, ex_p1p2);
+                    tmp_pop_raw{3}{idx} = cat(1, tmp_pop_raw{3}{idx}, ex_stat);
                     
                 else
                     tmp_pop_p1p2{1} = cat(1, tmp_pop_p1p2{1}, tf);
-                    tmp_pop_p1p2{2} = cat(1, tmp_pop_p1p2{2}, ex_p1p2);
+                    tmp_pop_p1p2{2} = cat(1, tmp_pop_p1p2{2}, pAmp);
+                    tmp_pop_p1p2{3} = cat(1, tmp_pop_p1p2{3}, ex_p1p2);
                     
                     tmp_pop_raw{1} = cat(1, tmp_pop_raw{1}, tf);
-                    tmp_pop_raw{2} = cat(1, tmp_pop_raw{2}, ex_stat);
+                    tmp_pop_raw{2} = cat(1, tmp_pop_raw{2}, tf);
+                    tmp_pop_raw{3} = cat(1, tmp_pop_raw{3}, ex_stat);
                 end
                 
                 % replace the 'pop' structure version with the tmp version
@@ -789,25 +762,25 @@ for i_opsin = 1:numel(opsinTypes)
             title(statTypes{i_stat})
             
             tfs = tmp_dat{1};
+            pAmps = tmp_dat{2};
             cmap = colormap('copper');
-            cidx = round(linspace(1, size(cmap,1), 6));
+            cidx = round(linspace(1, size(cmap,1), numel(tfs)));
             cmap = cmap(cidx,:);
             set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
             hold on
             
             legtext = {};
             [~, tforder] = sort(tmp_dat{1}, 1, 'ascend');
-            for i_tf = 1:numel(tfs);
+            for i_ptype = 1:numel(tfs);
                 
-                tf_idx = tforder(i_tf);
+                tf_idx = tforder(i_ptype);
                 
-                xbar = nanmean(tmp_dat{2}{tf_idx}, 1);
-                sem = nanstd(tmp_dat{2}{tf_idx}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{2}{tf_idx}), 1));
+                xbar = nanmean(tmp_dat{3}{tf_idx}, 1);
+                sem = nanstd(tmp_dat{3}{tf_idx}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{3}{tf_idx}), 1));
                 
-                %errorbar(1:numel(xbar), xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2)
-                errorbar(1:7, xbar(1:7), sem(1:7), 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
+                errorbar(1:7, xbar(1:7), sem(1:7), 'color', cmap(i_ptype,:), 'linewidth', 2) % only plot the first 7 pulses
                 
-                legtext = cat(2, legtext, num2str(tfs(tf_idx)));
+                legtext = cat(2, legtext, sprintf('%.1f, %.1f', tfs(tf_idx), pAmps(tf_idx)));
             end
             axis tight
             xlabel('Pulse number')
@@ -836,13 +809,13 @@ end
 
 FV_STAT = 'pk2tr';
 OPSIN_STAT = 'diffval';
-STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
-PLOT_RAW = false;
+STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
+PLOT_RAW = true;
 PLOT_AVG = true;
-PLOT_ERR = true;
+PLOT_ERR = false;
 REMOVE_OUTLIER = false;
 INDIVIDUAL_PLOTS = false;
-N_PULSES = 6;
+N_PULSES = 1;
 TFs = [10,20,40,60,100];
 
 
@@ -864,21 +837,25 @@ for i_tf = 1:numel(TFs)
         cmap = cmap(cidx(1:end-1),:);
     end
     
-   
+    % CAH new: nned to deal with sum(idx == 1) > 1, which occurs now b/c
+    % there is more than one row for each tf.
+    
     % pull out the data for ChR2:
     tf_idx = pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
-    if sum(tf_idx == 1);
-        chr2_fv_raw = pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){2}{tf_idx};
-        chr2_opsin_raw = pop.chr2.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){2}{tf_idx};
+    if sum(tf_idx) >= 1;
+        chr2_fv_raw = vertcat(pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){3}{tf_idx});
+        chr2_opsin_raw = vertcat(pop.chr2.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}{tf_idx});
     else
         chr2_fv_raw = nan(5,7); % a hack to allow plotting of tf conds for oChIEF that don't exist for ChR2
         chr2_opsin_raw = nan(5,7);
     end
     
+    % CAH new: nned to deal with sum(idx == 1) > 1, which occurs now b/c
+    % there is more than one row for each tf.
     % pull out the data for oChIEF:
     tf_idx = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
-    ochief_fv_raw = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){2}{tf_idx};
-    ochief_opsin_raw = pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){2}{tf_idx};
+    ochief_fv_raw = vertcat(pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){3}{tf_idx});
+    ochief_opsin_raw = vertcat(pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}{tf_idx});
     if REMOVE_OUTLIER && any(ochief_opsin_raw(:)>1400)
         l_bad = sum(ochief_opsin_raw>1400,2) > 0;
         ochief_opsin_raw(l_bad,:) = [];
