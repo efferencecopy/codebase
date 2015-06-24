@@ -762,25 +762,31 @@ for i_opsin = 1:numel(opsinTypes)
             title(statTypes{i_stat})
             
             tfs = tmp_dat{1};
+            tfs = unique(tfs);
+            Ntfs = numel(tfs);
             pAmps = tmp_dat{2};
             cmap = colormap('copper');
-            cidx = round(linspace(1, size(cmap,1), numel(tfs)));
+            cidx = round(linspace(1, size(cmap,1), Ntfs));
             cmap = cmap(cidx,:);
             set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
             hold on
             
             legtext = {};
-            [~, tforder] = sort(tmp_dat{1}, 1, 'ascend');
-            for i_ptype = 1:numel(tfs);
+            for i_tf = 1:Ntfs;
                 
-                tf_idx = tforder(i_ptype);
+                tf_idx = tmp_dat{1} == tfs(i_tf);
                 
-                xbar = nanmean(tmp_dat{3}{tf_idx}, 1);
-                sem = nanstd(tmp_dat{3}{tf_idx}, [], 1) ./ sqrt(sum(~isnan(tmp_dat{3}{tf_idx}), 1));
                 
-                errorbar(1:7, xbar(1:7), sem(1:7), 'color', cmap(i_ptype,:), 'linewidth', 2) % only plot the first 7 pulses
+                % only take the first 7 pulses
+                trim_dat = cellfun(@(x) x(:,1:7), tmp_dat{3}(tf_idx), 'uniformoutput', false);
+                cat_dat = vertcat(trim_dat{:});
                 
-                legtext = cat(2, legtext, sprintf('%.1f, %.1f', tfs(tf_idx), pAmps(tf_idx)));
+                xbar = nanmean(cat_dat, 1);
+                sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+                
+                errorbar(1:7, xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
+                
+                legtext = cat(2, legtext, num2str(tfs(i_tf)));
             end
             axis tight
             xlabel('Pulse number')
@@ -811,7 +817,7 @@ FV_STAT = 'pk2tr';
 OPSIN_STAT = 'diffval';
 STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
 PLOT_RAW = true;
-PLOT_AVG = true;
+PLOT_AVG = false;
 PLOT_ERR = false;
 REMOVE_OUTLIER = false;
 INDIVIDUAL_PLOTS = false;
@@ -843,8 +849,12 @@ for i_tf = 1:numel(TFs)
     % pull out the data for ChR2:
     tf_idx = pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
     if sum(tf_idx) >= 1;
-        chr2_fv_raw = vertcat(pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){3}{tf_idx});
-        chr2_opsin_raw = vertcat(pop.chr2.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}{tf_idx});
+        
+        trim_dat = cellfun(@(x) x(:,1:7), pop.chr2.(STAT_TYPE).FV_Na.(FV_STAT){3}(tf_idx), 'uniformoutput', false);
+        chr2_fv_raw = vertcat(trim_dat{:});
+        
+        trim_dat = cellfun(@(x) x(:,1:7), pop.chr2.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}(tf_idx), 'uniformoutput', false);
+        chr2_opsin_raw = vertcat(trim_dat{:});
     else
         chr2_fv_raw = nan(5,7); % a hack to allow plotting of tf conds for oChIEF that don't exist for ChR2
         chr2_opsin_raw = nan(5,7);
@@ -854,8 +864,16 @@ for i_tf = 1:numel(TFs)
     % there is more than one row for each tf.
     % pull out the data for oChIEF:
     tf_idx = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
-    ochief_fv_raw = vertcat(pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){3}{tf_idx});
-    ochief_opsin_raw = vertcat(pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}{tf_idx});
+    if sum(tf_idx) >= 1;
+        trim_dat = cellfun(@(x) x(:,1:7), pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){3}(tf_idx), 'uniformoutput', false);
+        ochief_fv_raw = vertcat(trim_dat{:});
+        
+        trim_dat = cellfun(@(x) x(:,1:7), pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}(tf_idx), 'uniformoutput', false);
+        ochief_opsin_raw = vertcat(trim_dat{:});
+    else
+        ochief_fv_raw = nan(5,7); % a hack to allow plotting of tf conds for oChIEF that don't exist for ChR2
+        ochief_opsin_raw = nan(5,7);
+    end
     if REMOVE_OUTLIER && any(ochief_opsin_raw(:)>1400)
         l_bad = sum(ochief_opsin_raw>1400,2) > 0;
         ochief_opsin_raw(l_bad,:) = [];
