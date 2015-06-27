@@ -40,10 +40,30 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-      'CH_150112_C', 2;...
-      'CH_150302_C', 1;...
-      'CH_150302_A', 1;...
-      'CH_150302_D', 1;...
+        'CH_141215_F', 1;...
+        'CH_141215_E', 1;...
+        'CH_141215_E', 2;...
+        'CH_150105_B', 1;...
+        'CH_150105_B', 2;...
+        'CH_150105_C', 1;...  % might get cut (looks ok for pulse amp analysis)
+        'CH_150112_A', 1;...  % might get cut (looks ok for pulse amp analysis)
+        'CH_150112_A', 2;...
+        'CH_150112_B', 1;...
+        'CH_150112_B', 2;...
+        'CH_150112_D', 1;...
+        'CH_150112_D', 2;...
+        'CH_150112_C', 1;...
+        'CH_150119_C', 1;...
+        'CH_150119_C', 2;...
+        'CH_150119_D', 1;...
+        'CH_150119_D', 2;...
+        'CH_150119_B', 1;...
+        'CH_150119_B', 2;...      
+        'CH_150112_C', 2;...  % different pulse amps.
+        'CH_150302_C', 1;...  % different pulse amps.
+        'CH_150302_A', 1;...  % different pulse amps.
+        'CH_150302_D', 1;...  % different pulse amps.
+        'EB_150529_B', 1;...        
       };
 
 
@@ -122,9 +142,15 @@ for i_ex = 1:Nexpts
                         continue
                     end
                     
-                    % a strange case where HS1 was set to Vclamp, and so
-                    % HS2's data got put in the first column...
+                    % strange cases
                     if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+                        %  where HS1 was set to Vclamp, and so HS2's data
+                        %  got put in the first column
+                        if i_ch == 1; error('something went wrong'); end
+                        i_ch = 1;
+                    elseif strcmpi(info{i_ex}.mouse, 'EB_150529_B')
+                        % only one channel was acquired, and it got put in
+                        % Ch 1 position...
                         if i_ch == 1; error('something went wrong'); end
                         i_ch = 1;
                     end
@@ -176,18 +202,22 @@ for i_ex = 1:Nexpts
         
         for i_ch = 1:2;
             
-            % deal with some exceptions
-            % exception 1 (common)
+            % deal with data and channels that need to be ignored.
             if ~info{i_ex}.ignoreChans(i_ch)
                 continue
-            end
-            
-            % exception 2 (uncommon)
-            % a strange case where HS1 was set to Vclamp, and so
-            % HS2's data got put in the first column...
-            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-                if i_ch == 1; error('something went wrong'); end
-                i_ch = 1;
+            else
+                % strange cases
+                if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+                    %  where HS1 was set to Vclamp, and so HS2's data
+                    %  got put in the first column
+                    if i_ch == 1; error('something went wrong'); end
+                    i_ch = 1;
+                elseif strcmpi(info{i_ex}.mouse, 'EB_150529_B')
+                    % only one channel was acquired, and it got put in
+                    % Ch 1 position...
+                    if i_ch == 1; error('something went wrong'); end
+                    i_ch = 1;
+                end
             end
             
             
@@ -426,9 +456,15 @@ for i_ex = 1:Nexpts
         if ~info{i_ex}.ignoreChans(i_ch)
             continue
         else
-            % a strange case where HS1 was set to Vclamp, and so
-            % HS2's data got put in the first column...
+            % strange cases
             if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
+                %  where HS1 was set to Vclamp, and so HS2's data
+                %  got put in the first column
+                if i_ch == 1; error('something went wrong'); end
+                i_ch = 1;
+            elseif strcmpi(info{i_ex}.mouse, 'EB_150529_B')
+                % only one channel was acquired, and it got put in
+                % Ch 1 position...
                 if i_ch == 1; error('something went wrong'); end
                 i_ch = 1;
             end
@@ -645,7 +681,7 @@ for i_ex = 1:numel(dat)
     end
     
     % Determine which recording channel to analyze
-    if strcmpi(info{i_ex}.mouse, 'CH_150105_D') % a strange exception that bucks the rules.
+    if any(strcmpi(info{i_ex}.mouse, {'CH_150105_D', 'EB_150529_B'})) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
         if STIMSITE
@@ -810,7 +846,7 @@ end
 
 
 
-%% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2
+%% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2 [SPIDER PLOT]
 
 
 FV_STAT = 'pk2tr';
@@ -925,6 +961,99 @@ end
 
 
 
+%% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2 [FIRST PULSE ONLY]
+
+
+FV_STAT = 'pk2tr';
+OPSIN_STAT = 'diffval';
+REMOVE_OUTLIER = false;
+TFs = [10,20,40,60,100];
+STIMSITE = true;
+
+figure, hold on,
+for i_ex = 1:numel(dat)
+    
+    
+    % Determine which recording channel to analyze
+    assert(~isnan(info{i_ex}.stimSite), 'ERROR: unknown stim site')
+    if any(strcmpi(info{i_ex}.mouse, {'CH_150105_D', 'EB_150529_B'})) % a strange exception that bucks the rules.
+        CHANNEL = 1;
+    else % all other experiments...
+        if STIMSITE
+            CHANNEL = info{i_ex}.stimSite;
+        else
+            if info{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    
+    % there could be multiple TFs and pAmps. figure out what the deal is.
+    pTypeNames = fieldnames(dat{i_ex});
+    ex_pAmps = nan(numel(pTypeNames), 1);
+    ex_TFs = nan(numel(pTypeNames), 1);
+    for i_pType = 1:numel(pTypeNames);
+        ex_pAmps(i_pType) = info{i_ex}.(pTypeNames{i_pType}).none.pAmp;
+        ex_TFs(i_pType) = info{i_ex}.(pTypeNames{i_pType}).none.pTF;
+    end
+    
+    
+    % for each pAmp, average the first pulse stats across available TFs
+    pAmps_unique = unique(ex_pAmps);
+    [opsin_avg, fv_avg] = deal(nan(1, numel(pAmps_unique)));
+    for i_pamp = 1:numel(pAmps_unique);
+        
+        % find the field names with the TF conds that have a particular
+        % pulse amplitude.
+        idx = ex_pAmps == pAmps_unique(i_pamp);
+        fldnames = pTypeNames(idx);
+        
+        [opsin_raw, fv_raw] = deal(nan(numel(fldnames), 1));
+        for i_fld = 1:numel(fldnames)
+            
+            % get the FV_Na stat
+            tmp = dat{i_ex}.(fldnames{i_fld}).stats.FV_Na.(FV_STAT){CHANNEL}(1);
+            fv_raw(i_fld) = tmp;
+            
+            % get the opsin stat
+            tmp = dat{i_ex}.(fldnames{i_fld}).stats.nbqx_apv_cd2_ttx.(OPSIN_STAT){CHANNEL}(1);
+            opsin_raw(i_fld) = tmp;
+        end
+        
+        if any(opsin_raw(:)>1400)
+            keyboard
+        end
+        
+        % average across TF conditions
+        fv_avg(i_pamp) = mean(fv_raw);
+        opsin_avg(i_pamp) = mean(opsin_raw);
+        
+        
+    end
+    
+    
+    switch lower(info{i_ex}.opsin)
+        case 'chr2'
+            p = plot(opsin_avg, fv_avg, 'b-+');
+        case 'ochief'
+            p = plot(opsin_avg, fv_avg, 'r-o');
+    end
+    
+    % axis labels and such
+    xlabel(sprintf('Opsin current (%s)', OPSIN_STAT));
+    ylabel(sprintf('Fiber Volley (%s)', FV_STAT));
+    bdfxn = @(x,y,z) title(z);
+    set(p, 'buttonDownFcn', {bdfxn, info{i_ex}.mouse})
+end
+
+
+
+
+
+
 
 %%  SHAPE OF THE FIRST PULSE RESPONSE FOR oChIEF AND ChR2
 
@@ -944,7 +1073,7 @@ for i_ex = 1:Nexpts
     end
     
     % Determine which recording channel to analyze
-    if strcmpi(info{i_ex}.mouse, 'CH_150105_D') % a strange exception that bucks the rules.
+    if any(strcmpi(info{i_ex}.mouse, {'CH_150105_D', 'EB_150529_B'})) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
         if STIMSITE
