@@ -327,7 +327,7 @@ classdef abfobj
                 xlabel('time');
                 ylabel(sprintf('Channel %d (%s)', channel, obj.head.recChUnits{chIdx}))
                 xlim([obj.tt(1) obj.tt(end)])
-                ylim([min(datToPlot(:)).*.95 max(datToPlot(:)).*1.05])
+                %ylim([min(datToPlot(:)).*.95 max(datToPlot(:)).*1.05])
                 box off
                 set(gca, 'userdata', channel);
             end
