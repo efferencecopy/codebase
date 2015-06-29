@@ -4,30 +4,32 @@
 
 % clear out the workspace
 fin
-
+ 
 % in = {Mouse Name, Site}
 
 in = {
-        'CH_141215_F', 1;...
-        'CH_141215_E', 1;...
-        'CH_141215_E', 2;...
-        %'CH_150105_A', 1;...  % might get cut
-        'CH_150105_B', 1;...
-        'CH_150105_B', 2;...
-        %'CH_150105_C', 1;...  % might get cut
-        %'CH_150112_A', 1;...  % might get cut
-        'CH_150112_A', 2;...
-        'CH_150112_B', 1;...
-        'CH_150112_B', 2;...
-        'CH_150112_D', 1;...
-        'CH_150112_D', 2;...
-        'CH_150112_C', 1;...
-        'CH_150119_C', 1;...
-        'CH_150119_C', 2;...
-        'CH_150119_D', 1;...
-        'CH_150119_D', 2;...
-        'CH_150119_B', 1;...
-        'CH_150119_B', 2;...
+%         'CH_141215_F', 1;...
+%         'CH_141215_E', 1;...
+%         'CH_141215_E', 2;...
+%         %'CH_150105_A', 1;...  % might get cut
+%         'CH_150105_B', 1;...
+%         'CH_150105_B', 2;...
+%         %'CH_150105_C', 1;...  % might get cut
+%         %'CH_150112_A', 1;...  % might get cut
+%         'CH_150112_A', 2;...
+%         'CH_150112_B', 1;...
+%         'CH_150112_B', 2;...
+%         'CH_150112_D', 1;...
+%         'CH_150112_D', 2;...
+%         'CH_150112_C', 1;...
+%         'CH_150119_C', 1;...
+%         'CH_150119_C', 2;...
+%         'CH_150119_D', 1;...
+%         'CH_150119_D', 2;...
+%         'CH_150119_B', 1;...
+%         'CH_150119_B', 2;...
+        'EB_150529_A', 3;...
+        'EB_150529_A', 3;...
         };
 
 
@@ -63,7 +65,7 @@ in = {
         'CH_150302_C', 1;...  % different pulse amps.
         'CH_150302_A', 1;...  % different pulse amps.
         'CH_150302_D', 1;...  % different pulse amps.
-        'EB_150529_B', 1;...        
+        'EB_150529_B', 1;...  % need to check sweeps
       };
 
 
@@ -143,14 +145,12 @@ for i_ex = 1:Nexpts
                     end
                     
                     % strange cases
-                    if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-                        %  where HS1 was set to Vclamp, and so HS2's data
-                        %  got put in the first column
-                        if i_ch == 1; error('something went wrong'); end
-                        i_ch = 1;
-                    elseif strcmpi(info{i_ex}.mouse, 'EB_150529_B')
-                        % only one channel was acquired, and it got put in
-                        % Ch 1 position...
+                    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+                    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+                    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2}); 
+                    if any(mouseMatch & siteMatch)
+                        %  HS2 is the data channel, but since HS1 wasn't
+                        %  used, the data are in the first column
                         if i_ch == 1; error('something went wrong'); end
                         i_ch = 1;
                     end
@@ -206,18 +206,17 @@ for i_ex = 1:Nexpts
             if ~info{i_ex}.ignoreChans(i_ch)
                 continue
             else
+                
                 % strange cases
-                if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-                    %  where HS1 was set to Vclamp, and so HS2's data
-                    %  got put in the first column
-                    if i_ch == 1; error('something went wrong'); end
-                    i_ch = 1;
-                elseif strcmpi(info{i_ex}.mouse, 'EB_150529_B')
-                    % only one channel was acquired, and it got put in
-                    % Ch 1 position...
-                    if i_ch == 1; error('something went wrong'); end
-                    i_ch = 1;
-                end
+                    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+                    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+                    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2}); 
+                    if any(mouseMatch & siteMatch)
+                        %  HS2 is the data channel, but since HS1 wasn't
+                        %  used, the data are in the first column
+                        if i_ch == 1; error('something went wrong'); end
+                        i_ch = 1;
+                    end
             end
             
             
@@ -352,23 +351,23 @@ for i_ex = 1:Nexpts
                             
                             %check to make sure the waveform is not
                             %contaminated by two peaks
-                            critval = -4 ./ sampRate; % empirically pretty good at catching non-monotonic trends
-                            posslope = diff(fit_dat)> critval; 
-                            consecPosSlope = conv(double(posslope), [1 1]);
-                            if any(consecPosSlope >= 2);
-                                delayInSamps = ceil(250e-6 .* sampRate);
-                                posSlopeIdx = find(consecPosSlope == 2, 1, 'first')-delayInSamps;
-                                slopeStopIdx = slopeStartIdx + posSlopeIdx;
-                                fit_dat = snippet(slopeStartIdx : slopeStopIdx);
-                                fit_tt = tt(slopeStartIdx : slopeStopIdx);
-                            end
-                            
-                            
-                            
-                            % do the fit
-                            betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
-                            
-                            if isempty(fit_dat)
+                            if numel(fit_dat)>4;
+                                
+                                critval = -4 ./ sampRate; % empirically pretty good at catching non-monotonic trends
+                                posslope = diff(fit_dat)> critval;
+                                consecPosSlope = conv(double(posslope), [1 1]);
+                                if any(consecPosSlope >= 2);
+                                    delayInSamps = ceil(250e-6 .* sampRate);
+                                    posSlopeIdx = find(consecPosSlope == 2, 1, 'first')-delayInSamps;
+                                    slopeStopIdx = slopeStartIdx + posSlopeIdx;
+                                    fit_dat = snippet(slopeStartIdx : slopeStopIdx);
+                                    fit_tt = tt(slopeStartIdx : slopeStopIdx);
+                                end
+                                
+                                % do the fit
+                                betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
+                                
+                            else
                                 warning('no data for slope, betas set to nan')
                                 betas = [nan, nan];
                             end
@@ -457,14 +456,12 @@ for i_ex = 1:Nexpts
             continue
         else
             % strange cases
-            if strcmpi(info{i_ex}.mouse, 'CH_150105_D')
-                %  where HS1 was set to Vclamp, and so HS2's data
-                %  got put in the first column
-                if i_ch == 1; error('something went wrong'); end
-                i_ch = 1;
-            elseif strcmpi(info{i_ex}.mouse, 'EB_150529_B')
-                % only one channel was acquired, and it got put in
-                % Ch 1 position...
+            exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+            mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+            siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+            if any(mouseMatch & siteMatch)
+                % HS2 is the data channel, but since HS1 wasn't
+                % used, the data are in the first column
                 if i_ch == 1; error('something went wrong'); end
                 i_ch = 1;
             end
@@ -681,7 +678,10 @@ for i_ex = 1:numel(dat)
     end
     
     % Determine which recording channel to analyze
-    if any(strcmpi(info{i_ex}.mouse, {'CH_150105_D', 'EB_150529_B'})) % a strange exception that bucks the rules.
+    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
         if STIMSITE
@@ -848,16 +848,17 @@ end
 
 %% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2 [SPIDER PLOT]
 
+close all
 
 FV_STAT = 'pk2tr';
 OPSIN_STAT = 'diffval';
-STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
-PLOT_RAW = true;
-PLOT_AVG = false;
-PLOT_ERR = false;
+STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
+PLOT_RAW = false;
+PLOT_AVG = true;
+PLOT_ERR = true;
 REMOVE_OUTLIER = false;
 INDIVIDUAL_PLOTS = false;
-N_PULSES = 1;
+N_PULSES = 7;
 TFs = [10,20,40,60,100];
 
 
@@ -964,7 +965,7 @@ end
 %% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2 [FIRST PULSE ONLY]
 
 
-FV_STAT = 'pk2tr';
+FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
 REMOVE_OUTLIER = false;
 TFs = [10,20,40,60,100];
@@ -975,8 +976,10 @@ for i_ex = 1:numel(dat)
     
     
     % Determine which recording channel to analyze
-    assert(~isnan(info{i_ex}.stimSite), 'ERROR: unknown stim site')
-    if any(strcmpi(info{i_ex}.mouse, {'CH_150105_D', 'EB_150529_B'})) % a strange exception that bucks the rules.
+    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
         if STIMSITE
@@ -1016,10 +1019,16 @@ for i_ex = 1:numel(dat)
             
             % get the FV_Na stat
             tmp = dat{i_ex}.(fldnames{i_fld}).stats.FV_Na.(FV_STAT){CHANNEL}(1);
+            if strcmpi(FV_STAT, 'diffval')
+                tmp = abs(tmp);
+            end
             fv_raw(i_fld) = tmp;
             
             % get the opsin stat
             tmp = dat{i_ex}.(fldnames{i_fld}).stats.nbqx_apv_cd2_ttx.(OPSIN_STAT){CHANNEL}(1);
+            if strcmpi(OPSIN_STAT, 'diffval')
+                tmp = abs(tmp);
+            end
             opsin_raw(i_fld) = tmp;
         end
         
@@ -1037,7 +1046,7 @@ for i_ex = 1:numel(dat)
     
     switch lower(info{i_ex}.opsin)
         case 'chr2'
-            p = plot(opsin_avg, fv_avg, 'b-+');
+            p = plot(opsin_avg, fv_avg, 'b-o');
         case 'ochief'
             p = plot(opsin_avg, fv_avg, 'r-o');
     end
@@ -1073,7 +1082,10 @@ for i_ex = 1:Nexpts
     end
     
     % Determine which recording channel to analyze
-    if any(strcmpi(info{i_ex}.mouse, {'CH_150105_D', 'EB_150529_B'})) % a strange exception that bucks the rules.
+    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
         if STIMSITE

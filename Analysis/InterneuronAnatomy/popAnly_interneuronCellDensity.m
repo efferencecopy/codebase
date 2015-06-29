@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 2;
+CELLTYPE = 1;
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
@@ -220,6 +220,7 @@ end
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
 layers = [4]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+normArea = 1; % 1=PM, 2=AL
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
     
@@ -238,17 +239,17 @@ sem = nanstd(densityAcrossLayers,[], 2) ./ sqrt(sum(~isnan(densityAcrossLayers),
 errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 
-% now plotting percent change relative to PM
+% now plotting percent change relative to a single area
 figure, hold on,
-diff_from_PM = bsxfun(@minus, densityAcrossLayers, densityAcrossLayers(1,:));
-prcnt_change_from_PM = bsxfun(@rdivide, diff_from_PM, densityAcrossLayers(1,:));
-plot(prcnt_change_from_PM, '.--')
+diff_vals = bsxfun(@minus, densityAcrossLayers, densityAcrossLayers(normArea,:));
+prcnt_change = bsxfun(@rdivide, diff_vals, densityAcrossLayers(normArea,:));
+plot(prcnt_change, '.--')
 nareas = numel(areas);
-xbar = nanmean(prcnt_change_from_PM, 2);
-sem = nanstd(prcnt_change_from_PM,[], 2) ./ sqrt(sum(~isnan(prcnt_change_from_PM), 2));
+xbar = nanmean(prcnt_change, 2);
+sem = nanstd(prcnt_change,[], 2) ./ sqrt(sum(~isnan(prcnt_change), 2));
 errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
-ylabel('percent change (relative to PM)')
+ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
 
 %% PLOTTING ROUTINES: CELL DEPTH AND SIZE
 
