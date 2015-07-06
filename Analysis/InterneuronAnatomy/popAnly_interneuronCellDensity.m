@@ -224,7 +224,7 @@ end
 
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
-layers = [1:4]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+layers = [1:3]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 normArea = 1; % 1=PM, 2=AL
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);

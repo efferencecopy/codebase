@@ -8,28 +8,25 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-%         'CH_141215_F', 1;...
-%         'CH_141215_E', 1;...
-%         'CH_141215_E', 2;...
-%         %'CH_150105_A', 1;...  % might get cut
-%         'CH_150105_B', 1;...
-%         'CH_150105_B', 2;...
-%         %'CH_150105_C', 1;...  % might get cut
-%         %'CH_150112_A', 1;...  % might get cut
-%         'CH_150112_A', 2;...
-%         'CH_150112_B', 1;...
-%         'CH_150112_B', 2;...
-%         'CH_150112_D', 1;...
-%         'CH_150112_D', 2;...
-%         'CH_150112_C', 1;...
-%         'CH_150119_C', 1;...
-%         'CH_150119_C', 2;...
-%         'CH_150119_D', 1;...
-%         'CH_150119_D', 2;...
-%         'CH_150119_B', 1;...
-%         'CH_150119_B', 2;...
-        'EB_150529_A', 3;...
-        'EB_150529_A', 3;...
+        'CH_141215_F', 1;...
+        'CH_141215_E', 1;...
+        'CH_141215_E', 2;...
+        %'CH_150105_A', 1;...  % might get cut (should probably get cut)
+        'CH_150105_B', 1;...
+        'CH_150105_B', 2;...
+        'CH_150105_C', 1;...  % might get cut (probably okay)
+        'CH_150112_A', 2;...
+        'CH_150112_B', 1;...
+        'CH_150112_B', 2;...
+        'CH_150112_D', 1;...
+        'CH_150112_D', 2;...
+        'CH_150112_C', 1;...
+        'CH_150119_C', 1;...
+        'CH_150119_C', 2;...
+        'CH_150119_D', 1;...
+        'CH_150119_D', 2;...
+        'CH_150119_B', 1;...
+        'CH_150119_B', 2;...
         };
 
 
@@ -45,6 +42,7 @@ in = {
         'CH_141215_F', 1;...
         'CH_141215_E', 1;...
         'CH_141215_E', 2;...
+        'CH_150105_A', 1;...  % might get cut (looks ok for pulse amp analysis)
         'CH_150105_B', 1;...
         'CH_150105_B', 2;...
         'CH_150105_C', 1;...  % might get cut (looks ok for pulse amp analysis)
@@ -69,6 +67,20 @@ in = {
       };
 
 
+%%  WHICH MICE SHOULD CONTRIBUTE?  [Different Stim Positions]
+
+
+% clear out the workspace
+fin
+
+% in = {Mouse Name, Site}
+
+in = {
+        'EB_150529_A', 3;...
+        'EB_150529_A', 4;...
+      };
+  
+  
 %% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
 
 
@@ -171,7 +183,6 @@ for i_ex = 1:Nexpts
         end
         
     end
-    
 end
 
 
@@ -309,9 +320,9 @@ for i_ex = 1:Nexpts
                             % make sure none of the fit_dat points are
                             % positive because the fitting routine will
                             % assume that all the points are negative
-                            critval = log(abs(fit_dat(1))) - 2; % two orders of magnitude
-                            if any(log(abs(fit_dat)) < critval)
-                                l_zero = log(abs(fit_dat)) <= critval;
+                            critval_slope = log(abs(fit_dat(1))) - 2; % two orders of magnitude
+                            if any(log(abs(fit_dat)) < critval_slope)
+                                l_zero = log(abs(fit_dat)) <= critval_slope;
                                 stopIdx = find(l_zero==1, 1, 'first')-1;
                                 fit_tt = fit_tt(1:stopIdx);
                                 fit_dat = fit_dat(1:stopIdx);
@@ -338,32 +349,33 @@ for i_ex = 1:Nexpts
                             
                             %
                             % fit the slope using OLS regression
-                            %%%%%%%%%%%%%%%%
-                            synapseDelay = 0.0018;
+                            %%%%%%%%%%%%%%
+                            synapseDelay = 0.0015;
                             stopSlopeVal = trough .* 0.80;
                             slopeStopIdx = find((tt < tt(troughidx)) & (snippet >= stopSlopeVal) , 1, 'last');
-                            startSlopeVal = snippet(troughidx) .* 0.15;
+                            startSlopeVal = snippet(troughidx) .* 0.12;
                             slopeStartIdx = (snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
                             slopeStartIdx = find(slopeStartIdx, 1, 'last');
                             slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]); % make sure that you don't encroach into the synaptic delay timeout
                             fit_dat = snippet(slopeStartIdx : slopeStopIdx);
                             fit_tt = tt(slopeStartIdx : slopeStopIdx);
                             
-                            %check to make sure the waveform is not
-                            %contaminated by two peaks
-                            if numel(fit_dat)>4;
-                                
-                                critval = -4 ./ sampRate; % empirically pretty good at catching non-monotonic trends
-                                posslope = diff(fit_dat)> critval;
-                                consecPosSlope = conv(double(posslope), [1 1]);
-                                if any(consecPosSlope >= 2);
-                                    delayInSamps = ceil(250e-6 .* sampRate);
-                                    posSlopeIdx = find(consecPosSlope == 2, 1, 'first')-delayInSamps;
-                                    slopeStopIdx = slopeStartIdx + posSlopeIdx;
-                                    fit_dat = snippet(slopeStartIdx : slopeStopIdx);
-                                    fit_tt = tt(slopeStartIdx : slopeStopIdx);
-                                end
-                                
+                            % find the max slope and center the analysis
+                            % region around that
+                            slope = [nan, diff(fit_dat)];
+                            [~, idx] = min(slope);
+                            idx = idx-4:idx+4;
+                            if numel(fit_dat) <=9
+                                idx = 1:numel(fit_dat);
+                            elseif idx(1)<=0
+                                idx = 1:9;
+                            elseif idx(end)>numel(fit_dat)
+                                idx = numel(fit_dat)-8 : numel(fit_dat);
+                            end
+                            fit_tt = fit_tt(idx);
+                            fit_dat = fit_dat(idx);
+
+                            if numel(fit_dat)>4
                                 % do the fit
                                 betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
                                 
@@ -469,7 +481,7 @@ for i_ex = 1:Nexpts
         
         hFig = figure;
         set(gcf, 'position', [87 6 1260 799]);
-        set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, info{i_ex}.stimSite, i_ch))
+        set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
@@ -850,7 +862,7 @@ end
 
 close all
 
-FV_STAT = 'pk2tr';
+FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
 STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
 PLOT_RAW = false;
