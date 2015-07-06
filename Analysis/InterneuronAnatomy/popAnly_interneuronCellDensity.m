@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 1;
+CELLTYPE = 3;
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
@@ -40,8 +40,13 @@ for i_file = 1:size(fileName,1)
     load(out); % load the data
     
     % define some params by getting the info for this stack
-    udrscr = regexp(tmp_fname,'_');
-    info = imfinfo(findfile(tmp_fname(udrscr(2)+1:end), optpath, '.tif'));
+    plate_slice = regexpi(tmp_fname, 'p[\d]s[\d]', 'match');
+    d = dir(optpath);
+    istif = cellfun(@(x) ~isempty(x), regexp({d(:).name}, 'tif'));
+    ismatch = cellfun(@(x) ~isempty(x), regexp({d(:).name}, plate_slice));
+    assert(sum(istif & ismatch)==1, 'ERROR: did not find match')
+    info_idx = find(istif & ismatch);
+    info = imfinfo(findfile(d(info_idx).name, optpath, '.tif'));
     resolution = info(1).XResolution;
     params.pix_per_um = resolution; % this comes from the LSM files, but may be inconsistent from file to file...
     params.slice_thickness_um = 70; % this is just hard coded
@@ -103,7 +108,7 @@ for i_mouse = 1:Nmice
             
             
             % make sure that there are no duplicate files
-            assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
+            %assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
             
             % combine data across the 4 brain slices
             tmp_volume = cat(2, results(idx).volumeByLayer);
@@ -219,7 +224,7 @@ end
 
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
-layers = [4]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+layers = [1:4]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 normArea = 1; % 1=PM, 2=AL
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
