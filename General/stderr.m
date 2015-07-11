@@ -1,4 +1,4 @@
-function sem = sem(data, dim)
+function sem = stderr(data, dim)
 
 if ~isvector(data)
     if ~exist('dim', 'var')

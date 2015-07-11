@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 3;
+CELLTYPE = 2;
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
@@ -28,6 +28,8 @@ startingPath = [GL_DATPATH(1:end-5), 'SOM_PV_Density', filesep];
 % initalize the output variables
 results = [];
 for i_file = 1:size(fileName,1)
+    
+    fprintf('Analyzing file %d \n', i_file)
     
     % locate the .mat file for the cell fill mask that contains the laminar
     % boundaries already marked.
@@ -51,16 +53,21 @@ for i_file = 1:size(fileName,1)
     params.pix_per_um = resolution; % this comes from the LSM files, but may be inconsistent from file to file...
     params.slice_thickness_um = 70; % this is just hard coded
     
+    % get the cell stats
     cellStats = getCellFillStats(cellFillData, params); % run analysis code
-    assert(~any(isnan([cellStats.volume_by_layer; cellStats.count_by_layer])), 'ERROR: NaN output of cellcount analysis')
     
     % Add output variables to arrays
     results(i_file).cellsByLayer = cellStats.count_by_layer;
     results(i_file).volumeByLayer = cellStats.volume_by_layer;
     results(i_file).cellDepths = cellStats.cell_depth;
-    results(i_file).cellSize = cellStats.cell_size;
-    
+    results(i_file).cellVolume = cellStats.cell_volume;
+    results(i_file).cellDiam = cellStats.cell_diam;
+    results(i_file).layerAssignments = cellStats.layerAssignments;
+    results(i_file).cell_on_edge= cellStats.cell_on_edge;
+
 end
+
+fprintf('  ** Done loading data **\n')
 
 %% PLOTTING ROUTINES:  CELL DENSITY
 
@@ -256,7 +263,7 @@ errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
 
-%% PLOTTING ROUTINES: CELL DEPTH AND SIZE
+%% PLOTTING ROUTINES: CELL SIZE
 
 
 
@@ -267,43 +274,89 @@ for i_area = 1:numel(areas)
     % grab the raw data;
     idx = strcmpi(brainArea, areas{i_area});
     popdat.(areas{i_area}).cellDepth = cat(1, results(idx).cellDepths);
-    popdat.(areas{i_area}).cellSize = cat(1, results(idx).cellSize);
+    popdat.(areas{i_area}).cellDiam = cat(1, results(idx).cellDiam);
+    popdat.(areas{i_area}).layerAssignments = cat(1, results(idx).layerAssignments);
     
+    % which cells were touching an edge
+    on_edge = cat(1, results(idx).cell_on_edge);
+    sum(on_edge)
+    
+    % remove the cells that were on an edge:
+    popdat.(areas{i_area}).cellDepth(on_edge) = [];
+    popdat.(areas{i_area}).cellDiam(on_edge) = [];
+    popdat.(areas{i_area}).layerAssignments(on_edge) = [];
 end
 
-% plot a histogram of cell sizes
-figure
-set(gcf, 'position', [104   164   871   601])
+% plot a histogram of cell sizes across all areas
 bigdataset = [];
 for i_area = 1:numel(areas)
-    
-    subplot(numel(areas),1,i_area)
-    tmp = popdat.(areas{i_area}).cellSize;
+    tmp = popdat.(areas{i_area}).cellDiam;
     bigdataset = cat(1, bigdataset, tmp);
-    bins = linspace(0, 2500, 200);
+    
+end
+figure
+bins = linspace(min(bigdataset), max(bigdataset), 200);
+hist(bigdataset, bins);
+set(get(gca, 'children'), 'edgealpha', 0.1)
+ylims = get(gca, 'ylim');
+xlim([bins(1), bins(end)])
+title('All Areas Combined')
+ylabel('counts')
+xlabel('cell volume')
+
+
+% now separate cell sizes by area
+figure
+set(gcf, 'position', [104   164   871   601])
+for i_area = 1:numel(areas)
+    subplot(numel(areas),1,i_area)
+    tmp = popdat.(areas{i_area}).cellDiam;
     hist(tmp, bins)
     set(get(gca, 'children'), 'edgealpha', 0.1)
     ylims = get(gca, 'ylim');
     hold on,
     xbar = mean(tmp);
     plot([xbar, xbar], ylims, 'b', 'linewidth', 3)
-    xlim([0, 2500])
+    xlim([bins(1), bins(end)])
     title(areas{i_area})
     ylabel('counts')
-    xlabel('cell volume')
+    xlabel('cell diameter (um)')
 end
 
+% now separate cell sizes by area and by layer
+figure, hold on
+set(gcf, 'position', [104   164   871   601])
+for i_area = 1:numel(areas)
+    
+    tmp_diam = popdat.(areas{i_area}).cellDiam;
+    tmp_layer = popdat.(areas{i_area}).layerAssignments;
+    
+    layers = [23, 4, 5, 6];
+    xbar_diam = nan(4,1);
+    sem_diam = nan(4,1);
+    for i_lyr = 1:4
+        idx = tmp_layer == layers(i_lyr);
+        xbar_diam(i_lyr) = mean(tmp_diam(idx));
+        sem_diam(i_lyr) = stderr(tmp_diam(idx));
+    end
+    
+    [~, pltclr] = hvaPlotColor(areas{i_area});
+    errorbar([1:4], xbar_diam, sem_diam, '-', 'color', pltclr, 'linewidth', 2) 
+end
+set(gca, 'xtick', [1:4], 'xticklabel', {'2/3', '4', '5', '6'})
+legend(areas)
+xlabel('Layer')
+ylabel('Cell Diameter (um)')
 
-% plot cell sizes across all areas
-figure
-bins = linspace(0, 2500, 100);
-hist(bigdataset, bins);
-set(get(gca, 'children'), 'edgealpha', 0.1)
-ylims = get(gca, 'ylim');
-xlim([0, 2500])
-title('All Areas Combined')
-ylabel('counts')
-xlabel('cell volume')
+
+
+
+
+
+
+
+
+%% PLOTTING ROUTINES: CELL DEPTHS
 
 
 % plot a histograms of cell depths
@@ -333,15 +386,19 @@ end
 
 % scatter plot of cell size vs. cell depth
 figure
-set(gcf, 'position', [108    88   863   663])
+set(gcf, 'position', [109   384   887   368])
 for i_area = 1:numel(areas)
     
     subplot(1,numel(areas),i_area)
     tmp_depth = popdat.(areas{i_area}).cellDepth;
-    tmp_size = popdat.(areas{i_area}).cellSize;
+    tmp_size = popdat.(areas{i_area}).cellDiam;
     plot(tmp_depth, tmp_size, '.')
-    ylim([0,2500])
+    ylim([0,25])
     xlim([0,1000])
+    xlabel('cell depth')
+    ylabel('cell diameter (um)')
+    [r, p] = corr(tmp_depth, tmp_size, 'type', 'spearman');
+    title(sprintf('%s = %.2f', areas{i_area}, p))
 end
 
 
