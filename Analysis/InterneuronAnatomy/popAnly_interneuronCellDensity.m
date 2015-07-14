@@ -19,9 +19,10 @@ fileName = txt(2:end, 2);
 brainArea = txt(2:end,3);
 Nfiles = size(fileName, 1);
 ap_dist = cat(1, raw{2:end,6});
-ap_dist(Nfiles+1:end) = []; % cut the junk that come along for the ride
+ap_dist(Nfiles+1:end) = []; % cut the junk that comes along for the ride
 ml_dist = cat(1, raw{2:end,7});
 ml_dist(Nfiles+1:end) = [];
+
 startingPath = [GL_DATPATH(1:end-5), 'SOM_PV_Density', filesep];
 
 
@@ -234,7 +235,7 @@ end
 
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
-layers = [1]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+layers = [1:3]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 normArea = 1; % 1=PM, 2=AL
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
@@ -341,7 +342,7 @@ for i_lyr = 1:4
     bins = logspace(log10(min(bigdataset_MM)), log10(max(bigdataset_MM)), 100);
     N = histc(bigdataset_MM(idx), bins);
     bar(bins, N, 'type', 'histc');
-    gm = geomean(bigdataset_MM(idx));
+    gm = geomean(bigdataset_MM(idx))
     set(gca, 'xscale', 'log');
     set(gca, 'xtick', [1 2 4], 'xticklabel', [1 2 4])
     child = get(gca, 'children');
@@ -370,12 +371,11 @@ areas = unique(brainArea);
 % every brain area, and that there are 4 layers per brain area. This is not
 % true in every case, so pad with NaNs.
 
-popdat = [];
 allHVAs = {'PM','AL', 'ERC', 'RL'};
 for i_area = 1:numel(allHVAs)
     % means and SEM
-    popdat.(allHVAs{i_area}).size_xbar = nan(4, Nmice); %The array is Nlayers x Nmice
-    popdat.(allHVAs{i_area}).size_sem = nan(4, Nmice); %The array is Nlayers x Nmice
+    popdat.(allHVAs{i_area}).diam_xbar = nan(4, Nmice); %The array is Nlayers x Nmice
+    popdat.(allHVAs{i_area}).diam_sem = nan(4, Nmice); %The array is Nlayers x Nmice
 end
 
 for i_mouse = 1:Nmice
@@ -399,7 +399,7 @@ for i_mouse = 1:Nmice
         tmp_on_edge = cat(1, results(idx).cell_on_edge);
         
         % any nan values?
-        assert(~any(isnan([tmp_diam; tmp_ori; tmp_minor; tmp_major; tmp_layers])),...
+        assert(~any(isnan([tmp_diam; tmp_layers])),...
             'ERROR: found a NaN value')
         
         layerTypes = [23, 4, 5, 6];
@@ -415,8 +415,8 @@ for i_mouse = 1:Nmice
             sem = stderr(tmp_diam(idx));
             
             % compile the mean and SEM
-            popdat.(areas{i_area}).size_xbar(i_lyr, i_mouse) = xbar;
-            popdat.(areas{i_area}).size_sem(i_lyr, i_mouse) = sem;
+            popdat.(areas{i_area}).diam_xbar(i_lyr, i_mouse) = xbar;
+            popdat.(areas{i_area}).diam_sem(i_lyr, i_mouse) = sem;
             
         end
         
@@ -435,7 +435,7 @@ for i_lyr = 1:4
     % for layer = i_lyr
     tmp_dat = nan(Nareas, Nmice);
     for i_area = 1:numel(allHVAs)
-        tmp_dat(i_area, :) = popdat.(allHVAs{i_area}).size_xbar(i_lyr, :);
+        tmp_dat(i_area, :) = popdat.(allHVAs{i_area}).diam_xbar(i_lyr, :);
     end
     
     subplot(4,1,i_lyr)
@@ -451,7 +451,6 @@ end
 
 %% PLOTTING ROUTINES: CELL DEPTHS
 
-error('Need to correct for clipped cell volumes')
 
 % plot a histograms of cell depths
 figure
@@ -517,7 +516,7 @@ close all
 
 % integrate the cell counts and volume across all layers. The output is a
 % single value for each data file
-layers = [1:4];
+layers = [1:3];
 tmp_counts = cat(2, results(:).cellsByLayer);
 tmp_counts = sum(tmp_counts(layers, :), 1);
 tmp_volume = cat(2, results(:).volumeByLayer);
@@ -525,23 +524,140 @@ tmp_volume = sum(tmp_volume(layers, :), 1);
 tmp_density = tmp_counts ./ tmp_volume;
 
 
-figure
-set(gcf, 'position', [294    31   379   754])
-subplot(2,1,1)
-plot(ml_dist, tmp_density, 'o')
-xlabel('M/L distance from midline')
-ylabel('Density')
-subplot(2,1,2)
-plot(-ap_dist, tmp_density, 'o')
-xlabel('A/P distance from Callosum')
-ylabel('Density')
+% iterate over mice, and brain areas. color code each counting site with
+% clr_raw, and then color code the mean location with a square (with
+% clr_avg).
+Nmice = size(unique(mouseName),1);
+Nareas = size(unique(brainArea), 1);
+mice = unique(mouseName);
+areas = unique(brainArea);
+PLOTRAW = true;
 
-
-figure
-plot3(ml_dist, -ap_dist, tmp_density, 'o')
-xlabel('M/L distance from midline')
+figure; hold on,
+set(gcf, 'position', [296   142   575   620])
+for i_mouse = 1:Nmice
+    for i_area = 1:Nareas
+        
+        idx = strcmpi(mice{i_mouse}, mouseName) & strcmpi(areas{i_area}, brainArea);
+        
+        X = -ml_dist(idx);
+        Y = -ap_dist(idx);
+        
+        tmp_density_cat = sum(tmp_counts(idx)) ./ sum(tmp_volume(idx)); % represents all slices for a brain area
+        
+        [clr_raw, clr_avg] = hvaPlotColor(areas{i_area});
+        p = plot3(mean(X), mean(Y), tmp_density_cat, 's', 'color', clr_avg, 'markerfacecolor', clr_avg);
+        bdfxn = @(x,y,z) title(z);
+        set(p, 'buttonDownFcn', {bdfxn, mice{i_mouse}})
+        
+        
+        if PLOTRAW
+            plot3(X, Y, tmp_density(idx), 'o', 'color', clr_raw)
+        end
+    end
+end
+xlim([-1800 310])
+ylim([-1800 310])
+xlabel('M/L distance from Callosum')
 ylabel('A/P distance from Callosum')
 zlabel('Density')
+%set(gca, 'view', [-48, 32])
+
+
+%% TOPOGRAPHY OF COUNTING REGIONS ACROSS ALL MICE
+
+
+PLOTRAW = false;
+NORMDIST = true;
+
+% GRAB ALL THE DATA FROM ALL MICE
+[all_ap_dist, all_ml_dist, all_norm_ap, all_norm_ml] = deal([]);
+[all_mouseName, all_brainArea] = deal({});
+for i_type = 1:3
+    xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
+    [~, txt, raw] =xlsread(xlspath, i_type);
+    
+    all_mouseName = cat(1, all_mouseName, txt(2:end, 1));
+    all_brainArea = cat(1, all_brainArea, txt(2:end, 3));
+    Nfiles = size(txt, 1)-1;
+    
+    tmp_ap = cat(1, raw{2:end,6});
+    tmp_ap(Nfiles+1:end) = []; % cut the junk that comes along for the ride
+    all_ap_dist = cat(1, all_ap_dist, tmp_ap);
+    
+    tmp_ml = cat(1, raw{2:end,7});
+    tmp_ml(Nfiles+1:end) = [];
+    all_ml_dist = cat(1, all_ml_dist, tmp_ml);
+    
+    tmp_norm_fact = cat(1, raw{2:end,9});
+    tmp_norm_fact(Nfiles+1:end) = [];
+    all_norm_ap = cat(1, all_norm_ap, tmp_norm_fact);
+    
+    tmp_norm_fact = cat(1, raw{2:end,10});
+    tmp_norm_fact(Nfiles+1:end) = [];
+    all_norm_ml = cat(1, all_norm_ml, tmp_norm_fact);
+end
+
+
+% convert the ML distances and scale factors to um (from pix). For the
+% retiga camera on the nikon scope 2x, 1000 um = 235 pix
+umPerPix = 1000/235;
+all_ml_dist = all_ml_dist .* umPerPix;
+all_norm_ml = all_norm_ml .* umPerPix;
+
+
+% iterate over mice, and brain areas. color code each counting site with
+% clr_raw, and then color code the mean location with a square (with
+% clr_avg).
+Nmice = size(unique(all_mouseName),1);
+Nareas = size(unique(all_brainArea), 1);
+mice = unique(all_mouseName);
+areas = unique(all_brainArea);
+
+figure; hold on,
+set(gcf, 'position', [296   142   575   620])
+for i_mouse = 1:Nmice
+    for i_area = 1:Nareas
+        
+        idx = strcmpi(mice{i_mouse}, all_mouseName) & strcmpi(areas{i_area}, all_brainArea);
+        
+        if sum(idx) == 0
+            continue
+        end
+        
+        X = -all_ml_dist(idx);
+        Y = -all_ap_dist(idx);
+        
+        if NORMDIST
+            norm_ml = unique(all_norm_ml(idx));
+            norm_ap = unique(all_norm_ap(idx));
+            X = X./norm_ml;
+            Y = Y./norm_ap;
+        end
+        
+        [clr_raw, clr_avg] = hvaPlotColor(areas{i_area});
+        p = plot(mean(X), mean(Y), 's', 'color', clr_avg, 'markerfacecolor', clr_avg);
+        bdfxn = @(x,y,z) title(z);
+        set(p, 'buttonDownFcn', {bdfxn, mice{i_mouse}})
+        
+        
+        if PLOTRAW
+            plot(X, Y, 'o', 'color', clr_raw)
+        end
+    end
+end
+if ~NORMDIST
+    xlim([-5500 -1500])
+    ylim([-3800 200])
+end
+xlabel('M/L distance from Callosum')
+ylabel('A/P distance from Callosum')
+
+
+
+
+
+
 
 
 

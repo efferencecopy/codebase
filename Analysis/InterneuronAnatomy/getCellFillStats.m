@@ -24,21 +24,30 @@ cellStats.orientation = nan(Nregions, 1);
 for i_reg = 1:Nregions
     
     tmp_mask = mask == uniqueRegions(i_reg);
-    rprops_3D = regionprops(tmp_mask);
-    rprops_2D = regionprops(max(tmp_mask, [], 3), 'EquivDiameter', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
+    rprops_3D = regionprops(tmp_mask, 'Area', 'Centroid', 'PixelIdxList');
     
     if ~all(cat(1, rprops_3D(:).Area) == 0) % ignore regions that have no pixels
         
         % deal with cases where there are multiple regions with the same
-        % label
+        % label number
         if numel(rprops_3D) > 1
             tmp_vols = cat(1, rprops_3D(:).Area);
             [~, idx] = max(tmp_vols);
+            
+            % modify the tmp_mask so that all the non-cellfill regions are
+            % gone
+            tmp_mask = false(size(tmp_mask));
+            tmp_mask(rprops_3D(idx).PixelIdxList) = true;
             rprops_3D = rprops_3D(idx);
-            rprops_2D = rprops_2D(idx);
-            fprintf('found %d subregions: %s\n', numel(tmp_vols), num2str(round(tmp_vols)))
+            
+            fprintf('found %d subregions:', numel(tmp_vols))
+            eval('transpose(tmp_vols)')
         end
         
+        % calculated the 2D stats
+        rprops_2D = regionprops(max(tmp_mask, [], 3), 'EquivDiameter', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
+        
+                
         % now assign the centers, volume, diam
         centers(i_reg,:) = rprops_3D.Centroid;
         cellStats.cell_volume(i_reg) = rprops_3D.Area;
