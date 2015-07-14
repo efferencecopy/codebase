@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 2;
+CELLTYPE = 3;
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
@@ -27,9 +27,9 @@ startingPath = [GL_DATPATH(1:end-5), 'SOM_PV_Density', filesep];
 
 % initalize the output variables
 results = [];
-for i_file = 1:size(fileName,1)
+for i_file = 1:Nfiles
     
-    fprintf('Analyzing file %d \n', i_file)
+    fprintf('Analyzing file %d of %d \n', i_file, Nfiles)
     
     % locate the .mat file for the cell fill mask that contains the laminar
     % boundaries already marked.
@@ -62,6 +62,9 @@ for i_file = 1:size(fileName,1)
     results(i_file).cellDepths = cellStats.cell_depth;
     results(i_file).cellVolume = cellStats.cell_volume;
     results(i_file).cellDiam = cellStats.cell_diam;
+    results(i_file).minorAxis = cellStats.minor_axis;
+    results(i_file).majorAxis = cellStats.major_axis;
+    results(i_file).orientation = cellStats.orientation;
     results(i_file).layerAssignments = cellStats.layerAssignments;
     results(i_file).cell_on_edge= cellStats.cell_on_edge;
 
@@ -115,7 +118,7 @@ for i_mouse = 1:Nmice
             
             
             % make sure that there are no duplicate files
-            %assert(size(unique(fileName(idx)),1)==4, 'ERROR: duplicate files found')
+            assert(size(unique(fileName(idx)),1)== sum(idx), 'ERROR: duplicate files found')
             
             % combine data across the 4 brain slices
             tmp_volume = cat(2, results(idx).volumeByLayer);
@@ -231,7 +234,7 @@ end
 
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
-layers = [1:3]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+layers = [1]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 normArea = 1; % 1=PM, 2=AL
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
@@ -275,89 +278,180 @@ for i_area = 1:numel(areas)
     idx = strcmpi(brainArea, areas{i_area});
     popdat.(areas{i_area}).cellDepth = cat(1, results(idx).cellDepths);
     popdat.(areas{i_area}).cellDiam = cat(1, results(idx).cellDiam);
+    popdat.(areas{i_area}).minorAxis = cat(1, results(idx).minorAxis);
+    popdat.(areas{i_area}).majorAxis = cat(1, results(idx).majorAxis);
+    popdat.(areas{i_area}).ori = cat(1, results(idx).orientation);
     popdat.(areas{i_area}).layerAssignments = cat(1, results(idx).layerAssignments);
     
     % which cells were touching an edge
     on_edge = cat(1, results(idx).cell_on_edge);
-    sum(on_edge)
     
     % remove the cells that were on an edge:
     popdat.(areas{i_area}).cellDepth(on_edge) = [];
     popdat.(areas{i_area}).cellDiam(on_edge) = [];
     popdat.(areas{i_area}).layerAssignments(on_edge) = [];
+    popdat.(areas{i_area}).minorAxis(on_edge) = [];
+    popdat.(areas{i_area}).majorAxis(on_edge) = [];
+    popdat.(areas{i_area}).ori(on_edge) = [];
 end
 
 % plot a histogram of cell sizes across all areas
-bigdataset = [];
+bigdataset_diam = [];
+bigdataset_ori = [];
+bigdataset_MM = [];
+bigdataset_layers = [];
 for i_area = 1:numel(areas)
-    tmp = popdat.(areas{i_area}).cellDiam;
-    bigdataset = cat(1, bigdataset, tmp);
+    bigdataset_diam = cat(1, bigdataset_diam, popdat.(areas{i_area}).cellDiam);
+    bigdataset_ori = cat(1, bigdataset_ori, popdat.(areas{i_area}).ori);
+    bigdataset_layers = cat(1, bigdataset_layers, popdat.(areas{i_area}).layerAssignments);
     
+    tmp = popdat.(areas{i_area}).majorAxis ./ popdat.(areas{i_area}).minorAxis;
+    bigdataset_MM = cat(1, bigdataset_MM, tmp);
 end
-figure
-bins = linspace(min(bigdataset), max(bigdataset), 200);
-hist(bigdataset, bins);
-set(get(gca, 'children'), 'edgealpha', 0.1)
-ylims = get(gca, 'ylim');
-xlim([bins(1), bins(end)])
-title('All Areas Combined')
-ylabel('counts')
-xlabel('cell volume')
 
-
-% now separate cell sizes by area
 figure
-set(gcf, 'position', [104   164   871   601])
-for i_area = 1:numel(areas)
-    subplot(numel(areas),1,i_area)
-    tmp = popdat.(areas{i_area}).cellDiam;
-    hist(tmp, bins)
-    set(get(gca, 'children'), 'edgealpha', 0.1)
+set(gcf, 'position', [53    13   799   769])
+layerTypes = [23, 4, 5, 6];
+for i_lyr = 1:4
+    
+    idx = bigdataset_layers == layerTypes(i_lyr);
+    
+    % cell sizes
+    subplot(4,3, (i_lyr-1)*3 + 1)
+    bins = linspace(min(bigdataset_diam), max(bigdataset_diam), 80);
+    tmp = bigdataset_diam(idx);
+    hist(tmp, bins); hold on,
     ylims = get(gca, 'ylim');
-    hold on,
-    xbar = mean(tmp);
-    plot([xbar, xbar], ylims, 'b', 'linewidth', 3)
+    plot([mean(tmp), mean(tmp)], ylims, 'b')
     xlim([bins(1), bins(end)])
-    title(areas{i_area})
+    title(sprintf('Layer %d', layerTypes(i_lyr)))
     ylabel('counts')
-    xlabel('cell diameter (um)')
+    xlabel('cell diameter')
+    
+    % polar plot of orientation
+    subplot(4,3, (i_lyr-1)*3 + 2)
+    ori_rad = (bigdataset_ori(idx) ./ 180) .* pi;
+    rose(ori_rad, 40)
+    title('ori from horiz')
+    axis equal
+    
+    
+    % major/minor ratio
+    subplot(4,3, (i_lyr-1)*3 + 3)
+    bins = logspace(log10(min(bigdataset_MM)), log10(max(bigdataset_MM)), 100);
+    N = histc(bigdataset_MM(idx), bins);
+    bar(bins, N, 'type', 'histc');
+    gm = geomean(bigdataset_MM(idx));
+    set(gca, 'xscale', 'log');
+    set(gca, 'xtick', [1 2 4], 'xticklabel', [1 2 4])
+    child = get(gca, 'children');
+    set(child(1), 'visible', 'off');
+    set(child(2), 'edgealpha', 0.1);
+    hold on,
+    plot([gm, gm], [0, max(N)], 'b')
+    xlim([1, bins(end)])
+    title(sprintf('Layer %d', layerTypes(i_lyr)))
+    ylabel('counts')
+    xlabel('Major : Minor ratio')
+    
+    
 end
 
-% now separate cell sizes by area and by layer
-figure, hold on
-set(gcf, 'position', [104   164   871   601])
-for i_area = 1:numel(areas)
+%% WITHIN MOUSE COMPARISON OF CELL SIZES ACROSS LAMINAE AND AREAS
+
+
+
+Nmice = size(unique(mouseName),1);
+Nareas = size(unique(brainArea), 1);
+mice = unique(mouseName);
+areas = unique(brainArea);
+
+% Pre-assemble the population structure. Assume that all mice were tested in
+% every brain area, and that there are 4 layers per brain area. This is not
+% true in every case, so pad with NaNs.
+
+popdat = [];
+allHVAs = {'PM','AL', 'ERC', 'RL'};
+for i_area = 1:numel(allHVAs)
+    % means and SEM
+    popdat.(allHVAs{i_area}).size_xbar = nan(4, Nmice); %The array is Nlayers x Nmice
+    popdat.(allHVAs{i_area}).size_sem = nan(4, Nmice); %The array is Nlayers x Nmice
+end
+
+for i_mouse = 1:Nmice
+   
+    for i_area = 1:Nareas
+        
+        % grab the raw data;
+        idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea, areas{i_area});
+        if sum(idx)==0
+            
+            continue % this brain area was not tested in this mouse.
+            
+        end
+        
+        % make sure that there are no duplicate files
+        assert(size(unique(fileName(idx)),1)== sum(idx), 'ERROR: duplicate files found')
+        
+        % combine data across the 4 brain slices
+        tmp_diam = cat(1, results(idx).cellDiam);
+        tmp_layers = cat(1, results(idx).layerAssignments);
+        tmp_on_edge = cat(1, results(idx).cell_on_edge);
+        
+        % any nan values?
+        assert(~any(isnan([tmp_diam; tmp_ori; tmp_minor; tmp_major; tmp_layers])),...
+            'ERROR: found a NaN value')
+        
+        layerTypes = [23, 4, 5, 6];
+        for i_lyr = 1:4;
+            
+            idx = tmp_layers == layerTypes(i_lyr);
+            
+            % remove the cells that were on the edges
+            idx = idx & ~tmp_on_edge;
+            
+            % compile the raw data
+            xbar = mean(tmp_diam(idx));
+            sem = stderr(tmp_diam(idx));
+            
+            % compile the mean and SEM
+            popdat.(areas{i_area}).size_xbar(i_lyr, i_mouse) = xbar;
+            popdat.(areas{i_area}).size_sem(i_lyr, i_mouse) = sem;
+            
+        end
+        
+    end    
     
-    tmp_diam = popdat.(areas{i_area}).cellDiam;
-    tmp_layer = popdat.(areas{i_area}).layerAssignments;
+end
+
+% plot xbar across areas for each layer
+
+figure
+set(gcf, 'position', [235    50   244   723])
+allHVAs = {'PM','AL', 'ERC', 'RL'};
+for i_lyr = 1:4
     
-    layers = [23, 4, 5, 6];
-    xbar_diam = nan(4,1);
-    sem_diam = nan(4,1);
-    for i_lyr = 1:4
-        idx = tmp_layer == layers(i_lyr);
-        xbar_diam(i_lyr) = mean(tmp_diam(idx));
-        sem_diam(i_lyr) = stderr(tmp_diam(idx));
+    % make some tmp data [Nareas x Nmice] where each element is the xbar
+    % for layer = i_lyr
+    tmp_dat = nan(Nareas, Nmice);
+    for i_area = 1:numel(allHVAs)
+        tmp_dat(i_area, :) = popdat.(allHVAs{i_area}).size_xbar(i_lyr, :);
     end
     
-    [~, pltclr] = hvaPlotColor(areas{i_area});
-    errorbar([1:4], xbar_diam, sem_diam, '-', 'color', pltclr, 'linewidth', 2) 
+    subplot(4,1,i_lyr)
+    plot([1:numel(allHVAs)], tmp_dat, '-')
+    title(sprintf('Layer: %d', layerTypes(i_lyr)))
+    xlabel('Brain Area')
+    ylabel('cell diameter')
+    set(gca, 'xtick', 1:numel(allHVAs), 'xticklabel', allHVAs)
 end
-set(gca, 'xtick', [1:4], 'xticklabel', {'2/3', '4', '5', '6'})
-legend(areas)
-xlabel('Layer')
-ylabel('Cell Diameter (um)')
-
-
-
-
-
 
 
 
 
 %% PLOTTING ROUTINES: CELL DEPTHS
 
+error('Need to correct for clipped cell volumes')
 
 % plot a histograms of cell depths
 figure
@@ -387,6 +481,8 @@ end
 % scatter plot of cell size vs. cell depth
 figure
 set(gcf, 'position', [109   384   887   368])
+bigdata_depth = [];
+bigdata_diam = [];
 for i_area = 1:numel(areas)
     
     subplot(1,numel(areas),i_area)
@@ -399,7 +495,20 @@ for i_area = 1:numel(areas)
     ylabel('cell diameter (um)')
     [r, p] = corr(tmp_depth, tmp_size, 'type', 'spearman');
     title(sprintf('%s = %.2f', areas{i_area}, p))
+    
+    bigdata_depth = cat(1, bigdata_depth, tmp_depth);
+    bigdata_diam = cat(1, bigdata_diam, tmp_size);
 end
+
+figure
+plot(bigdata_depth, bigdata_diam, '.')
+ylim([0,25])
+xlim([0,1000])
+xlabel('cell depth')
+ylabel('cell diameter (um)')
+[r, p] = corr(bigdata_depth, bigdata_diam, 'type', 'spearman');
+title(sprintf('All Areas Combined = %.2f', p))
+
 
 
 %% TOPOGRAPHY OF CELL DENSITY 

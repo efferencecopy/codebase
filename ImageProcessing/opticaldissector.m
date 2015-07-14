@@ -145,7 +145,7 @@ function gui_initialize(raw)
     
                         
     % add an axis for a slice through the vertical dimension
-    h.ax_sliceVert = axes('position', [.30, 0.02, .2, .96]);
+    h.ax_sliceVert = axes('position', [.32, 0.02, .2, .96]);
     gl.Xplane = round(raw.info.Width/2); % default starting slice is in the middle
     gl.sliceExapandScalar = ceil(50./raw.info.Nframes);
     vertSlice = squeeze(raw.img(:, gl.Xplane, :));
@@ -443,8 +443,8 @@ y = y-udat.gl.Xplane;
 z = z-udat.gl.Zplane;
 ellipsoid = sqrt( (x.^2)/4 + (y.^2)/4 + z.^2 );
 
-cellsize = 4;
-surroundsize = 13;
+cellsize = 4; % default: 4
+surroundsize = 13; % default: 13
 cellmask = ellipsoid < cellsize;
 surroundmask =  (ellipsoid < surroundsize) & ~((ellipsoid < cellsize+1.5) | udat.mask.img); % making a shell around the cell mask
 

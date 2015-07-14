@@ -18,11 +18,14 @@ centers = nan(Nregions, 3);
 cellStats.cell_volume = nan(Nregions, 1);
 cellStats.cell_diam = nan(Nregions, 1);
 cellStats.cell_on_edge = false(Nregions, 1);
+cellStats.minor_axis = nan(Nregions, 1);
+cellStats.major_axis = nan(Nregions, 1);
+cellStats.orientation = nan(Nregions, 1);
 for i_reg = 1:Nregions
     
     tmp_mask = mask == uniqueRegions(i_reg);
     rprops_3D = regionprops(tmp_mask);
-    rprops_2D = regionprops(max(tmp_mask, [], 3), 'EquivDiameter');
+    rprops_2D = regionprops(max(tmp_mask, [], 3), 'EquivDiameter', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
     
     if ~all(cat(1, rprops_3D(:).Area) == 0) % ignore regions that have no pixels
         
@@ -40,6 +43,9 @@ for i_reg = 1:Nregions
         centers(i_reg,:) = rprops_3D.Centroid;
         cellStats.cell_volume(i_reg) = rprops_3D.Area;
         cellStats.cell_diam(i_reg) = rprops_2D.EquivDiameter;
+        cellStats.minor_axis(i_reg) = rprops_2D.MinorAxisLength;
+        cellStats.major_axis(i_reg) = rprops_2D.MajorAxisLength;
+        cellStats.orientation(i_reg) = rprops_2D.Orientation;
         
         
         % flag cases where the region touches any of the edges of the
