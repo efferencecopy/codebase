@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 3;
+CELLTYPE = 2;
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
@@ -49,9 +49,11 @@ for i_file = 1:Nfiles
     ismatch = cellfun(@(x) ~isempty(x), regexp({d(:).name}, plate_slice));
     assert(sum(istif & ismatch)==1, 'ERROR: did not find match')
     info_idx = find(istif & ismatch);
-    info = imfinfo(findfile(d(info_idx).name, optpath, '.tif'));
+    out = findfile(d(info_idx).name, optpath, '.tif');
+    info = imfinfo(out);
     resolution = info(1).XResolution;
     params.pix_per_um = resolution; % this comes from the LSM files, but may be inconsistent from file to file...
+    thickness = getSliceThickness(out, info)
     params.slice_thickness_um = 70; % this is just hard coded
     
     % get the cell stats
@@ -68,6 +70,7 @@ for i_file = 1:Nfiles
     results(i_file).orientation = cellStats.orientation;
     results(i_file).layerAssignments = cellStats.layerAssignments;
     results(i_file).cell_on_edge= cellStats.cell_on_edge;
+    results(i_file).thickness = thickness;
 
 end
 
@@ -569,9 +572,10 @@ zlabel('Density')
 
 PLOTRAW = false;
 NORMDIST = true;
+PLOTINJ = false;
 
 % GRAB ALL THE DATA FROM ALL MICE
-[all_ap_dist, all_ml_dist, all_norm_ap, all_norm_ml] = deal([]);
+[all_ap_dist, all_ml_dist, all_norm_ap, all_norm_ml, all_inj_ap] = deal([]);
 [all_mouseName, all_brainArea] = deal({});
 for i_type = 1:3
     xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
@@ -596,6 +600,10 @@ for i_type = 1:3
     tmp_norm_fact = cat(1, raw{2:end,10});
     tmp_norm_fact(Nfiles+1:end) = [];
     all_norm_ml = cat(1, all_norm_ml, tmp_norm_fact);
+    
+    tmp_inj_ap = cat(1, raw{2:end,12});
+    tmp_inj_ap(Nfiles+1:end) = [];
+    all_inj_ap = cat(1, all_inj_ap, tmp_inj_ap);
 end
 
 
@@ -627,29 +635,48 @@ for i_mouse = 1:Nmice
         
         X = -all_ml_dist(idx);
         Y = -all_ap_dist(idx);
+        inj_y = -unique(all_inj_ap(idx));
+        inj_x = -2500; % in um.
         
         if NORMDIST
             norm_ml = unique(all_norm_ml(idx));
             norm_ap = unique(all_norm_ap(idx));
+            
             X = X./norm_ml;
             Y = Y./norm_ap;
+            inj_x = inj_x./norm_ml;
+            inj_y = inj_y./norm_ap;
         end
         
+        if PLOTINJ
+            if any(strcmpi(areas{i_area}, {'AL', 'PM'}))
+                try
+                    plot([inj_x, mean(X)], [inj_y, mean(Y)], '-', 'color', [0.3 0.3 0.3])
+                catch
+                    disp('need to add inj site AP data')
+                end
+            end
+        end
+        
+                
+        if PLOTRAW
+            plot(X, Y, 'o', 'color', clr_raw)
+        end
+        
+        % do this last so that the average point are on top of everything
+        % else
         [clr_raw, clr_avg] = hvaPlotColor(areas{i_area});
         p = plot(mean(X), mean(Y), 's', 'color', clr_avg, 'markerfacecolor', clr_avg);
         bdfxn = @(x,y,z) title(z);
         set(p, 'buttonDownFcn', {bdfxn, mice{i_mouse}})
         
         
-        if PLOTRAW
-            plot(X, Y, 'o', 'color', clr_raw)
-        end
+
+        
+        
     end
 end
-if ~NORMDIST
-    xlim([-5500 -1500])
-    ylim([-3800 200])
-end
+axis equal
 xlabel('M/L distance from Callosum')
 ylabel('A/P distance from Callosum')
 
