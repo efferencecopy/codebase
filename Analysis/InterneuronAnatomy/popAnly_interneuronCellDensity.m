@@ -10,7 +10,7 @@ fin
 % sheet 3 = SOM-Cre cells
 %
 
-CELLTYPE = 2;
+CELLTYPE = 3;
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
@@ -53,8 +53,14 @@ for i_file = 1:Nfiles
     info = imfinfo(out);
     resolution = info(1).XResolution;
     params.pix_per_um = resolution; % this comes from the LSM files, but may be inconsistent from file to file...
-    thickness = getSliceThickness(out, info)
-    params.slice_thickness_um = 70; % this is just hard coded
+    thickness = getSliceThickness(out, info);
+    if strcmpi(tmp_mouse, 'AK090314A') && strcmpi(plate_slice, 'p6s1')
+        params.slice_thickness_um = 35 % this is just hard coded
+    elseif strcmpi(tmp_mouse, 'CH_150612_A') && strcmpi(plate_slice, 'p5s6')
+        params.slice_thickness_um = 35 % this is just hard coded
+    else
+        params.slice_thickness_um = 70; % this is just hard coded
+    end
     
     % get the cell stats
     cellStats = getCellFillStats(cellFillData, params); % run analysis code
@@ -269,6 +275,7 @@ sem = nanstd(prcnt_change,[], 2) ./ sqrt(sum(~isnan(prcnt_change), 2));
 errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
+legend(unique(mouseName))
 
 %% PLOTTING ROUTINES: CELL SIZE
 
@@ -534,7 +541,7 @@ Nmice = size(unique(mouseName),1);
 Nareas = size(unique(brainArea), 1);
 mice = unique(mouseName);
 areas = unique(brainArea);
-PLOTRAW = true;
+PLOTRAW = false;
 
 figure; hold on,
 set(gcf, 'position', [296   142   575   620])
@@ -642,10 +649,15 @@ for i_mouse = 1:Nmice
             norm_ml = unique(all_norm_ml(idx));
             norm_ap = unique(all_norm_ap(idx));
             
+            % including this term effecitvely means the norm_ap does
+            % nothing, and I'm scaling both dimensions by the norm_ml
+            % factor
+            norm_fact_equator = norm_ap ./ norm_ml;
+            
             X = X./norm_ml;
-            Y = Y./norm_ap;
+            Y = Y./norm_ap*norm_fact_equator;
             inj_x = inj_x./norm_ml;
-            inj_y = inj_y./norm_ap;
+            inj_y = inj_y./norm_ap*norm_fact_equator;
         end
         
         if PLOTINJ

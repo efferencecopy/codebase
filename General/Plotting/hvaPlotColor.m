@@ -17,14 +17,12 @@ switch lower(hva)
         clr_avg = 'g';
         
     case 'erc'
-        clr_avg = [ 0.5804, 0, 0.8275];
-        clr_raw = [0.8549, 0.4392, 0.8392];
-        
-        
-    case 'rl'
         clr_avg = [0.8235, 0.4118, 0.1176];
         clr_raw = [0.8706, 0.7216, 0.5294];
         
+    case 'rl'
+        clr_avg = [ 0.5804, 0, 0.8275];
+        clr_raw = [0.8549, 0.4392, 0.8392];
         
     otherwise
         clr_raw = [.5 .5 .5];

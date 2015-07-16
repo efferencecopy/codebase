@@ -443,8 +443,8 @@ y = y-udat.gl.Xplane;
 z = z-udat.gl.Zplane;
 ellipsoid = sqrt( (x.^2)/4 + (y.^2)/4 + z.^2 );
 
-cellsize = 4; % default: 4
-surroundsize = 13; % default: 13
+cellsize = 3; % default: 4
+surroundsize = 7; % default: 13
 cellmask = ellipsoid < cellsize;
 surroundmask =  (ellipsoid < surroundsize) & ~((ellipsoid < cellsize+1.5) | udat.mask.img); % making a shell around the cell mask
 

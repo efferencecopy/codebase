@@ -217,7 +217,7 @@ else
     cent_x = centers(:,1);
     cent_y = centers(:,2);
     y_on_boundary1 = (cellFillData.raw.boundary1.m).*cent_x + (cellFillData.raw.boundary1.b);
-    cellStats.cell_depth = abs(y_on_boundary1 - cent_y);
+    cellStats.cell_depth = abs(y_on_boundary1 - cent_y) .* um_per_pix;
     
 end
 
