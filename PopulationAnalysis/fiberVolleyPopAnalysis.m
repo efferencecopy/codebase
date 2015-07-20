@@ -27,6 +27,7 @@ in = {
         'CH_150119_D', 2;...
         'CH_150119_B', 1;...
         'CH_150119_B', 2;...
+        'EB_150630_C', 1;...  % chronos
         };
 
 
@@ -39,31 +40,32 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-        'CH_141215_F', 1;...
-        'CH_141215_E', 1;...
-        'CH_141215_E', 2;...
-        'CH_150105_A', 1;...  % might get cut (looks ok for pulse amp analysis)
-        'CH_150105_B', 1;...
-        'CH_150105_B', 2;...
-        'CH_150105_C', 1;...  % might get cut (looks ok for pulse amp analysis)
-        'CH_150112_A', 1;...  % might get cut (looks ok for pulse amp analysis)
-        'CH_150112_A', 2;...
-        'CH_150112_B', 1;...
-        'CH_150112_B', 2;...
-        'CH_150112_D', 1;...
-        'CH_150112_D', 2;...
-        'CH_150112_C', 1;...
-        'CH_150119_C', 1;...
-        'CH_150119_C', 2;...
-        'CH_150119_D', 1;...
-        'CH_150119_D', 2;...
-        'CH_150119_B', 1;...
-        'CH_150119_B', 2;...      
+%         'CH_141215_F', 1;...
+%         'CH_141215_E', 1;...
+%         'CH_141215_E', 2;...
+%         'CH_150105_A', 1;...  % might get cut (looks ok for pulse amp analysis)
+%         'CH_150105_B', 1;...
+%         'CH_150105_B', 2;...
+%         'CH_150105_C', 1;...  % might get cut (looks ok for pulse amp analysis)
+%         'CH_150112_A', 1;...  % might get cut (looks ok for pulse amp analysis)
+%         'CH_150112_A', 2;...
+%         'CH_150112_B', 1;...
+%         'CH_150112_B', 2;...
+%         'CH_150112_D', 1;...
+%         'CH_150112_D', 2;...
+%         'CH_150112_C', 1;...
+%         'CH_150119_C', 1;...
+%         'CH_150119_C', 2;...
+%         'CH_150119_D', 1;...
+%         'CH_150119_D', 2;...
+%         'CH_150119_B', 1;...
+%         'CH_150119_B', 2;...      
         'CH_150112_C', 2;...  % different pulse amps.
         'CH_150302_C', 1;...  % different pulse amps.
         'CH_150302_A', 1;...  % different pulse amps.
         'CH_150302_D', 1;...  % different pulse amps.
         'EB_150529_B', 1;...  % need to check sweeps
+        'EB_150630_C', 2;...  % different pulse amps
       };
 
 
@@ -450,7 +452,7 @@ close all
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = true;
+RESTRICT_TO_STIM_SITE = false;
 NORM_TO_PULSE1 = false;
 
 for i_ex = 1:Nexpts
@@ -661,7 +663,7 @@ STIMSITE = true;  % true => stimsite,  false => distal site
 
 
 %initialize the outputs
-opsinTypes = {'chr2', 'ochief'};
+opsinTypes = {'chr2', 'ochief', 'chronos'};
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
@@ -979,7 +981,6 @@ end
 
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
-REMOVE_OUTLIER = false;
 TFs = [10,20,40,60,100];
 STIMSITE = true;
 
@@ -1061,6 +1062,8 @@ for i_ex = 1:numel(dat)
             p = plot(opsin_avg, fv_avg, 'b-o');
         case 'ochief'
             p = plot(opsin_avg, fv_avg, 'r-o');
+        case 'chronos'
+            p = plot(opsin_avg, fv_avg, 'g-o');
     end
     
     % axis labels and such
@@ -1084,6 +1087,7 @@ STIMSITE = true;
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
 chr2_examp = {[] []};
 ochief_examp = {[] []};
+chronos_examp = {[] []};
 for i_ex = 1:Nexpts
     
     
@@ -1158,10 +1162,12 @@ for i_ex = 1:Nexpts
             
         end
         switch lower(info{i_ex}.opsin)
-                case 'ochief'
-                    ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
-                case 'chr2'
-                    chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
+            case 'ochief'
+                ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
+            case 'chr2'
+                chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
+            case 'chronos'
+                chronos_examp{i_cond} = cat(1, chronos_examp{i_cond}, firstPulse);
         end
         
     end % conditions
@@ -1179,8 +1185,10 @@ for i_cond = 1:numel(conds)
     figure, hold on,
     plot(tt, ochief_examp{i_cond}', 'm');
     plot(tt, chr2_examp{i_cond}', 'c');
+    plot(tt, chronos_examp{i_cond}', 'g');
     plot(tt, mean(ochief_examp{i_cond}, 1), 'r', 'linewidth', 4);
     plot(tt, mean(chr2_examp{i_cond}, 1), 'b', 'linewidth', 4);
+    plot(tt, mean(chronos_examp{i_cond}, 1), 'g', 'linewidth', 4);
     xlabel('time (msec)')
     ylabel('Normalized LFP amplitude')
     axis tight
@@ -1197,6 +1205,7 @@ for i_cond = 1:numel(conds)
         figure, hold on,
         plot(tt, cumsum(-mean(ochief_examp{i_cond}, 1)), 'r', 'linewidth', 4);
         plot(tt, cumsum(-mean(chr2_examp{i_cond}, 1)), 'b', 'linewidth', 4);
+        plot(tt, cumsum(-mean(chronos_examp{i_cond}, 1)), 'g', 'linewidth', 4);
         xlabel('time (msec)')
         ylabel('Normalized LFP amplitude')
         title('Integral of (negative) FV pulse')
