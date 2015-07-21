@@ -83,8 +83,9 @@ in = {
       };
   
   
-%% LOOP THOUGH EACH MOUSE AND CREATE THE NECESSARY RAW DATA TRACES
+%% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
+RMLINENOISE = false;
 
 % grab the fiber volley pop excel workbook
 fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
@@ -107,7 +108,7 @@ for i_ex = 1:Nexpts;
     l_expt = l_mouse & l_site;
     
     % run the analysis
-    [dat{i_ex}, info{i_ex}] = fiberVolleyAnalysis(l_expt, raw, false);
+    [dat{i_ex}, info{i_ex}] = fiberVolleyAnalysis(l_expt, raw, false, RMLINENOISE);
     
     % enter a few other useful things into the structure
     info{i_ex}.mouse =  in{i_ex,1};
@@ -118,8 +119,6 @@ for i_ex = 1:Nexpts;
         info{i_ex}.stimSite = str2num(info{i_ex}.stimSite);
     end
 end
-
-
 
 %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
@@ -211,7 +210,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelay= 0.0006; % timeout following pulse offset
+        photoDelay= 0.0005; % timeout following pulse offset
         
         for i_ch = 1:2;
             
@@ -1213,5 +1212,278 @@ for i_cond = 1:numel(conds)
     end
     
 end
+
+
+
+%% RUNDOWN: RUNNING AVERAGE OF STATS ACROSS SWEEPS
+
+SWEEPSTOAVG = 5;
+DEBUG = false;
+
+
+
+% grab the fiber volley pop excel workbook
+fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
+[~,txt, raw] = xlsread(fname);
+raw(size(txt,1)+1:end, :) = [];
+raw(:,size(txt,2)+1:end) = [];
+channelIdx = cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d'));
+opsinIdx = strcmpi(raw(1,:), 'opsin');
+stimSiteIdx = strcmpi(raw(1,:), 'stim site');
+channels = raw(:, cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d')));
+rmsweeps = raw(:, strcmpi(raw(1,:), 'rmSweeps'));
+
+% do the analysis
+smoothStats = {};
+Nexpts = size(in,1);
+for i_ex = 1:Nexpts;
+    
+    % update the user with what's going on
+    fprintf('Analyzing mouse %s site %d, file %d of %d\n', in{i_ex, 1}, in{i_ex, 2}, i_ex, Nexpts)
+    
+    conds = {'nbqx_apv', 'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
+    for i_cond = 1:numel(conds)
+        
+        % figure out what rows in the work book to pay attention to,
+        % which will define a particular file
+        l_mouse = cellfun(@(x) ~isempty(x), regexp(raw(:,1), in{i_ex,1}));
+        l_site = [false ; cell2mat(raw(2:end,2)) == in{i_ex,2}]; % add a leading 'false' to account for the header row in 'raw'
+        l_cond = strcmpi(raw(:,5), regexprep(conds{i_cond}, '_', '\+'));
+        l_expt = l_mouse & l_site & l_cond;
+        
+        % only analyze files where the conditions were interleaved.
+        % otherwise the ordinal relationship between trials will be wrong
+        interleaved = cellfun(@(x) strcmpi(x, 'interleaved'), raw(:,4));
+        if any(~interleaved(l_expt))
+            continue
+        end
+        
+        % simple error check
+        assert(sum(l_expt) == 1, 'ERROR: too many data files')
+        
+        % add a few useful peices of information to the data structure
+        smoothStats{i_ex}.opsin = raw{l_expt, opsinIdx};
+        smoothStats{i_ex}.stimSite = raw{l_expt, stimSiteIdx};
+        smoothStats{i_ex}.mouseName = in{i_ex, 1};
+        smoothStats{i_ex}.siteNum = in{i_ex, 2};
+        
+        
+        % extract the raw data
+        fname = raw{l_expt, 3};
+        ax = abfobj(fname);
+        ax.head.validChans = cat(1, channels{l_expt,:});
+        
+        % remove some sweeps if need be
+        if ~isnan(rmsweeps{l_expt})
+            goodSweeps = true(size(ax.dat,3),1);
+            badSweeps = eval(['[',rmsweeps{l_expt},']']);
+            goodSweeps(badSweeps) = false;
+            ax.dat = ax.dat(:,:,goodSweeps);
+            ax.wf = ax.wf(:,:,goodSweeps);
+        end
+        
+        % store the data, grouped by unique conditions. First, I need to figure
+        % out the appropriate field name for each condition
+        tdict = outerleave(ax, ax.idx.LED_470);
+        
+        
+        % make sure the first LED pulse is identical across trial types
+        assert(numel(unique(tdict.conds(:,1)))==1, 'ERROR: too many pAmps')
+        assert(all(diff(tdict.conds(:,2)) < 1e-14), 'ERROR: too many pWidths')
+        pwidth = tdict.conds(1,2);
+        
+        % store some useful parameters
+        sampRate = ax.head.sampRate;
+        prePulseTime = 0.006; % in sec
+        postPulseTime = 0.009; % in sec
+        prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
+        postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
+        photoDelay= 150e-6; % timeout following pulse offset
+        
+        
+        % for each channel, run through sweeps and calculate the running
+        % average raw data trace. Extract stats for the first pulse
+        for i_ch = 1:2;
+            
+            % deal with data and channels that need to be ignored.
+            if ~channels{l_expt, i_ch}
+                continue
+            else
+                
+                % strange cases
+                exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+                mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
+                siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+                if any(mouseMatch & siteMatch)
+                    %  HS2 is the data channel, but since HS1 wasn't
+                    %  used, the data are in the first column
+                    if i_ch == 1; error('something went wrong'); end
+                    i_ch = 1;
+                end
+            end
+            
+            
+            % figure out the appropriate index to the data. It should have
+            % the correct "HSx_" prefix, and have the correct units
+            validChans = find([channels{l_expt,:}] == 1);
+            whichChan = validChans(i_ch);
+            correctUnits = strcmpi('mV', ax.head.recChUnits);
+            correctHS = strncmpi(sprintf('HS%d_', whichChan), ax.head.recChNames, 3);
+            datChIdx = correctUnits & correctHS;
+            assert(sum(datChIdx)==1, 'ERROR: incorrect channel selection')
+            ledChIdx = strcmpi('LED_470', ax.head.recChNames);
+            
+            
+            
+            %
+            %  Here is where I'll pull out the adjcent sweeps. To start,
+            %  pull out all snippets and rearrage them acording to trial
+            %  order
+            %
+            Nsweeps = size(ax.dat,3);
+            smoothStats{i_ex}.(conds{i_cond}).trough{i_ch} = nan(Nsweeps,1);
+            for i_swp = 1:(Nsweeps-SWEEPSTOAVG)
+                
+                % make a list of relavent trials (a sliding window)
+                tList = i_swp : 1 : (i_swp+SWEEPSTOAVG-1);
+                
+                % grab the raw data and the sampled LED waveforms
+                lfp_raw = ax.dat(:, datChIdx, tList);
+                lfp_raw = permute(lfp_raw, [3,1,2]);
+                led = ax.dat(:, ledChIdx, tList);
+                led = permute(led, [3,1,2]);
+                
+                
+                % make sure the LED pulse comes on at the correct time for
+                % each sweep
+                tcross = diff(led > 0.05, [], 2)== 1;
+                tcross = cat(2, false(SWEEPSTOAVG,1), tcross);
+                firstCross = cellfun(@(x) find(x==1, 1, 'first'), mat2cell(tcross, ones(SWEEPSTOAVG,1)));
+                assert(numel(unique(firstCross))==1, 'ERROR: first pulse times are inconsistent')
+                firstCross = firstCross(1);
+                
+                
+                % average the adjcent sweeps, pull out the first pulse
+                lfp_raw = mean(lfp_raw, 1);
+                firstPulse = lfp_raw((firstCross-prePulseSamps) : (firstCross+postPulseSamps));
+                firstPulse = firstPulse - mean(firstPulse(1:prePulseSamps));
+                lp_freq = 2500;
+                firstPulse = butterfilt(firstPulse, lp_freq, sampRate, 'low', 2);
+                
+                % cacluate the peak and trough idx
+                tt = ([0:numel(firstPulse)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
+                [troughidx, peakidx]  = anlyMod_getWFepochs(firstPulse, tt, conds{i_cond}, pwidth, photoDelay);
+                
+                % add a few points on either side of the true trough/peak
+                trough_window = troughidx-4: min([troughidx+4, numel(firstPulse)]);
+                assert(~isempty(trough_window) && numel(trough_window)==9, 'ERROR: no data for trough window')
+                if strcmpi(conds{i_cond}, 'FV_Na')
+                    peak_window = peakidx-4: min([peakidx+4, numel(firstPulse)]);
+                    assert(~isempty(peak_window) && numel(peak_window)==9, 'ERROR: no data for peak window')
+                end
+                
+                
+                %
+                % store some stats for each condition type
+                %
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%
+                switch conds{i_cond}
+                    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv'}
+                        
+                        trough = mean(firstPulse(trough_window));
+                        smoothStats{i_ex}.(conds{i_cond}).trough{i_ch}(i_swp) = trough;
+                    case 'synapticTransmission'
+                end
+                
+                
+                if DEBUG
+                    cla
+                    hold on,
+                    plot(tt, firstPulse);
+                    plot(0, 0, 'ro')
+                    plot(pwidth, 0, 'ro')
+                    plot(pwidth+photoDelay, 0, 'ko')
+                    plot(tt(troughidx), trough, 'go')
+                    drawnow
+                end                
+            end % sweeps
+
+        end % channels
+        
+    end % conditions
+end % expts
+
+
+
+
+% clear out the structures that have no data
+l_empty = cellfun(@isempty, smoothStats);
+smoothStats = smoothStats(~l_empty);
+
+%
+% PLOTTING ROUTINES
+%
+%%%%%%%%%%%%%%%%
+close all
+NORMVALS = true;
+STIMSITE = 1;
+
+exptOpsins = structcat(smoothStats, 'opsin');
+opsins = {'chr2', 'ochief', 'chronos'};
+for i_opsin = 1:numel(opsins)
+    
+    l_opsin = strcmpi(exptOpsins, opsins{i_opsin});
+    l_opsin = find(l_opsin);
+    
+    figure
+    set(gcf, 'name', opsins{i_opsin}, 'position', [1 379 1141 405]);
+    for i_ex = 1:numel(l_opsin)
+        
+        idx = l_opsin(i_ex);
+        
+        % Determine which recording channel to analyze
+        exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
+        mouseMatch = strcmpi(smoothStats{idx}.mouseName, exceptions(:,1));
+        siteMatch = smoothStats{idx}.siteNum == vertcat(exceptions{:,2});
+        if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
+            CHANNEL = 1;
+        else % all other experiments...
+            if STIMSITE
+                CHANNEL = smoothStats{idx}.stimSite;
+            else
+                if smoothStats{idx}.stimSite == 1
+                    CHANNEL = 2;
+                elseif smoothStats{idx}.stimSite == 2
+                    CHANNEL = 1;
+                end
+            end
+        end
+        
+        % plot each of the drug conditions
+        for i_cond = 1:numel(conds)
+            tmp = smoothStats{idx}.(conds{i_cond}).trough{CHANNEL};
+            tmp = abs(tmp);
+            if NORMVALS
+                tmp = (tmp - tmp(1)) ./ tmp(1);
+            end
+            subplot(1,numel(conds), i_cond)
+            hold on,
+            plot(tmp, 'k')
+            ylabel('diffval')
+            xlabel('trial number')
+            title(conds{i_cond})
+        end
+        
+    end
+    
+end
+
+
+
+
+
+
+
+
 
 

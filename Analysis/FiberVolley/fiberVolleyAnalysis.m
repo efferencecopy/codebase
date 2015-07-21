@@ -1,4 +1,4 @@
-function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES)
+function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES, RMLINENOISE)
 
 
 if ~exist('PLOTFIGURES', 'var')
@@ -112,6 +112,7 @@ for i_fid = 1:numel(fnames)
         ax.(swpType).(drugType).pWidth = tdict.conds(i_sweepType,2);
         ax.(swpType).(drugType).pTF = fileTFs(i_sweepType);
         ax.(swpType).(drugType).tRecov = fileRecovs(i_sweepType);
+        ax.(swpType).(drugType).realTrialNum = find(tdict.trlList == i_sweepType);
     end
 
 end
@@ -181,6 +182,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         end % i_ch
         
         % store the pulse onset times for the population analysis
+        info.(swpType).(drugType).realTrialNum = ax.(swpType).(drugType).realTrialNum;
         info.(swpType).(drugType).pulseOn_idx = storedCrossings_on{i_sweepType};
         info.(swpType).(drugType).pulseOff_idx = storedCrossings_off{i_sweepType};
         info.(swpType).(drugType).sampRate = ax.(swpType).(drugType).head.sampRate;
@@ -227,6 +229,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).synapticTransmission.pWidth = info.(swpType).none.pWidth;
         info.(swpType).synapticTransmission.pAmp = info.(swpType).none.pAmp;
         info.(swpType).synapticTransmission.pTF = info.(swpType).none.pTF;
+        info.(swpType).synapticTransmission.realTrialNum = info.(swpType).none.realTrialNum;
     end
     
     % is there a ttx condition that can be used to define fiber volley with
@@ -248,6 +251,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
         info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
         info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
+        info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
     
     elseif nbqx_apv_Present && nbqx_apv_cd2_ttx_Present
         
@@ -263,6 +267,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
         info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
         info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
+        info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
     end
     
     % is there a ttx+cd condition that can be used to define the fiber
@@ -282,6 +287,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na.pWidth = info.(swpType).nbqx_apv_cd2.pWidth;
         info.(swpType).FV_Na.pAmp = info.(swpType).nbqx_apv_cd2.pAmp;
         info.(swpType).FV_Na.pTF = info.(swpType).nbqx_apv_cd2.pTF;
+        info.(swpType).FV_Na.realTrialNum = info.(swpType).nbqx_apv_cd2.realTrialNum;
     end
     
     
@@ -303,42 +309,44 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).directRelease.pWidth = info.(swpType).ttx.pWidth;
         info.(swpType).directRelease.pAmp = info.(swpType).ttx.pAmp;
         info.(swpType).directRelease.pTF = info.(swpType).ttx.pTF;
+        info.(swpType).directRelease.realTrialNum = info.(swpType).ttx.realTrialNum;
     end
     
     
     
-    
-    % try to reduce line noise from a few of the traces
-    conds = {'FV_Na_Ca2_mGluR', 'FV_Na', 'ttx', 'cd2_ttx', 'directRelease'};
-    for i_cond = 1:numel(conds)
-        
-        if isfield(trace.(swpType), conds{i_cond})
+    if RMLINENOISE
+        % try to reduce line noise from a few of the traces
+        conds = {'FV_Na_Ca2_mGluR', 'FV_Na', 'ttx', 'cd2_ttx', 'directRelease'};
+        for i_cond = 1:numel(conds)
             
-            tmp_trace = trace.(swpType).(conds{i_cond});
-            
-            lines = [5.5, 60.*(1:4)];
-            winEnd_idx = size(tmp_trace,1);
-            if info.(swpType).(conds{i_cond}).pTF >= 40;
-                % just look at the data following the last pulse.
-                lastpulse = find(info.(swpType).(conds{i_cond}).pulseOff_idx==1, 1, 'last');
-                sampRate = info.(swpType).(conds{i_cond}).sampRate;
-                winStart_idx = lastpulse + ceil(0.100 ./ sampRate);
-            else
-                % this takes all the data (even the pulses) but is better
-                % then just taking the data after the last pulse b/c long
-                % trains have essentially no data after them.
-                winStart_idx = 1; 
+            if isfield(trace.(swpType), conds{i_cond})
+                
+                tmp_trace = trace.(swpType).(conds{i_cond});
+                
+                lines = [5.5, 60.*(1:4)];
+                winEnd_idx = size(tmp_trace,1);
+                if info.(swpType).(conds{i_cond}).pTF >= 40;
+                    % just look at the data following the last pulse.
+                    lastpulse = find(info.(swpType).(conds{i_cond}).pulseOff_idx==1, 1, 'last');
+                    sampRate = info.(swpType).(conds{i_cond}).sampRate;
+                    winStart_idx = lastpulse + ceil(0.100 ./ sampRate);
+                else
+                    % this takes all the data (even the pulses) but is better
+                    % then just taking the data after the last pulse b/c long
+                    % trains have essentially no data after them.
+                    winStart_idx = 1;
+                end
+                
+                for i_ch = 1:size(tmp_trace,2)
+                    tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
+                end
+                
+                trace.(swpType).(conds{i_cond}) = tmp_trace;
+                
             end
-            
-            for i_ch = 1:size(tmp_trace,2)
-                tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
-            end
-            
-            trace.(swpType).(conds{i_cond}) = tmp_trace;
-            
         end
     end
-        
+    
     
 end
 

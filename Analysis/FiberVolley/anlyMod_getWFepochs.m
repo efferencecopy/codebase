@@ -4,12 +4,18 @@ function [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, condition, pWi
 [troughidx, peakidx] = deal(nan);
 
 switch condition
-    case 'nbqx_apv_cd2_ttx'
+    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv'}
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
         troughval = min(snippet(trough_window)); % only look after the pulse has come on
         troughidx = find(snippet == troughval);
-        assert(numel(troughidx)==1, 'ERROR: too many trough vals')
+        if numel(troughidx) > 1
+            troughidx = troughidx(1);
+            warning('found too many trough indicies')
+            keyboard
+        end
+            
+        %assert(numel(troughidx)==1, 'ERROR: too many trough vals')
         
     case  'FV_Na'
         
