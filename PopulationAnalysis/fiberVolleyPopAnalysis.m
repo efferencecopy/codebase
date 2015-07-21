@@ -27,7 +27,9 @@ in = {
         'CH_150119_D', 2;...
         'CH_150119_B', 1;...
         'CH_150119_B', 2;...
-        'EB_150630_C', 1;...  % chronos
+        'EB_150630_C', 1;...  % chronos HVA
+        'EB_150630_D', 1;...  % chronos contralateral V1
+        'EB_150630_A', 1;...  % chronos HVA, weak expression
         };
 
 
