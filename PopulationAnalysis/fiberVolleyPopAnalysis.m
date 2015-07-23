@@ -8,28 +8,32 @@ fin
 % in = {Mouse Name, Site}
 
 in = {
-        'CH_141215_F', 1;...
-        'CH_141215_E', 1;...
-        'CH_141215_E', 2;...
-        %'CH_150105_A', 1;...  % might get cut (should probably get cut)
-        'CH_150105_B', 1;...
-        'CH_150105_B', 2;...
-        'CH_150105_C', 1;...  % might get cut (probably okay)
-        'CH_150112_A', 2;...
-        'CH_150112_B', 1;...
-        'CH_150112_B', 2;...
-        'CH_150112_D', 1;...
-        'CH_150112_D', 2;...
-        'CH_150112_C', 1;...
-        'CH_150119_C', 1;...
-        'CH_150119_C', 2;...
-        'CH_150119_D', 1;...
-        'CH_150119_D', 2;...
-        'CH_150119_B', 1;...
-        'CH_150119_B', 2;...
+%         'CH_141215_F', 1;...
+%         'CH_141215_E', 1;...
+%         'CH_141215_E', 2;...
+%         %'CH_150105_A', 1;...  % might get cut (should probably get cut)
+%         'CH_150105_B', 1;...
+%         'CH_150105_B', 2;...
+%         'CH_150105_C', 1;...  % might get cut (probably okay)
+%         'CH_150112_A', 2;...
+%         'CH_150112_B', 1;...
+%         'CH_150112_B', 2;...
+%         'CH_150112_D', 1;...
+%         'CH_150112_D', 2;...
+%         'CH_150112_C', 1;...
+%         'CH_150119_C', 1;...
+%         'CH_150119_C', 2;...
+%         'CH_150119_D', 1;...
+%         'CH_150119_D', 2;...
+%         'CH_150119_B', 1;...
+%         'CH_150119_B', 2;...
         'EB_150630_C', 1;...  % chronos HVA
-        'EB_150630_D', 1;...  % chronos contralateral V1
         'EB_150630_A', 1;...  % chronos HVA, weak expression
+        'EB_150630_A', 2;...  % chronos HVA, weak expression, no FV
+        'EB_150630_B', 1;...  % chronos weak exprepression, contralateral V1
+        'EB_150630_B', 2;...  % chronos weak exprepression, ipsilateral V1, rundown expt
+        'EB_150630_B', 3;...  % chronos weak exprepression, contralateral V1, rundown expt
+        
         };
 
 
@@ -67,7 +71,8 @@ in = {
         'CH_150302_A', 1;...  % different pulse amps.
         'CH_150302_D', 1;...  % different pulse amps.
         'EB_150529_B', 1;...  % need to check sweeps
-        'EB_150630_C', 2;...  % different pulse amps
+        'EB_150630_C', 2;...  % chronos different pulse amps
+        'EB_150630_D', 1;...  % chronos contralateral V1 different amps
       };
 
 
@@ -1243,7 +1248,7 @@ for i_ex = 1:Nexpts;
     % update the user with what's going on
     fprintf('Analyzing mouse %s site %d, file %d of %d\n', in{i_ex, 1}, in{i_ex, 2}, i_ex, Nexpts)
     
-    conds = {'nbqx_apv', 'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
+    conds = {'ttx', 'ttx_cd2', 'nbqx_apv', 'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
     for i_cond = 1:numel(conds)
         
         % figure out what rows in the work book to pay attention to,
@@ -1261,7 +1266,11 @@ for i_ex = 1:Nexpts;
         end
         
         % simple error check
-        assert(sum(l_expt) == 1, 'ERROR: too many data files')
+        if sum(l_expt) == 0
+            continue
+        else
+            assert(sum(l_expt) <= 1, 'ERROR: too many data files')
+        end
         
         % add a few useful peices of information to the data structure
         smoothStats{i_ex}.opsin = raw{l_expt, opsinIdx};
@@ -1390,7 +1399,7 @@ for i_ex = 1:Nexpts;
                 %
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%
                 switch conds{i_cond}
-                    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv'}
+                    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv', 'ttx', 'ttx_cd2'}
                         
                         trough = mean(firstPulse(trough_window));
                         smoothStats{i_ex}.(conds{i_cond}).trough{i_ch}(i_swp) = trough;
@@ -1421,6 +1430,9 @@ end % expts
 % clear out the structures that have no data
 l_empty = cellfun(@isempty, smoothStats);
 smoothStats = smoothStats(~l_empty);
+
+
+%%
 
 %
 % PLOTTING ROUTINES
@@ -1463,6 +1475,11 @@ for i_opsin = 1:numel(opsins)
         
         % plot each of the drug conditions
         for i_cond = 1:numel(conds)
+            conds{i_cond}
+            if ~isfield(smoothStats{idx}, conds{i_cond})
+                continue
+            end
+            
             tmp = smoothStats{idx}.(conds{i_cond}).trough{CHANNEL};
             tmp = abs(tmp);
             if NORMVALS

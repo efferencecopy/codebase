@@ -4,7 +4,7 @@ function [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, condition, pWi
 [troughidx, peakidx] = deal(nan);
 
 switch condition
-    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv'}
+    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv', 'ttx', 'ttx_cd2'}
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
         troughval = min(snippet(trough_window)); % only look after the pulse has come on
