@@ -28,7 +28,6 @@ in = {
         'CH_150119_B', 1;...
         'CH_150119_B', 2;...
         'EB_150630_C', 1;...  % chronos HVA
-        'EB_150630_D', 1;...  % chronos contralateral V1
         'EB_150630_A', 1;...  % chronos HVA, weak expression
         };
 
@@ -67,7 +66,8 @@ in = {
         'CH_150302_A', 1;...  % different pulse amps.
         'CH_150302_D', 1;...  % different pulse amps.
         'EB_150529_B', 1;...  % need to check sweeps
-        'EB_150630_C', 2;...  % different pulse amps
+        'EB_150630_C', 2;...  % chronos different pulse amps
+        'EB_150630_D', 1;...  % chronos contralateral V1
       };
 
 
@@ -1409,35 +1409,48 @@ for i_ex = 1:Nexpts;
                     drawnow
                 end                
             end % sweeps
-
+            
+            
+            % keep track of the correlation between trial number and the
+            % diff val
+            all_difvals = smoothStats{i_ex}.(conds{i_cond}).trough{i_ch};
+            all_difvals(isnan(all_difvals)) = [];
+            [r, p] = corr((1:numel(all_difvals))', abs(all_difvals), 'type', 'spearman');
+            smoothStats{i_ex}.(conds{i_cond}).rho(i_ch) = r;
+            
+            
         end % channels
         
     end % conditions
 end % expts
 
 
+%%  PLOTTING ROUTINES FOR RUNDOWN ANALYSIS
 
+close all
+NORMVALS = false;
+STIMSITE = false;
 
 % clear out the structures that have no data
 l_empty = cellfun(@isempty, smoothStats);
 smoothStats = smoothStats(~l_empty);
 
-%
-% PLOTTING ROUTINES
-%
-%%%%%%%%%%%%%%%%
-close all
-NORMVALS = true;
-STIMSITE = 1;
 
 exptOpsins = structcat(smoothStats, 'opsin');
 opsins = {'chr2', 'ochief', 'chronos'};
+
+for i_cond = 1:numel(conds)
+    for i_opsin = 1:numel(opsins);
+        pooledRho.(opsins{i_opsin}).(conds{i_cond}) = [];
+    end
+end
+
 for i_opsin = 1:numel(opsins)
     
     l_opsin = strcmpi(exptOpsins, opsins{i_opsin});
     l_opsin = find(l_opsin);
     
-    figure
+    h(i_opsin) = figure;
     set(gcf, 'name', opsins{i_opsin}, 'position', [1 379 1141 405]);
     for i_ex = 1:numel(l_opsin)
         
@@ -1468,16 +1481,30 @@ for i_opsin = 1:numel(opsins)
             if NORMVALS
                 tmp = (tmp - tmp(1)) ./ tmp(1);
             end
-            subplot(1,numel(conds), i_cond)
+            subplot(2,numel(conds), i_cond)
             hold on,
             plot(tmp, 'k')
             ylabel('diffval')
             xlabel('trial number')
             title(conds{i_cond})
+            
+            % compile the pooled rho structure for later plotting
+            pooledRho.(opsins{i_opsin}).(conds{i_cond}) = cat(1, ...
+                pooledRho.(opsins{i_opsin}).(conds{i_cond}),...
+                smoothStats{idx}.(conds{i_cond}).rho(CHANNEL));
         end
         
     end
     
+end
+
+for i_opsin = 1:numel(opsins)
+    figure(h(i_opsin));
+    for i_cond = 1:numel(conds)
+        subplot(2,numel(conds),i_cond+numel(conds));
+        hist(pooledRho.(opsins{i_opsin}).(conds{i_cond}))
+        xlim([-1 1])
+    end
 end
 
 
