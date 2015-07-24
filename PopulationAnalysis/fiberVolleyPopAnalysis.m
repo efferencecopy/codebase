@@ -1,7 +1,5 @@
 %% WHICH MICE SHOULD CONTRIBUTE?  [Main project]
 
-% Anlyze data sets that used 300us pulses, and that have a pure Na+ FV
-
 % clear out the workspace
 fin
 
@@ -37,6 +35,10 @@ MouseName = raw(l_expt, nameidx);
 Site = raw(l_expt, siteidx);
 in = [MouseName, Site];
 
+
+% flag some strange data files where the channels were not properly
+% indicated (channel 2 appears in the first and only column...)
+EXCEPTIONS = {'EB_150529_A', 1; 'EB_150529_B', 1; 'EB_150630_D', 1};
 
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
@@ -74,6 +76,9 @@ for i_ex = 1:Nexpts;
         info{i_ex}.stimSite = str2num(info{i_ex}.stimSite);
     end
 end
+
+disp('All done importing data')
+
 
 %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
@@ -113,9 +118,8 @@ for i_ex = 1:Nexpts
                     end
                     
                     % strange cases
-                    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-                    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-                    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2}); 
+                    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+                    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2}); 
                     if any(mouseMatch & siteMatch)
                         %  HS2 is the data channel, but since HS1 wasn't
                         %  used, the data are in the first column
@@ -175,9 +179,8 @@ for i_ex = 1:Nexpts
             else
                 
                 % strange cases
-                    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-                    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-                    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2}); 
+                    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+                    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2}); 
                     if any(mouseMatch & siteMatch)
                         %  HS2 is the data channel, but since HS1 wasn't
                         %  used, the data are in the first column
@@ -424,9 +427,8 @@ for i_ex = 1:Nexpts
             continue
         else
             % strange cases
-            exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-            mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-            siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+            mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+            siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
             if any(mouseMatch & siteMatch)
                 % HS2 is the data channel, but since HS1 wasn't
                 % used, the data are in the first column
@@ -518,7 +520,7 @@ for i_ex = 1:Nexpts
                 end
                 
                 axis tight
-                title(pTypes{i_tf})
+                mytitle(pTypes{i_tf})
                 xlabel('time (ms)')
                 if i_tf==1;
                     switch conds{i_cond}
@@ -576,7 +578,7 @@ for i_ex = 1:Nexpts
                 end
                 xlabel('Pulse number')
                 xlim([1, max(cellfun(@numel, rawvals))])
-                title(sprintf('%s', statTypes{i_stat}));
+                mytitle(sprintf('%s', statTypes{i_stat}));
                 if NORM_TO_PULSE1
                     yvals = get(gca, 'ylim');
                     yvals(1) = min([0, yvals(1)]);
@@ -646,9 +648,8 @@ for i_ex = 1:numel(dat)
     end
     
     % Determine which recording channel to analyze
-    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
     if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
@@ -763,7 +764,7 @@ for i_opsin = 1:numel(opsinTypes)
             
             % now do the plotting
             subplot(Nconds, Nstats, (i_cond-1).*Nstats + i_stat)
-            title(statTypes{i_stat})
+            mytitle(statTypes{i_stat})
             
             tfs = tmp_dat{1};
             tfs = unique(tfs);
@@ -935,17 +936,16 @@ end
 
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
-TFs = [10,20,40,60,100];
-STIMSITE = true;
+STIMSITE = false;
+NORMTOMAX = false;
 
 figure, hold on,
 for i_ex = 1:numel(dat)
     
     
     % Determine which recording channel to analyze
-    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
     if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
@@ -999,15 +999,19 @@ for i_ex = 1:numel(dat)
             opsin_raw(i_fld) = tmp;
         end
         
-        if any(opsin_raw(:)>1400)
-            keyboard
-        end
-        
         % average across TF conditions
         fv_avg(i_pamp) = mean(fv_raw);
         opsin_avg(i_pamp) = mean(opsin_raw);
         
-        
+    end
+    
+    % Normalize the values if desired. The data should be in order from
+    % smallest pulse amp to biggest pulse amp
+    if NORMTOMAX
+        [~, sortidx] = sort(pAmps_unique);
+        assert(all(sortidx == [1:numel(pAmps_unique)]'), 'ERROR: pAmps out of order')
+        fv_avg = fv_avg ./ fv_avg(end)
+        opsin_avg = opsin_avg ./ opsin_avg(end)
     end
     
     
@@ -1023,7 +1027,7 @@ for i_ex = 1:numel(dat)
     % axis labels and such
     xlabel(sprintf('Opsin current (%s)', OPSIN_STAT));
     ylabel(sprintf('Fiber Volley (%s)', FV_STAT));
-    bdfxn = @(x,y,z) title(z);
+    bdfxn = @(x,y,z) mytitle(z);
     set(p, 'buttonDownFcn', {bdfxn, info{i_ex}.mouse})
 end
 
@@ -1052,9 +1056,8 @@ for i_ex = 1:Nexpts
     end
     
     % Determine which recording channel to analyze
-    exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-    mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-    siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
     if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
         CHANNEL = 1;
     else % all other experiments...
@@ -1086,7 +1089,8 @@ for i_ex = 1:Nexpts
             tmp_dat = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
             switch conds{i_cond}
                 case 'FV_Na'
-                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{CHANNEL}(1);
+                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
+                    normFact = normFact * -1;
                 case 'nbqx_apv_cd2_ttx'
                     normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
             end
@@ -1148,9 +1152,9 @@ for i_cond = 1:numel(conds)
     axis tight
     switch conds{i_cond}
         case 'FV_Na'
-            title('Average FV for first pulse')
+            mytitle('Average FV for first pulse')
         case 'nbqx_apv_cd2_ttx'
-            title('Average opsin current for first pulse')
+            mytitle('Average opsin current for first pulse')
     end
     
     
@@ -1162,7 +1166,7 @@ for i_cond = 1:numel(conds)
         plot(tt, cumsum(-mean(chronos_examp{i_cond}, 1)), 'g', 'linewidth', 4);
         xlabel('time (msec)')
         ylabel('Normalized LFP amplitude')
-        title('Integral of (negative) FV pulse')
+        mytitle('Integral of (negative) FV pulse')
         axis tight
     end
     
@@ -1270,9 +1274,8 @@ for i_ex = 1:Nexpts;
             else
                 
                 % strange cases
-                exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-                mouseMatch = strcmpi(in{i_ex,1}, exceptions(:,1));
-                siteMatch = in{i_ex,2} == vertcat(exceptions{:,2});
+                mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+                siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
                 if any(mouseMatch & siteMatch)
                     %  HS2 is the data channel, but since HS1 wasn't
                     %  used, the data are in the first column
@@ -1391,7 +1394,7 @@ STIMSITE = false;
 % clear out the structures that have no data
 l_empty = cellfun(@isempty, smoothStats);
 smoothStats = smoothStats(~l_empty);
-
+catdat = {};
 
 exptOpsins = structcat(smoothStats, 'opsin');
 opsins = {'chr2', 'ochief', 'chronos'};
@@ -1402,21 +1405,20 @@ for i_cond = 1:numel(conds)
     end
 end
 
+    
 for i_opsin = 1:numel(opsins)
     
     l_opsin = strcmpi(exptOpsins, opsins{i_opsin});
     l_opsin = find(l_opsin);
     
-    h(i_opsin) = figure;
-    set(gcf, 'name', opsins{i_opsin}, 'position', [1 379 1141 405]);
+    h(i_opsin) = myfig([1 379 1141 405], opsins{i_opsin});
     for i_ex = 1:numel(l_opsin)
         
         idx = l_opsin(i_ex);
         
         % Determine which recording channel to analyze
-        exceptions = {'EB_150529_A', 1; 'EB_150529_B', 1};
-        mouseMatch = strcmpi(smoothStats{idx}.mouseName, exceptions(:,1));
-        siteMatch = smoothStats{idx}.siteNum == vertcat(exceptions{:,2});
+        mouseMatch = strcmpi(smoothStats{idx}.mouseName, EXCEPTIONS(:,1));
+        siteMatch = smoothStats{idx}.siteNum == vertcat(EXCEPTIONS{:,2});
         if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
             CHANNEL = 1;
         else % all other experiments...
@@ -1442,32 +1444,43 @@ for i_opsin = 1:numel(opsins)
             if NORMVALS
                 tmp = (tmp - tmp(1)) ./ tmp(1);
             end
-            subplot(2,numel(conds), i_cond)
+            subplot(1,numel(conds), i_cond)
             hold on,
             plot(tmp, 'k')
             ylabel('diffval')
             xlabel('trial number')
-            title(conds{i_cond})
+            mytitle(conds{i_cond})
             
             % compile the pooled rho structure for later plotting
             pooledRho.(opsins{i_opsin}).(conds{i_cond}) = cat(1, ...
                 pooledRho.(opsins{i_opsin}).(conds{i_cond}),...
                 smoothStats{idx}.(conds{i_cond}).rho(CHANNEL));
+            
+            % concatenate all the relevant data
+            catdat{i_opsin,i_cond}{i_ex} = tmp;
         end
         
     end
-    
 end
 
+
+
+
+% plot the mean of each noisy thing
 for i_opsin = 1:numel(opsins)
     figure(h(i_opsin));
     for i_cond = 1:numel(conds)
-        if isempty(pooledRho.(opsins{i_opsin}).(conds{i_cond}))
+        subplot(1,numel(conds), i_cond)
+        tmp = catdat{i_opsin, i_cond};
+        if isempty(tmp)
             continue
         end
-        subplot(2,numel(conds),i_cond+numel(conds));
-        hist(pooledRho.(opsins{i_opsin}).(conds{i_cond}))
-        xlim([-1 1])
+        maxsize = max(cellfun(@numel, tmp));
+        newdat = nan(numel(tmp), maxsize);
+        for i_ex = 1:numel(tmp)
+            newdat(i_ex,1:numel(tmp{i_ex})) = tmp{i_ex};
+        end
+        plot(nanmean(newdat), 'b', 'linewidth', 3)
     end
 end
 
