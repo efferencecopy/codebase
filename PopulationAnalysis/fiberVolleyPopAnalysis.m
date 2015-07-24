@@ -4,92 +4,40 @@
 
 % clear out the workspace
 fin
- 
-% in = {Mouse Name, Site}
-
-in = {
-%         'CH_141215_F', 1;...
-%         'CH_141215_E', 1;...
-%         'CH_141215_E', 2;...
-%         %'CH_150105_A', 1;...  % might get cut (should probably get cut)
-%         'CH_150105_B', 1;...
-%         'CH_150105_B', 2;...
-%         'CH_150105_C', 1;...  % might get cut (probably okay)
-%         'CH_150112_A', 2;...
-%         'CH_150112_B', 1;...
-%         'CH_150112_B', 2;...
-%         'CH_150112_D', 1;...
-%         'CH_150112_D', 2;...
-%         'CH_150112_C', 1;...
-%         'CH_150119_C', 1;...
-%         'CH_150119_C', 2;...
-%         'CH_150119_D', 1;...
-%         'CH_150119_D', 2;...
-%         'CH_150119_B', 1;...
-%         'CH_150119_B', 2;...
-        'EB_150630_C', 1;...  % chronos HVA
-        'EB_150630_A', 1;...  % chronos HVA, weak expression
-        'EB_150630_A', 2;...  % chronos HVA, weak expression, no FV
-        'EB_150630_B', 1;...  % chronos weak exprepression, contralateral V1
-        'EB_150630_B', 2;...  % chronos weak exprepression, ipsilateral V1, rundown expt
-        'EB_150630_B', 3;...  % chronos weak exprepression, contralateral V1, rundown expt
-        
-        };
 
 
-%% WHICH MICE SHOULD CONTRIBUTE?  [Different pulse amps]
+% decide what experiment to run
+EXPTTYPE = 1;
+switch EXPTTYPE
+    case 1
+        EXPTTYPE = 'main expt';
+    case 2
+        EXPTTYPE = 'interleaved amps';
+    case 3
+        EXPTTYPE = 'rundown';
+    case 4
+        EXPTTYPE = 'stim positions';
+end
+
+% grab the mouse names and sites from the excel workbook.
+fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
+[~,~, raw] = xlsread(fname, 2);
+
+nameidx = strcmpi(raw(1,:), 'mouse name');
+siteidx = strcmpi(raw(1,:), 'site');
+exptlistidx = strcmpi(raw(1,:), EXPTTYPE);
+
+% delete any empty rows
+Nexpts = numel(cellfun(@(x) ~isempty(x), raw(2:end,1)));
+raw = raw(2:end, :); % notice that I'm hacking off the header row
+
+% figure out the appropriate expts to analyze
+l_expt = cellfun(@(x) ~isnan(x), raw(:, exptlistidx));
+MouseName = raw(l_expt, nameidx);
+Site = raw(l_expt, siteidx);
+in = [MouseName, Site];
 
 
-% clear out the workspace
-fin
-
-% in = {Mouse Name, Site}
-
-in = {
-%         'CH_141215_F', 1;...
-%         'CH_141215_E', 1;...
-%         'CH_141215_E', 2;...
-%         'CH_150105_A', 1;...  % might get cut (looks ok for pulse amp analysis)
-%         'CH_150105_B', 1;...
-%         'CH_150105_B', 2;...
-%         'CH_150105_C', 1;...  % might get cut (looks ok for pulse amp analysis)
-%         'CH_150112_A', 1;...  % might get cut (looks ok for pulse amp analysis)
-%         'CH_150112_A', 2;...
-%         'CH_150112_B', 1;...
-%         'CH_150112_B', 2;...
-%         'CH_150112_D', 1;...
-%         'CH_150112_D', 2;...
-%         'CH_150112_C', 1;...
-%         'CH_150119_C', 1;...
-%         'CH_150119_C', 2;...
-%         'CH_150119_D', 1;...
-%         'CH_150119_D', 2;...
-%         'CH_150119_B', 1;...
-%         'CH_150119_B', 2;...      
-        'CH_150112_C', 2;...  % different pulse amps.
-        'CH_150302_C', 1;...  % different pulse amps.
-        'CH_150302_A', 1;...  % different pulse amps.
-        'CH_150302_D', 1;...  % different pulse amps.
-        'EB_150529_B', 1;...  % need to check sweeps
-        'EB_150630_C', 2;...  % chronos different pulse amps
-        'EB_150630_D', 1;...  % chronos contralateral V1 different amps
-      };
-
-
-%%  WHICH MICE SHOULD CONTRIBUTE?  [Different Stim Positions]
-
-
-% clear out the workspace
-fin
-
-% in = {Mouse Name, Site}
-
-in = {
-        'EB_150529_A', 3;...
-        'EB_150529_A', 4;...
-      };
-  
-  
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
 RMLINENOISE = false;
@@ -866,7 +814,7 @@ end
 
 
 
-%% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2 [SPIDER PLOT]
+%% OPSIN CURRENT VS. FIBER VOLLEY [SPIDER PLOT]
 
 close all
 
@@ -982,7 +930,7 @@ end
 
 
 
-%% OPSIN CURRENT VS. FIBER VOLLEY FOR CHIEF AND CHR2 [FIRST PULSE ONLY]
+%% OPSIN CURRENT VS. FIBER VOLLEY FOR [FIRST PULSE ONLY]
 
 
 FV_STAT = 'diffval';
@@ -1085,7 +1033,7 @@ end
 
 
 
-%%  SHAPE OF THE FIRST PULSE RESPONSE FOR oChIEF AND ChR2
+%%  SHAPE OF THE FIRST PULSE RESPONSE
 
 
 STIMSITE = true;
@@ -1437,7 +1385,7 @@ end % expts
 %%  PLOTTING ROUTINES FOR RUNDOWN ANALYSIS
 
 close all
-NORMVALS = false;
+NORMVALS = true;
 STIMSITE = false;
 
 % clear out the structures that have no data
@@ -1485,7 +1433,6 @@ for i_opsin = 1:numel(opsins)
         
         % plot each of the drug conditions
         for i_cond = 1:numel(conds)
-            conds{i_cond}
             if ~isfield(smoothStats{idx}, conds{i_cond})
                 continue
             end
@@ -1515,6 +1462,9 @@ end
 for i_opsin = 1:numel(opsins)
     figure(h(i_opsin));
     for i_cond = 1:numel(conds)
+        if isempty(pooledRho.(opsins{i_opsin}).(conds{i_cond}))
+            continue
+        end
         subplot(2,numel(conds),i_cond+numel(conds));
         hist(pooledRho.(opsins{i_opsin}).(conds{i_cond}))
         xlim([-1 1])

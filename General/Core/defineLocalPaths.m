@@ -11,14 +11,13 @@ switch whoami
     case 'hass_mbp'
         if exist('/Volumes/Charlie HD', 'dir') % external HD is plugged in
             GL_DATPATH = '/Volumes/Charlie HD/Crash HD/Mice/';
-            GL_DOCUPATH = '~/LabStuff/DocuBase/';
             GL_POPDATPATH = '/Volumes/Charlie HD/Crash HD/population_analysis_DBs/';
         else % grab things from the local internal HD
             GL_DATPATH = '~/LabStuff/Data/Mice/';
-            GL_DOCUPATH = '~/LabStuff/DocuBase/';
             GL_POPDATPATH = ''; % not defined
         end
         
+        GL_DOCUPATH = '~/LabStuff/DocuBase/';
         defaultpath = '~/LabStuff/';
         
     case 'hass_linux'
