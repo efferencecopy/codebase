@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 2;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -98,6 +98,11 @@ for i_ex = 1:Nexpts
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
         for i_cond = 1:numel(conds)
             
+            % check to see if this condition exists
+            if ~isfield(info{i_ex}.(pTypes{i_tf}), conds{i_cond})
+                continue
+            end
+            
             sampRate = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
             prePulseSamps = ceil(prePulseTime .* sampRate);
             postPulseSamps = ceil(postPulseTime .* sampRate);
@@ -165,6 +170,11 @@ for i_ex = 1:Nexpts
         
         pTypes = fieldnames(dat{i_ex});
         Ntfs = numel(pTypes);
+        
+        % check to see if this condition exists
+        if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
+            continue
+        end
         
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
@@ -412,7 +422,7 @@ CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = false;
 NORM_TO_PULSE1 = false;
 
-for i_ex = 1:Nexpts
+for i_ex = 31:Nexpts
     
     for i_ch = 1:2;
         
@@ -450,6 +460,11 @@ for i_ex = 1:Nexpts
         hold on,
         for i_cond = 1:numel(conds)
             
+            % check to see if this condition exists
+            if ~isfield(dat{i_ex}.(pTypes{i_tf}).stats, conds{i_cond})
+                continue
+            end
+                
             %
             % plot the raw (Average) traces
             %
@@ -467,7 +482,7 @@ for i_ex = 1:Nexpts
                 
                 subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs)), 
                 cmap = colormap('copper');
-                cidx = round(linspace(1, size(cmap,1), size(tmp_raw,2)));
+                cidx = round(linspace(1, size(cmap,1), max([Ncols, Ntfs])));
                 cmap = cmap(cidx,:);
                 set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
                 
@@ -553,7 +568,9 @@ for i_ex = 1:Nexpts
             
             for i_stat = 1:Nstats
                 
-                if ~isfield(dat{i_ex}.(pTypes{1}).stats.(conds{i_cond}), statTypes{i_stat})
+                if ~isfield(dat{i_ex}.(pTypes{1}).stats, conds{i_cond}) %need to have drug condition
+                    continue
+                elseif ~isfield(dat{i_ex}.(pTypes{1}).stats.(conds{i_cond}), statTypes{i_stat}) % need to have stat type
                     continue
                 end
                 
@@ -936,8 +953,8 @@ end
 
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
-STIMSITE = false;
-NORMTOMAX = false;
+STIMSITE = true;
+NORMTOMAX = true;
 
 figure, hold on,
 for i_ex = 1:numel(dat)
