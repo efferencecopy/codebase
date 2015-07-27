@@ -55,9 +55,9 @@ for i_file = 1:Nfiles
     params.pix_per_um = resolution; % this comes from the LSM files, but may be inconsistent from file to file...
     thickness = getSliceThickness(out, info);
     if strcmpi(tmp_mouse, 'AK090314A') && strcmpi(plate_slice, 'p6s1')
-        params.slice_thickness_um = 35 % this is just hard coded
+        params.slice_thickness_um = 35; % this is just hard coded
     elseif strcmpi(tmp_mouse, 'CH_150612_A') && strcmpi(plate_slice, 'p5s6')
-        params.slice_thickness_um = 35 % this is just hard coded
+        params.slice_thickness_um = 35; % this is just hard coded
     else
         params.slice_thickness_um = 70; % this is just hard coded
     end
