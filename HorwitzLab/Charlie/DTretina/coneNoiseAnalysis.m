@@ -1877,6 +1877,7 @@ fnames = fnamesFromTxt2([DTNT_txtfile, filename]);
 
 idx = 0;
 minTrials = inf;
+numTrials = nan(numel(fnames), 3);
 for a = 1:numel(fnames)
     if strncmp('sf:', fnames{a}, 3)
         continue %skip non-data file txt lines that zack uses for something unknown to me
@@ -1897,7 +1898,8 @@ for a = 1:numel(fnames)
     
     for clr = 1:size(tmpColor,1)
         tmp = sum(DT.trial(:, DT.idx.colorDir) == clr);
-        minTrials = min([minTrials, tmp])
+        minTrials = min([minTrials, tmp]);
+        numTrials(a, clr) = tmp;
     end
         
     

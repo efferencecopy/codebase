@@ -25,8 +25,8 @@ params.saveDir = '~/Desktop';       % where should the data be saved?
 params.parallelOperations = false;
 
 % enable some debugging options if necesary
-params.unitTest = false;             % true or false
-params.eqMosaic = true;            % for debugging. true or false
+params.unitTest = true;             % true or false
+params.eqMosaic = false;             % for debugging. true or false
 params.aperatureMosaic = false;      % only for DTV1 experiments
 
 % make some notes... 

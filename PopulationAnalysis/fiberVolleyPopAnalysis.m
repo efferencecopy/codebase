@@ -419,10 +419,10 @@ close all
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = false;
+RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = false;
 
-for i_ex = 31:Nexpts
+for i_ex = 23:Nexpts
     
     for i_ch = 1:2;
         
@@ -447,6 +447,12 @@ for i_ex = 31:Nexpts
             end
         end
         
+        % establish the drug conditions, and the pulse-type conditions (TF
+        % and pulse AMP)
+        pTypes = fieldnames(dat{i_ex});
+        Ntfs = numel(pTypes);
+        Nconds = numel(conds);
+        
         hFig = figure;
         set(gcf, 'position', [87 6 1260 799]);
         set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
@@ -461,16 +467,13 @@ for i_ex = 31:Nexpts
         for i_cond = 1:numel(conds)
             
             % check to see if this condition exists
-            if ~isfield(dat{i_ex}.(pTypes{i_tf}).stats, conds{i_cond})
+            if ~isfield(dat{i_ex}.(pTypes{1}).stats, conds{i_cond})
                 continue
             end
                 
             %
             % plot the raw (Average) traces
             %
-            pTypes = fieldnames(dat{i_ex});
-            Ntfs = numel(pTypes);
-            Nconds = numel(conds);
             for i_tf = 1:Ntfs
                 
                 tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
@@ -1027,8 +1030,8 @@ for i_ex = 1:numel(dat)
     if NORMTOMAX
         [~, sortidx] = sort(pAmps_unique);
         assert(all(sortidx == [1:numel(pAmps_unique)]'), 'ERROR: pAmps out of order')
-        fv_avg = fv_avg ./ fv_avg(end)
-        opsin_avg = opsin_avg ./ opsin_avg(end)
+        fv_avg = fv_avg ./ fv_avg(end);
+        opsin_avg = opsin_avg ./ opsin_avg(end);
     end
     
     
@@ -1044,8 +1047,9 @@ for i_ex = 1:numel(dat)
     % axis labels and such
     xlabel(sprintf('Opsin current (%s)', OPSIN_STAT));
     ylabel(sprintf('Fiber Volley (%s)', FV_STAT));
-    bdfxn = @(x,y,z) mytitle(z);
-    set(p, 'buttonDownFcn', {bdfxn, info{i_ex}.mouse})
+    bdfxn = @(x,y,z,zz) mytitle(sprintf('%s, site: %d', z, zz));
+    set(p, 'buttonDownFcn', {bdfxn, in{i_ex,1}, in{i_ex,2}})
+    if NORMTOMAX; ylim([0 1]); end
 end
 
 
@@ -1406,7 +1410,7 @@ end % expts
 
 close all
 NORMVALS = true;
-STIMSITE = false;
+STIMSITE = true;
 
 % clear out the structures that have no data
 l_empty = cellfun(@isempty, smoothStats);

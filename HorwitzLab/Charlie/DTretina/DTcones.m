@@ -871,7 +871,7 @@ function cones = makeConePowerSpectrum(cones, gab, params)
     tmpFreqs = freqAxis(l_posFreq);
     PS_posFreq = abs(lorentzCoeffs(1)) ./ (1 + (tmpFreqs ./ abs(lorentzCoeffs(2))).^2).^lorentzCoeffs(3);
     PS_posFreq = PS_posFreq + abs(lorentzCoeffs(4)) ./ (1 + (tmpFreqs ./ abs(lorentzCoeffs(5))).^lorentzCoeffs(6));
-
+    
     % generate the negative portion of the PS by finding the PS at the
     % abs(negative freqs). This is b/c juan's model is only defined on the
     % positve interval
@@ -916,7 +916,7 @@ function cones = makeConePowerSpectrum(cones, gab, params)
         cones.modelNoise_ps = ones(size(cones.modelNoise_ps));
         newVar = N .* (1./(N*(N-1)));
         cones.modelNoise_ps = ones(size(cones.modelNoise_ps)) .* (oldVar./newVar);
-        sum(cones.modelNoise_ps) .* (1./(N*(N-1)))
+        sum(cones.modelNoise_ps) .* (1./(N*(N-1)));
         warning('using a flat noise PS')
     end
     
