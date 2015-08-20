@@ -422,7 +422,7 @@ CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = false;
 
-for i_ex = 23:Nexpts
+for i_ex = 1:Nexpts
     
     for i_ch = 1:2;
         
@@ -957,7 +957,7 @@ end
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
 STIMSITE = true;
-NORMTOMAX = true;
+NORMTOMAX = false;
 
 figure, hold on,
 for i_ex = 1:numel(dat)
