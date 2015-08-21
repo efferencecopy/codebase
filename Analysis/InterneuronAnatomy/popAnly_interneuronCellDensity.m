@@ -351,13 +351,13 @@ for i_lyr = 1:4
     subplot(4,3, (i_lyr-1)*3 + 3)
     bins = logspace(log10(min(bigdataset_MM)), log10(max(bigdataset_MM)), 100);
     N = histc(bigdataset_MM(idx), bins);
-    bar(bins, N, 'type', 'histc');
+    bar(bins, N);
     gm = geomean(bigdataset_MM(idx))
     set(gca, 'xscale', 'log');
     set(gca, 'xtick', [1 2 4], 'xticklabel', [1 2 4])
-    child = get(gca, 'children');
-    set(child(1), 'visible', 'off');
-    set(child(2), 'edgealpha', 0.1);
+%     child = get(gca, 'children');
+%     set(child(1), 'visible', 'off');
+%     set(child(2), 'edgealpha', 0.1);
     hold on,
     plot([gm, gm], [0, max(N)], 'b')
     xlim([1, bins(end)])

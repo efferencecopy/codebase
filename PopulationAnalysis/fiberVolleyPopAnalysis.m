@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 2;
+EXPTTYPE = 3;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -30,7 +30,7 @@ Nexpts = numel(cellfun(@(x) ~isempty(x), raw(2:end,1)));
 raw = raw(2:end, :); % notice that I'm hacking off the header row
 
 % figure out the appropriate expts to analyze
-l_expt = cellfun(@(x) ~isnan(x), raw(:, exptlistidx));
+l_expt = cellfun(@(x) isnumeric(x) && x==1, raw(:, exptlistidx));
 MouseName = raw(l_expt, nameidx);
 Site = raw(l_expt, siteidx);
 in = [MouseName, Site];
@@ -957,7 +957,7 @@ end
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
 STIMSITE = true;
-NORMTOMAX = true;
+NORMTOMAX = false;
 
 figure, hold on,
 for i_ex = 1:numel(dat)
@@ -1273,7 +1273,7 @@ for i_ex = 1:Nexpts;
         
         % make sure the first LED pulse is identical across trial types
         assert(numel(unique(tdict.conds(:,1)))==1, 'ERROR: too many pAmps')
-        assert(all(diff(tdict.conds(:,2)) < 1e-14), 'ERROR: too many pWidths')
+       % assert(all(diff(tdict.conds(:,2)) < 1e-14), 'ERROR: too many pWidths')
         pwidth = tdict.conds(1,2);
         
         % store some useful parameters

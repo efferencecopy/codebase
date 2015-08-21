@@ -110,7 +110,7 @@ end
 function [gab, params] = initGabor(params)
     
     % common to both methods:
-    nContrasts = 6;
+    nContrasts = 23;
     gab.nTrials = 0;
     
     switch lower(params.runType)
@@ -125,9 +125,7 @@ function [gab, params] = initGabor(params)
             gab.length = 0.666;   % in sec
             gab.rf_x = -50;        % in 1/10 dva
             gab.rf_y = -35;         % in 1/10 dva
-            gab.colorDirs = [1, 1, 1;...
-                             1, -1, 0;...
-                             0, 0, 1];
+            gab.colorDirs = [0, 0, 1];
             cntrsts = [0, logspace(log10(0.0001), log10(0.15), nContrasts)];
             gab.contrasts = repmat({cntrsts}, size(gab.colorDirs,1), 1);
             

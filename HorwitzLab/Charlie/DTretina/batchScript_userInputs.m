@@ -20,7 +20,7 @@ params.flatPowerSpect = false;                   % if true, PS is flat w/same in
 params.enableScones = true;                      % should the S-cones contribute to the pooled response?
 params.eyeType = 'monkey';                       % 'monkey' or 'human'
 params.coneSampRate = 825;                       % good candidates: [525 600 675 750 825 900 975] These all give rise to nearly an iteger number of 'cone' sampels per monitor refresh
-params.colorselection = 'specific';              % could be: 'lots', 'specific', 'guniso'
+params.colorselection = 'lots';              % could be: 'lots', 'specific', 'guniso'
 
 % define some helpful text files (if necessary), and the paramaters for
 % parallel operations
@@ -34,7 +34,7 @@ params.unitTest = false;             % true or false
 params.eqMosaic = false;             % for debugging. true or false
 
 % make some notes...
-params.notes = 'trying to test the filteredWtFxn analytical and monte carlo methods\n more trials in this file';       % notes that should be associated the data file?
+params.notes = 'Changing the L:M ratio. This file uses L:M = 1.5:1';       % notes that should be associated the data file?
 
 
 
@@ -47,12 +47,12 @@ params.notes = 'trying to test the filteredWtFxn analytical and monte carlo meth
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dtnt.rf_x = -50;     % in tenths of dva
 dtnt.rf_y = -35;       % in tenths of dva
-dtnt.sigma = 3;    % in tenths of dva
-dtnt.nSD = 2;        % number of SDs in the gabor (extends nSD in either direction)
+dtnt.sigma = 4;    % in tenths of dva
+dtnt.nSD = 3;        % number of SDs in the gabor (extends nSD in either direction)
 dtnt.theta = 0;
 dtnt.gamma = 1;
-dtnt.length = .500;  % in seconds
-dtnt.speed = 4;
+dtnt.length = .666;  % in seconds
+dtnt.speed = 3;
 dtnt.sfs = 1;
 dtnt.alphas = []; % gets filled in later
 dtnt.colorDirs = []; % gets filled in later
@@ -148,7 +148,7 @@ end
 
 %open a matlabpool
 if exist('matlabpool', 'file') == 2;
-    poolObj = parpool(min([32 nColors]));
+    poolObj = parpool(min([16 nColors]));
     pause(2)
     fprintf(' *** Using parallel operations *** \n')
 end
