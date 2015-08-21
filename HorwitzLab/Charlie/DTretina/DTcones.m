@@ -111,7 +111,7 @@ function [gab, params] = initGabor(params)
     
     % common to both methods:
     nContrasts = 6;
-    gab.nTrials = 5000;
+    gab.nTrials = 0;
     
     switch lower(params.runType)
         
@@ -794,7 +794,7 @@ function [cones, gab] = makeConeLinearFilter(params, cones, mon, gab)
     TauP = 0.5311; %Period
     Phi = 34.1814; %Phase
     Filter = ScFact .* (((TimeAxis./TauR).^3)./(1+((TimeAxis./TauR).^3))) .* exp(-((TimeAxis./TauD))).*cos(((2.*pi.*TimeAxis)./TauP)+(2*pi*Phi/360));
-
+  
     % estimate latency
     [~, idx] = max(Filter);
     cones.latency = TimeAxis(idx);
@@ -1221,7 +1221,6 @@ function [idlob, cones] = obsMethod_noClrEqSpace(command, idlob, gab, cones, mon
             [wt_spaceTime, ~] = upsampleAndBookend(wt_spaceTime, cones, [0 0 0]);
             tRange = (cones.nFrontPad+1) : (size(wt_spaceTime,3) - cones.nBackPad);
             wt_spaceTime = wt_spaceTime(:,:, tRange, :); %hack off the bookends.
-
             
             
             % (2) calculate the mean response of the ideal observer

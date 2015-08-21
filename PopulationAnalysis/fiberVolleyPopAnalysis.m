@@ -422,7 +422,7 @@ CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = false;
 
-for i_ex = 23:Nexpts
+for i_ex = 1:Nexpts
     
     for i_ch = 1:2;
         
