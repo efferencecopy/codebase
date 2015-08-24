@@ -36,8 +36,11 @@ layer = [raw(2:end, 8); raw(2:end, 9)];
 % initalize things that I care about
 [dat.ampa.peak_nS, dat.nmda.peak_nS, dat.excit.peak_nS, dat.inhib.peak_nS] = deal(nan(numel(mouseNames), 2));
 [dat.ampa.peak_pA, dat.nmda.peak_pA, dat.excit.peak_pA, dat.inhib.peak_pA] = deal(nan(numel(mouseNames), 2));
-[dat.NMDAR.ivcurve.mV, dat.NMDAR.ivcurve.mv_corrected, dat.NMDAR.ivcurve.pA] = deal(repmat({[] []}, numel(mouseNames), 1));
 dat.cellDepth = deal(nan(numel(mouseNames), 2));
+
+% can I cut this lines CAH?
+%[dat.NMDAR.ivcurve.mV, dat.NMDAR.ivcurve.mv_corrected, dat.NMDAR.ivcurve.pA] = deal(repmat({[] []}, numel(mouseNames), 1));
+
 
 
 % initalize things for control analyses.
@@ -56,7 +59,11 @@ for ex = 1:numel(mouseNames)
     [~, idx] = mdb.search(ex_mouseName);
     
     params = mdb.mice{idx}.popAnly{ex_siteNum};
-    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    
+    % can I cut this line (no call to anlyMod_NMDAR CAH
+%     params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance, @anlyMod_NMDAR};
+    
+    params.fxns = {@anlyMod_optoIV, @anlyMod_EIbalance};
     params = invitroAnalysisOverview(params);
     close all; drawnow
     
@@ -88,20 +95,20 @@ for ex = 1:numel(mouseNames)
                         end
                     end
                 end
-                
-            case 'NMDAR'
-                if isfield(params.ivdat, 'NMDAR')
-                    for ch = 1:2
-                        
-                        if ~isempty(params.ivdat.NMDAR.ivcurve.mV{ch});
-                            dat.NMDAR.ivcurve.mV{ex, ch} = params.ivdat.NMDAR.ivcurve.mV{ch};
-                            dat.NMDAR.ivcurve.mv_corrected{ex, ch} = params.ivdat.NMDAR.ivcurve.mV_corrected{ch};
-                            dat.NMDAR.ivcurve.pA{ex, ch} = params.ivdat.NMDAR.ivcurve.pA{ch};
-                        end
-                        
-                    end
-                end
-                
+% consider cutting this (CAH) and doing away with the switch statement                
+%             case 'NMDAR'
+%                 if isfield(params.ivdat, 'NMDAR')
+%                     for ch = 1:2
+%                         
+%                         if ~isempty(params.ivdat.NMDAR.ivcurve.mV{ch});
+%                             dat.NMDAR.ivcurve.mV{ex, ch} = params.ivdat.NMDAR.ivcurve.mV{ch};
+%                             dat.NMDAR.ivcurve.mv_corrected{ex, ch} = params.ivdat.NMDAR.ivcurve.mV_corrected{ch};
+%                             dat.NMDAR.ivcurve.pA{ex, ch} = params.ivdat.NMDAR.ivcurve.pA{ch};
+%                         end
+%                         
+%                     end
+%                 end
+%                 
         end
         
         

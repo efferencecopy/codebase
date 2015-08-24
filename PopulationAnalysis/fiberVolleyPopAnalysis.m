@@ -1273,7 +1273,7 @@ for i_ex = 1:Nexpts;
         
         % make sure the first LED pulse is identical across trial types
         assert(numel(unique(tdict.conds(:,1)))==1, 'ERROR: too many pAmps')
-       % assert(all(diff(tdict.conds(:,2)) < 1e-14), 'ERROR: too many pWidths')
+        assert(all(diff(tdict.conds(:,2)) < 1e-14), 'ERROR: too many pWidths')
         pwidth = tdict.conds(1,2);
         
         % store some useful parameters
@@ -1316,6 +1316,31 @@ for i_ex = 1:Nexpts;
             assert(sum(datChIdx)==1, 'ERROR: incorrect channel selection')
             ledChIdx = strcmpi('LED_470', ax.head.recChNames);
             
+            %
+            % Extract the first pulse from all the sweeps, do the running
+            % average later
+            %
+            %%%%%%%%%%%%%%%%%%%%
+            
+            % grab the raw data and the sampled LED waveforms
+            lfp_raw = ax.dat(:, datChIdx, :);
+            lfp_raw = permute(lfp_raw, [3,1,2]);
+            led = ax.dat(:, ledChIdx, :);
+            led = permute(led, [3,1,2]);
+            
+            
+            % make sure the LED pulse comes on at the correct time for
+            % each sweep
+            tcross = diff(led > 0.05, [], 2)== 1;
+            tcross = cat(2, false(size(led, 1),1), tcross);
+            firstCross = cellfun(@(x) find(x==1, 1, 'first'), mat2cell(tcross, ones(size(led, 1), 1)));
+            assert(numel(unique(firstCross))==1, 'ERROR: first pulse times are inconsistent')
+            firstCross = firstCross(1);
+            
+            % extract the first pulse, and subtract off the baseline
+            firstPulses = lfp_raw((firstCross-prePulseSamps) : (firstCross+postPulseSamps));
+            bkgnd = mean(firstPulses(:, 1:prePulseSamps), 2);
+            firstPulses = bsxfun(@minus, firstPulses, bkgnd);
             
             
             %
@@ -1323,45 +1348,28 @@ for i_ex = 1:Nexpts;
             %  pull out all snippets and rearrage them acording to trial
             %  order
             %
-            Nsweeps = size(ax.dat,3);
+            Nsweeps = size(firstPulses, 2);
             smoothStats{i_ex}.(conds{i_cond}).trough{i_ch} = nan(Nsweeps,1);
             for i_swp = 1:(Nsweeps-SWEEPSTOAVG)
                 
                 % make a list of relavent trials (a sliding window)
                 tList = i_swp : 1 : (i_swp+SWEEPSTOAVG-1);
                 
-                % grab the raw data and the sampled LED waveforms
-                lfp_raw = ax.dat(:, datChIdx, tList);
-                lfp_raw = permute(lfp_raw, [3,1,2]);
-                led = ax.dat(:, ledChIdx, tList);
-                led = permute(led, [3,1,2]);
+                % grab the appropriate sweeps
+                tmp = mean(firstPulses(tList,:), 1);
                 
-                
-                % make sure the LED pulse comes on at the correct time for
-                % each sweep
-                tcross = diff(led > 0.05, [], 2)== 1;
-                tcross = cat(2, false(SWEEPSTOAVG,1), tcross);
-                firstCross = cellfun(@(x) find(x==1, 1, 'first'), mat2cell(tcross, ones(SWEEPSTOAVG,1)));
-                assert(numel(unique(firstCross))==1, 'ERROR: first pulse times are inconsistent')
-                firstCross = firstCross(1);
-                
-                
-                % average the adjcent sweeps, pull out the first pulse
-                lfp_raw = mean(lfp_raw, 1);
-                firstPulse = lfp_raw((firstCross-prePulseSamps) : (firstCross+postPulseSamps));
-                firstPulse = firstPulse - mean(firstPulse(1:prePulseSamps));
                 lp_freq = 2500;
-                firstPulse = butterfilt(firstPulse, lp_freq, sampRate, 'low', 2);
+                tmp = butterfilt(tmp, lp_freq, sampRate, 'low', 2);
                 
                 % cacluate the peak and trough idx
-                tt = ([0:numel(firstPulse)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
-                [troughidx, peakidx]  = anlyMod_getWFepochs(firstPulse, tt, conds{i_cond}, pwidth, photoDelay);
+                tt = ([0:numel(tmp)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
+                [troughidx, peakidx]  = anlyMod_getWFepochs(tmp, tt, conds{i_cond}, pwidth, photoDelay);
                 
                 % add a few points on either side of the true trough/peak
-                trough_window = troughidx-4: min([troughidx+4, numel(firstPulse)]);
+                trough_window = troughidx-4: min([troughidx+4, numel(tmp)]);
                 assert(~isempty(trough_window) && numel(trough_window)==9, 'ERROR: no data for trough window')
                 if strcmpi(conds{i_cond}, 'FV_Na')
-                    peak_window = peakidx-4: min([peakidx+4, numel(firstPulse)]);
+                    peak_window = peakidx-4: min([peakidx+4, numel(tmp)]);
                     assert(~isempty(peak_window) && numel(peak_window)==9, 'ERROR: no data for peak window')
                 end
                 
@@ -1373,7 +1381,7 @@ for i_ex = 1:Nexpts;
                 switch conds{i_cond}
                     case {'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2', 'nbqx_apv', 'ttx', 'ttx_cd2'}
                         
-                        trough = mean(firstPulse(trough_window));
+                        trough = mean(tmp(trough_window));
                         smoothStats{i_ex}.(conds{i_cond}).trough{i_ch}(i_swp) = trough;
                     case 'synapticTransmission'
                 end
@@ -1398,6 +1406,11 @@ for i_ex = 1:Nexpts;
             all_difvals(isnan(all_difvals)) = [];
             [r, p] = corr((1:numel(all_difvals))', abs(all_difvals), 'type', 'spearman');
             smoothStats{i_ex}.(conds{i_cond}).rho(i_ch) = r;
+            
+            
+            % store the (average) waveforms for the first/last 20 trials
+            smoothStats{i_ex}.(conds{i_cond}).first20{i_ch} = mean(firstPulses(1:20, :), 1);
+            smoothStats{i_ex}.(conds{i_cond}).last20{i_ch} = mean(firstPulses(end-19), 1);
             
             
         end % channels
@@ -1502,6 +1515,61 @@ for i_opsin = 1:numel(opsins)
             newdat(i_ex,1:numel(tmp{i_ex})) = tmp{i_ex};
         end
         plot(nanmean(newdat), 'b', 'linewidth', 3)
+    end
+end
+
+
+
+
+
+
+%
+% plot the waveform for the first/last 20 pulses
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for i_opsin = 1:numel(opsins)
+    f = figure;
+    f.name = opsins{i_opsin};
+    
+    l_opsin = strcmpi(exptOpsins, opsins{i_opsin});
+    l_opsin = find(l_opsin);
+    Nexpts = numel(l_opsin);
+    Nconds = numel(conds);
+    
+    for i_ex = 1:Nexpts;
+        
+        idx = l_opsin(i_ex);
+        
+        % Determine which recording channel to analyze
+        mouseMatch = strcmpi(smoothStats{idx}.mouseName, EXCEPTIONS(:,1));
+        siteMatch = smoothStats{idx}.siteNum == vertcat(EXCEPTIONS{:,2});
+        if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
+            CHANNEL = 1;
+        else % all other experiments...
+            if STIMSITE
+                CHANNEL = smoothStats{idx}.stimSite;
+            else
+                if smoothStats{idx}.stimSite == 1
+                    CHANNEL = 2;
+                elseif smoothStats{idx}.stimSite == 2
+                    CHANNEL = 1;
+                end
+            end
+        end
+        
+        
+        for i_cond = 1:Nconds
+            if ~isfield(smoothStats{idx}, conds{i_cond})
+                continue
+            end
+            
+            subplot(Nexpts, Nconds, (Nconds*(i_ex-1) + i_cond) )
+            hold on,
+            plot(tt, smoothStats{i_ex}.(conds{i_cond}).first20{CHANNEL}, 'k')
+            plot(tt, smoothStats{i_ex}.(conds{i_cond}).last20{CHANNEL}, 'b')
+            legend('first', 'last')
+            
+        end
     end
 end
 
