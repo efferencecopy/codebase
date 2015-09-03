@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 3;
+EXPTTYPE = 1;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -179,7 +179,7 @@ for i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelay= 0.0005; % timeout following pulse offset
+        photoDelay= 300e-6; % timeout following pulse offset (in sec)
         
         for i_ch = 1:2;
             
@@ -692,9 +692,14 @@ for i_ex = 1:numel(dat)
         
         for i_cond = 1:numel(conds);
             
+            % skip instances where the drug condition does not exist
+                if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats, conds{i_cond})
+                    continue
+                end
+            
             for i_stat = 1:numel(statTypes)
                 
-                % skip instances where the data do not exist
+                % skip instances where the stat type doesn't exist
                 if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats.(conds{i_cond}), statTypes{i_stat})
                     continue
                 end
@@ -743,7 +748,7 @@ for i_ex = 1:numel(dat)
                     tmp_pop_p1p2{3} = cat(1, tmp_pop_p1p2{3}, ex_p1p2);
                     
                     tmp_pop_raw{1} = cat(1, tmp_pop_raw{1}, tf);
-                    tmp_pop_raw{2} = cat(1, tmp_pop_raw{2}, tf);
+                    tmp_pop_raw{2} = cat(1, tmp_pop_raw{2}, pAmp);
                     tmp_pop_raw{3} = cat(1, tmp_pop_raw{3}, ex_stat);
                 end
                 
@@ -800,7 +805,8 @@ for i_opsin = 1:numel(opsinTypes)
             for i_tf = 1:Ntfs;
                 
                 tf_idx = tmp_dat{1} == tfs(i_tf);
-                
+                l_7pulses = cellfun(@(x) size(x,2)>=7, tmp_dat{3});
+                tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
                 
                 % only take the first 7 pulses
                 trim_dat = cellfun(@(x) x(:,1:7), tmp_dat{3}(tf_idx), 'uniformoutput', false);
@@ -833,7 +839,49 @@ for i_opsin = 1:numel(opsinTypes)
     end
 end
 
-
+% 
+% %
+% % MEASURE TIME CONSTANTS OF DECAY
+% %
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% for i_opsin = 1:numel(opsinTypes)
+%     
+%     Nconds = numel(conds);
+%     for i_cond = 1:Nconds;
+%         
+%         Nstats = numel(statTypes);
+%         for i_stat = 1:Nstats
+%             
+%             % grab the data
+%             tmp_dat = pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat});
+%             
+%             % make sure there's actually data there
+%             if isempty(tmp_dat{1}); continue; end % some things are not in the data set
+%             
+%             tfs = tmp_dat{1};
+%             tfs = unique(tfs);
+%             Ntfs = numel(tfs);
+%             pAmps = tmp_dat{2};
+%            
+%             for i_tf = 1:Ntfs;
+%                 
+%                 tf_idx = tmp_dat{1} == tfs(i_tf);
+%                 
+%                 
+%                 % only take the first 7 pulses
+%                 trim_dat = cellfun(@(x) x(:,1:7), tmp_dat{3}(tf_idx), 'uniformoutput', false);
+%                 cat_dat = vertcat(trim_dat{:});
+%                 
+%                 xbar = nanmean(cat_dat, 1);
+%                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+%                 
+%               
+%             end
+%             
+%         end % stat types
+%     end % conds
+% end %opsins
+% 
 
 %% OPSIN CURRENT VS. FIBER VOLLEY [SPIDER PLOT]
 
@@ -886,8 +934,7 @@ for i_tf = 1:numel(TFs)
         chr2_opsin_raw = nan(5,7);
     end
     
-    % CAH new: nned to deal with sum(idx == 1) > 1, which occurs now b/c
-    % there is more than one row for each tf.
+    
     % pull out the data for oChIEF:
     tf_idx = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
     if sum(tf_idx) >= 1;
@@ -906,14 +953,29 @@ for i_tf = 1:numel(TFs)
         ochief_fv_raw(l_bad,:) = [];
     end
     
+    % pull out the data for Chronos:
+    tf_idx = pop.chronos.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
+    if sum(tf_idx) >= 1;
+        trim_dat = cellfun(@(x) x(:,1:7), pop.chronos.(STAT_TYPE).FV_Na.(FV_STAT){3}(tf_idx), 'uniformoutput', false);
+        chronos_fv_raw = vertcat(trim_dat{:});
+        
+        trim_dat = cellfun(@(x) x(:,1:7), pop.chronos.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}(tf_idx), 'uniformoutput', false);
+        chronos_opsin_raw = vertcat(trim_dat{:});
+    else
+        chronos_fv_raw = nan(5,7); % a hack to allow plotting of tf conds for oChIEF that don't exist for ChR2
+        chronos_opsin_raw = nan(5,7);
+    end
+    
     
     ochiefclr = [1, TF_line_scalar(i_tf), TF_line_scalar(i_tf)];
     chr2clr = [TF_line_scalar(i_tf), TF_line_scalar(i_tf), 1];
+    chronosclr = [TF_line_scalar(i_tf), 1, TF_line_scalar(i_tf)];
     
     if PLOT_RAW
         for i_pulse = 1:N_PULSES
             plot(chr2_opsin_raw(:,i_pulse), chr2_fv_raw(:,i_pulse), '+', 'markeredgecolor', chr2clr)
             plot(ochief_opsin_raw(:,i_pulse), ochief_fv_raw(:,i_pulse), 'o', 'markeredgecolor', ochiefclr)
+            plot(chronos_opsin_raw(:,i_pulse), chronos_fv_raw(:,i_pulse), 'o', 'markeredgecolor', chronosclr)
         end
     end
     
@@ -921,6 +983,7 @@ for i_tf = 1:numel(TFs)
         % plot the avereages across conditions
         plot(mean(chr2_opsin_raw(:,1:N_PULSES),1), mean(chr2_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', chr2clr, 'color', chr2clr, 'markeredgecolor', chr2clr, 'markersize', 10, 'linewidth', 2)
         plot(mean(ochief_opsin_raw(:,1:N_PULSES),1), mean(ochief_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', ochiefclr, 'color', ochiefclr, 'markeredgecolor', ochiefclr,  'markersize', 10, 'linewidth', 2)
+        plot(mean(chronos_opsin_raw(:,1:N_PULSES),1), mean(chronos_fv_raw(:,1:N_PULSES),1), '-s', 'markerfacecolor', chronosclr, 'color', chronosclr, 'markeredgecolor', chronosclr,  'markersize', 10, 'linewidth', 2)
         
         % plot SEM for the various conditions
         if PLOT_ERR
@@ -937,6 +1000,13 @@ for i_tf = 1:numel(TFs)
             SEM_Y = nanstd(ochief_fv_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(ochief_fv_raw(:,1:N_PULSES)), 1));
             plot([tmpX-SEM_X/2; tmpX+SEM_X/2] , [tmpY; tmpY], 'color', ochiefclr)
             plot([tmpX ; tmpX], [tmpY-SEM_Y/2; tmpY+SEM_Y/2], 'color', ochiefclr)
+            
+            tmpX = mean(chronos_opsin_raw(:,1:N_PULSES),1);
+            tmpY = mean(chronos_fv_raw(:,1:N_PULSES),1);
+            SEM_X = nanstd(chronos_opsin_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(chronos_opsin_raw(:,1:N_PULSES)), 1));
+            SEM_Y = nanstd(chronos_fv_raw(:,1:N_PULSES), [] ,1) ./ sqrt(sum(~isnan(chronos_fv_raw(:,1:N_PULSES)), 1));
+            plot([tmpX-SEM_X/2; tmpX+SEM_X/2] , [tmpY; tmpY], 'color', chronosclr)
+            plot([tmpX ; tmpX], [tmpY-SEM_Y/2; tmpY+SEM_Y/2], 'color', chronosclr)
         end
     end
     
@@ -944,7 +1014,10 @@ for i_tf = 1:numel(TFs)
     xlabel(sprintf('Opsin current (%s)', OPSIN_STAT));
     ylabel(sprintf('Fiber Volley (%s)', FV_STAT));
     
-    
+    if strcmpi(STAT_TYPE, 'pnp1')
+        xlim([0, 1.05])
+        ylim([0, 1.05])
+    end
 end
 
 
@@ -1049,7 +1122,7 @@ for i_ex = 1:numel(dat)
     ylabel(sprintf('Fiber Volley (%s)', FV_STAT));
     bdfxn = @(x,y,z,zz) mytitle(sprintf('%s, site: %d', z, zz));
     set(p, 'buttonDownFcn', {bdfxn, in{i_ex,1}, in{i_ex,2}})
-    if NORMTOMAX; ylim([0 1]); end
+    if NORMTOMAX; ylim([0 1]); xlim([0 1]); end
 end
 
 
@@ -1338,7 +1411,8 @@ for i_ex = 1:Nexpts;
             firstCross = firstCross(1);
             
             % extract the first pulse, and subtract off the baseline
-            firstPulses = lfp_raw((firstCross-prePulseSamps) : (firstCross+postPulseSamps));
+            col_idx = (firstCross-prePulseSamps) : (firstCross+postPulseSamps);
+            firstPulses = lfp_raw(:, col_idx);
             bkgnd = mean(firstPulses(:, 1:prePulseSamps), 2);
             firstPulses = bsxfun(@minus, firstPulses, bkgnd);
             
@@ -1348,7 +1422,7 @@ for i_ex = 1:Nexpts;
             %  pull out all snippets and rearrage them acording to trial
             %  order
             %
-            Nsweeps = size(firstPulses, 2);
+            Nsweeps = size(firstPulses, 1);
             smoothStats{i_ex}.(conds{i_cond}).trough{i_ch} = nan(Nsweeps,1);
             for i_swp = 1:(Nsweeps-SWEEPSTOAVG)
                 
@@ -1390,7 +1464,7 @@ for i_ex = 1:Nexpts;
                 if DEBUG
                     cla
                     hold on,
-                    plot(tt, firstPulse);
+                    plot(tt, tmp);
                     plot(0, 0, 'ro')
                     plot(pwidth, 0, 'ro')
                     plot(pwidth+photoDelay, 0, 'ko')
@@ -1409,9 +1483,13 @@ for i_ex = 1:Nexpts;
             
             
             % store the (average) waveforms for the first/last 20 trials
-            smoothStats{i_ex}.(conds{i_cond}).first20{i_ch} = mean(firstPulses(1:20, :), 1);
-            smoothStats{i_ex}.(conds{i_cond}).last20{i_ch} = mean(firstPulses(end-19), 1);
+            tmp = mean(firstPulses(1:20, :), 1);
+            tmp = butterfilt(tmp, lp_freq, sampRate, 'low', 2);
+            smoothStats{i_ex}.(conds{i_cond}).first20{i_ch} = tmp;
             
+            tmp = mean(firstPulses(end-19:end, :), 1);
+            tmp = butterfilt(tmp, lp_freq, sampRate, 'low', 2);
+            smoothStats{i_ex}.(conds{i_cond}).last20{i_ch} = tmp;
             
         end % channels
         
@@ -1423,7 +1501,7 @@ end % expts
 
 close all
 NORMVALS = true;
-STIMSITE = true;
+STIMSITE = false;
 
 % clear out the structures that have no data
 l_empty = cellfun(@isempty, smoothStats);
@@ -1529,7 +1607,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for i_opsin = 1:numel(opsins)
     f = figure;
-    f.name = opsins{i_opsin};
+    f.Name = opsins{i_opsin};
+    f.Position = [1 37 1152 793];
     
     l_opsin = strcmpi(exptOpsins, opsins{i_opsin});
     l_opsin = find(l_opsin);
@@ -1563,11 +1642,17 @@ for i_opsin = 1:numel(opsins)
                 continue
             end
             
-            subplot(Nexpts, Nconds, (Nconds*(i_ex-1) + i_cond) )
+            s = subplot(Nexpts, Nconds, (Nconds.*(i_ex-1) + i_cond) );
             hold on,
-            plot(tt, smoothStats{i_ex}.(conds{i_cond}).first20{CHANNEL}, 'k')
-            plot(tt, smoothStats{i_ex}.(conds{i_cond}).last20{CHANNEL}, 'b')
-            legend('first', 'last')
+            plot(tt.*1000, smoothStats{idx}.(conds{i_cond}).first20{CHANNEL}, 'k')
+            plot(tt.*1000, smoothStats{idx}.(conds{i_cond}).last20{CHANNEL}, 'b')
+            s.XTick = [];
+            axis tight
+            s.XLim = [-1, 6];
+            if i_ex == 1
+                mytitle(conds{i_cond})
+            end
+            drawnow
             
         end
     end
