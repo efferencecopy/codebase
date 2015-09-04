@@ -95,7 +95,7 @@ for i_ex = 1:Nexpts
     Ntfs = numel(pTypes);
     for i_tf = 1:Ntfs
         
-        conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'nbqx_apv_cd2_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
+        conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
         for i_cond = 1:numel(conds)
             
             % check to see if this condition exists
@@ -165,7 +165,13 @@ FIRSTPULSE = false;
 
 for i_ex = 1:Nexpts
     
-    conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+    switch lower(info{i_ex}.opsin)
+        case {'chr2', 'ochief', 'ochief(km)'}
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+        case 'chronos'
+            conds = {'nbqx_apv_ttx', 'FV_Na_Ca2_mGluR', 'synapticTransmission'};
+    end
+            
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -256,7 +262,7 @@ for i_ex = 1:Nexpts
                     % add a few points on either side of the true trough/peak
                     trough_window = troughidx-4: min([troughidx+4, numel(snippet)]);
                     assert(~isempty(trough_window) && numel(trough_window)==9, 'ERROR: no data for trough window')
-                    if strcmpi(conds{i_cond}, 'FV_Na')
+                    if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR'}))
                         peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
                         assert(~isempty(peak_window) && numel(peak_window)==9, 'ERROR: no data for peak windwo')
                     end
@@ -266,7 +272,7 @@ for i_ex = 1:Nexpts
                     %
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%
                     switch conds{i_cond}
-                        case 'FV_Na'
+                        case {'FV_Na', 'FV_Na_Ca2_mGluR'}
                             
                             trough = mean(snippet(trough_window));
                             peak = mean(snippet(peak_window));
@@ -275,7 +281,7 @@ for i_ex = 1:Nexpts
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
                             
-                        case 'nbqx_apv_cd2_ttx'
+                        case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
                             
                             trough = mean(snippet(trough_window));
                             dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
@@ -416,13 +422,19 @@ end % expts
 
 close all
 
-conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
-
-CHECK_TRIAL_STATS = true;
+CHECK_TRIAL_STATS = false;
 RESTRICT_TO_STIM_SITE = true;
-NORM_TO_PULSE1 = false;
+NORM_TO_PULSE1 = true;
 
 for i_ex = 1:Nexpts
+    
+    switch lower(info{i_ex}.opsin)
+        case {'chr2', 'ochief', 'ochief(km)'}
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+        case 'chronos'
+            conds = {'nbqx_apv_ttx', 'FV_Na_Ca2_mGluR', 'synapticTransmission'};
+    end
+    
     
     for i_ch = 1:2;
         
@@ -454,7 +466,11 @@ for i_ex = 1:Nexpts
         Nconds = numel(conds);
         
         hFig = figure;
-        set(gcf, 'position', [87 6 1260 799]);
+        if Ntfs == 1
+            set(gcf, 'position', [414 31 329 754]);
+        else
+            set(gcf, 'position', [87 6 1260 799]);
+        end
         set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
@@ -497,7 +513,8 @@ for i_ex = 1:Nexpts
                     inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch};
                     inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
                     plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
-                    if strcmpi(conds{i_cond}, 'FV_Na')
+                    
+                    if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR'}))
                         plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
                     end
                     
@@ -522,7 +539,7 @@ for i_ex = 1:Nexpts
                     
                     
                     % check best fitting decay tau for the opsin current
-                    if strcmpi(conds{i_cond}, 'nbqx_apv_cd2_ttx')
+                    if any(strcmpi(conds{i_cond}, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}))
                         for i_pulse = 1:size(tmp_raw,2);
                             startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse);
                             m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse);
@@ -542,9 +559,9 @@ for i_ex = 1:Nexpts
                 xlabel('time (ms)')
                 if i_tf==1;
                     switch conds{i_cond}
-                        case 'nbqx_apv_cd2_ttx'
+                        case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
                             ylabel(sprintf('%s Current', info{i_ex}.opsin))
-                        case 'FV_Na'
+                        case {'FV_Na', 'FV_Na_Ca2_mGluR'}
                             ylabel('Fiber Volley')
                         case 'synapticTransmission'
                             ylabel('Field PSP')
@@ -610,9 +627,9 @@ for i_ex = 1:Nexpts
                 end
                 if i_stat == 1
                     switch conds{i_cond}
-                        case 'nbqx_apv_cd2_ttx'
+                        case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
                             ylabel(sprintf('%s current', info{i_ex}.opsin))
-                        case 'FV_Na'
+                        case {'FV_Na', 'FV_Na_Ca2_mGluR'}
                             ylabel('Fiber Volley')
                         case 'synapticTransmission'
                             ylabel('field PSP')
