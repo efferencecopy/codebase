@@ -9,7 +9,7 @@ function out = pixPerMicron(nrows, ncols)
 %
 % C.Hass 03/2014
 
-    % convert ot char so 'switch' is happy
+    % convert to char so 'switch' is happy
     switch char([nrows, ncols])
         case char([640, 512])
             %  For nikon camera on the nikon camera 2x set to quick focus, 1000 um = 95 pix
@@ -29,8 +29,15 @@ function out = pixPerMicron(nrows, ncols)
             out = 235 / 1000;
             
         case char([768 1024])
-            % for the slice rig 5x, 131.746 pix = 329.6195 um
-            out = 131.746 ./ 329.6195;
+            % for the slice rig using the scientifica tube lenses and the
+            % 5x objective, 131.746 pix = 329.6195 um
+            %
+            %out = 131.746 ./ 329.6195;
+            
+            % for the slice rig using the UDPCAD, (after 8/10/2015) and the
+            % cannon tube lens, 257 pix is 300 um;
+            warning(' #### USING NEW CALIBRATION INFORMATION #### ')
+            out = 257 ./ 300;
             
         otherwise
             out = 191 ./ 1000;

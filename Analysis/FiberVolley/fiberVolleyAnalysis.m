@@ -60,7 +60,14 @@ for i_fid = 1:numel(fnames)
     
     % store the data, grouped by unique conditions. First, I need to figure
     % out the appropriate field name for each condition
-    tdict = outerleave(tmp, tmp.idx.LED_470);
+    warning('INSTITUTING TEMPORARY FIX')
+    if isfield(tmp.idx, 'LED_470')
+        tdict = outerleave(tmp, tmp.idx.LED_470);
+    elseif isfield(tmp.idx, 'Laser')
+        tdict = outerleave(tmp, tmp.idx.Laser);
+    else
+        error('could not find index to stim waveform')
+    end
     nSweepTypes = size(tdict.conds,1);
     
     
@@ -155,8 +162,15 @@ for i_sweepType = 1:numel(sweepTypeFields)
             
             % baseline subtract, determine when the pulses came on...
             thresh = 0.05;
-            ledIdx = ax.(swpType).(drugType).idx.LED_470;
-            template = ax.(swpType).(drugType).dat(:,ledIdx,1);
+            warning('INSTITUTING TEMPORARY FIX #2')
+            if isfield(ax.(swpType).(drugType).idx, 'LED_470')
+                stimIdx = ax.(swpType).(drugType).idx.LED_470;
+            elseif isfield(ax.(swpType).(drugType).idx, 'Laser')
+                stimIdx = ax.(swpType).(drugType).idx.Laser;
+            else
+                error('could not find index to stim waveform')
+            end
+            template = ax.(swpType).(drugType).dat(:,stimIdx,1);
             template = template > thresh;
             template = [0; diff(template)];
             storedCrossings_on{i_sweepType} = template == 1;

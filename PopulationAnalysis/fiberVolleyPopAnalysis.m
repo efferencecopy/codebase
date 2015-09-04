@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 4;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -95,7 +95,7 @@ for i_ex = 1:Nexpts
     Ntfs = numel(pTypes);
     for i_tf = 1:Ntfs
         
-        conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
+        conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'nbqx_apv_cd2_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
         for i_cond = 1:numel(conds)
             
             % check to see if this condition exists
