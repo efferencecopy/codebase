@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 4;
+EXPTTYPE = 1;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -170,6 +170,7 @@ for i_ex = 1:Nexpts
             conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
         case 'chronos'
             conds = {'nbqx_apv_ttx', 'FV_Na_Ca2_mGluR', 'synapticTransmission'};
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
     end
             
     for i_cond = 1:numel(conds)
@@ -433,6 +434,7 @@ for i_ex = 1:Nexpts
             conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
         case 'chronos'
             conds = {'nbqx_apv_ttx', 'FV_Na_Ca2_mGluR', 'synapticTransmission'};
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
     end
     
     
