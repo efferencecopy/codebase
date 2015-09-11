@@ -206,10 +206,7 @@ for i_ex = 1:Nexpts
      
     for i_cond = 1:numel(conds)
         
-        pTypes = fieldnames(dat{i_ex});
-        Ntfs = numel(pTypes);
-        
-        % check to see if this condition exists
+         % check to see if this condition exists
         if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
             continue
         end
