@@ -5,8 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 3;
-BRAINAREA = 'pm';
+EXPTTYPE = 1;
+BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -456,9 +456,9 @@ NORM_TO_PULSE1 = true;
 for i_ex = 1:Nexpts
     
 %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
-%     conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+     conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
 %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
-    conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+%     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
 %     
     
     for i_ch = 1:2;
