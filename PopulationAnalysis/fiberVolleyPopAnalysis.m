@@ -849,6 +849,7 @@ for i_opsin = 1:numel(opsinTypes)
             hold on
             
             legtext = {};
+            pp_dat_allTFs = {};
             for i_tf = 1:Ntfs;
                 
                 tf_idx = tmp_dat{1} == tfs(i_tf);
@@ -863,8 +864,12 @@ for i_opsin = 1:numel(opsinTypes)
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
                 
                 errorbar(1:7, xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
-                
                 legtext = cat(2, legtext, num2str(tfs(i_tf)));
+                
+                % store the pp data in an array that I can use to perform
+                % inferential stats
+                pp_dat_allTFs{i_tf} = cat_dat;
+                
             end
             axis tight
             xlabel('Pulse number')
@@ -895,11 +900,17 @@ end
 % function of pulse number for each frequency
 
 STIMSITE = true;  % true => stimsite,  false => distal site
-PULSENUM = 7;
-STATTYPE = 'diffval';
+PULSENUM = 3;
+STATTYPE = 'pk2tr';
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
+
+% load in the LED calibration data to convert from Volts to power denisty
+cd(GL_DATPATH)
+cd '../../Calibration files'
+load led_cal.mat % data now stored in 'cal' struct
+
 
 % initialize the figure
 f = figure; hold on;
@@ -945,6 +956,9 @@ for i_ex = 1:numel(dat)
         ex_ppr = cat(1, ex_ppr, ppr);
         ex_tf = cat(1, ex_tf, info{i_ex}.(pTypes{i_ptype}).none.pTF);
         ex_amps = cat(1, ex_amps, info{i_ex}.(pTypes{i_ptype}).none.pAmp);
+        
+        % convert amplitudes from volts to mW/mm2
+        ex_powDensity = ppval(cal.pp.led_470, ex_amps);
     end
     
     %
@@ -974,14 +988,15 @@ for i_ex = 1:numel(dat)
         
         
         figure(f); hold on,
-        plot(ex_amps, ex_ppr, ['-', symbol, pltclr])
+        plot(ex_powDensity, ex_ppr, ['-', symbol, pltclr])
         
     end
     
 end
 %set(gca, 'yscale', 'log')
-xlabel('LED voltage')
+xlabel('Power (mW per mm^2)')
 ylabel(sprintf('Paired Pulse Ratio \n (%s)', STATTYPE))
+set(gca, 'yscale', 'log')
 
 
 
