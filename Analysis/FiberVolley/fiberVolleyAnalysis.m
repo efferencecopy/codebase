@@ -60,7 +60,7 @@ for i_fid = 1:numel(fnames)
     
     % store the data, grouped by unique conditions. First, I need to figure
     % out the appropriate field name for each condition
-    warning('INSTITUTING TEMPORARY FIX')
+    warning('INSTITUTING TEMPORARY FIX #1') % what if the LED and Laser are both defined (either on purpose or by accident)?
     if isfield(tmp.idx, 'LED_470')
         tdict = outerleave(tmp, tmp.idx.LED_470);
     elseif isfield(tmp.idx, 'Laser')
@@ -184,10 +184,11 @@ for i_sweepType = 1:numel(sweepTypeFields)
             
             
             % filter out the high frequency stuff. Filtering shouldn't go
-            % below 2500 b/c you'll start to carve out the fiber volley
+            % below 1500 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 2500;
+            lp_freq = 1500;
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+            filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             
             % take the mean
             average = mean(filtered,2);
@@ -361,6 +362,15 @@ for i_sweepType = 1:numel(sweepTypeFields)
         end
     end
     
+    % filter some of the traces more agressively
+    conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'synapticTransmission', 'ttx', 'cd2_ttx'};
+    for i_cond = 1:numel(conds)
+        if isfield(trace.(swpType), conds{i_cond})
+            tmp_trace = trace.(swpType).(conds{i_cond});
+            tmp_trace = butterfilt(tmp_trace, 750, sampFreq, 'low', 1);
+            trace.(swpType).(conds{i_cond}) = tmp_trace;
+        end
+    end
     
 end
 

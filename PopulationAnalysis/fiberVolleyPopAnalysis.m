@@ -5,7 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 4;
+EXPTTYPE = 1;
+BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -19,22 +20,51 @@ end
 
 % grab the mouse names and sites from the excel workbook.
 fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
-[~,~, raw] = xlsread(fname, 2);
+[~,~,wb_expt] = xlsread(fname, 2);
 
-nameidx = strcmpi(raw(1,:), 'mouse name');
-siteidx = strcmpi(raw(1,:), 'site');
-exptlistidx = strcmpi(raw(1,:), EXPTTYPE);
+wb_expt_nameidx = strcmpi(wb_expt(1,:), 'mouse name');
+wb_expt_siteidx = strcmpi(wb_expt(1,:), 'site');
+exptlistidx = strcmpi(wb_expt(1,:), EXPTTYPE);
 
-% delete any empty rows
-Nexpts = numel(cellfun(@(x) ~isempty(x), raw(2:end,1)));
-raw = raw(2:end, :); % notice that I'm hacking off the header row
+wb_expt = wb_expt(2:end, :); % notice that I'm hacking off the header row
 
 % figure out the appropriate expts to analyze
-l_expt = cellfun(@(x) isnumeric(x) && x==1, raw(:, exptlistidx));
-MouseName = raw(l_expt, nameidx);
-Site = raw(l_expt, siteidx);
+l_expt = cellfun(@(x) isnumeric(x) && x==1, wb_expt(:, exptlistidx));
+MouseName = wb_expt(l_expt, wb_expt_nameidx);
+Site = wb_expt(l_expt, wb_expt_siteidx);
+
+if ~strcmpi(BRAINAREA, 'any')
+    % open up the other workbook and extract brain area information
+    [~,~, wb_info] = xlsread(fname, 1);
+    wb_info_areaidx = find(strcmpi(wb_info(1,:), 'brain area')==1, 1, 'first');
+    wb_info_nameidx = find(strcmpi(wb_info(1,:), 'mouse name')==1, 1, 'first');
+    wb_info_siteidx = find(strcmpi(wb_info(1,:), 'site') == 1, 1, 'first');
+    wb_info = wb_info(2:end,:);
+    
+    l_correctArea = false(numel(MouseName), 1);
+    for i_ex = 1:numel(MouseName)
+        l_mouse = regexpi(wb_info(:, wb_info_nameidx), MouseName{i_ex});
+        l_mouse = cellfun(@(x) ~isempty(x), l_mouse);
+        l_site = cell2mat(wb_info(:, wb_info_siteidx)) == Site{i_ex};
+        l_union = l_mouse & l_site;
+        
+        areamatch = regexpi(wb_info(l_union, wb_info_areaidx), BRAINAREA);
+        areamatch = all(cellfun(@(x) ~isempty(x), areamatch));
+        l_correctArea(i_ex) = areamatch;
+    end
+    
+    MouseName = MouseName(l_correctArea);
+    Site = Site(l_correctArea);
+end
+
+
 in = [MouseName, Site];
 
+% uncomment these lines for a few files that are useful for code
+% development:
+%
+% in = {'CH_150815_B', [2];...
+%       'CH_150815_B', [3]};
 
 % flag some strange data files where the channels were not properly
 % indicated (channel 2 appears in the first and only column...)
@@ -81,10 +111,6 @@ disp('All done importing data')
 
 
 %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
-
-% PEAK TO PEAK AMP
-% INTEGRAL OF THE TRACE
-% save the snippets for plotting
 
 prePulseTime = 0.001; % in sec
 postPulseTime = 0.009; % in sec
@@ -165,19 +191,22 @@ FIRSTPULSE = false;
 
 for i_ex = 1:Nexpts
     
-    switch lower(info{i_ex}.opsin)
-        case {'chr2', 'ochief', 'ochief(km)'}
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
-        case 'chronos'
-            conds = {'nbqx_apv_ttx', 'FV_Na_Ca2_mGluR', 'synapticTransmission'};
+    % Determine the pharmacology conditions that are present. Look
+    % specifically for a fiber volley, a TTX, and a synapticTransmission
+    % condition
+    pTypes = fieldnames(dat{i_ex});
+    Ntfs = numel(pTypes);
+    fldnames = fieldnames(info{i_ex}.(pTypes{1}));
+    tags = {'FV_', 'ttx', 'synapticTransmission'};
+    conds = {};
+    for i_t = 1:numel(tags)
+        idx = cellfun(@(x) ~isempty(x), regexpi(fldnames, tags{i_t}));
+        conds = cat(2, conds, fldnames(idx)');
     end
-            
+     
     for i_cond = 1:numel(conds)
         
-        pTypes = fieldnames(dat{i_ex});
-        Ntfs = numel(pTypes);
-        
-        % check to see if this condition exists
+         % check to see if this condition exists
         if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
             continue
         end
@@ -207,7 +236,7 @@ for i_ex = 1:Nexpts
             
             
             %
-            % For each 'condition', I need to identify keep points on the
+            % For each 'condition', I need to identify key points on the
             % raw waveforms (eg., trough time, peak time, etc.). These
             % time points will be estimated from the first pulse in the
             % train (averaged across TF conditions) or on a pulse-by-pulse
@@ -249,10 +278,8 @@ for i_ex = 1:Nexpts
                     tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
                     
                     if ~FIRSTPULSE
-                        
                         pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay);
-                        
+                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay);                        
                     end
                     
                     % store the peak and trough indicies for plotting later (if desired)
@@ -422,19 +449,17 @@ end % expts
 
 close all
 
-CHECK_TRIAL_STATS = false;
+CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
 for i_ex = 1:Nexpts
     
-    switch lower(info{i_ex}.opsin)
-        case {'chr2', 'ochief', 'ochief(km)'}
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
-        case 'chronos'
-            conds = {'nbqx_apv_ttx', 'FV_Na_Ca2_mGluR', 'synapticTransmission'};
-    end
-    
+%     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
+     conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+%     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+%     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+%     
     
     for i_ch = 1:2;
         
@@ -562,7 +587,8 @@ for i_ex = 1:Nexpts
                         case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
                             ylabel(sprintf('%s Current', info{i_ex}.opsin))
                         case {'FV_Na', 'FV_Na_Ca2_mGluR'}
-                            ylabel('Fiber Volley')
+                            h = ylabel(conds{i_cond});
+                            set(h, 'Interpreter', 'none')
                         case 'synapticTransmission'
                             ylabel('Field PSP')
                     end
@@ -645,7 +671,7 @@ for i_ex = 1:Nexpts
     end
 end
 
-%% POPULATION SUMMARY PLOTS
+%% POPULATION SUMMARY PLOTS: MAIN EXPERIMENT
 
 
 % plan: loop over opsins. Only consider a single recording channel (distal
@@ -654,6 +680,9 @@ end
 
 STIMSITE = true;  % true => stimsite,  false => distal site
 
+
+% only do this for the main experiment (TF and FV)
+assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
 
 %initialize the outputs
 opsinTypes = {'chr2', 'ochief', 'chronos'};
@@ -791,6 +820,7 @@ for i_opsin = 1:numel(opsinTypes)
     figure
     set(gcf, 'name', opsinTypes{i_opsin}, 'defaulttextinterpreter', 'none')
     set(gcf, 'position', [109    31   891   754])
+    opsinTypes{i_opsin};
     
     Nconds = numel(conds);
     for i_cond = 1:Nconds;
@@ -819,6 +849,7 @@ for i_opsin = 1:numel(opsinTypes)
             hold on
             
             legtext = {};
+            pp_dat_allTFs = {};
             for i_tf = 1:Ntfs;
                 
                 tf_idx = tmp_dat{1} == tfs(i_tf);
@@ -833,8 +864,12 @@ for i_opsin = 1:numel(opsinTypes)
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
                 
                 errorbar(1:7, xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
-                
                 legtext = cat(2, legtext, num2str(tfs(i_tf)));
+                
+                % store the pp data in an array that I can use to perform
+                % inferential stats
+                pp_dat_allTFs{i_tf} = cat_dat;
+                
             end
             axis tight
             xlabel('Pulse number')
@@ -856,51 +891,123 @@ for i_opsin = 1:numel(opsinTypes)
     end
 end
 
-% 
-% %
-% % MEASURE TIME CONSTANTS OF DECAY
-% %
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% for i_opsin = 1:numel(opsinTypes)
-%     
-%     Nconds = numel(conds);
-%     for i_cond = 1:Nconds;
-%         
-%         Nstats = numel(statTypes);
-%         for i_stat = 1:Nstats
-%             
-%             % grab the data
-%             tmp_dat = pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat});
-%             
-%             % make sure there's actually data there
-%             if isempty(tmp_dat{1}); continue; end % some things are not in the data set
-%             
-%             tfs = tmp_dat{1};
-%             tfs = unique(tfs);
-%             Ntfs = numel(tfs);
-%             pAmps = tmp_dat{2};
-%            
-%             for i_tf = 1:Ntfs;
-%                 
-%                 tf_idx = tmp_dat{1} == tfs(i_tf);
-%                 
-%                 
-%                 % only take the first 7 pulses
-%                 trim_dat = cellfun(@(x) x(:,1:7), tmp_dat{3}(tf_idx), 'uniformoutput', false);
-%                 cat_dat = vertcat(trim_dat{:});
-%                 
-%                 xbar = nanmean(cat_dat, 1);
-%                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
-%                 
-%               
-%             end
-%             
-%         end % stat types
-%     end % conds
-% end %opsins
-% 
+
+%% POPULATION SUMMARY: INTERLEAVED POWERS
+
+
+% plan: loop over opsins. Only consider a single recording channel (distal
+% or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
+% function of pulse number for each frequency
+
+STIMSITE = true;  % true => stimsite,  false => distal site
+PULSENUM = 3;
+STATTYPE = 'pk2tr';
+
+% only do this for the main experiment (TF and FV)
+assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
+
+% load in the LED calibration data to convert from Volts to power denisty
+cd(GL_DATPATH)
+cd '../../Calibration files'
+load led_cal.mat % data now stored in 'cal' struct
+
+
+% initialize the figure
+f = figure; hold on;
+
+for i_ex = 1:numel(dat)
+    
+    
+    % skip cases where the led was not targeted to either of the recording
+    % sites
+    if isnan(info{i_ex}.stimSite)
+        continue
+    end
+    
+    % Determine which recording channel to analyze
+    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
+    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
+        CHANNEL = 1;
+    else % all other experiments...
+        if STIMSITE
+            CHANNEL = info{i_ex}.stimSite;
+        else
+            if info{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    % get P2:P1 ratios for the FV
+    ex_tf = [];
+    ex_amps = [];
+    ex_ppr = [];
+    
+    pTypes = fieldnames(dat{i_ex});
+    for i_ptype = 1:numel(pTypes);
+        
+        tmp = dat{i_ex}.(pTypes{i_ptype}).stats.FV_Na.(STATTYPE){CHANNEL};
+        if numel(tmp)<PULSENUM; continue; end;
+        ppr = tmp(PULSENUM)./tmp(1);
+        
+        ex_ppr = cat(1, ex_ppr, ppr);
+        ex_tf = cat(1, ex_tf, info{i_ex}.(pTypes{i_ptype}).none.pTF);
+        ex_amps = cat(1, ex_amps, info{i_ex}.(pTypes{i_ptype}).none.pAmp);
+        
+        % convert amplitudes from volts to mW/mm2
+        ex_powDensity = ppval(cal.pp.led_470, ex_amps);
+    end
+    
+    %
+    % do some plotting if there are data
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    if ~isempty(ex_ppr)
+        
+        switch lower(info{i_ex}.opsin)
+            case 'chr2'
+                pltclr = 'b';
+            case 'ochief'
+                pltclr = 'r';
+            case 'chronos'
+                pltclr = 'g';
+        end
+        
+        assert(all(ex_tf == ex_tf(1)), 'ERROR: not all TFs equal')
+        if ex_tf(1) == 10
+            symbol = 'o';
+        elseif ex_tf(1) == 20;
+            symbol = 's';
+        elseif ex_tf(1) == 50;
+            symbol = 'v';
+        else
+            error('undefined tf')
+        end
+        
+        
+        figure(f); hold on,
+        plot(ex_powDensity, ex_ppr, ['-', symbol, pltclr])
+        
+    end
+    
+end
+%set(gca, 'yscale', 'log')
+xlabel('Power (mW per mm^2)')
+ylabel(sprintf('Paired Pulse Ratio \n (%s)', STATTYPE))
+set(gca, 'yscale', 'log')
+
+
+
+
+
 
 %% OPSIN CURRENT VS. FIBER VOLLEY [SPIDER PLOT]
+
+% only do this for the main experiment (TF and FV)
+assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
+
 
 close all
 
@@ -1044,7 +1151,7 @@ end
 %% OPSIN CURRENT VS. FIBER VOLLEY FOR [FIRST PULSE ONLY]
 
 
-FV_STAT = 'diffval';
+FV_STAT = 'pk2tr';
 OPSIN_STAT = 'diffval';
 STIMSITE = true;
 NORMTOMAX = false;
