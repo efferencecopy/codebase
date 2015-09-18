@@ -272,17 +272,20 @@ for i_sweepType = 1:numel(sweepTypeFields)
         
         pWidthMatch = info.(swpType).nbqx_apv.pWidth == info.(swpType).nbqx_apv_cd2_ttx.pWidth;
         pAmpMatch = info.(swpType).nbqx_apv.pAmp == info.(swpType).nbqx_apv_cd2_ttx.pAmp;
-        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
-        
-        trace.(swpType).FV_Na_Ca2_mGluR = trace.(swpType).nbqx_apv - trace.(swpType).nbqx_apv_cd2_ttx;
-        
-        info.(swpType).FV_Na_Ca2_mGluR.pulseOn_idx = info.(swpType).nbqx_apv.pulseOn_idx;
-        info.(swpType).FV_Na_Ca2_mGluR.pulseOff_idx = info.(swpType).nbqx_apv.pulseOff_idx;
-        info.(swpType).FV_Na_Ca2_mGluR.sampRate = info.(swpType).nbqx_apv.sampRate;
-        info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
-        info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
-        info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
-        info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
+        if ~(pWidthMatch && pAmpMatch)
+            fprintf('>>>   Omiting FV_Na_Ca2_mGluR due to mismatch in pWidth or pAmp\n')
+        else
+            
+            trace.(swpType).FV_Na_Ca2_mGluR = trace.(swpType).nbqx_apv - trace.(swpType).nbqx_apv_cd2_ttx;
+            
+            info.(swpType).FV_Na_Ca2_mGluR.pulseOn_idx = info.(swpType).nbqx_apv.pulseOn_idx;
+            info.(swpType).FV_Na_Ca2_mGluR.pulseOff_idx = info.(swpType).nbqx_apv.pulseOff_idx;
+            info.(swpType).FV_Na_Ca2_mGluR.sampRate = info.(swpType).nbqx_apv.sampRate;
+            info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
+            info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
+            info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
+            info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
+        end
     end
     
     % is there a ttx+cd condition that can be used to define the fiber

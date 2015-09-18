@@ -6,7 +6,7 @@ fin
 
 % decide what experiment to run
 EXPTTYPE = 1;
-BRAINAREA = 'any';
+BRAINAREA = 'pm';
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -58,13 +58,13 @@ if ~strcmpi(BRAINAREA, 'any')
 end
 
 
-in = [MouseName, Site];
+in = [MouseName, Site]
 
-% uncomment these lines for a few files that are useful for code
-% development:
-%
-% in = {'CH_150815_B', [2];...
-%       'CH_150815_B', [3]};
+% % uncomment these lines for a few files that are useful for code
+% % development:
+% 
+% in = {'CH_150112_B', [1];...
+%       'CH_141215_E', [2]};
 
 % flag some strange data files where the channels were not properly
 % indicated (channel 2 appears in the first and only column...)
@@ -436,6 +436,16 @@ for i_ex = 1:Nexpts
                 tmp = tmp - noiseIntegral;
                 dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch} = tmp;
                 
+                
+                % derive a standard deviation prior to stimulus onset. Use
+                % this later to do a sanity check on the PPRs for FVs
+                numPtsInWindow = round(sampRate .* 0.010); % look at 10ms before stim onset
+                startIdx = firstPulseOn - numPtsInWindow - 10;
+                sigma = std(fullsweep(startIdx : (firstPulseOn-10)));
+                dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).bkgnd_sigma{i_ch} = sigma;
+                
+                
+                
             end % tfs
         end % channels
         
@@ -496,7 +506,7 @@ for i_ex = 1:Nexpts
         else
             set(gcf, 'position', [87 6 1260 799]);
         end
-        set(gcf, 'name', sprintf('%s, site %d, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
+        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
@@ -623,21 +633,30 @@ for i_ex = 1:Nexpts
                 subplot(Nconds, Nstats, i_stat+((i_cond-1)*Nstats)), hold on,
                 legtext = {};
                 rawvals={};
-                tmptfs = [];
+                tmplegend = [];
+                noise_calibration = [];
                 for i_tf = 1:Ntfs
-                    tmp = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){i_ch};
+                    tmp_raw = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){i_ch};
+                    tmp_sigma = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).bkgnd_sigma{i_ch};
                     if NORM_TO_PULSE1
-                        tmp = tmp ./ tmp(1);
+                        tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
+                        tmp_raw = tmp_raw ./ tmp_raw(1);
                     end
-                    rawvals = cat(1, rawvals, tmp);
-                    tmptfs = cat(1, tmptfs, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+                    rawvals = cat(1, rawvals, tmp_raw);
+                    noise_calibration = cat(1, noise_calibration, tmp_sigma);
+                    switch EXPTTYPE
+                        case 'interleaved amps'
+                            tmplegend = cat(1, tmplegend, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pAmp);
+                        otherwise
+                            tmplegend = cat(1, tmplegend, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
+                    end
                 end
-                [~, order] = sort(tmptfs);
+                [~, order] = sort(tmplegend);
                 
                 for i_plt = 1:numel(order)
                     idx = order(i_plt);
                     plot(1:numel(rawvals{idx}), rawvals{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
-                    legtext = cat(2, legtext, num2str(tmptfs(idx)));
+                    legtext = cat(2, legtext, num2str(tmplegend(idx)));
                 end
                 xlabel('Pulse number')
                 xlim([1, max(cellfun(@numel, rawvals))])
@@ -662,6 +681,23 @@ for i_ex = 1:Nexpts
                     end
                 end
                 
+                
+                if CHECK_TRIAL_STATS
+                    if strcmpi(statTypes{i_stat}, 'diffval')
+                        if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR', 'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}))
+                            xvals = get(gca, 'xlim');
+                            yvals = [1-noise_calibration, 1+noise_calibration];
+                            for i_plt = 1:numel(order)
+                                idx = order(i_plt);
+                                plot(xvals, repmat(yvals(i_plt,:), 2, 1), ':', 'color', cmap(i_plt,:), 'linewidth', 1);
+                            end
+                        end
+                    end
+                end
+                
+                
+                
+                
             end
             
             drawnow % force the uitab plot to update in quasi real time
@@ -674,12 +710,9 @@ end
 %% POPULATION SUMMARY PLOTS: MAIN EXPERIMENT
 
 
-% plan: loop over opsins. Only consider a single recording channel (distal
-% or proximal). Show PP ratio as a function of TF. Show Pn:P1 ratio as a
-% function of pulse number for each frequency
-
+clc
 STIMSITE = true;  % true => stimsite,  false => distal site
-
+PVALTYPE = 'diffval';
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
@@ -887,6 +920,57 @@ for i_opsin = 1:numel(opsinTypes)
                 plot([1,numel(xbar)], [0,0] , 'k--', 'linewidth', 2)
             end
             
+            
+            if strcmpi(PVALTYPE, statTypes{i_stat}) && ~strcmpi(conds{i_cond}, 'synapticTransmission')
+                %
+                %  Do some inferential tests and present a table with the
+                %  results
+                %
+                %%%%%%%%%%%%%%%%%%%%%%%%%%
+                [p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs] = deal(nan(Ntfs, 1));
+                
+                % Test for significant decreases in PPRs. Look specifically at
+                % P7:P1. Do the test individually for each TF
+                %
+                % Ho -> distribution of PPRs has Xbar = 1;
+                for i_tf = 1:Ntfs
+                    tmp = pp_dat_allTFs{i_tf}(:,7);
+                    p_for_each_tf(i_tf, 1) = signrank(tmp-1);
+                end
+                
+                
+                % Test for differences in P7:P1 across TFs. Here I'm asking if
+                % there's a significant effect of TF on the PPR. Do an anova
+                % like test with post-hoc comparisons
+                %
+                % Ho -> distributions of PPRs have the identical median
+                tmp_dat_p2 = [];
+                tmp_dat_p7 = [];
+                tmp_group = [];
+                for i_tf = 1:Ntfs
+                    tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
+                    tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
+                    tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
+                end
+                p_p7_across_tfs(1) = kruskalwallis(tmp_dat_p7, tmp_group, 'off');
+                
+                
+                % Test for differences in P2:P1 across TFs. Here I'm asking if
+                % there's a significant effect of TF on the PPR. Do an anova
+                % like test with post-hoc comparisons
+                %
+                % Ho -> distributions of PPRs have the identical median
+                p_p2_across_tfs(1) = kruskalwallis(tmp_dat_p2, tmp_group, 'off');
+                
+                
+                fprintf('  comparisons for %s values for %s  \n',...
+                    upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
+                
+                rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
+                T = table(p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs, 'RowNames', rownames)
+                fprintf('\n\n')
+            end
+            
         end
     end
 end
@@ -915,6 +999,7 @@ load led_cal.mat % data now stored in 'cal' struct
 % initialize the figure
 f = figure; hold on;
 
+[rho_chr2, rho_ochief, rho_chronos] = deal([]);
 for i_ex = 1:numel(dat)
     
     
@@ -959,6 +1044,9 @@ for i_ex = 1:numel(dat)
         
         % convert amplitudes from volts to mW/mm2
         ex_powDensity = ppval(cal.pp.led_470, ex_amps);
+        
+        % run a correlation b/w PPR and light power
+        rho = corr(ex_ppr, ex_powDensity, 'type', 'Pearson');
     end
     
     %
@@ -969,10 +1057,13 @@ for i_ex = 1:numel(dat)
         switch lower(info{i_ex}.opsin)
             case 'chr2'
                 pltclr = 'b';
+                rho_chr2 = cat(1, rho_chr2, rho);
             case 'ochief'
                 pltclr = 'r';
+                rho_ochief = cat(1, rho_ochief, rho);
             case 'chronos'
                 pltclr = 'g';
+                rho_chronos = cat(1, rho_chronos, rho);
         end
         
         assert(all(ex_tf == ex_tf(1)), 'ERROR: not all TFs equal')
