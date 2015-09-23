@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 3;
+EXPTTYPE = 1;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -72,7 +72,7 @@ EXCEPTIONS = {'EB_150529_A', 1; 'EB_150529_B', 1; 'EB_150630_D', 1};
 
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
-RMLINENOISE = false;
+RMLINENOISE = true;
 
 % grab the fiber volley pop excel workbook
 fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
@@ -84,10 +84,30 @@ opsinIdx = strcmpi(raw(1,:), 'opsin');
 stimSiteIdx = strcmpi(raw(1,:), 'stim site');
 clear txt
 
+% replace the 'file names' with fully qualified paths. I'm hoping that this
+% allows for parallel operations
+Nfiles = size(raw,1)-1;
+idx_mousename = strcmpi(raw(1,:), 'Mouse Name');
+idx_fname =  strcmpi(raw(1,:), 'file name');
+tmp_fnames = raw(2:end, idx_fname);
+tmp_mousenames = raw(2:end, idx_mousename);
+prefix = cellfun(@(x,y) [x,y], repmat({GL_DATPATH}, Nfiles, 1), tmp_mousenames, 'uniformoutput', false);
+prefix = cellfun(@(x,y) [x,y], prefix, repmat({[filesep, 'Physiology', filesep]}, Nfiles, 1), 'uniformoutput', false);
+tmp_fnames = cellfun(@(x,y) [x,y], prefix, tmp_fnames, 'uniformoutput', false);
+tmp_fnames = cellfun(@(x,y) [x,y], tmp_fnames, repmat({'.abf'}, Nfiles, 1), 'uniformoutput', false);
+raw(2:end, idx_fname) = tmp_fnames;
+
+
 % do the analysis
 Nexpts = size(in,1);
 dat = {};
-for i_ex = 1:Nexpts;
+
+pool = gcp('nocreate');
+if isempty(pool)
+    pool = parpool(min([32, Nexpts]));
+end
+
+parfor i_ex = 1:Nexpts;
     
     % figure out what rows in the work book to pay attention to
     l_mouse = cellfun(@(x) ~isempty(x), regexp(raw(:,1), in{i_ex,1}));
@@ -189,7 +209,7 @@ end
 % window be unique for each pulse?
 FIRSTPULSE = false;
 
-for i_ex = 1:Nexpts
+parfor i_ex = 1:Nexpts
     
     % Determine the pharmacology conditions that are present. Look
     % specifically for a fiber volley, a TTX, and a synapticTransmission
@@ -204,7 +224,7 @@ for i_ex = 1:Nexpts
         conds = cat(2, conds, fldnames(idx)');
     end
      
-    for i_cond = 1:numel(conds)
+    for i_cond = 1:numel(conds) %#ok<PFTUS>
         
          % check to see if this condition exists
         if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
@@ -212,7 +232,7 @@ for i_ex = 1:Nexpts
         end
         
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
-        prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
+        prePulseSamps = ceil(prePulseTime .* sampRate); %#ok<PFTUS> % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         photoDelay= 300e-6; % timeout following pulse offset (in sec)
         
@@ -267,7 +287,7 @@ for i_ex = 1:Nexpts
             % already been determined, do so right before the analysis.
             %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            for i_tf = 1:Ntfs
+            for i_tf = 1:Ntfs %#ok<PFTUS> %
                 
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
@@ -275,7 +295,7 @@ for i_ex = 1:Nexpts
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
-                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
+                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate; %#ok<PFTUS> % time=0 is when the LED comes on
                     
                     if ~FIRSTPULSE
                         pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
@@ -466,8 +486,8 @@ NORM_TO_PULSE1 = true;
 for i_ex = 1:Nexpts
     
 %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
-%      conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
-     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+     conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+%      conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
 %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
 %     
     
@@ -985,7 +1005,8 @@ end
 
 STIMSITE = true;  % true => stimsite,  false => distal site
 PULSENUM = 3;
-STATTYPE = 'pk2tr';
+STATTYPE = 'diffval';
+CONDITION = 'FV_Na';
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
@@ -1034,7 +1055,11 @@ for i_ex = 1:numel(dat)
     pTypes = fieldnames(dat{i_ex});
     for i_ptype = 1:numel(pTypes);
         
-        tmp = dat{i_ex}.(pTypes{i_ptype}).stats.FV_Na.(STATTYPE){CHANNEL};
+        if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats, CONDITION)
+            continue
+        end
+        
+        tmp = dat{i_ex}.(pTypes{i_ptype}).stats.(CONDITION).(STATTYPE){CHANNEL};
         if numel(tmp)<PULSENUM; continue; end;
         ppr = tmp(PULSENUM)./tmp(1);
         
@@ -1242,7 +1267,7 @@ end
 %% OPSIN CURRENT VS. FIBER VOLLEY FOR [FIRST PULSE ONLY]
 
 
-FV_STAT = 'pk2tr';
+FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
 STIMSITE = true;
 NORMTOMAX = false;
@@ -1485,7 +1510,7 @@ end
 
 %% RUNDOWN: RUNNING AVERAGE OF STATS ACROSS SWEEPS
 
-SWEEPSTOAVG = 5;
+SWEEPSTOAVG = 7;
 DEBUG = false;
 
 
@@ -1501,15 +1526,30 @@ stimSiteIdx = strcmpi(raw(1,:), 'stim site');
 channels = raw(:, cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d')));
 rmsweeps = raw(:, strcmpi(raw(1,:), 'rmSweeps'));
 
+
+% replace the 'file names' with fully qualified paths. I'm hoping that this
+% allows for parallel operations
+Nfiles = size(raw,1)-1;
+idx_mousename = strcmpi(raw(1,:), 'Mouse Name');
+idx_fname =  strcmpi(raw(1,:), 'file name');
+tmp_fnames = raw(2:end, idx_fname);
+tmp_mousenames = raw(2:end, idx_mousename);
+prefix = cellfun(@(x,y) [x,y], repmat({GL_DATPATH}, Nfiles, 1), tmp_mousenames, 'uniformoutput', false);
+prefix = cellfun(@(x,y) [x,y], prefix, repmat({[filesep, 'Physiology', filesep]}, Nfiles, 1), 'uniformoutput', false);
+tmp_fnames = cellfun(@(x,y) [x,y], prefix, tmp_fnames, 'uniformoutput', false);
+tmp_fnames = cellfun(@(x,y) [x,y], tmp_fnames, repmat({'.abf'}, Nfiles, 1), 'uniformoutput', false);
+raw(2:end, idx_fname) = tmp_fnames;
+
+
 % do the analysis
 smoothStats = {};
 Nexpts = size(in,1);
+conds = {'ttx', 'ttx_cd2', 'nbqx_apv', 'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
 for i_ex = 1:Nexpts;
     
     % update the user with what's going on
     fprintf('Analyzing mouse %s site %d, file %d of %d\n', in{i_ex, 1}, in{i_ex, 2}, i_ex, Nexpts)
     
-    conds = {'ttx', 'ttx_cd2', 'nbqx_apv', 'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
     for i_cond = 1:numel(conds)
         
         % figure out what rows in the work book to pay attention to,
@@ -1716,7 +1756,7 @@ end % expts
 
 close all
 NORMVALS = true;
-STIMSITE = false;
+STIMSITE = true;
 
 % clear out the structures that have no data
 l_empty = cellfun(@isempty, smoothStats);
@@ -1740,7 +1780,6 @@ for i_opsin = 1:numel(opsins)
     
     h(i_opsin) = myfig([1 379 1141 405], opsins{i_opsin});
     for i_ex = 1:numel(l_opsin)
-        
         idx = l_opsin(i_ex);
         
         % Determine which recording channel to analyze
@@ -1794,6 +1833,7 @@ end
 
 
 % plot the mean of each noisy thing
+maxY = 0;
 for i_opsin = 1:numel(opsins)
     figure(h(i_opsin));
     for i_cond = 1:numel(conds)
@@ -1808,6 +1848,17 @@ for i_opsin = 1:numel(opsins)
             newdat(i_ex,1:numel(tmp{i_ex})) = tmp{i_ex};
         end
         plot(nanmean(newdat), 'b', 'linewidth', 3)
+        axis tight
+        ylims = get(gca, 'ylim');
+        maxY = max([maxY, abs(ylims)]);
+    end
+end
+% standardize the axes
+for i_opsin = 1:numel(opsins)
+    figure(h(i_opsin));
+    for i_cond = 1:numel(conds)
+        subplot(1,numel(conds), i_cond)
+        set(gca, 'ylim', [-maxY, maxY]);
     end
 end
 

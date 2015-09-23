@@ -25,6 +25,11 @@ classdef abfobj
                 [fileName,fpath] = uigetfile('*.abf');
                 fpath = [fpath,fileName];
                 cd(currentDir);
+                
+            elseif any(regexpi(fileName, filesep))
+                
+                fpath = fileName; % the user supplied a fully qualified path
+                
             else
                 % narrow down the search for findfile.m
                 if ~exist('mdb', 'var')
