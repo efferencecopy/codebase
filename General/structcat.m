@@ -1,5 +1,7 @@
 function out = structcat(s, field)
-
+%
+% out = structcat(S, FIELD)  
+%
 % vertically concatinates the value of the same field across instances of
 % structures in a cell array of structures
 %
