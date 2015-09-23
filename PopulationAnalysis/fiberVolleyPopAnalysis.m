@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 4;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -1925,6 +1925,120 @@ for i_opsin = 1:numel(opsins)
 end
 
 
+
+
+%% LASER STIM ANALYSIS
+
+close all
+
+% figure out how many unique experiments there were
+mouseNames = in(:,1);
+sites = cellfun(@floor, in(:,2), 'uniformoutput', false); % use floor to eliminate the position information
+comboname = cellfun(@(x,y) [x,num2str(y)], mouseNames, sites, 'uniformoutput', false);
+[uniqueExpts, ~, exptID] = unique(comboname);
+
+
+% iterate over the unique experiments and overlay the PPR metrics for FV,
+% opsin current, and fEPSP slope
+Nexpts = size(uniqueExpts, 1);
+for i_ex = 1:Nexpts
+   
+    % order the files by proximal to distal (which should be hardcoded in
+    % the excel workbook
+    inds_mouse = find(exptID == i_ex);
+    sites = cat(1, in{inds_mouse,2});
+    [~, analysis_order] = sort(sites);
+    inds_mouse = inds_mouse(analysis_order); % now the list is ordered by proximal to distal
+    
+    figure
+    set(gcf, 'defaulttextinterpreter', 'none', 'position', [7 286 1139 420]);
+    set(gcf, 'name', sprintf('%s, site: %d', in{inds_mouse(1),1}, floor(in{inds_mouse(1),2})))
+    cmap = colormap('parula'); clf;%also opens a figure;
+    inds = round(linspace(1, 50, numel(inds_mouse)));
+    cmap = cmap(inds,:);
+    
+    conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both opsin current verisons
+    for i_site = 1:numel(inds_mouse);
+        
+        idx = inds_mouse(i_site);
+        
+        for i_cond = 1:numel(conds)
+            
+            tfcond = fieldnames(dat{idx});
+            assert(numel(tfcond)==1, 'ERROR: too many tf conditions')
+            
+            if ~isfield(dat{idx}.(tfcond{1}).stats, conds{i_cond})
+                
+                subplot(2, numel(conds), numel(conds) + i_cond);
+                hold on,
+                if isempty(get(gca, 'children'))
+                    for i_clr = 1:numel(inds_mouse)
+                        p(i_clr) = plot([1,2], [1,2], '-', 'color', cmap(i_clr,:), 'linewidth', 3);
+                        p(i_clr).Visible = 'off';
+                    end
+                    legtext = cellfun(@(x,y) sprintf('%s%d', x, y), repmat({'site '}, numel(inds_mouse), 1), num2cell([1:numel(inds_mouse)]'), 'uniformoutput', false);
+                    legend(legtext)
+                    legend boxoff
+                end
+                
+                continue
+            end
+            
+            % assume that the primary channel is the one that's most
+            % interior
+            CH_proximal = info{i_ex}.stimSite;
+            if CH_proximal == 1
+                CH_distal = 2;
+            else
+                CH_distal = 1;
+            end
+            
+            % figure out what stat to use for this condition
+            switch conds{i_cond}
+                case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'FV_Na', 'FV_Na_Ca2_mGluR'}
+                    STAT = 'diffval';
+                case 'synapticTransmission'
+                    STAT = 'slope';
+            end
+            
+            
+            % figure for distal channel goes on top, figure for proximal channel goes on bottom
+            for i_ch = 1:2;
+                switch i_ch
+                    case 1
+                        CHANNEL = CH_distal;
+                    case 2
+                        CHANNEL = CH_proximal;
+                end
+                
+                if (CHANNEL == 2) && numel(dat{idx}.(tfcond{1}).stats.(conds{i_cond}).(STAT)) == 1
+                    continue % the data don't exist; that channel was not recorded
+                end
+                
+                
+                tmp_raw = dat{idx}.(tfcond{1}).stats.(conds{i_cond}).(STAT){CHANNEL};
+                tmp_sigma = dat{idx}.(tfcond{1}).stats.(conds{i_cond}).bkgnd_sigma{CHANNEL};
+                tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
+                tmp_raw = tmp_raw ./ tmp_raw(1);
+                
+                subplot(2, numel(conds), (i_ch-1)*numel(conds) + i_cond)
+                hold on,
+                plot(1:numel(tmp_raw), tmp_raw, 'o-', 'color', cmap(i_site,:), 'linewidth', 2)
+                xvals = get(gca, 'xlim');
+                yvals = [1-tmp_sigma, 1+tmp_sigma];
+                plot(xvals, repmat(yvals, 2, 1), ':', 'color', cmap(i_site,:), 'linewidth', 1);
+                
+                if i_ch == 1
+                    title(conds{i_cond})
+                end
+                
+            end
+            
+        end
+    end
+    
+    drawnow
+end
 
 
 
