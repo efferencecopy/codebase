@@ -1,4 +1,4 @@
-function [GL_DATPATH, GL_DOCUPATH, GL_POPDATPATH] = defineLocalPaths
+function [GL_DATPATH, GL_DOCUPATH, GL_POPDATPATH, GL_ALLENPATH] = defineLocalPaths
 
 %
 % Defines the data paths to Glickfeld lab data files. These paths are
@@ -12,9 +12,11 @@ switch whoami
         if exist('/Volumes/Charlie HD', 'dir') % external HD is plugged in
             GL_DATPATH = '/Volumes/Charlie HD/Crash HD/Mice/';
             GL_POPDATPATH = '/Volumes/Charlie HD/Crash HD/population_analysis_DBs/';
+            GL_ALLENPATH = '/Volumes/Charlie HD/Crash HD/Allen Images/';
         else % grab things from the local internal HD
             GL_DATPATH = '~/LabStuff/Data/Mice/';
             GL_POPDATPATH = ''; % not defined
+            GL_ALLENPATH = ''; % not defined
         end
         
         GL_DOCUPATH = '~/LabStuff/DocuBase/';
@@ -24,18 +26,21 @@ switch whoami
         GL_DATPATH = '~/Crash/Data/Mice/';
         GL_POPDATPATH = '~/Crash/Data/population_analysis_DBs/';
         GL_DOCUPATH = '~/Documents/CodeRepos/docubase/';
+        GL_ALLENPATH = ''; % not defined
         defaultpath = '~/Crash/';
         
     case 'glick_rig1'
         GL_DOCUPATH = 'C:\Users\glickfeld_lab\Documents\docubase\';
         GL_POPDATPATH = '\\crash.dhe.duke.edu\charlie\Data\population_analysis_DBs\';
         GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
+        GL_ALLENPATH = '\\crash.dhe.duke.edu\charlie\Allen Images\';
         defaultpath = 'C:\Users\glickfeld_lab\Documents\MATLAB';
         
     case 'nuke'
         GL_DOCUPATH = 'C:\Users\charlie\Documents\SourceTree_local\docubase\';
         GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
         GL_POPDATPATH = '\\crash.dhe.duke.edu\charlie\Data\population_analysis_DBs\';
+        GL_ALLENPATH = '\\crash.dhe.duke.edu\charlie\Allen Images\';
         defaultpath = 'C:\Users\charlie\Documents\MATLAB';
 end
 

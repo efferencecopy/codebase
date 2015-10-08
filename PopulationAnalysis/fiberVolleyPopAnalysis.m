@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 4;
+EXPTTYPE = 1;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -16,6 +16,8 @@ switch EXPTTYPE
         EXPTTYPE = 'rundown';
     case 4
         EXPTTYPE = 'stim positions';
+    case 5
+        EXPTTYPE = 'all manuscript';
 end
 
 % grab the mouse names and sites from the excel workbook.
@@ -24,12 +26,17 @@ fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
 
 wb_expt_nameidx = strcmpi(wb_expt(1,:), 'mouse name');
 wb_expt_siteidx = strcmpi(wb_expt(1,:), 'site');
-exptlistidx = strcmpi(wb_expt(1,:), EXPTTYPE);
+if strcmpi(EXPTTYPE, 'all manuscript')
+    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps');
+else
+    exptlistidx = strcmpi(wb_expt(1,:), EXPTTYPE);
+end
 
 wb_expt = wb_expt(2:end, :); % notice that I'm hacking off the header row
 
 % figure out the appropriate expts to analyze
 l_expt = cellfun(@(x) isnumeric(x) && x==1, wb_expt(:, exptlistidx));
+l_expt = sum(l_expt,2) > 0;
 MouseName = wb_expt(l_expt, wb_expt_nameidx);
 Site = wb_expt(l_expt, wb_expt_siteidx);
 
@@ -72,7 +79,7 @@ EXCEPTIONS = {'EB_150529_A', 1; 'EB_150529_B', 1; 'EB_150630_D', 1};
 
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
-RMLINENOISE = true;
+RMLINENOISE = false;
 
 % grab the fiber volley pop excel workbook
 fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
@@ -199,6 +206,8 @@ end
 
 %% ANALYZE THE SNIPPETS AND CALCULATE VARIOUS STATS
 
+clc
+
 % REMINDER: this is happening in separate cell-script because I will define
 % the analysis region based off the average first pulse across TF conds.
 % This requires grabbing all the snippets b/4 any analysis can proceed. The
@@ -224,7 +233,7 @@ parfor i_ex = 1:Nexpts
         conds = cat(2, conds, fldnames(idx)');
     end
      
-    for i_cond = 1:numel(conds) %#ok<PFTUS>
+    for i_cond = 1:numel(conds)  %#ok<*PFTUS>
         
          % check to see if this condition exists
         if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
@@ -232,9 +241,10 @@ parfor i_ex = 1:Nexpts
         end
         
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
-        prePulseSamps = ceil(prePulseTime .* sampRate); %#ok<PFTUS> % samples prior to pulse onset
+        prePulseSamps = ceil(prePulseTime .* sampRate); % % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         photoDelay= 300e-6; % timeout following pulse offset (in sec)
+        anlyWindowInPts = ceil(450e-6 .* sampRate);
         
         for i_ch = 1:2;
             
@@ -287,7 +297,7 @@ parfor i_ex = 1:Nexpts
             % already been determined, do so right before the analysis.
             %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            for i_tf = 1:Ntfs %#ok<PFTUS> %
+            for i_tf = 1:Ntfs   %
                 
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
@@ -295,7 +305,7 @@ parfor i_ex = 1:Nexpts
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
-                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate; %#ok<PFTUS> % time=0 is when the LED comes on
+                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate;   % time=0 is when the LED comes on
                     
                     if ~FIRSTPULSE
                         pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
@@ -307,11 +317,12 @@ parfor i_ex = 1:Nexpts
                     
                     
                     % add a few points on either side of the true trough/peak
-                    trough_window = troughidx-4: min([troughidx+4, numel(snippet)]);
-                    assert(~isempty(trough_window) && numel(trough_window)==9, 'ERROR: no data for trough window')
+                    halfWindowInPts = round((anlyWindowInPts-1) / 2);% subtract one b/c centering will add one later, round so that it's an integer
+                    trough_window = troughidx-halfWindowInPts: min([troughidx+halfWindowInPts, numel(snippet)]);
+                    assert(~isempty(trough_window) && numel(trough_window)==anlyWindowInPts, 'ERROR: wrong number of points in trough window')
                     if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR'}))
-                        peak_window = peakidx-4: min([peakidx+4, numel(snippet)]);
-                        assert(~isempty(peak_window) && numel(peak_window)==9, 'ERROR: no data for peak windwo')
+                        peak_window = peakidx-halfWindowInPts: min([peakidx+halfWindowInPts, numel(snippet)]);
+                        assert(~isempty(peak_window) && numel(peak_window)==anlyWindowInPts, 'ERROR: no data for peak windwo')
                     end
                     
                     %
@@ -386,18 +397,18 @@ parfor i_ex = 1:Nexpts
                             % region around that
                             slope = [nan, diff(fit_dat)];
                             [~, idx] = min(slope);
-                            idx = idx-4:idx+4;
-                            if numel(fit_dat) <=9
+                            idx = idx-halfWindowInPts : idx+halfWindowInPts;
+                            if numel(fit_dat) <= anlyWindowInPts
                                 idx = 1:numel(fit_dat);
                             elseif idx(1)<=0
-                                idx = 1:9;
+                                idx = 1:anlyWindowInPts;
                             elseif idx(end)>numel(fit_dat)
-                                idx = numel(fit_dat)-8 : numel(fit_dat);
+                                idx = numel(fit_dat)- (anlyWindowInPts-1) : numel(fit_dat);
                             end
                             fit_tt = fit_tt(idx);
                             fit_dat = fit_dat(idx);
 
-                            if numel(fit_dat)>4
+                            if numel(fit_dat) > halfWindowInPts
                                 % do the fit
                                 betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
                                 
@@ -479,10 +490,11 @@ end % expts
 
 close all
 
-CHECK_TRIAL_STATS = true;
+CHECK_TRIAL_STATS = false;
 RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
+Nexpts = size(in,1);
 for i_ex = 1:Nexpts
     
 %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
@@ -1129,12 +1141,12 @@ close all
 
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
-STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
-PLOT_RAW = false;
-PLOT_AVG = true;
-PLOT_ERR = true;
-REMOVE_OUTLIER = false;
-INDIVIDUAL_PLOTS = false;
+STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
+PLOT_RAW = true;
+PLOT_AVG = false;
+PLOT_ERR = false;
+REMOVE_OUTLIER = true;
+INDIVIDUAL_PLOTS = true;
 N_PULSES = 7;
 TFs = [10,20,40,60,100];
 
@@ -2018,16 +2030,19 @@ for i_ex = 1:Nexpts
                 
                 tmp_raw = dat{idx}.(tfcond{1}).stats.(conds{i_cond}).(STAT){CHANNEL};
                 tmp_sigma = dat{idx}.(tfcond{1}).stats.(conds{i_cond}).bkgnd_sigma{CHANNEL};
-                tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
-                tmp_raw = tmp_raw ./ tmp_raw(1);
+                if ~any(regexpi(conds{i_cond}, 'ttx'))
+                    tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
+                    tmp_raw = tmp_raw ./ tmp_raw(1);
+                end
                 
                 subplot(2, numel(conds), (i_ch-1)*numel(conds) + i_cond)
                 hold on,
                 plot(1:numel(tmp_raw), tmp_raw, 'o-', 'color', cmap(i_site,:), 'linewidth', 2)
                 xvals = get(gca, 'xlim');
-                yvals = [1-tmp_sigma, 1+tmp_sigma];
-                plot(xvals, repmat(yvals, 2, 1), ':', 'color', cmap(i_site,:), 'linewidth', 1);
-                
+                if ~any(regexpi(conds{i_cond}, 'ttx'))
+                    yvals = [1-tmp_sigma, 1+tmp_sigma];
+                    plot(xvals, repmat(yvals, 2, 1), ':', 'color', cmap(i_site,:), 'linewidth', 1);
+                end
                 if i_ch == 1
                     title(conds{i_cond})
                 end
@@ -2042,8 +2057,79 @@ end
 
 
 
+%% GET TRIAL COUNTS AND SNR AND GENOTYPES
+
+clc
+
+mdb = initMouseDB('update', 'notext');
+nexpts = numel(info);
+minExTrialCount = [];
+SNR = [];
+genotypes = {};
+sex = {};
+for a_ex = 1:nexpts
+    
+    [~, idx] = mdb.search(info{a_ex}.mouse);
+    genotypes{a_ex, 1} = mdb.mice{idx}.info.strain;
+    sex{a_ex, 1} = mdb.mice{idx}.info.sex;
+    
+    fields = fieldnames(info{a_ex});
+    
+    fieldTcount = inf;
+    for a_field = 1:numel(fields)
+        
+        % make sure you're looking at data and not header info
+        if ~isfield(info{a_ex}.(fields{a_field}) , 'none')
+            continue
+        end
+        
+        conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
+        
+        for a_cond = 1:numel(conds)
+            
+            if ~isfield(info{a_ex}.(fields{a_field}), conds{a_cond});
+                error('could not find data')
+            end
+            
+            tlist = info{a_ex}.(fields{a_field}).(conds{a_cond}).realTrialNum;
+            fieldTcount = min([fieldTcount, numel(tlist)]);
+        end
+        
+        minExTrialCount = cat(1, minExTrialCount, fieldTcount);
+        
+        % now deal with SNR
+        CHANNEL = info{a_ex}.stimSite;
+        if ~info{a_ex}.ignoreChans(CHANNEL)
+            continue
+        else
+            % strange cases
+            mouseMatch = strcmpi(in{a_ex,1}, EXCEPTIONS(:,1));
+            siteMatch = in{a_ex,2} == vertcat(EXCEPTIONS{:,2});
+            if any(mouseMatch & siteMatch)
+                % HS2 is the data channel, but since HS1 wasn't
+                % used, the data are in the first column
+                if CHANNEL == 1; error('something went wrong'); end
+                CHANNEL = 1;
+            end
+        end
+        noise = dat{a_ex}.(fields{a_field}).stats.FV_Na.bkgnd_sigma{CHANNEL};
+        signal = dat{a_ex}.(fields{a_field}).stats.FV_Na.diffval{CHANNEL}(1);
+        SNR = cat(1, SNR, abs(signal./noise));
+        
+        
+        
+    end
+end
+
+minimumAcrossExperiments = min(minExTrialCount)
+maxAcrossExperiments = max(minExTrialCount)
+meanTrialCount = mean(minExTrialCount)
+stdTrialCount = std(minExTrialCount)
 
 
+minSNR = min(SNR)
+meanSNR = mean(SNR)
+stdSNR = std(SNR)
 
 
 
