@@ -490,7 +490,7 @@ end % expts
 
 close all
 
-CHECK_TRIAL_STATS = false;
+CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
@@ -1518,6 +1518,56 @@ for i_cond = 1:numel(conds)
     
 end
 
+
+%% SHAPE OF OPSIN CURRENT FOR EACH PULSE, WITH TAU FITS
+
+
+% loop over experiments. pull out each set of opsin currents (1:N pulses)
+% and normalize to the diffval.
+
+% for each TF, make a distribution of waveforms (1 for each pulse number)
+
+% plot the mean and errors for each pulse for each TF
+
+% fit with Taus
+
+% choose a stimulation location:
+STIMSITE = true;
+
+
+clc
+% only do this for the main experiment (TF and FV)
+assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
+
+% prepare the population structure
+opsinTypes = {'chr2', 'ochief', 'chronos'};
+tfnames = {'tf_10', 'tf_20', 'tf_40', 'tf_60', 'tf_100'};
+for i_opsin = 1:numel(opsinTypes)
+    for i_tf = 1:numel(tfnames)
+        opsincurrent.(opsinTypes{i_opsin}).(tfnames{i_tf}) = repmat({[]}, 1, Npulses);
+    end
+end
+
+
+Nexpt = size(in,1);
+for a_ex = 1:Nexpt
+    
+    pTypes = fieldnames(dat{a_ex});
+    for a_ptype = 1:numel(pTypes)
+        
+        % find the TTX pharm condition
+        conds = fieldnames(dat{a_ex}.(pTypes{a_ptype}).snips);
+        ttxidx = cellfun(@any, regexpi(conds, 'ttx'));
+        if ~any(ttxidx);
+            continue
+        end
+        
+        snips = dat{a_ex}.(pTypes{a_ptype}).snips.(conds{ttxidx});
+        normvals = dat{a_ex}.(pTypes{a_ptype}).stats.(conds{ttxidx}).diffval;
+        
+    end
+    
+end
 
 
 %% RUNDOWN: RUNNING AVERAGE OF STATS ACROSS SWEEPS
