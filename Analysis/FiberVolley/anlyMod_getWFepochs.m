@@ -1,4 +1,4 @@
-function [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, condition, pWidth, photoDelay)
+function [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, condition, pWidth, photoDelay, direction)
 
 % initialize the outputs
 [troughidx, peakidx] = deal(nan);
@@ -14,10 +14,9 @@ switch condition
     case {'nbqx_apv_cd2_ttx', 'ttx', 'ttx_cd2', 'nbqx_apv_ttx'} % could be negative or positive depending on distance to stim site
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
-        snip_area = sum(snippet(trough_window));
-        if snip_area > 0
+        if strcmpi(direction, 'outward')
             troughval = max(snippet(trough_window));
-        elseif snip_area < 0
+        elseif strcmpi(direction, 'inward')
             troughval = min(snippet(trough_window)); % only look after the pulse has come on
         end
         troughidx = find(snippet == troughval);
@@ -40,7 +39,11 @@ switch condition
     case 'synapticTransmission'
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
-        troughval = min(snippet(trough_window)); % only look after the pulse has come on
+        if strcmpi(direction, 'outward') % direction of the fEPSP could depend on distance to stim site.
+            troughval = max(snippet(trough_window));
+        elseif strcmpi(direction, 'inward')
+            troughval = min(snippet(trough_window)); % only look after the pulse has come on
+        end
         troughidx = find(snippet == troughval);
         assert(numel(troughidx)==1, 'ERROR: too many trough vals')
         

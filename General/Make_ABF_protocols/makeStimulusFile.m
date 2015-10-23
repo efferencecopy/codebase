@@ -156,7 +156,7 @@ for row = 1:size(header,1);
     formatSpec = [formatSpec, '%s \n'];
     fprintf(fileID, formatSpec, header{row}{1:end});
 end
-
+fprintf(fileID, '%s \t
 
 
 % iterate over the sweeps, adding line by line. All the entries are

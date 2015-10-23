@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 5;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -17,6 +17,8 @@ switch EXPTTYPE
     case 4
         EXPTTYPE = 'stim positions';
     case 5
+        EXPTTYPE = 'L5 record';
+    case 6
         EXPTTYPE = 'all manuscript';
 end
 
@@ -69,7 +71,7 @@ in = [MouseName, Site]
 
 % % uncomment these lines for a few files that are useful for code
 % % development:
-% 
+%
 % in = {'CH_150112_B', [1];...
 %       'CH_141215_E', [2]};
 
@@ -88,7 +90,8 @@ raw(size(txt,1)+1:end, :) = [];
 raw(:,size(txt,2)+1:end) = [];
 channelIdx = cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d'));
 opsinIdx = strcmpi(raw(1,:), 'opsin');
-stimSiteIdx = strcmpi(raw(1,:), 'stim site');
+primaryStimSiteIdx = strcmpi(raw(1,:), 'Primary Stim Site (0,0)');
+stimSiteCordIdx = strcmpi(raw(1,:), 'optostim target');
 clear txt
 
 % replace the 'file names' with fully qualified paths. I'm hoping that this
@@ -128,9 +131,17 @@ parfor i_ex = 1:Nexpts;
     info{i_ex}.mouse =  in{i_ex,1};
     info{i_ex}.opsin = unique(cell2mat(raw(l_expt, opsinIdx)), 'rows');
     info{i_ex}.ignoreChans = unique(cell2mat(raw(l_expt, channelIdx)), 'rows');
-    info{i_ex}.stimSite = unique(cell2mat(raw(l_expt, stimSiteIdx)), 'rows');
+    info{i_ex}.stimSite = unique(cell2mat(raw(l_expt, primaryStimSiteIdx)), 'rows');
     if ischar(info{i_ex}.stimSite); % deals with nans
         info{i_ex}.stimSite = str2num(info{i_ex}.stimSite);
+    end
+    tmp = raw(l_expt, stimSiteCordIdx);
+    if ischar(tmp{1})
+        tmp = unique(tmp);
+        info{i_ex}.optStimCords  = str2num(tmp{1});
+    else
+        tmp = cell2mat(tmp);
+        info{i_ex}.optStimCords  = unique(tmp);
     end
 end
 
@@ -177,7 +188,7 @@ for i_ex = 1:Nexpts
                     
                     % strange cases
                     mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-                    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2}); 
+                    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
                     if any(mouseMatch & siteMatch)
                         %  HS2 is the data channel, but since HS1 wasn't
                         %  used, the data are in the first column
@@ -218,7 +229,7 @@ clc
 % window be unique for each pulse?
 FIRSTPULSE = false;
 
-parfor i_ex = 1:Nexpts
+for i_ex = 1:Nexpts
     
     % Determine the pharmacology conditions that are present. Look
     % specifically for a fiber volley, a TTX, and a synapticTransmission
@@ -232,10 +243,10 @@ parfor i_ex = 1:Nexpts
         idx = cellfun(@(x) ~isempty(x), regexpi(fldnames, tags{i_t}));
         conds = cat(2, conds, fldnames(idx)');
     end
-     
+    
     for i_cond = 1:numel(conds)  %#ok<*PFTUS>
         
-         % check to see if this condition exists
+        % check to see if this condition exists
         if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
             continue
         end
@@ -243,7 +254,12 @@ parfor i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        photoDelay= 300e-6; % timeout following pulse offset (in sec)
+        switch conds{i_cond}
+            case 'synapticTransmission'
+                photoDelay= 1e-3;
+            otherwise
+                photoDelay= 300e-6; % timeout following pulse offset (in sec)
+        end
         anlyWindowInPts = ceil(450e-6 .* sampRate);
         
         for i_ch = 1:2;
@@ -254,14 +270,14 @@ parfor i_ex = 1:Nexpts
             else
                 
                 % strange cases
-                    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-                    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2}); 
-                    if any(mouseMatch & siteMatch)
-                        %  HS2 is the data channel, but since HS1 wasn't
-                        %  used, the data are in the first column
-                        if i_ch == 1; error('something went wrong'); end
-                        i_ch = 1;
-                    end
+                mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
+                siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
+                if any(mouseMatch & siteMatch)
+                    %  HS2 is the data channel, but since HS1 wasn't
+                    %  used, the data are in the first column
+                    if i_ch == 1; error('something went wrong'); end
+                    i_ch = 1;
+                end
             end
             
             
@@ -286,12 +302,24 @@ parfor i_ex = 1:Nexpts
                 firstPulse = mean(firstPulse,1);
                 pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
                 tt = ([0:numel(firstPulse)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
-                [troughidx, peakidx, takeoff]  = anlyMod_getWFepochs(firstPulse, tt, conds{i_cond}, pWidth, photoDelay);
+                switch conds{i_cond}
+                    case {'FV_Na', 'FV_Na_Ca2_mGluR'}
+                        troughTime = 0.00225;
+                    otherwise
+                        troughTime = 0.005;
+                end
+                trough_window = (tt >= pWidth+photoDelay) & (tt <= troughTime);
+                if mean(firstPulse(trough_window))> 0;
+                    direction = 'outward';
+                else
+                    direction = 'inward';
+                end
+                [troughidx, peakidx, takeoff]  = anlyMod_getWFepochs(firstPulse, tt, conds{i_cond}, pWidth, photoDelay, direction);
                 
             end
             
-
-            % 
+            
+            %
             % Now do the analysis on a pulse by pulse basis. Loop over TF
             % conditions, and pulses. If the important time points haven't
             % already been determined, do so right before the analysis.
@@ -301,15 +329,33 @@ parfor i_ex = 1:Nexpts
                 
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+                pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
+                
+                % figure out the direction of the responses
+                allSnippets = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch};
+                meanSnippet = mean(allSnippets, 1);
+                Ntime = numel(meanSnippet);
+                tt = ([0:Ntime-1] - prePulseSamps) ./ sampRate;   % time=0 is when the LED comes on
+                switch conds{i_cond}
+                    case {'FV_Na', 'FV_Na_Ca2_mGluR'}
+                        troughTime = 0.00225;
+                    otherwise
+                        troughTime = 0.005;
+                end
+                trough_window = (tt >= pWidth+photoDelay) & (tt <= troughTime);
+                if mean(meanSnippet(trough_window))> 0;
+                    direction = 'outward';
+                else
+                    direction = 'inward';
+                end
+                
                 
                 for i_pulse = 1:Npulses
                     
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
-                    tt = ([0:numel(snippet)-1] - prePulseSamps) ./ sampRate;   % time=0 is when the LED comes on
                     
                     if ~FIRSTPULSE
-                        pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay);                        
+                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay, direction);
                     end
                     
                     % store the peak and trough indicies for plotting later (if desired)
@@ -360,7 +406,7 @@ parfor i_ex = 1:Nexpts
                                 fit_tt = fit_tt(1:stopIdx);
                                 fit_dat = fit_dat(1:stopIdx);
                             end
-
+                            
                             betas = [fit_tt(:), ones(size(fit_tt(:)))] \ log(abs(fit_dat(:)));
                             
                             if isempty(fit_dat)
@@ -383,20 +429,33 @@ parfor i_ex = 1:Nexpts
                             %
                             % fit the slope using OLS regression
                             %%%%%%%%%%%%%%
-                            synapseDelay = 0.0015;
+                            tmp_snippet = snippet;
                             stopSlopeVal = trough .* 0.80;
-                            slopeStopIdx = find((tt < tt(troughidx)) & (snippet >= stopSlopeVal) , 1, 'last');
-                            startSlopeVal = snippet(troughidx) .* 0.12;
-                            slopeStartIdx = (snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
+                            if strcmpi(direction, 'outward');  % a hack to deal with inwards and outwards fEPSPs
+                                tmp_snippet = -tmp_snippet;
+                                stopSlopeVal = -trough .* 0.80;
+                            end
+                            synapseDelay = 0.001;
+                            slopeStopIdx = find((tt < tt(troughidx)) & (tmp_snippet >= stopSlopeVal) , 1, 'last');
+                            startSlopeVal = tmp_snippet(troughidx) .* 0.12;
+                            slopeStartIdx = (tmp_snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
                             slopeStartIdx = find(slopeStartIdx, 1, 'last');
                             slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]); % make sure that you don't encroach into the synaptic delay timeout
+                            
+                            % do the referencing with tmp_snippet, but grab
+                            % the actual data from snippet
                             fit_dat = snippet(slopeStartIdx : slopeStopIdx);
                             fit_tt = tt(slopeStartIdx : slopeStopIdx);
                             
                             % find the max slope and center the analysis
                             % region around that
                             slope = [nan, diff(fit_dat)];
-                            [~, idx] = min(slope);
+                            if strcmpi(direction, 'outward')
+                                [~, idx] = max(slope);
+                            else
+                                [~, idx] = min(slope);
+                            end
+                            
                             idx = idx-halfWindowInPts : idx+halfWindowInPts;
                             if numel(fit_dat) <= anlyWindowInPts
                                 idx = 1:numel(fit_dat);
@@ -407,7 +466,7 @@ parfor i_ex = 1:Nexpts
                             end
                             fit_tt = fit_tt(idx);
                             fit_dat = fit_dat(idx);
-
+                            
                             if numel(fit_dat) > halfWindowInPts
                                 % do the fit
                                 betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
@@ -440,7 +499,7 @@ parfor i_ex = 1:Nexpts
                     areaStartIdx = find(tt >= (pWidth+photoDelay), 1, 'first');
                     areaStopIdx = find(tt >= 0.008, 1, 'first');
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area_inds{i_ch}(i_pulse,:) = [areaStartIdx, areaStopIdx];
-                            
+                    
                     
                 end % pulses
                 
@@ -491,17 +550,17 @@ end % expts
 close all
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = true;
+RESTRICT_TO_STIM_SITE = false;
 NORM_TO_PULSE1 = true;
 
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
     
-%     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
-     conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
-%      conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
-%     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
-%     
+    %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
+    conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+    %      conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+    %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+    %
     
     for i_ch = 1:2;
         
@@ -553,7 +612,7 @@ for i_ex = 1:Nexpts
             if ~isfield(dat{i_ex}.(pTypes{1}).stats, conds{i_cond})
                 continue
             end
-                
+            
             %
             % plot the raw (Average) traces
             %
@@ -566,7 +625,7 @@ for i_ex = 1:Nexpts
                 tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) .* 1000; % in ms.
                 
-                subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs)), 
+                subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs)),
                 cmap = colormap('copper');
                 cidx = round(linspace(1, size(cmap,1), max([Ncols, Ntfs])));
                 cmap = cmap(cidx,:);
@@ -636,7 +695,7 @@ for i_ex = 1:Nexpts
                     end
                     
                 end
-
+                
             end
         end
         
@@ -675,6 +734,7 @@ for i_ex = 1:Nexpts
                         tmp_raw = tmp_raw ./ tmp_raw(1);
                     end
                     rawvals = cat(1, rawvals, tmp_raw);
+                    
                     noise_calibration = cat(1, noise_calibration, tmp_sigma);
                     switch EXPTTYPE
                         case 'interleaved amps'
@@ -726,8 +786,6 @@ for i_ex = 1:Nexpts
                         end
                     end
                 end
-                
-                
                 
                 
             end
@@ -804,9 +862,9 @@ for i_ex = 1:numel(dat)
         for i_cond = 1:numel(conds);
             
             % skip instances where the drug condition does not exist
-                if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats, conds{i_cond})
-                    continue
-                end
+            if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats, conds{i_cond})
+                continue
+            end
             
             for i_stat = 1:numel(statTypes)
                 
@@ -1088,7 +1146,7 @@ for i_ex = 1:numel(dat)
     
     %
     % do some plotting if there are data
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if ~isempty(ex_ppr)
         
         switch lower(info{i_ex}.opsin)
@@ -1418,7 +1476,7 @@ for i_ex = 1:Nexpts
         end
     end
     
-     
+    
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
@@ -1465,6 +1523,7 @@ for i_ex = 1:Nexpts
             firstPulse = interp1(old_tt, firstPulse, new_tt);
             
         end
+        
         switch lower(info{i_ex}.opsin)
             case 'ochief'
                 ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
@@ -1481,7 +1540,7 @@ end % expts
 
 for i_cond = 1:numel(conds)
     
-    % the example first 
+    % the example first
     tt = (0:size(ochief_examp{i_cond},2)-1)./20e3;
     tt = tt-tt(prePulseSamps);
     tt = tt.*1000;
@@ -1533,15 +1592,17 @@ end
 
 % choose a stimulation location:
 STIMSITE = true;
+PLOTERR = true;
+Npulses = 7;
 
+clc; close all
 
-clc
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
 
 % prepare the population structure
 opsinTypes = {'chr2', 'ochief', 'chronos'};
-tfnames = {'tf_10', 'tf_20', 'tf_40', 'tf_60', 'tf_100'};
+tfnames = {'tf10', 'tf20', 'tf40', 'tf60', 'tf100'};
 for i_opsin = 1:numel(opsinTypes)
     for i_tf = 1:numel(tfnames)
         opsincurrent.(opsinTypes{i_opsin}).(tfnames{i_tf}) = repmat({[]}, 1, Npulses);
@@ -1552,12 +1613,20 @@ end
 Nexpt = size(in,1);
 for a_ex = 1:Nexpt
     
+    opsin = lower(info{a_ex}.opsin);
     pTypes = fieldnames(dat{a_ex});
     for a_ptype = 1:numel(pTypes)
+        
+        % this pulse type might not exist. Detect these cases and continue
+        if ~isfield(dat{a_ex}, pTypes{a_ptype})
+            continue
+        end
+        
         
         % find the TTX pharm condition
         conds = fieldnames(dat{a_ex}.(pTypes{a_ptype}).snips);
         ttxidx = cellfun(@any, regexpi(conds, 'ttx'));
+        
         if ~any(ttxidx);
             continue
         end
@@ -1565,9 +1634,109 @@ for a_ex = 1:Nexpt
         snips = dat{a_ex}.(pTypes{a_ptype}).snips.(conds{ttxidx});
         normvals = dat{a_ex}.(pTypes{a_ptype}).stats.(conds{ttxidx}).diffval;
         
+        
+        % determine which channel to analyze
+        % Determine which recording channel to analyze
+        mouseMatch = strcmpi(in{a_ex,1}, EXCEPTIONS(:,1));
+        siteMatch = in{a_ex,2} == vertcat(EXCEPTIONS{:,2});
+        if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
+            CHANNEL = 1;
+        else % all other experiments...
+            if STIMSITE
+                CHANNEL = info{a_ex}.stimSite;
+            else
+                if info{a_ex}.stimSite == 1
+                    CHANNEL = 2;
+                elseif info{a_ex}.stimSite == 2
+                    CHANNEL = 1;
+                end
+            end
+        end
+        
+        % pull out the relevant data, normalize, and add to the population
+        % structure
+        snips = snips{CHANNEL};
+        normvals = abs(normvals{CHANNEL});
+        normsnips = bsxfun(@rdivide, snips, normvals(:));
+        
+        
+        % correct for differences in the sampling rate
+        correctSR = info{a_ex}.(pTypes{a_ptype}).none.sampRate == 20e3;
+        if ~correctSR
+            
+            oldSampRate = info{a_ex}.(pTypes{a_ptype}).none.sampRate;
+            old_tt = [0 : size(normsnips,2)-1] ./ oldSampRate;
+            
+            totalTime = size(normsnips,2) ./ oldSampRate;
+            newSampRate = 20e3;
+            newNumSamps = ceil(totalTime .* newSampRate);
+            new_tt = [0 : newNumSamps-1] ./ newSampRate;
+            normsnips = interp1(old_tt(:), normsnips', new_tt(:));
+            normsnips = normsnips';
+            
+        end
+        
+        
+        Npulses_ex = size(snips, 1);
+        for a_pulse = 1 : min([Npulses, Npulses_ex])
+            
+            tmp = opsincurrent.(opsin).(pTypes{a_ptype}){a_pulse};
+            tmp = cat(1, tmp, normsnips(a_pulse,:));
+            opsincurrent.(opsin).(pTypes{a_ptype}){a_pulse} = tmp;
+            
+        end
+        
     end
     
 end
+
+cmap = colormap('copper'); close;
+cidx = round(linspace(1, size(cmap,1), Npulses));
+cmap = cmap(cidx,:);
+
+
+for a_opsin = 1:3
+    figure
+    set(gcf, 'position', [8 294 1423 421], 'name', opsinTypes{a_opsin})
+    
+    Ntypes = numel(tfnames);
+    for a_ptype = 1:Ntypes
+        
+        tmpdat = opsincurrent.(opsinTypes{a_opsin}).(tfnames{a_ptype});
+        
+        subplot(1,Ntypes, a_ptype, 'align')
+        title(tfnames{a_ptype})
+        ylabel('Normalize opsin current')
+        xlabel('Time (ms)')
+        hold on,
+        
+        % iterate over the pulses
+        for a_pulse = 1:Npulses
+            
+            
+            xbar = mean(tmpdat{a_pulse}, 1);
+            sem = std(tmpdat{a_pulse}, [], 1) ./ sqrt(size(tmpdat{a_pulse}, 1));
+            tt = [0:numel(xbar)-1] ./ 20e3;
+            if isempty(xbar)
+                continue
+            end
+            
+            pltclr = cmap(a_pulse,:);
+            
+            % plot the SEM
+            if PLOTERR
+                shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2})
+            else
+                plot(tt, xbar, '-', 'color', pltclr, 'linewidth', 2);
+            end
+            
+            
+        end
+    end
+    
+end
+
+
 
 
 %% RUNDOWN: RUNNING AVERAGE OF STATS ACROSS SWEEPS
@@ -1584,7 +1753,7 @@ raw(size(txt,1)+1:end, :) = [];
 raw(:,size(txt,2)+1:end) = [];
 channelIdx = cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d'));
 opsinIdx = strcmpi(raw(1,:), 'opsin');
-stimSiteIdx = strcmpi(raw(1,:), 'stim site');
+primaryStimSiteIdx = strcmpi(raw(1,:), 'Primary Stim Site (0,0)');
 channels = raw(:, cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d')));
 rmsweeps = raw(:, strcmpi(raw(1,:), 'rmSweeps'));
 
@@ -1637,7 +1806,7 @@ for i_ex = 1:Nexpts;
         
         % add a few useful peices of information to the data structure
         smoothStats{i_ex}.opsin = raw{l_expt, opsinIdx};
-        smoothStats{i_ex}.stimSite = raw{l_expt, stimSiteIdx};
+        smoothStats{i_ex}.stimSite = raw{l_expt, primaryStimSiteIdx};
         smoothStats{i_ex}.mouseName = in{i_ex, 1};
         smoothStats{i_ex}.siteNum = in{i_ex, 2};
         
@@ -1787,7 +1956,7 @@ for i_ex = 1:Nexpts;
                     plot(pwidth+photoDelay, 0, 'ko')
                     plot(tt(troughidx), trough, 'go')
                     drawnow
-                end                
+                end
             end % sweeps
             
             
@@ -1834,7 +2003,7 @@ for i_cond = 1:numel(conds)
     end
 end
 
-    
+
 for i_opsin = 1:numel(opsins)
     
     l_opsin = strcmpi(exptOpsins, opsins{i_opsin});
@@ -1989,9 +2158,8 @@ end
 
 
 
-%% LASER STIM ANALYSIS
+%% LASER STIM SITE ANALYSIS
 
-close all
 
 % figure out how many unique experiments there were
 mouseNames = in(:,1);
@@ -2004,7 +2172,7 @@ comboname = cellfun(@(x,y) [x,num2str(y)], mouseNames, sites, 'uniformoutput', f
 % opsin current, and fEPSP slope
 Nexpts = size(uniqueExpts, 1);
 for i_ex = 1:Nexpts
-   
+    
     % order the files by proximal to distal (which should be hardcoded in
     % the excel workbook
     inds_mouse = find(exptID == i_ex);
@@ -2013,96 +2181,147 @@ for i_ex = 1:Nexpts
     inds_mouse = inds_mouse(analysis_order); % now the list is ordered by proximal to distal
     
     figure
-    set(gcf, 'defaulttextinterpreter', 'none', 'position', [7 286 1139 420]);
+    set(gcf, 'defaulttextinterpreter', 'none', 'position', [17 278 1353 420]);
     set(gcf, 'name', sprintf('%s, site: %d', in{inds_mouse(1),1}, floor(in{inds_mouse(1),2})))
     cmap = colormap('parula'); clf;%also opens a figure;
     inds = round(linspace(1, 50, numel(inds_mouse)));
     cmap = cmap(inds,:);
     
-    conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both opsin current verisons
+    % assume that the primary channel is the one that's in L2/3
+    CH_proximal = structcat(info(inds_mouse), 'stimSite');
+    CH_proximal = unique(cell2mat(CH_proximal));
+    assert(numel(CH_proximal)==1, 'ERROR: too many ''proximal'' sites');
+    if CH_proximal == 1
+        CH_distal = 2;
+    else
+        CH_distal = 1;
+    end
+    
+    % figure out the total number of tfconds, across stimulation locations
+    tfconds = {};
     for i_site = 1:numel(inds_mouse);
-        
         idx = inds_mouse(i_site);
+        tfconds = cat(1, tfconds, fieldnames(dat{idx}));
+    end
+    assert(iscell(tfconds), 'ERROR: tfconds are unreliable')
+    tfconds = unique(tfconds);
+    
+    
+    for i_tf = 1:numel(tfconds)
         
+        % insert tab group here, initialized the x,y coordinates to the
+        % stimulus positions
+        
+        conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'}; % both opsin current verisons
+        npltcols = numel(conds)+1;
         for i_cond = 1:numel(conds)
-            
-            tfcond = fieldnames(dat{idx});
-            assert(numel(tfcond)==1, 'ERROR: too many tf conditions')
-            
-            if ~isfield(dat{idx}.(tfcond{1}).stats, conds{i_cond})
-                
-                subplot(2, numel(conds), numel(conds) + i_cond);
-                hold on,
-                if isempty(get(gca, 'children'))
-                    for i_clr = 1:numel(inds_mouse)
-                        p(i_clr) = plot([1,2], [1,2], '-', 'color', cmap(i_clr,:), 'linewidth', 3);
-                        p(i_clr).Visible = 'off';
-                    end
-                    legtext = cellfun(@(x,y) sprintf('%s%d', x, y), repmat({'site '}, numel(inds_mouse), 1), num2cell([1:numel(inds_mouse)]'), 'uniformoutput', false);
-                    legend(legtext)
-                    legend boxoff
-                end
-                
-                continue
-            end
-            
-            % assume that the primary channel is the one that's most
-            % interior
-            CH_proximal = info{i_ex}.stimSite;
-            if CH_proximal == 1
-                CH_distal = 2;
-            else
-                CH_distal = 1;
-            end
             
             % figure out what stat to use for this condition
             switch conds{i_cond}
-                case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'FV_Na', 'FV_Na_Ca2_mGluR'}
+                case {'nbqx_apv_cd2_ttx', 'FV_Na'}
                     STAT = 'diffval';
                 case 'synapticTransmission'
                     STAT = 'slope';
             end
             
-            
-            % figure for distal channel goes on top, figure for proximal channel goes on bottom
-            for i_ch = 1:2;
-                switch i_ch
-                    case 1
-                        CHANNEL = CH_distal;
-                    case 2
-                        CHANNEL = CH_proximal;
+            for i_site = 1:numel(inds_mouse);
+                
+                idx = inds_mouse(i_site);
+                
+                if ~isfield(dat{idx}.(tfconds{i_tf}).stats, conds{i_cond})
+                    continue
                 end
                 
-                if (CHANNEL == 2) && numel(dat{idx}.(tfcond{1}).stats.(conds{i_cond}).(STAT)) == 1
-                    continue % the data don't exist; that channel was not recorded
-                end
-                
-                
-                tmp_raw = dat{idx}.(tfcond{1}).stats.(conds{i_cond}).(STAT){CHANNEL};
-                tmp_sigma = dat{idx}.(tfcond{1}).stats.(conds{i_cond}).bkgnd_sigma{CHANNEL};
-                if ~any(regexpi(conds{i_cond}, 'ttx'))
-                    tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
-                    tmp_raw = tmp_raw ./ tmp_raw(1);
-                end
-                
-                subplot(2, numel(conds), (i_ch-1)*numel(conds) + i_cond)
-                hold on,
-                plot(1:numel(tmp_raw), tmp_raw, 'o-', 'color', cmap(i_site,:), 'linewidth', 2)
-                xvals = get(gca, 'xlim');
-                if ~any(regexpi(conds{i_cond}, 'ttx'))
-                    yvals = [1-tmp_sigma, 1+tmp_sigma];
-                    plot(xvals, repmat(yvals, 2, 1), ':', 'color', cmap(i_site,:), 'linewidth', 1);
-                end
-                if i_ch == 1
-                    title(conds{i_cond})
+                % figure for distal channel goes on top, figure for proximal channel goes on bottom
+                for i_ch = 1:2;
+                    switch i_ch
+                        case 1
+                            CHANNEL = CH_proximal;
+                        case 2
+                            CHANNEL = CH_distal;
+                    end
+                    
+                    if (CHANNEL == 2) && numel(dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).(STAT)) == 1
+                        continue % the data don't exist; that channel was not recorded
+                    end
+                    
+                    
+                    tmp_raw = dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).(STAT){CHANNEL};
+                    tmp_sigma = dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).bkgnd_sigma{CHANNEL};
+                    if ~any(regexpi(conds{i_cond}, 'ttx'))
+                        tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
+                        tmp_raw = tmp_raw ./ tmp_raw(1);
+                    end
+                    
+                    subplot(2, npltcols, (i_ch-1)*npltcols + i_cond)
+                    hold on,
+                    plot(1:numel(tmp_raw), tmp_raw, 'o-', 'color', cmap(i_site,:), 'linewidth', 2)
+                    xvals = get(gca, 'xlim');
+                    if any(regexpi(conds{i_cond}, 'FV_Na'))
+                        yvals = [1-tmp_sigma, 1+tmp_sigma];
+                        plot(xvals, repmat(yvals, 2, 1), ':', 'color', cmap(i_site,:), 'linewidth', 1);
+                    end
+                    if i_ch == 1
+                        if any(regexpi(conds{i_cond}, '_ttx'))
+                            title(info{inds_mouse(1)}.opsin)
+                        else
+                            title(conds{i_cond})
+                        end
+                    end
+                    % adjust the axes
+                    switch conds{i_cond}
+                        case {'FV_Na', 'synapticTransmission'}
+                            yvals = get(gca, 'ylim');
+                            set(gca, 'ylim', 1.05.* [0, max([yvals(2), max(tmp_raw)])]);
+                        otherwise
+                    end
                 end
                 
             end
+        end
+        
+    end
+    
+    
+    % add a picture of the slice, only once per figure
+    s = subplot(1, npltcols, npltcols);
+    
+    mousename = uniqueExpts{i_ex}(1:end-1);
+    siteidx =  uniqueExpts{i_ex}(end);
+    cd([GL_DATPATH, mousename, filesep, 'Other'])
+    d = dir;
+    d.name;
+    
+    photoprefix = [mousename, '_site', num2str(siteidx)];
+    for i_photo = 1:numel(d)
+        if strncmpi(d(i_photo).name, photoprefix, numel(photoprefix))
+            img = double(imread(d(i_photo).name));
+            iminfo = imfinfo(d(i_photo).name);
+            maxpixval = prctile(img(:), [99.9]);
+            normfact = min([maxpixval, 2^iminfo.BitDepth-1]);
+            img = (img ./ normfact) .* (2^iminfo.BitDepth-1); % auto adjust LUT
             
+            imshow(uint8(img));
+            s.Position = [0.72, 0.1, 0.27, 0.85];
+            title(sprintf('(0,0) is HS%d', CH_proximal))
         end
     end
     
+    
+    % add an icon for the stimulus locations
+    centPos = round(ginput(1));
+    xy = cell2mat(structcat(info(inds_mouse), 'optStimCords'));
+    pixperum = pixPerMicron(size(img,1), size(img,2));
+    xy = round(xy .* pixperum); %now in pix
+    xy = bsxfun(@plus, xy, centPos); % pix relative to neuron
+    hold on,
+    for a = 1:size(xy,1)
+        plot(xy(a,1), xy(a,2), 'o', 'markeredgecolor', cmap(a,:), 'markerfacecolor', cmap(a,:), 'markersize', 10)
+    end
+    
+    % update plots in quasi realtime
     drawnow
+    
 end
 
 

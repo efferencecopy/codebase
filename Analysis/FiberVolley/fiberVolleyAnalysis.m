@@ -334,14 +334,14 @@ for i_sweepType = 1:numel(sweepTypeFields)
     
     if RMLINENOISE
         % try to reduce line noise from a few of the traces
-        conds = {'FV_Na_Ca2_mGluR', 'FV_Na', 'ttx', 'cd2_ttx', 'directRelease'};
+        conds = {'FV_Na_Ca2_mGluR', 'FV_Na', 'ttx', 'cd2_ttx', 'directRelease', 'synapticTransmission'};
         for i_cond = 1:numel(conds)
             
             if isfield(trace.(swpType), conds{i_cond})
                 
                 tmp_trace = trace.(swpType).(conds{i_cond});
                 
-                lines = [5.5, 60.*(1:4)];
+                lines = [5.5, 60.*(1:2)];
                 winEnd_idx = size(tmp_trace,1);
                 if info.(swpType).(conds{i_cond}).pTF >= 40;
                     % just look at the data following the last pulse.
@@ -398,7 +398,7 @@ if PLOTFIGURES
             % create tabbed GUI
             hFig = figure;
             set(gcf, 'position', [40 48 972 711]);
-            set(gcf, 'name', sprintf('%s, site %d, %s, chan: %d', mouseNames{1}, siteNumber{1}, sweepTypeFields{i_sweepType}, channelList(i_ch)))
+            set(gcf, 'name', sprintf('%s, site %.1f, %s, chan: %d', mouseNames{1}, siteNumber{1}, sweepTypeFields{i_sweepType}, channelList(i_ch)))
             s = warning('off', 'MATLAB:uitabgroup:OldVersion');
             hTabGroup = uitabgroup('Parent',hFig);
             
