@@ -59,15 +59,27 @@ for i_fid = 1:numel(fnames)
     end
     
     % store the data, grouped by unique conditions. First, I need to figure
-    % out the appropriate field name for each condition
-    warning('INSTITUTING TEMPORARY FIX #1') % what if the LED and Laser are both defined (either on purpose or by accident)?
+    % out the appropriate field name for each condition, to do this, I need
+    % to figure out which channel has the optical stimulation, and then run
+    % 'outerleave.m'
+    [ledidx, laseridx] = deal([]);
     if isfield(tmp.idx, 'LED_470')
-        tdict = outerleave(tmp, tmp.idx.LED_470);
-    elseif isfield(tmp.idx, 'Laser')
-        tdict = outerleave(tmp, tmp.idx.Laser);
-    else
-        error('could not find index to stim waveform')
+        ledidx = tmp.idx.LED_470;
     end
+    if isfield(tmp.idx, 'Laser')
+        laseridx = tmp.idx.Laser;
+    end
+    both_idx_defined = any(ledidx) && any(laseridx);
+    assert(~both_idx_defined, 'ERROR: LED and Laser were used simultaneously');
+    
+    if any(ledidx)
+        optostimidx = ledidx;
+    elseif any(laseridx)
+        optostimidx = laseridx;
+    end
+    assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
+    
+    tdict = outerleave(tmp, optostimidx);
     nSweepTypes = size(tdict.conds,1);
     
     
@@ -162,15 +174,24 @@ for i_sweepType = 1:numel(sweepTypeFields)
             
             % baseline subtract, determine when the pulses came on...
             thresh = 0.05;
-            warning('INSTITUTING TEMPORARY FIX #2')
+            [ledidx, laseridx] = deal([]);
             if isfield(ax.(swpType).(drugType).idx, 'LED_470')
-                stimIdx = ax.(swpType).(drugType).idx.LED_470;
-            elseif isfield(ax.(swpType).(drugType).idx, 'Laser')
-                stimIdx = ax.(swpType).(drugType).idx.Laser;
-            else
-                error('could not find index to stim waveform')
+                ledidx = ax.(swpType).(drugType).idx.LED_470;
             end
-            template = ax.(swpType).(drugType).dat(:,stimIdx,1);
+            if isfield(ax.(swpType).(drugType).idx, 'Laser')
+                laseridx = ax.(swpType).(drugType).idx.Laser;
+            end
+            both_idx_defined = any(ledidx) && any(laseridx);
+            assert(~both_idx_defined, 'ERROR: LED and Laser were used simultaneously');
+            
+            if any(ledidx)
+                optostimidx = ledidx;
+            elseif any(laseridx)
+                optostimidx = laseridx;
+            end
+            assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
+
+            template = ax.(swpType).(drugType).dat(:,optostimidx,1);
             template = template > thresh;
             template = [0; diff(template)];
             storedCrossings_on{i_sweepType} = template == 1;

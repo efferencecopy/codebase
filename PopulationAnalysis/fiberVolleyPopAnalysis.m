@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 5;
+EXPTTYPE = 6;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -19,6 +19,10 @@ switch EXPTTYPE
     case 5
         EXPTTYPE = 'L5 record';
     case 6
+        EXPTTYPE = '4-AP';
+    case 7
+        EXPTTYPE = 'Baclofen';
+    case 8
         EXPTTYPE = 'all manuscript';
 end
 
@@ -159,7 +163,7 @@ for i_ex = 1:Nexpts
     Ntfs = numel(pTypes);
     for i_tf = 1:Ntfs
         
-        conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'synapticTransmission', 'none', 'nbqx_apv', 'nbqx_apv_cd2'};
+        conds = fieldnames(dat{i_ex}.(pTypes{i_tf}));
         for i_cond = 1:numel(conds)
             
             % check to see if this condition exists
@@ -236,7 +240,11 @@ for i_ex = 1:Nexpts
     % condition
     pTypes = fieldnames(dat{i_ex});
     Ntfs = numel(pTypes);
-    fldnames = fieldnames(info{i_ex}.(pTypes{1}));
+    fldnames = {};
+    for i_tf = 1:Ntfs
+        fldnames = cat(1, fldnames, fieldnames(info{i_ex}.(pTypes{i_tf})));
+    end
+    fldnames = unique(fldnames);
     tags = {'FV_', 'ttx', 'synapticTransmission'};
     conds = {};
     for i_t = 1:numel(tags)
@@ -246,12 +254,9 @@ for i_ex = 1:Nexpts
     
     for i_cond = 1:numel(conds)  %#ok<*PFTUS>
         
-        % check to see if this condition exists
-        if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
-            continue
-        end
-        
-        sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
+
+        tmpnames = fieldnames(info{i_ex}.(pTypes{1}));
+        sampRate = info{i_ex}.(pTypes{1}).(tmpnames{1}).sampRate; % assuming sampRates are the same across experments within a day
         prePulseSamps = ceil(prePulseTime .* sampRate); % % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
         switch conds{i_cond}
@@ -327,6 +332,11 @@ for i_ex = 1:Nexpts
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             for i_tf = 1:Ntfs   %
                 
+                % check to see if this condition exists
+                if ~isfield(info{i_ex}.(pTypes{i_tf}), conds{i_cond})
+                    continue
+                end
+                
                 Npulses = sum(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pOnIdx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
                 pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
@@ -375,27 +385,37 @@ for i_ex = 1:Nexpts
                     % store some stats for each pulse
                     %
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    switch conds{i_cond}
-                        case {'FV_Na', 'FV_Na_Ca2_mGluR'}
-                            
-                            trough = mean(snippet(trough_window));
-                            peak = mean(snippet(peak_window));
-                            
-                            pk2tr = peak-trough;
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
-                            
-                        case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
-                            
-                            trough = mean(snippet(trough_window));
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
-                            
-                            % fit a single tau to the decay using OLS
-                            startVal = snippet(troughidx) .* 0.80;
-                            startIdx = find((snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
-                            fit_tt = tt(startIdx : end);
-                            fit_dat = snippet(startIdx : end);
-                            
+                    if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR'}))
+                        
+                        trough = mean(snippet(trough_window));
+                        peak = mean(snippet(peak_window));
+                        
+                        pk2tr = peak-trough;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                        
+                    elseif any(regexpi(conds{i_cond}, 'ttx'))
+                        
+                        trough = mean(snippet(trough_window));
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                        
+                        % deal with cases where the opsin current is
+                        % outward
+                        tmp_snippet = snippet;
+                        if strcmpi(direction, 'outward');
+                            tmp_snippet = -tmp_snippet;
+                        end
+                        
+                        
+                        % fit a single tau to the decay using OLS
+                        startVal = tmp_snippet(troughidx) .* 0.85;
+                        startIdx = find((tmp_snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
+                        fit_tt = tt(startIdx : end);
+                        fit_dat = tmp_snippet(startIdx : end);
+                        
+                        dataforfit = ~isempty(fit_dat);
+                        
+                        if dataforfit
                             % make sure none of the fit_dat points are
                             % positive because the fitting routine will
                             % assume that all the points are negative
@@ -405,82 +425,84 @@ for i_ex = 1:Nexpts
                                 stopIdx = find(l_zero==1, 1, 'first')-1;
                                 fit_tt = fit_tt(1:stopIdx);
                                 fit_dat = fit_dat(1:stopIdx);
+                                dataforfit = ~isempty(fit_dat);
                             end
-                            
+                        end
+                        
+                        
+                        if dataforfit
                             betas = [fit_tt(:), ones(size(fit_tt(:)))] \ log(abs(fit_dat(:)));
+                        else
+                            betas = [nan, nan];
+                            startIdx = nan;
+                        end
+                        
+                        % store the slope params
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse) = betas(1);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse) = betas(2);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
+                        
+                        
+                    elseif strcmpi(conds{i_cond},  'synapticTransmission')
+                        
+                        trough = mean(snippet(trough_window));
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                        
+                        %
+                        % fit the slope using OLS regression
+                        %%%%%%%%%%%%%%
+                        tmp_snippet = snippet;
+                        stopSlopeVal = trough .* 0.80;
+                        if strcmpi(direction, 'outward');  % a hack to deal with inwards and outwards fEPSPs
+                            tmp_snippet = -tmp_snippet;
+                            stopSlopeVal = -trough .* 0.80;
+                        end
+                        synapseDelay = 0.001;
+                        slopeStopIdx = find((tt < tt(troughidx)) & (tmp_snippet >= stopSlopeVal) , 1, 'last');
+                        startSlopeVal = tmp_snippet(troughidx) .* 0.12;
+                        slopeStartIdx = (tmp_snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
+                        slopeStartIdx = find(slopeStartIdx, 1, 'last');
+                        slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]); % make sure that you don't encroach into the synaptic delay timeout
+                        
+                        % do the referencing with tmp_snippet, but grab
+                        % the actual data from snippet
+                        fit_dat = snippet(slopeStartIdx : slopeStopIdx);
+                        fit_tt = tt(slopeStartIdx : slopeStopIdx);
+                        
+                        % find the max slope and center the analysis
+                        % region around that
+                        slope = [nan, diff(fit_dat)];
+                        if strcmpi(direction, 'outward')
+                            [~, idx] = max(slope);
+                        else
+                            [~, idx] = min(slope);
+                        end
+                        
+                        idx = idx-halfWindowInPts : idx+halfWindowInPts;
+                        if numel(fit_dat) <= anlyWindowInPts
+                            idx = 1:numel(fit_dat);
+                        elseif idx(1)<=0
+                            idx = 1:anlyWindowInPts;
+                        elseif idx(end)>numel(fit_dat)
+                            idx = numel(fit_dat)- (anlyWindowInPts-1) : numel(fit_dat);
+                        end
+                        fit_tt = fit_tt(idx);
+                        fit_dat = fit_dat(idx);
+                        
+                        if numel(fit_dat) > halfWindowInPts
+                            % do the fit
+                            betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
                             
-                            if isempty(fit_dat)
-                                keyboard
-                                warning('no data for tau, betas set to nan')
-                                betas = [nan, nan];
-                            end
-                            
-                            % store the slope params
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse) = betas(1);
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse) = betas(2);
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
-                            
-                            
-                        case 'synapticTransmission'
-                            
-                            trough = mean(snippet(trough_window));
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
-                            
-                            %
-                            % fit the slope using OLS regression
-                            %%%%%%%%%%%%%%
-                            tmp_snippet = snippet;
-                            stopSlopeVal = trough .* 0.80;
-                            if strcmpi(direction, 'outward');  % a hack to deal with inwards and outwards fEPSPs
-                                tmp_snippet = -tmp_snippet;
-                                stopSlopeVal = -trough .* 0.80;
-                            end
-                            synapseDelay = 0.001;
-                            slopeStopIdx = find((tt < tt(troughidx)) & (tmp_snippet >= stopSlopeVal) , 1, 'last');
-                            startSlopeVal = tmp_snippet(troughidx) .* 0.12;
-                            slopeStartIdx = (tmp_snippet >= startSlopeVal) & (tt < tt(slopeStopIdx));
-                            slopeStartIdx = find(slopeStartIdx, 1, 'last');
-                            slopeStartIdx = max([slopeStartIdx, find(tt>synapseDelay, 1, 'first')]); % make sure that you don't encroach into the synaptic delay timeout
-                            
-                            % do the referencing with tmp_snippet, but grab
-                            % the actual data from snippet
-                            fit_dat = snippet(slopeStartIdx : slopeStopIdx);
-                            fit_tt = tt(slopeStartIdx : slopeStopIdx);
-                            
-                            % find the max slope and center the analysis
-                            % region around that
-                            slope = [nan, diff(fit_dat)];
-                            if strcmpi(direction, 'outward')
-                                [~, idx] = max(slope);
-                            else
-                                [~, idx] = min(slope);
-                            end
-                            
-                            idx = idx-halfWindowInPts : idx+halfWindowInPts;
-                            if numel(fit_dat) <= anlyWindowInPts
-                                idx = 1:numel(fit_dat);
-                            elseif idx(1)<=0
-                                idx = 1:anlyWindowInPts;
-                            elseif idx(end)>numel(fit_dat)
-                                idx = numel(fit_dat)- (anlyWindowInPts-1) : numel(fit_dat);
-                            end
-                            fit_tt = fit_tt(idx);
-                            fit_dat = fit_dat(idx);
-                            
-                            if numel(fit_dat) > halfWindowInPts
-                                % do the fit
-                                betas = [fit_tt(:), ones(numel(fit_tt), 1)] \ fit_dat(:);
-                                
-                            else
-                                warning('no data for slope, betas set to nan')
-                                betas = [nan, nan];
-                            end
-                            
-                            % store the slope params
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse) = betas(1);
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_intercept{i_ch}(i_pulse) = betas(2);
-                            dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,:) = [slopeStartIdx, slopeStopIdx];
-                            
+                        else
+                            warning('no data for slope, betas set to nan')
+                            betas = [nan, nan];
+                        end
+                        
+                        % store the slope params
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse) = betas(1);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_intercept{i_ch}(i_pulse) = betas(2);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,:) = [slopeStartIdx, slopeStopIdx];
+                        
                     end
                     
                     
@@ -550,17 +572,27 @@ end % expts
 close all
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = false;
+RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
     
-    %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
-    conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
-    %      conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
-    %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
-    %
+    
+    % define the conditions that will get plotted
+    switch EXPTTYPE
+        case '4-AP'
+            conds = {'ttx_cd2', 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
+        case 'Baclofen'
+            conds = {'ttx_cd2', 'ttx_cd2_bac10'};
+        case 'otherwise'
+            
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+            %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
+            %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+            %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+    end
+    
     
     for i_ch = 1:2;
         
@@ -595,7 +627,7 @@ for i_ex = 1:Nexpts
         if Ntfs == 1
             set(gcf, 'position', [414 31 329 754]);
         else
-            set(gcf, 'position', [87 6 1260 799]);
+            set(gcf, 'position', [9 10 1135 776]);
         end
         set(gcf, 'name', sprintf('%s, site %.1f, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
         set(gcf, 'defaulttextinterpreter', 'none')
@@ -608,15 +640,15 @@ for i_ex = 1:Nexpts
         hold on,
         for i_cond = 1:numel(conds)
             
-            % check to see if this condition exists
-            if ~isfield(dat{i_ex}.(pTypes{1}).stats, conds{i_cond})
-                continue
-            end
-            
             %
             % plot the raw (Average) traces
             %
             for i_tf = 1:Ntfs
+                
+                % check to see if this condition exists
+                if ~isfield(dat{i_ex}.(pTypes{i_tf}), 'stats') || ~isfield(dat{i_ex}.(pTypes{i_tf}).stats, conds{i_cond})
+                    continue
+                end
                 
                 tmp_raw = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}';
                 Ntime = size(tmp_raw,1);
@@ -625,7 +657,7 @@ for i_ex = 1:Nexpts
                 tt = (0:Ntime-1) ./ info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
                 tt = (tt - prePulseTime) .* 1000; % in ms.
                 
-                subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs)),
+                subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs), 'align'),
                 cmap = colormap('copper');
                 cidx = round(linspace(1, size(cmap,1), max([Ncols, Ntfs])));
                 cmap = cmap(cidx,:);
@@ -681,19 +713,27 @@ for i_ex = 1:Nexpts
                 end
                 
                 axis tight
-                mytitle(pTypes{i_tf})
-                xlabel('time (ms)')
-                if i_tf==1;
-                    switch conds{i_cond}
-                        case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
-                            ylabel(sprintf('%s Current', info{i_ex}.opsin))
-                        case {'FV_Na', 'FV_Na_Ca2_mGluR'}
-                            h = ylabel(conds{i_cond});
-                            set(h, 'Interpreter', 'none')
-                        case 'synapticTransmission'
-                            ylabel('Field PSP')
+                if i_cond == 1
+                    mytitle(pTypes{i_tf})
+                end
+                if i_cond == numel(conds)
+                    xlabel('time (ms)')
+                end
+                if i_tf == 1
+                    if any(regexpi(conds{i_cond}, 'ttx'))
+                        switch EXPTTYPE
+                            case {'4-AP', 'Baclofen'}
+                                h = ylabel(conds{i_cond});
+                            otherwise
+                                h = ylabel(sprintf('%s Current', info{i_ex}.opsin));
+                        end
+                        set(h, 'Interpreter', 'none')
+                    elseif any(regexpi(conds{i_cond}, 'FV_Na'))
+                        h = ylabel(conds{i_cond});
+                        set(h, 'Interpreter', 'none')
+                    elseif any(regexpi(conds{i_cond}, 'synapticTransmission'))
+                        ylabel('Field PSP')
                     end
-                    
                 end
                 
             end
@@ -715,11 +755,6 @@ for i_ex = 1:Nexpts
             
             for i_stat = 1:Nstats
                 
-                if ~isfield(dat{i_ex}.(pTypes{1}).stats, conds{i_cond}) %need to have drug condition
-                    continue
-                elseif ~isfield(dat{i_ex}.(pTypes{1}).stats.(conds{i_cond}), statTypes{i_stat}) % need to have stat type
-                    continue
-                end
                 
                 subplot(Nconds, Nstats, i_stat+((i_cond-1)*Nstats)), hold on,
                 legtext = {};
@@ -727,6 +762,16 @@ for i_ex = 1:Nexpts
                 tmplegend = [];
                 noise_calibration = [];
                 for i_tf = 1:Ntfs
+                    
+                    if ~isfield(dat{i_ex}.(pTypes{i_tf}), 'stats')
+                        continue
+                    elseif ~isfield(dat{i_ex}.(pTypes{i_tf}).stats, conds{i_cond}) %need to have drug condition
+                        continue
+                    elseif ~isfield(dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}), statTypes{i_stat}) % need to have stat type
+                        continue
+                    end
+                    
+                    
                     tmp_raw = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).(statTypes{i_stat}){i_ch};
                     tmp_sigma = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).bkgnd_sigma{i_ch};
                     if NORM_TO_PULSE1
@@ -743,8 +788,13 @@ for i_ex = 1:Nexpts
                             tmplegend = cat(1, tmplegend, info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pTF);
                     end
                 end
-                [~, order] = sort(tmplegend);
                 
+                
+                if isempty(rawvals) % there's no data
+                    continue
+                end
+                
+                [~, order] = sort(tmplegend);
                 for i_plt = 1:numel(order)
                     idx = order(i_plt);
                     plot(1:numel(rawvals{idx}), rawvals{idx}, 'o-', 'color', cmap(i_plt,:), 'linewidth', 2)
@@ -758,19 +808,24 @@ for i_ex = 1:Nexpts
                     yvals(1) = min([0, yvals(1)]);
                     set(gca, 'ylim', [0, yvals(2)]);
                 end
-                if all([i_cond, i_stat] == [2,1])
+                if i_stat == 1
                     legend(legtext, 'location', 'best')
                     legend boxoff
                 end
-                if i_stat == 1
-                    switch conds{i_cond}
-                        case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
-                            ylabel(sprintf('%s current', info{i_ex}.opsin))
-                        case {'FV_Na', 'FV_Na_Ca2_mGluR'}
-                            ylabel('Fiber Volley')
-                        case 'synapticTransmission'
-                            ylabel('field PSP')
+                
+                if any(regexpi(conds{i_cond}, 'ttx'))
+                    switch EXPTTYPE
+                        case {'4-AP', 'Baclofen'}
+                            h = ylabel(conds{i_cond});
+                        otherwise
+                            h = ylabel(sprintf('%s Current', info{i_ex}.opsin));
                     end
+                    set(h, 'Interpreter', 'none')
+                elseif any(regexpi(conds{i_cond}, 'FV_Na'))
+                    h = ylabel(conds{i_cond});
+                    set(h, 'Interpreter', 'none')
+                elseif any(regexpi(conds{i_cond}, 'synapticTransmission'))
+                    ylabel('Field PSP')
                 end
                 
                 
@@ -808,7 +863,7 @@ PVALTYPE = 'diffval';
 assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
 
 %initialize the outputs
-opsinTypes = {'chr2', 'ochief', 'chronos'};
+opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
 conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
@@ -943,7 +998,7 @@ for i_opsin = 1:numel(opsinTypes)
     figure
     set(gcf, 'name', opsinTypes{i_opsin}, 'defaulttextinterpreter', 'none')
     set(gcf, 'position', [109    31   891   754])
-    opsinTypes{i_opsin};
+    opsinTypes{i_opsin}
     
     Nconds = numel(conds);
     for i_cond = 1:Nconds;
@@ -985,6 +1040,9 @@ for i_opsin = 1:numel(opsinTypes)
                 
                 xbar = nanmean(cat_dat, 1);
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+                if strcmpi(conds{i_cond}, 'FV_Na')
+                    nrepeats = sum(~isnan(cat_dat), 1)
+                end
                 
                 errorbar(1:7, xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
                 legtext = cat(2, legtext, num2str(tfs(i_tf)));
@@ -1011,55 +1069,55 @@ for i_opsin = 1:numel(opsinTypes)
             end
             
             
-            if strcmpi(PVALTYPE, statTypes{i_stat}) && ~strcmpi(conds{i_cond}, 'synapticTransmission')
-                %
-                %  Do some inferential tests and present a table with the
-                %  results
-                %
-                %%%%%%%%%%%%%%%%%%%%%%%%%%
-                [p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs] = deal(nan(Ntfs, 1));
-                
-                % Test for significant decreases in PPRs. Look specifically at
-                % P7:P1. Do the test individually for each TF
-                %
-                % Ho -> distribution of PPRs has Xbar = 1;
-                for i_tf = 1:Ntfs
-                    tmp = pp_dat_allTFs{i_tf}(:,7);
-                    p_for_each_tf(i_tf, 1) = signrank(tmp-1);
-                end
-                
-                
-                % Test for differences in P7:P1 across TFs. Here I'm asking if
-                % there's a significant effect of TF on the PPR. Do an anova
-                % like test with post-hoc comparisons
-                %
-                % Ho -> distributions of PPRs have the identical median
-                tmp_dat_p2 = [];
-                tmp_dat_p7 = [];
-                tmp_group = [];
-                for i_tf = 1:Ntfs
-                    tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
-                    tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
-                    tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
-                end
-                p_p7_across_tfs(1) = kruskalwallis(tmp_dat_p7, tmp_group, 'off');
-                
-                
-                % Test for differences in P2:P1 across TFs. Here I'm asking if
-                % there's a significant effect of TF on the PPR. Do an anova
-                % like test with post-hoc comparisons
-                %
-                % Ho -> distributions of PPRs have the identical median
-                p_p2_across_tfs(1) = kruskalwallis(tmp_dat_p2, tmp_group, 'off');
-                
-                
-                fprintf('  comparisons for %s values for %s  \n',...
-                    upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
-                
-                rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
-                T = table(p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs, 'RowNames', rownames)
-                fprintf('\n\n')
-            end
+%             if strcmpi(PVALTYPE, statTypes{i_stat}) && ~strcmpi(conds{i_cond}, 'synapticTransmission')
+%                 %
+%                 %  Do some inferential tests and present a table with the
+%                 %  results
+%                 %
+%                 %%%%%%%%%%%%%%%%%%%%%%%%%%
+%                 [p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs] = deal(nan(Ntfs, 1));
+%                 
+%                 % Test for significant decreases in PPRs. Look specifically at
+%                 % P7:P1. Do the test individually for each TF
+%                 %
+%                 % Ho -> distribution of PPRs has Xbar = 1;
+%                 for i_tf = 1:Ntfs
+%                     tmp = pp_dat_allTFs{i_tf}(:,7);
+%                     p_for_each_tf(i_tf, 1) = signrank(tmp-1);
+%                 end
+%                 
+%                 
+%                 % Test for differences in P7:P1 across TFs. Here I'm asking if
+%                 % there's a significant effect of TF on the PPR. Do an anova
+%                 % like test with post-hoc comparisons
+%                 %
+%                 % Ho -> distributions of PPRs have the identical median
+%                 tmp_dat_p2 = [];
+%                 tmp_dat_p7 = [];
+%                 tmp_group = [];
+%                 for i_tf = 1:Ntfs
+%                     tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
+%                     tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
+%                     tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
+%                 end
+%                 p_p7_across_tfs(1) = kruskalwallis(tmp_dat_p7, tmp_group, 'off');
+%                 
+%                 
+%                 % Test for differences in P2:P1 across TFs. Here I'm asking if
+%                 % there's a significant effect of TF on the PPR. Do an anova
+%                 % like test with post-hoc comparisons
+%                 %
+%                 % Ho -> distributions of PPRs have the identical median
+%                 p_p2_across_tfs(1) = kruskalwallis(tmp_dat_p2, tmp_group, 'off');
+%                 
+%                 
+%                 fprintf('  comparisons for %s values for %s  \n',...
+%                     upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
+%                 
+%                 rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
+%                 T = table(p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs, 'RowNames', rownames)
+%                 fprintf('\n\n')
+%             end
             
         end
     end
@@ -1153,7 +1211,7 @@ for i_ex = 1:numel(dat)
             case 'chr2'
                 pltclr = 'b';
                 rho_chr2 = cat(1, rho_chr2, rho);
-            case 'ochief'
+            case 'chief_cit'
                 pltclr = 'r';
                 rho_ochief = cat(1, rho_ochief, rho);
             case 'chronos'
@@ -1421,7 +1479,7 @@ for i_ex = 1:numel(dat)
     switch lower(info{i_ex}.opsin)
         case 'chr2'
             p = plot(opsin_avg, fv_avg, 'b-o');
-        case 'ochief'
+        case 'chief_cit'
             p = plot(opsin_avg, fv_avg, 'r-o');
         case 'chronos'
             p = plot(opsin_avg, fv_avg, 'g-o');
@@ -1525,7 +1583,7 @@ for i_ex = 1:Nexpts
         end
         
         switch lower(info{i_ex}.opsin)
-            case 'ochief'
+            case 'chief_cit'
                 ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
             case 'chr2'
                 chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
@@ -1580,60 +1638,45 @@ end
 
 %% SHAPE OF OPSIN CURRENT FOR EACH PULSE, WITH TAU FITS
 
-
-% loop over experiments. pull out each set of opsin currents (1:N pulses)
-% and normalize to the diffval.
-
-% for each TF, make a distribution of waveforms (1 for each pulse number)
-
-% plot the mean and errors for each pulse for each TF
-
-% fit with Taus
-
 % choose a stimulation location:
 STIMSITE = true;
-PLOTERR = true;
+PLOTERR = false;
 Npulses = 7;
 
 clc; close all
 
 % only do this for the main experiment (TF and FV)
-assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
+%assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
 
 % prepare the population structure
-opsinTypes = {'chr2', 'ochief', 'chronos'};
+opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
 tfnames = {'tf10', 'tf20', 'tf40', 'tf60', 'tf100'};
+switch EXPTTYPE
+    case '4-AP'
+        drugconds = {'ttx_cd2', 'ttx_cd2_4AP200' 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
+    case 'Baclofen'
+        drugconds = {'ttx_cd2', 'ttx_cd2_bac10'};
+    case 'otherwise'
+        drugconds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+end
+
 for i_opsin = 1:numel(opsinTypes)
-    for i_tf = 1:numel(tfnames)
-        opsincurrent.(opsinTypes{i_opsin}).(tfnames{i_tf}) = repmat({[]}, 1, Npulses);
-    end
+     opsincurrent.(opsinTypes{i_opsin}) = repmat({[]}, numel(tfnames), Npulses, numel(drugconds));
 end
 
 
+% organize and collect the data
 Nexpt = size(in,1);
 for a_ex = 1:Nexpt
     
     opsin = lower(info{a_ex}.opsin);
-    pTypes = fieldnames(dat{a_ex});
-    for a_ptype = 1:numel(pTypes)
+    for a_ptype = 1:numel(tfnames)
         
         % this pulse type might not exist. Detect these cases and continue
-        if ~isfield(dat{a_ex}, pTypes{a_ptype})
+        tmp_tfcond = tfnames{a_ptype};
+        if ~isfield(dat{a_ex}, tmp_tfcond)
             continue
         end
-        
-        
-        % find the TTX pharm condition
-        conds = fieldnames(dat{a_ex}.(pTypes{a_ptype}).snips);
-        ttxidx = cellfun(@any, regexpi(conds, 'ttx'));
-        
-        if ~any(ttxidx);
-            continue
-        end
-        
-        snips = dat{a_ex}.(pTypes{a_ptype}).snips.(conds{ttxidx});
-        normvals = dat{a_ex}.(pTypes{a_ptype}).stats.(conds{ttxidx}).diffval;
-        
         
         % determine which channel to analyze
         % Determine which recording channel to analyze
@@ -1653,37 +1696,51 @@ for a_ex = 1:Nexpt
             end
         end
         
-        % pull out the relevant data, normalize, and add to the population
-        % structure
-        snips = snips{CHANNEL};
-        normvals = abs(normvals{CHANNEL});
-        normsnips = bsxfun(@rdivide, snips, normvals(:));
-        
-        
-        % correct for differences in the sampling rate
-        correctSR = info{a_ex}.(pTypes{a_ptype}).none.sampRate == 20e3;
-        if ~correctSR
+        % iterate over the pharmacology conditions
+        for a_drug = 1:numel(drugconds)
             
-            oldSampRate = info{a_ex}.(pTypes{a_ptype}).none.sampRate;
-            old_tt = [0 : size(normsnips,2)-1] ./ oldSampRate;
+            tmp_drugcond = drugconds{a_drug};
             
-            totalTime = size(normsnips,2) ./ oldSampRate;
-            newSampRate = 20e3;
-            newNumSamps = ceil(totalTime .* newSampRate);
-            new_tt = [0 : newNumSamps-1] ./ newSampRate;
-            normsnips = interp1(old_tt(:), normsnips', new_tt(:));
-            normsnips = normsnips';
+            if ~isfield(dat{a_ex}.(tmp_tfcond).snips, tmp_drugcond);
+                continue
+            end
             
-        end
-        
-        
-        Npulses_ex = size(snips, 1);
-        for a_pulse = 1 : min([Npulses, Npulses_ex])
+            % pull out the relevant data, normalize, and add to the population
+            % structure
+            snips = dat{a_ex}.(tmp_tfcond).snips.(tmp_drugcond){CHANNEL};
+            troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
+            troughidx_row = 1:size(snips,1);
+            troughidx = sub2ind(size(snips), troughidx_row(:), troughidx_col(:));
+            normvals = snips(troughidx);
+            normvals = abs(normvals); % maintains the sign of the opsin current
+            normsnips = bsxfun(@rdivide, snips, normvals);
             
-            tmp = opsincurrent.(opsin).(pTypes{a_ptype}){a_pulse};
-            tmp = cat(1, tmp, normsnips(a_pulse,:));
-            opsincurrent.(opsin).(pTypes{a_ptype}){a_pulse} = tmp;
             
+            % correct for differences in the sampling rate
+            exptSampRate = info{a_ex}.(tmp_tfcond).(tmp_drugcond).sampRate;
+            correctSR = exptSampRate == 20e3;
+            if ~correctSR
+                
+                old_tt = [0 : size(normsnips,2)-1] ./ exptSampRate;
+                
+                totalTime = size(normsnips,2) ./ exptSampRate;
+                newSampRate = 20e3;
+                newNumSamps = ceil(totalTime .* newSampRate);
+                new_tt = [0 : newNumSamps-1] ./ newSampRate;
+                normsnips = interp1(old_tt(:), normsnips', new_tt(:));
+                normsnips = normsnips';
+                
+            end
+            
+            
+            Npulses_ex = size(snips, 1);
+            for a_pulse = 1 : min([Npulses, Npulses_ex])
+                
+                tmp = opsincurrent.(opsin){a_ptype, a_pulse, a_drug};
+                tmp = cat(1, tmp, normsnips(a_pulse,:));
+                opsincurrent.(opsin){a_ptype, a_pulse, a_drug} = tmp;
+                
+            end
         end
         
     end
@@ -1693,48 +1750,287 @@ end
 cmap = colormap('copper'); close;
 cidx = round(linspace(1, size(cmap,1), Npulses));
 cmap = cmap(cidx,:);
-
-
-for a_opsin = 1:3
-    figure
-    set(gcf, 'position', [8 294 1423 421], 'name', opsinTypes{a_opsin})
+for a_opsin = 1:numel(opsinTypes)
     
-    Ntypes = numel(tfnames);
-    for a_ptype = 1:Ntypes
+    % first, determine if there are any data for this drug/opsin combo
+    tmpdat = opsincurrent.(opsinTypes{a_opsin});
+    nodata = cellfun(@(x) isempty(x), tmpdat(:));
+    if all(nodata==1)
+        continue
+    end
+    
+    f = figure;
+    set(f, 'position', [8 41 1135 730], 'name', opsinTypes{a_opsin})
+    
+    Ndrugs = numel(drugconds);
+    for a_drug = 1:Ndrugs
         
-        tmpdat = opsincurrent.(opsinTypes{a_opsin}).(tfnames{a_ptype});
-        
-        subplot(1,Ntypes, a_ptype, 'align')
-        title(tfnames{a_ptype})
-        ylabel('Normalize opsin current')
-        xlabel('Time (ms)')
-        hold on,
-        
-        % iterate over the pulses
-        for a_pulse = 1:Npulses
+        Ntypes = numel(tfnames);
+        for a_ptype = 1:Ntypes
             
+            %grab the data
+            tmpdat = opsincurrent.(opsinTypes{a_opsin})(a_ptype, :, a_drug);
             
-            xbar = mean(tmpdat{a_pulse}, 1);
-            sem = std(tmpdat{a_pulse}, [], 1) ./ sqrt(size(tmpdat{a_pulse}, 1));
-            tt = [0:numel(xbar)-1] ./ 20e3;
-            if isempty(xbar)
-                continue
+            pltidx = Ntypes*(a_drug-1) + a_ptype;
+            subplot(Ndrugs, Ntypes, pltidx, 'align')
+            hold on,
+            
+            if a_drug == 1
+                title(tfnames{a_ptype})
+            end
+            if a_ptype == 1
+                h = ylabel(drugconds{a_drug});
+                h.Interpreter = 'none';
+            end
+            if a_drug == Ndrugs
+                xlabel('Time (ms)')
             end
             
-            pltclr = cmap(a_pulse,:);
             
-            % plot the SEM
-            if PLOTERR
-                shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2})
-            else
-                plot(tt, xbar, '-', 'color', pltclr, 'linewidth', 2);
+            % iterate over the pulses
+            for a_pulse = 1:Npulses
+                
+                
+                xbar = mean(tmpdat{a_pulse}, 1);
+                sem = std(tmpdat{a_pulse}, [], 1) ./ sqrt(size(tmpdat{a_pulse}, 1));
+                tt = [0:numel(xbar)-1] ./ 20e3;
+                if isempty(xbar)
+                    continue
+                end
+                
+                pltclr = cmap(a_pulse,:);
+                
+                % plot the SEM
+                if PLOTERR
+                    shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2})
+                else
+                    plot(tt, xbar, '-', 'color', pltclr, 'linewidth', 2);
+                end
+                
+                
+            end
+            axis tight
+        end
+    end
+end
+
+%% AVERAGE RECORDING WAVEFORM OF OPSIN CURRENT FOR WHOLE SWEEP
+
+% choose a stimulation location:
+STIMSITE = true;
+PLOTERR = false;
+
+clc; close all
+
+% only do this for the main experiment (TF and FV)
+correctExpt = any(strcmpi(EXPTTYPE, {'main expt', '4-AP', 'baclofen'}));
+assert(correctExpt, 'ERROR: This analysis is for a different type of experiment');
+
+% prepare the population structure
+opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
+tfnames = {'tf10', 'tf20', 'tf40', 'tf60', 'tf100'};
+avgopsincurent = [];
+for i_opsin = 1:numel(opsinTypes)
+    for i_tf = 1:numel(tfnames)
+        avgopsincurent.(opsinTypes{i_opsin}).(tfnames{i_tf}).raw = [];
+    end
+end
+
+
+Nexpt = size(in,1);
+for a_ex = 1:Nexpt
+    opsin = lower(info{a_ex}.opsin);
+    
+    pTypes = fieldnames(dat{a_ex});
+    for a_ptype = 1:numel(pTypes)
+        % this pulse type might not exist. Detect these cases and continue
+        if ~isfield(dat{a_ex}, pTypes{a_ptype})
+            continue
+        end
+        
+        
+        % find the TTX pharm condition
+        conds = fieldnames(dat{a_ex}.(pTypes{a_ptype}).snips);
+        ttxidx = cellfun(@any, regexpi(conds, 'ttx'));
+        
+        if ~any(ttxidx);
+            continue
+        end
+        
+        
+        ttxidx = find(ttxidx);
+        for i_ttx = ttxidx'; % so that I can compare multiple K+ drugs
+            
+            % determine which channel to analyze
+            % Determine which recording channel to analyze
+            mouseMatch = strcmpi(in{a_ex,1}, EXCEPTIONS(:,1));
+            siteMatch = in{a_ex,2} == vertcat(EXCEPTIONS{:,2});
+            if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
+                CHANNEL = 1;
+            else % all other experiments...
+                if STIMSITE
+                    CHANNEL = info{a_ex}.stimSite;
+                else
+                    if info{a_ex}.stimSite == 1
+                        CHANNEL = 2;
+                    elseif info{a_ex}.stimSite == 2
+                        CHANNEL = 1;
+                    end
+                end
             end
             
+            % pull out the relevant data, normalize, and add to the population
+            % structure
+            raw = dat{a_ex}.(pTypes{a_ptype}).(conds{i_ttx})(:,CHANNEL);
+            pulse1_snip = dat{a_ex}.(pTypes{a_ptype}).snips.(conds{i_ttx}){CHANNEL}(1,:);
+            troughidx = dat{a_ex}.(pTypes{a_ptype}).stats.(conds{i_ttx}).trpk_inds{CHANNEL}(1,1);
+            normval = pulse1_snip(troughidx);
+            normval = abs(normval); % this preserves the sign of the original signal
+            raw = raw ./ normval;
+            
+            % figure out how many pulses there were, cut off everything past
+            % the 7th pulse. If not 7 pulses, move along
+            pulseOnIdx = find(info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).pulseOn_idx);
+            pulseOnIdx = pulseOnIdx(1);
+            pulseOffIdx = find(info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).pulseOff_idx);
+            if numel(pulseOffIdx)<7; continue; end
+            pulseOffIdx = pulseOffIdx(7);
+            sampRate = info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).sampRate;
+            preTimeSec = 0.030;
+            preTimeSamps = ceil(preTimeSec .* sampRate);
+            raw = raw(pulseOnIdx - preTimeSamps : pulseOffIdx+preTimeSamps);
+            
+            % correct for differences in the sampling rate
+            correctSR = sampRate == 20e3;
+            if ~correctSR
+                oldSampRate = sampRate;
+                old_tt = [0 : numel(raw)-1] ./ oldSampRate;
+                
+                totalTime = numel(raw) ./ oldSampRate;
+                newSampRate = 20e3;
+                newNumSamps = ceil(totalTime .* newSampRate);
+                new_tt = [0 : newNumSamps-1] ./ newSampRate;
+                raw = interp1(old_tt(:), raw(:), new_tt(:));
+            end
+            
+            
+            % add the raw data to the array. Make sure that there is a spot
+            % to put the data first
+            
+            if ~isfield(avgopsincurent.(opsin).(pTypes{a_ptype}).raw, conds{i_ttx})
+                avgopsincurent.(opsin).(pTypes{a_ptype}).raw.(conds{i_ttx}) = [];
+            end
+            tmp =  avgopsincurent.(opsin).(pTypes{a_ptype}).raw.(conds{i_ttx});
+                
+            raw = raw(:)';
+            if ~isempty(tmp)
+                raw(size(tmp,2):end) = [];
+                raw(end:size(tmp,2)) = nan;
+            end
+            
+            avgopsincurent.(opsin).(pTypes{a_ptype}).raw.(conds{i_ttx}) = cat(1, tmp, raw);
             
         end
     end
     
 end
+% 
+% cmap = colormap('parula'); close;%also opens a figure;
+% inds = round(linspace(1, 50, numel(tfnames)));
+% cmap = cmap(inds,:);
+% for a_opsin = 1:numel(opsinTypes)
+%     figure, hold on,
+%     
+%     
+%     for a_tf = 1:numel(tfnames)
+%         
+%         if isempty(avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw)
+%             continue
+%         end
+%         
+%         drugconds = fieldnames(avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw);
+%         tfclr = cmap(a_tf,:);
+%         drugcolors = repmat(tfclr, numel(drugconds), 1);
+%         drugcolors = bsxfun(@times, drugcolors, linspace(1, 0.5, numel(drugconds))');
+%         for a_drug = 1:numel(drugconds)
+%             
+%             tmpdat = avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw.(drugconds{a_drug});
+%             if isempty(tmpdat); continue; end
+%             
+%             tmpmean = nanmean(tmpdat, 1);
+%             tmpsem = nanstd(tmpdat, [], 1) ./ sqrt(size(tmpdat,1));
+%             Nsamps = numel(tmpmean);
+%             preTimeSamps = ceil(preTimeSec .* 20e3);
+%             tt = ([0:Nsamps-1]-preTimeSamps) ./ 20e3;
+%             if PLOTERR
+%                 shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', drugcolors(a_drug,:), 'linewidth', 2})
+%             else
+%                 plot(tt, tmpmean, '-', 'color',drugcolors(a_drug,:), 'linewidth', 2)
+%             end
+%         end
+%         
+%     end
+% end
+
+
+
+for a_tf = 1:numel(tfnames)
+
+    f = figure; hold on,
+    f.Name = tfnames{a_tf};
+    
+    legtext = {};
+    for a_opsin = 1:numel(opsinTypes)
+        
+        
+        
+        if isempty(avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw);
+            continue;
+        end
+        
+        drugconds = fieldnames(avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw);
+        
+        switch opsinTypes{a_opsin}
+            case 'chr2'
+                pltclr = [0 0 1];
+            case 'chief_cit'
+                pltclr = [1 0 0];
+            case 'chief_flx'
+                pltclr = [1 0 .5];
+            case 'chronos'
+                pltclr = [0 1 0];
+        end
+        
+        pltclr = repmat(pltclr, numel(drugconds), 1);
+        pltclr = bsxfun(@times, pltclr, linspace(0.5, 1, numel(drugconds))');
+        for a_drug = 1:numel(drugconds)
+            
+            tmpdat = avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw.(drugconds{a_drug});
+            tmpmean = nanmean(tmpdat, 1);
+            tmpsem = nanstd(tmpdat, [], 1) ./ sqrt(size(tmpdat,1));
+            Nsamps = numel(tmpmean);
+            preTimeSamps = ceil(preTimeSec .* 20e3);
+            tt = ([0:Nsamps-1]-preTimeSamps) ./ 20e3;
+            
+            if PLOTERR
+                shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', pltclr(a_drug,:), 'linewidth', 2})
+            else
+                plot(tt, tmpmean, '-', 'color', pltclr(a_drug,:), 'linewidth', 2)
+            end
+            
+            tmp = [opsinTypes{a_opsin}, ': ', drugconds{a_drug}];
+            legtext = cat(2, legtext, tmp);
+            
+        end
+    end
+    if ~isempty(legtext)
+        L = legend(legtext);
+        L.Location = 'best';
+        L.Box = 'off';
+        L.Interpreter = 'none';
+    end
+end
+
 
 
 
@@ -1995,7 +2291,7 @@ smoothStats = smoothStats(~l_empty);
 catdat = {};
 
 exptOpsins = structcat(smoothStats, 'opsin');
-opsins = {'chr2', 'ochief', 'chronos'};
+opsins = {'chr2', 'chief_cit', 'chronos'};
 
 for i_cond = 1:numel(conds)
     for i_opsin = 1:numel(opsins);
@@ -2323,6 +2619,115 @@ for i_ex = 1:Nexpts
     drawnow
     
 end
+
+
+
+%% COMPARE PLASTICITY ACROSS BRAIN AREAS
+
+fin
+
+
+ERRBARS = true;
+NPULSES = 7;
+
+% load in data from each area
+load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\al_pop.mat');
+al_pop = pop;
+
+load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pm_pop.mat');
+pm_pop = pop;
+
+
+%
+% make a 3 x N plot. one row for each opsin, one column for each TF. Plot
+% PPRs as a function of pulse number
+%
+
+F = figure;
+set(F, 'position', [109    31   891   754])
+
+opsinTypes = {'chr2', 'chief_cit', 'chronos'};
+for i_opsin = 1:numel(opsinTypes)
+    
+    % grab the data
+    pm_tmp_dat = pm_pop.(opsinTypes{i_opsin}).pnp1.synapticTransmission.slope;
+    al_tmp_dat = al_pop.(opsinTypes{i_opsin}).pnp1.synapticTransmission.slope;
+    
+    pm_tfs = pm_tmp_dat{1};
+    pm_tfs = unique(pm_tfs);
+    al_tfs = al_tmp_dat{1};
+    al_tfs = unique(al_tfs);
+    unique_tfs = unique([pm_tfs ; al_tfs]);
+    Ntfs = numel(unique_tfs);
+    
+    for i_tf = 1:Ntfs;
+        
+        % now do the plotting
+        subplot(3, Ntfs, (i_opsin-1).*Ntfs + i_tf)
+        hold on,
+        mytitle(sprintf('%s %dHz', opsinTypes{i_opsin}, unique_tfs(i_tf)))
+        
+        
+        % plot for PM
+        tf_idx = pm_tmp_dat{1} == unique_tfs(i_tf);
+        l_pulses = cellfun(@(x) size(x,2)>=NPULSES, pm_tmp_dat{3});
+        tf_idx = tf_idx & l_pulses; % only analyzes experiments where there are >= NPULSES per train
+        trim_dat = cellfun(@(x) x(:,1:NPULSES), pm_tmp_dat{3}(tf_idx), 'uniformoutput', false);
+        cat_dat = vertcat(trim_dat{:});
+        pm_N = size(cat_dat, 1);
+        pm_leg = sprintf('PM N=%d', pm_N);
+        
+        xbar = nanmean(cat_dat, 1);
+        sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+        
+        [~, pltclr] = hvaPlotColor('pm');
+        if ERRBARS
+            errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2)
+        else
+            plot(1:NPULSES, xbar, '-', 'color', pltclr, 'linewidth', 2)
+        end
+        
+        
+        % plot for AL
+        tf_idx = al_tmp_dat{1} == unique_tfs(i_tf);
+        l_pulses = cellfun(@(x) size(x,2)>=NPULSES, al_tmp_dat{3});
+        tf_idx = tf_idx & l_pulses; % only analyzes experiments where there are >= NPULSES per train
+        trim_dat = cellfun(@(x) x(:,1:NPULSES), al_tmp_dat{3}(tf_idx), 'uniformoutput', false);
+        cat_dat = vertcat(trim_dat{:});
+        al_N = size(cat_dat, 1);
+        al_leg = sprintf('AL N=%d', al_N);
+        
+        xbar = nanmean(cat_dat, 1);
+        sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+        
+        [~, pltclr] = hvaPlotColor('al');
+        if ERRBARS
+            errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2)
+        else
+            plot(1:NPULSES, xbar, '-', 'color', pltclr, 'linewidth', 2)
+        end
+        
+        % tidy up
+        axis tight
+        xlabel('Pulse number')
+        if i_tf==1
+            ylabel(sprintf('fEPSP slope \n Pn:P1 ratio'))
+        end
+        yvals = get(gca, 'ylim');
+        yvals(1) = min([0, yvals(1)]);
+        set(gca, 'ylim', yvals);
+        legend({pm_leg, al_leg}, 'location', 'best')
+        legend boxoff
+    end
+end
+
+
+
+
+
+
+
+
 
 
 

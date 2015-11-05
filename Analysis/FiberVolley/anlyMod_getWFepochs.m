@@ -3,15 +3,15 @@ function [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, condition, pWi
 % initialize the outputs
 [troughidx, peakidx] = deal(nan);
 
-switch condition
-    case {'nbqx_apv_cd2', 'nbqx_apv'} % should be a negativity followed by a positivity
+
+if any(strcmpi(condition,  {'nbqx_apv_cd2', 'nbqx_apv'})) % should be a negativity followed by a positivity
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
         troughval = min(snippet(trough_window)); % only look after the pulse has come on
         troughidx = find(snippet == troughval);
         assert(numel(troughidx)==1, 'ERROR: too many trough vals')
         
-    case {'nbqx_apv_cd2_ttx', 'ttx', 'ttx_cd2', 'nbqx_apv_ttx'} % could be negative or positive depending on distance to stim site
+    elseif any(regexpi(condition, 'ttx')) % could be negative or positive depending on distance to stim site
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
         if strcmpi(direction, 'outward')
@@ -22,7 +22,7 @@ switch condition
         troughidx = find(snippet == troughval);
         assert(numel(troughidx)==1, 'ERROR: too many trough vals')
         
-    case  {'FV_Na', 'FV_Na_Ca2_mGluR'}
+    elseif any(strcmpi(condition,   {'FV_Na', 'FV_Na_Ca2_mGluR'}))
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.004);
         troughval = min(snippet(trough_window)); % only look after the pulse has come on
@@ -36,7 +36,7 @@ switch condition
         assert(numel(peakidx)==1, 'ERROR: too many peak vals')
         assert(peakidx > troughidx, 'ERROR: negativity does not lead the positivity')
         
-    case 'synapticTransmission'
+    elseif any(strcmpi(condition,  'synapticTransmission'))
         
         trough_window = (tt >= pWidth+photoDelay) & (tt <= 0.0065);
         if strcmpi(direction, 'outward') % direction of the fEPSP could depend on distance to stim site.
