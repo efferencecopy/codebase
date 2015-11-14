@@ -1,28 +1,39 @@
-function stro = blk2stro(nev, varargin)
+function stro = blk2stro(varargin)
 
     % syntax for input arguments:
     % stro = blk2stro(pathToNEV, 'NSx', pathToNSx, 'trialdef', trialDefStructure)
 
     % trial def could be something like: ns4::trl_start
-
-    inargs = parseInputs(nev, varargin);
+    
+    
+    
+    inargs = parseInputs(varargin);
     inargs = inargs.Results;
 
-
-    % import the nev
-    nev = my_openNEV(nev, 'read', 'nosave', 'nomat');
-    stro.sum.nev = nev.MetaTags;
-
-
-    % build the 'trial' field. Include the trials start/stop times and any
-    % other evnet timing that was provided during experiment
-    [stro.trial, stro.sum.trialFields] = parseTrialEvents(nev, inargs.trialdef);
-
-
-    % add the spike times (from the nev file).
-    stro = addSpikeTimes(nev, stro);
-    clear nev % unnecessary now.
-
+    
+    %initialize the structure
+    stro.sum = [];
+    stro.trial = [];
+    stro.ras = {};
+    stro.idx = [];
+    
+    
+    % import the nev. Add trial events, and spike times
+    if ~isempty(inargs.nev)
+        nev = my_openNEV(inargs.nev, 'read', 'nosave', 'nomat');
+        nev = forceDouble(nev);
+        stro.sum.nev.MetaTags = nev.MetaTags;
+        
+        
+        % build the 'trial' field. Include the trials start/stop times and any
+        % other evnet timing that was provided during experiment
+        [stro.trial, stro.sum.trialFields] = parseTrialEvents(nev, inargs.trialdef);
+        
+        
+        % add the spike times (from the nev file).
+        stro = addSpikeTimes(nev, stro);
+        clear nev % unnecessary now.
+    end
 
     % load in the nsx data
     for i_nsx = 1:6
@@ -34,7 +45,7 @@ function stro = blk2stro(nev, varargin)
         end
 
         nsx{i_nsx} = openNSx(fpath, 'read', 'precision', 'double');
-
+        nsx{i_nsx} = forceDouble(nsx{i_nsx});
     end
 
 
@@ -43,13 +54,28 @@ function stro = blk2stro(nev, varargin)
     
     
     
-    % build the 'sum' field. There could be a main exptParams field that comes 
-    
+    % build the 'sum' field, one for each NSx version
+    for i_ns = 1:numel(nsx)
+        if isempty(nsx{i_ns})
+            continue
+        else
+            name = sprintf('ns%d', i_ns');
+            stro.sum.(name).MetaTags = nsx{i_ns}.MetaTags;
+            stro.sum.(name).ElectrodesInfo = nsx{i_ns}.ElectrodesInfo;
+        end
+    end
     
     
     % define the indicies to the stro.trial fields
-    for i_fld = 1:numel(stro.sum.trialFields)
-        stro.idx.(stro.sum.trialFields{i_fld}) = i_fld;
+    if isfield(stro.sum, 'trialFields')
+        for i_fld = 1:numel(stro.sum.trialFields)
+            stro.sum.idx.(stro.sum.trialFields{i_fld}) = i_fld;
+        end
+    end
+    if isfield(stro.sum, 'rasterFields')
+        for i_fld = 1:numel(stro.sum.rasterFields)
+            stro.sum.idx.(stro.sum.rasterFields{i_fld}) = i_fld;
+        end
     end
 
     
@@ -58,26 +84,26 @@ end % main function
 
 
 
-function p = parseInputs(nev, optionalInputs)
+function p = parseInputs(optionalInputs)
     p = inputParser;
-    p.addRequired('nev',      @(x) (ischar(x) && any(regexpi(x, '.nev'))))
-    p.addParameter('ns1', '', @(x) (ischar(x) && any(regexpi(x, '.ns1'))))
-    p.addParameter('ns2', '', @(x) (ischar(x) && any(regexpi(x, '.ns2'))))
-    p.addParameter('ns3', '', @(x) (ischar(x) && any(regexpi(x, '.ns3'))))
-    p.addParameter('ns4', '', @(x) (ischar(x) && any(regexpi(x, '.ns4'))))
-    p.addParameter('ns5', '', @(x) (ischar(x) && any(regexpi(x, '.ns5'))))
-    p.addParameter('ns6', '', @(x) (ischar(x) && any(regexpi(x, '.ns6'))))
-    p.addParameter('rmch', [], @isnumeric);
-    p.addParameter('trialdef', [], @isstruct)
+    p.addParameter('nev', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.nev')))))
+    p.addParameter('ns1', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.ns1')))))
+    p.addParameter('ns2', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.ns2')))))
+    p.addParameter('ns3', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.ns3')))))
+    p.addParameter('ns4', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.ns4')))))
+    p.addParameter('ns5', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.ns5')))))
+    p.addParameter('ns6', '', @(x) (isempty(x) || (ischar(x) && any(regexpi(x, '.ns6')))))
+    p.addParameter('rmch', [], @(x) (isempty(x) || isnumeric(x)));
+    p.addParameter('trialdef', [], @(x) (isempty(x) || isstruct(x)))
 
-    p.parse(nev, optionalInputs{:});
+    p.parse(optionalInputs{:});
 end
 
 function [trial, trialFields] = parseTrialEvents(nev, trialdef)
 
     timeStamps = nev.Data.Spikes.TimeStamp;
     eventsByEtrode = nev.Data.Spikes.Electrode;
-    sampRate_ev = double(nev.MetaTags.SampleRes);
+    sampRate_ev = nev.MetaTags.SampleRes;
     
 
     % find the trial starts and stops. make sure there are the same numbers
@@ -91,14 +117,10 @@ function [trial, trialFields] = parseTrialEvents(nev, trialdef)
         keyboard
     end
     
-    % get the times of all the starts and stops. import them in 'sample
-    % number' units and then convert to time (as a double)
+    % get the times of all the starts and stops.
     tt_samps_start = timeStamps(idx_start);
     tt_samps_stop = timeStamps(idx_stop);
-    if any(regexpi(class(tt_samps_start), 'uint'))
-        tt_samps_start = double(tt_samps_start);
-        tt_samps_stop = double(tt_samps_stop);
-    end
+    assert(isfloat(tt_samps_start), 'ERROR: analysis was expecing floats') % this should have been taken care of by 'forceDouble'
     
     tt_sec_start = tt_samps_start ./ sampRate_ev;
     tt_sec_stop = tt_samps_stop ./ sampRate_ev;
@@ -143,7 +165,7 @@ function [trial, trialFields] = parseTrialEvents(nev, trialdef)
             end
                     
             % convert to seconds, and add to the trial matrix
-            event_tt_sec = double(event_tt_samps) ./ sampRate_ev;
+            event_tt_sec = event_tt_samps ./ sampRate_ev;
             trial(i_trl, i_ev) = event_tt_sec;
             
             % update the trialFields array
@@ -157,9 +179,11 @@ end
 
 function stro = addSpikeTimes(nev, stro)
     
-    sampRate_ev = double(nev.MetaTags.SampleRes);
+    sampRate_ev = nev.MetaTags.SampleRes;
     timeStamps_samps = nev.Data.Spikes.TimeStamp;
-    timeStamps_sec = double(timeStamps_samps) ./ sampRate_ev;
+    timeStamps_sec = timeStamps_samps ./ sampRate_ev;
+    assert(isfloat(timeStamps_samps), 'ERROR: analysis was expecing floats') % this should have been taken care of by 'forceDouble'
+    
     
     Ntrials = size(stro.trial, 1);
     activeChannels = unique(nev.Data.Spikes.Electrode);
@@ -226,13 +250,7 @@ function stro = addRasterData(nsx, stro)
     % are <Ntrials x Nchannels>, where each channel can have a spike time
     % chanel, a spike WF,  and one or more continuous channels. Deal out each
     % data packet to a cell array.
-    % **** need to convert things into uV ******
-    % **** use the e: and t: constructs to speed things up?
-    % **** if the nsx.Data array is full of cells, do things differently than
-    %      if it's not full of cells
-    % **** store the start time for the nsx data (on a trial by trial basis).
-    %      This is important b/c the start time will depend on the sampling
-    %      rate, which could differe between ns1-ns6.
+    
     for i_ns = 1:numel(nsx);
 
         % skip nsx version that do not exist
@@ -244,14 +262,16 @@ function stro = addRasterData(nsx, stro)
         % already been separated by trials (i.e. external start stop
         % signal for data aquisition).
         assert(iscell(nsx{i_ns}.Data) && iscell(nsx{i_ns}.Data(1)), 'ERROR: nsx data needs to be in cell format to use this module.')
+        keyboard % figure out how to add nsx info with no trial defs.
+        
         
         % add the nsx start time to the stro.trial array. This is the time at
         % which the first sample of analog data was aquired. Theoretically, the
         % start time could differe b/w nsx versions, but I'd be disappointed if
         % that were true. tbd..
         tstart_nsx_samps = nsx{i_ns}.MetaTags.Timestamp;
-        sampRate_nsx = double(nsx{i_ns}.MetaTags.SamplingFreq);
-        tstart_nsx_sec = double(tstart_nsx_samps) ./ sampRate_nsx;
+        sampRate_nsx = nsx{i_ns}.MetaTags.SamplingFreq;
+        tstart_nsx_sec = tstart_nsx_samps ./ sampRate_nsx;
         trl_field_name = sprintf('ns%d_start_sec', i_ns);
         stro.sum.trialFields = cat(2, stro.sum.trialFields, trl_field_name);
         col = numel(stro.sum.trialFields);
@@ -281,8 +301,8 @@ function stro = addRasterData(nsx, stro)
             assert(numel(dataclass)==1 && strcmpi(dataclass, 'double'), 'ERROR: the data are not doubles!!');
             
             % convert the raw data into micro volts
-            digiRange = abs(double(nsx{i_ns}.ElectrodesInfo(i_ch).MinDigiValue)) + double(nsx{i_ns}.ElectrodesInfo(i_ch).MaxDigiValue);
-            analogRange = abs(double(nsx{i_ns}.ElectrodesInfo(i_ch).MinAnalogValue)) + double(nsx{i_ns}.ElectrodesInfo(i_ch).MaxAnalogValue);
+            digiRange = abs(nsx{i_ns}.ElectrodesInfo(i_ch).MinDigiValue) + nsx{i_ns}.ElectrodesInfo(i_ch).MaxDigiValue;
+            analogRange = abs(nsx{i_ns}.ElectrodesInfo(i_ch).MinAnalogValue) + nsx{i_ns}.ElectrodesInfo(i_ch).MaxAnalogValue;
             sampsPerMicrovolt = digiRange ./ analogRange;
             trl_ras = cellfun(@(x,y) x./y, trl_ras, repmat({sampsPerMicrovolt}, size(trl_ras)), 'uniformoutput', false);
             
@@ -293,6 +313,30 @@ function stro = addRasterData(nsx, stro)
         end
         
     end
+
+end
+
+function in = forceDouble(in)
+
+    if isstruct(in)
+        for i_struct = 1:numel(in);
+            fldnames = fieldnames(in(i_struct));
+            for i_fld = 1:numel(fldnames)
+                in(i_struct).(fldnames{i_fld}) = forceDouble(in(i_struct).(fldnames{i_fld})); % recursive part
+            end
+        end
+    elseif iscell(in)
+        for i_idx = 1:numel(in)
+            if isnumeric(in{i_idx})
+                in{i_idx} = double(in{i_idx});
+            end
+        end
+    elseif ismatrix(in)
+        if isnumeric(in)
+            in = double(in);
+        end
+    end
+
 
 end
 

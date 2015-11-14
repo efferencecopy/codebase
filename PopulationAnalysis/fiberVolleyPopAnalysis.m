@@ -5,8 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 6;
-BRAINAREA = 'any';
+EXPTTYPE = 1;
+BRAINAREA = 'al';
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -233,7 +233,7 @@ clc
 % window be unique for each pulse?
 FIRSTPULSE = false;
 
-for i_ex = 1:Nexpts
+parfor i_ex = 1:Nexpts
     
     % Determine the pharmacology conditions that are present. Look
     % specifically for a fiber volley, a TTX, and a synapticTransmission
@@ -585,7 +585,7 @@ for i_ex = 1:Nexpts
             conds = {'ttx_cd2', 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
         case 'Baclofen'
             conds = {'ttx_cd2', 'ttx_cd2_bac10'};
-        case 'otherwise'
+        otherwise
             
             conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
             %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
@@ -596,10 +596,8 @@ for i_ex = 1:Nexpts
     
     for i_ch = 1:2;
         
-        if RESTRICT_TO_STIM_SITE
-            if i_ch ~= info{i_ex}.stimSite
-                continue
-            end
+        if RESTRICT_TO_STIM_SITE && (i_ch ~= info{i_ex}.stimSite)
+           continue
         end
         
         % deal with data and channels that need to be ignored.
@@ -638,6 +636,7 @@ for i_ex = 1:Nexpts
         hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Raw Data');
         hAx(i_cond) = axes('Parent', hTabs(i_cond));
         hold on,
+        
         for i_cond = 1:numel(conds)
             
             %
@@ -855,7 +854,7 @@ end
 %% POPULATION SUMMARY PLOTS: MAIN EXPERIMENT
 
 
-clc
+
 STIMSITE = true;  % true => stimsite,  false => distal site
 PVALTYPE = 'diffval';
 
@@ -2631,10 +2630,10 @@ ERRBARS = true;
 NPULSES = 7;
 
 % load in data from each area
-load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\al_pop.mat');
+load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pop_al.mat');
 al_pop = pop;
 
-load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pm_pop.mat');
+load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pop_pm.mat');
 pm_pop = pop;
 
 
