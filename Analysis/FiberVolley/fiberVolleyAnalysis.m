@@ -44,10 +44,9 @@ assert(size(channelConfigs,1)==1, 'ERROR: The recorded channels changes from fil
 % read in all the data
 clc
 fprintf('reading in the data for fiber volley analysis\n')
-mdb = initMouseDB('update', true);
 for i_fid = 1:numel(fnames)
     fprintf('   reading <%s>\n', fnames{i_fid})
-    tmp = abfobj(fnames{i_fid}, mdb);
+    tmp = abfobj(fnames{i_fid});
     tmp.head.validChans = cat(1, channels{i_fid,:});
     
     % remove some sweeps if need be

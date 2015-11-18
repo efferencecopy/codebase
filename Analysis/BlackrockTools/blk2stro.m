@@ -9,6 +9,7 @@ function stro = blk2stro(varargin)
     
     inargs = parseInputs(varargin);
     inargs = inargs.Results;
+    assert(~isempty(inargs.trialdef), 'ERROR: trial definitions must be defined')
 
     
     %initialize the structure
@@ -16,24 +17,23 @@ function stro = blk2stro(varargin)
     stro.trial = [];
     stro.ras = {};
     stro.idx = [];
+    stro.other = {};
     
     
     % import the nev. Add trial events, and spike times
-    if ~isempty(inargs.nev)
-        nev = my_openNEV(inargs.nev, 'read', 'nosave', 'nomat');
-        nev = forceDouble(nev);
-        stro.sum.nev.MetaTags = nev.MetaTags;
-        
-        
-        % build the 'trial' field. Include the trials start/stop times and any
-        % other evnet timing that was provided during experiment
-        [stro.trial, stro.sum.trialFields] = parseTrialEvents(nev, inargs.trialdef);
-        
-        
-        % add the spike times (from the nev file).
-        stro = addSpikeTimes(nev, stro);
-        clear nev % unnecessary now.
-    end
+    nev = my_openNEV(inargs.nev, 'read', 'nosave', 'nomat');
+    nev = forceDouble(nev);
+    stro.sum.nev.MetaTags = nev.MetaTags;
+    
+    
+    % build the 'trial' field. Include the trials start/stop times and any
+    % other event timing that was provided during experiment
+    [stro.trial, stro.sum.trialFields] = parseTrialEvents(nev, inargs.trialdef);
+    
+    
+    % add the spike times (from the nev file).
+    stro = addSpikeTimes(nev, stro);
+    clear nev % unnecessary now.
 
     % load in the nsx data
     for i_nsx = 1:6
@@ -262,7 +262,6 @@ function stro = addRasterData(nsx, stro)
         % already been separated by trials (i.e. external start stop
         % signal for data aquisition).
         assert(iscell(nsx{i_ns}.Data) && iscell(nsx{i_ns}.Data(1)), 'ERROR: nsx data needs to be in cell format to use this module.')
-        keyboard % figure out how to add nsx info with no trial defs.
         
         
         % add the nsx start time to the stro.trial array. This is the time at

@@ -6,7 +6,7 @@ fin
 
 % decide what experiment to run
 EXPTTYPE = 1;
-BRAINAREA = 'al';
+BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';

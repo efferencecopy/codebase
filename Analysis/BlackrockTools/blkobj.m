@@ -1,12 +1,12 @@
 classdef blkobj
-    % creates an abf-object.
+    % 
     
     
     properties
         sum = [];
         trial = [];
-        ras = [];
-        other = [];
+        ras = {};
+        other = {};
         idx = [];
     end
     
@@ -49,8 +49,14 @@ classdef blkobj
             end
             
             % convert the blackrock files to a stro structure.
-            trialDef = exptParamsDefs; % execute the script of trial definitions
-            obj = blk2stro('trialdef', trialDef,...
+            if ~exist('exptParamsDefs', 'var')
+                trialDef = [];
+            else
+                trialDef = exptParamsDefs; % execute the script of trial definitions
+            end
+            
+            % call blk2stro to unpack the data
+            stro = blk2stro('trialdef', trialDef,...
                            'nev', fpath{1},...
                            'ns1', fpath{2},...
                            'ns2', fpath{3},...
@@ -58,6 +64,15 @@ classdef blkobj
                            'ns4', fpath{5},...
                            'ns5', fpath{6},...
                            'ns6', fpath{7});
+            
+            % package the output of the class 'blkobj'. This can't be
+            % defined as the output of blk2stro b/c that is a structure and
+            % not a blkobj class...
+            obj.sum = stro.sum;
+            obj.trial = stro.trial;
+            obj.ras = stro.ras;
+            obj.other = stro.other;
+            obj.idx = stro.idx;
             
         end
         
