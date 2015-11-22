@@ -9,10 +9,10 @@ function [GL_DATPATH, GL_DOCUPATH, GL_POPDATPATH, GL_ALLENPATH] = defineLocalPat
 
 switch whoami
     case 'hass_mbp'
-        if exist('/Volumes/Charlie HD', 'dir') % external HD is plugged in
-            GL_DATPATH = '/Volumes/Charlie HD/Crash HD/Mice/';
-            GL_POPDATPATH = '/Volumes/Charlie HD/Crash HD/population_analysis_DBs/';
-            GL_ALLENPATH = '/Volumes/Charlie HD/Crash HD/Allen Images/';
+        if exist('/Volumes/MobileCrash', 'dir') % external HD is plugged in
+            GL_DATPATH = '/Volumes/MobileCrash/MobileCrash/Data/Mice/';
+            GL_POPDATPATH = '/Volumes/MobileCrash/MobileCrash/Data/population_analysis_DBs/';
+            GL_ALLENPATH = '/Volumes/MobileCrash/MobileCrash/Allen Images/';
         else % grab things from the local internal HD
             GL_DATPATH = '~/LabStuff/Data/Mice/';
             GL_POPDATPATH = ''; % not defined
