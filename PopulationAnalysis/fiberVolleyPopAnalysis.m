@@ -23,6 +23,8 @@ switch EXPTTYPE
     case 7
         EXPTTYPE = 'Baclofen';
     case 8
+        EXPTTYPE = 'Intracellular';
+    case 9
         EXPTTYPE = 'all manuscript';
 end
 
@@ -81,7 +83,14 @@ in = [MouseName, Site]
 
 % flag some strange data files where the channels were not properly
 % indicated (channel 2 appears in the first and only column...)
-EXCEPTIONS = {'EB_150529_A', 1; 'EB_150529_B', 1; 'EB_150630_D', 1};
+EXCEPTIONS = {'EB_150529_A', 1;...
+              'EB_150529_B', 1;...
+              'EB_150630_D', 1;...
+              'CD_151028_B', 1;...
+              'CD_151028_B', 2;...
+              'CD_151028_B', 3;...
+              'CD_151028_B', 4;...
+              'CD_151028_B', 5};
 
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
@@ -572,7 +581,7 @@ end % expts
 close all
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = true;
+RESTRICT_TO_STIM_SITE = false;
 NORM_TO_PULSE1 = true;
 
 Nexpts = size(in,1);
@@ -585,6 +594,8 @@ for i_ex = 1:Nexpts
             conds = {'ttx_cd2', 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
         case 'Baclofen'
             conds = {'ttx_cd2', 'ttx_cd2_bac10'};
+        case 'Intracellular'
+            conds = {'nbqx_apv_ttx'};
         otherwise
             
             conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
@@ -696,6 +707,7 @@ for i_ex = 1:Nexpts
                     
                     
                     % check best fitting decay tau for the opsin current
+                    try
                     if any(strcmpi(conds{i_cond}, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}))
                         for i_pulse = 1:size(tmp_raw,2);
                             startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse);
@@ -707,6 +719,9 @@ for i_ex = 1:Nexpts
                             fit_vals = -fit_vals; % compensate for the fact that the fit was on abs(rawdata), but opsin current is negative
                             plot(fit_tt, fit_vals, 'm-')
                         end
+                    end
+                    catch
+                        continue
                     end
                     
                 end

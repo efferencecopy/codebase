@@ -12,6 +12,8 @@ sampRate_nsx = stro.sum.(nsxtype).MetaTags.SamplingFreq;
 preSamps = round(0.100 .* sampRate_nsx);
 postSamps = round(0.200.* sampRate_nsx);
 Ntrials = size(stro.trial, 1);
+emap = etrodemap('a32-4x8');
+[plotRows, plotCols] = size(emap);
 figure, hold on,
 nplts = ceil(sqrt(numel(LFPchannels)));
 for i_ch = 1:numel(LFPchannels)
@@ -38,7 +40,8 @@ for i_ch = 1:numel(LFPchannels)
         
     end
     
-    subplot(nplts, nplts, i_ch)
+    plotIdx = find(emap' == i_ch);
+    subplot(plotRows, plotCols, plotIdx)
     tt = tt(idx).*1000;
     if plotall
         plot(tt, chdata)
