@@ -189,7 +189,13 @@ function stro = addSpikeTimes(nev, stro)
     activeChannels = unique(nev.Data.Spikes.Electrode);
     activeChannels = activeChannels(activeChannels<=128);
     stro.sum.rasterFields = {}; % nothing here yet
-    stro.ras = {};
+    
+    % make sure that stro.ras has the correct number of rows by
+    % preallocating the first column. This is important b/c if there are no
+    % spike from any channel, then a row of stro.ras could be left out.
+    stro.ras = repmat({[]}, Ntrials, numel(activeChannels));
+    
+    % pull out the spike times
     for i_trl = 1:Ntrials
         
         trl_start_sec = stro.trial(i_trl, strcmpi(stro.sum.trialFields, 'tstart'));
@@ -237,8 +243,6 @@ function stro = addSpikeTimes(nev, stro)
                 stro.ras{i_trl, col} = unit_timeStamps_sec;
                 
             end
-            
-
         end
     end
     
@@ -307,7 +311,11 @@ function stro = addRasterData(nsx, stro)
             
             % add the data to the stro.ras array
             assert(numel(trl_ras) == size(stro.trial,1), 'ERROR: trial raster data has wrong dimensions')
-            stro.ras(:, col) = trl_ras(:);
+            try
+                stro.ras(:, col) = trl_ras(:);
+            catch
+                keyboard
+            end
             
         end
         
