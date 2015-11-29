@@ -113,8 +113,7 @@ function [trial, trialFields] = parseTrialEvents(nev, trialdef)
     idx_start = eventsByEtrode == ch_start;
     idx_stop = eventsByEtrode == ch_stop;
     if ~(sum(idx_start) == sum(idx_stop))
-        disp('I was hoping this day would never come: unequal number of trial start/stops')
-        keyboard
+        error('I was hoping this day would never come: unequal number of trial start/stops')
     end
     
     % get the times of all the starts and stops.
@@ -311,12 +310,7 @@ function stro = addRasterData(nsx, stro)
             
             % add the data to the stro.ras array
             assert(numel(trl_ras) == size(stro.trial,1), 'ERROR: trial raster data has wrong dimensions')
-            try
-                stro.ras(:, col) = trl_ras(:);
-            catch
-                keyboard
-            end
-            
+            stro.ras(:, col) = trl_ras(:);
         end
         
     end

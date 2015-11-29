@@ -90,7 +90,16 @@ EXCEPTIONS = {'EB_150529_A', 1;...
               'CD_151028_B', 2;...
               'CD_151028_B', 3;...
               'CD_151028_B', 4;...
-              'CD_151028_B', 5};
+              'CD_151028_B', 5;...
+              'CD_151029_C', 1;...
+              'CD_151029_C', 3;...
+              'CD_151029_C', 4;...
+              'CD_151029_C', 5;...
+              'CH_151102_C', 1;...
+              'CH_151102_C', 2;...
+              'CH_151102_C', 3;...
+              'CH_151102_C', 4;...
+              'CH_151102_C', 5};
 
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
@@ -138,7 +147,7 @@ parfor i_ex = 1:Nexpts;
     l_expt = l_mouse & l_site;
     
     % run the analysis
-    [dat{i_ex}, info{i_ex}] = fiberVolleyAnalysis(l_expt, raw, false, RMLINENOISE);
+    [dat{i_ex}, info{i_ex}] = fiberVolleyAnalysis(l_expt, raw, false, RMLINENOISE, EXPTTYPE);
     
     % enter a few other useful things into the structure
     info{i_ex}.mouse =  in{i_ex,1};
@@ -874,11 +883,27 @@ STIMSITE = true;  % true => stimsite,  false => distal site
 PVALTYPE = 'diffval';
 
 % only do this for the main experiment (TF and FV)
-assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
+assert(any(strcmpi(EXPTTYPE, {'main expt', 'intracellular'})), 'ERROR: this anaysis is only for the TF and FV experiments');
+
+
+% define the conditions that will get plotted
+switch EXPTTYPE
+    case '4-AP'
+        conds = {'ttx_cd2', 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
+    case 'Baclofen'
+        conds = {'ttx_cd2', 'ttx_cd2_bac10'};
+    case 'Intracellular'
+        conds = {'nbqx_apv_ttx'};
+    otherwise
+
+        conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+        %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
+        %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+        %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+end
 
 %initialize the outputs
 opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
-conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
 statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
@@ -1531,6 +1556,10 @@ for i_ex = 1:Nexpts
         continue
     end
     
+    
+    % skip cases were TTX was not used
+    
+    
     % Determine which recording channel to analyze
     mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
     siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
@@ -1670,6 +1699,8 @@ switch EXPTTYPE
         drugconds = {'ttx_cd2', 'ttx_cd2_4AP200' 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
     case 'Baclofen'
         drugconds = {'ttx_cd2', 'ttx_cd2_bac10'};
+    case 'Intracellular'
+        drugconds = {'nbqx_apv_ttx'};
     case 'otherwise'
         drugconds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
 end
@@ -2137,7 +2168,9 @@ for i_ex = 1:Nexpts;
         
         % store the data, grouped by unique conditions. First, I need to figure
         % out the appropriate field name for each condition
-        tdict = outerleave(ax, ax.idx.LED_470);
+        tmpWF = ax.dat(:, ax.idx.LED_470, :);
+        sampRate = ax.head.sampRate;
+        tdict = outerleave(tmpWF, sampRate);
         
         
         % make sure the first LED pulse is identical across trial types
@@ -2739,8 +2772,133 @@ end
 
 
 
+%% COMPARE INTRACELLULAR AND LFP RECORDINGS
+
+clc
+
+TFS_to_analyze = [10,20,40,60];
+
+% need to load the data
+load('lfp.mat');
+load('intra.mat');
+
+opsinTypes = {'chief_cit', 'chief_flx', 'chronos'};
+
+% run the analysis once just to figure out what the normalization factors
+% will be
+for i_opsin = 1:numel(opsinTypes)
+    
+    lfp_tmp = lfp.(opsinTypes{i_opsin}).pnp1.nbqx_apv_cd2_ttx.diffval;
+    lfp_tfs = TFS_to_analyze;
+    lfp_xbar = [];
+    for i_tf = 1:numel(lfp_tfs)
+        tf_idx = lfp_tmp{1} == lfp_tfs(i_tf);
+        l_7pulses = cellfun(@(x) size(x,2)>=7, lfp_tmp{3});
+        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
+        
+        % only take the first 7 pulses
+        trim_dat = cellfun(@(x) x(:,1:7), lfp_tmp{3}(tf_idx), 'uniformoutput', false);
+        cat_dat = vertcat(trim_dat{:});
+        lfp_xbar = cat(1, lfp_xbar, nanmean(cat_dat, 1));
+    end
+    
+    % normalize the LFP data to fit the full range from 1 to zero.
+    diff_from_1 = 1-lfp_xbar;
+    lfp_norm_val = max(diff_from_1(end,:));
+    
+    
+    intra_tmp = intra.(opsinTypes{i_opsin}).pnp1.nbqx_apv_ttx.diffval;
+    intra_tfs = unique(intra_tmp{1});
+    intra_tfs = intersect(lfp_tfs, intra_tfs); % only take the ones that match the LFP tfs
+    intra_xbar = [];
+    for i_tf = 1:numel(intra_tfs)
+        
+        tf_idx = intra_tmp{1} == intra_tfs(i_tf);
+        l_7pulses = cellfun(@(x) size(x,2)>=7, intra_tmp{3});
+        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
+        
+        % only take the first 7 pulses
+        trim_dat = cellfun(@(x) x(:,1:7), intra_tmp{3}(tf_idx), 'uniformoutput', false);
+        cat_dat = vertcat(trim_dat{:});
+        intra_xbar = cat(1, intra_xbar, nanmean(cat_dat, 1));
+    end
+    
+    % normalize the intracellular data to fit the full range from 1 to zero
+    diff_from_1 = 1-intra_xbar;
+    norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
+    intra_norm = 1-norm_diffs;
+        
+    figure; cmap = colormap('copper'); close
+    cidx = round(linspace(1, size(cmap,1), 5));
+    cmap = cmap(cidx,:);
+    figure
+    hold on,
+    for i_tf = 1:size(lfp_norm,1)
+        plot(lfp_norm(i_tf, :), '-', 'color', cmap(i_tf,:), 'linewidth', 2)
+    end
+    for i_tf = 1:size(intra_norm, 1);
+        plot(intra_norm(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
+    end
+    
+end
 
 
+for i_opsin = 1:numel(opsinTypes)
+    
+    lfp_tmp = lfp.(opsinTypes{i_opsin}).pnp1.nbqx_apv_cd2_ttx.diffval;
+    lfp_tfs = TFS_to_analyze;
+    lfp_xbar = [];
+    for i_tf = 1:numel(lfp_tfs)
+        tf_idx = lfp_tmp{1} == lfp_tfs(i_tf);
+        l_7pulses = cellfun(@(x) size(x,2)>=7, lfp_tmp{3});
+        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
+        
+        % only take the first 7 pulses
+        trim_dat = cellfun(@(x) x(:,1:7), lfp_tmp{3}(tf_idx), 'uniformoutput', false);
+        cat_dat = vertcat(trim_dat{:});
+        lfp_xbar = cat(1, lfp_xbar, nanmean(cat_dat, 1));
+    end
+    
+    % normalize the LFP data to fit the full range from 1 to zero.
+    diff_from_1 = 1-lfp_xbar;
+    norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
+    lfp_norm = 1-norm_diffs;
+    
+    
+    intra_tmp = intra.(opsinTypes{i_opsin}).pnp1.nbqx_apv_ttx.diffval;
+    intra_tfs = unique(intra_tmp{1});
+    intra_tfs = intersect(lfp_tfs, intra_tfs); % only take the ones that match the LFP tfs
+    intra_xbar = [];
+    for i_tf = 1:numel(intra_tfs)
+        
+        tf_idx = intra_tmp{1} == intra_tfs(i_tf);
+        l_7pulses = cellfun(@(x) size(x,2)>=7, intra_tmp{3});
+        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
+        
+        % only take the first 7 pulses
+        trim_dat = cellfun(@(x) x(:,1:7), intra_tmp{3}(tf_idx), 'uniformoutput', false);
+        cat_dat = vertcat(trim_dat{:});
+        intra_xbar = cat(1, intra_xbar, nanmean(cat_dat, 1));
+    end
+    
+    % normalize the intracellular data to fit the full range from 1 to zero
+    diff_from_1 = 1-intra_xbar;
+    norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
+    intra_norm = 1-norm_diffs;
+        
+    figure; cmap = colormap('copper'); close
+    cidx = round(linspace(1, size(cmap,1), 5));
+    cmap = cmap(cidx,:);
+    figure
+    hold on,
+    for i_tf = 1:size(lfp_norm,1)
+        plot(lfp_norm(i_tf, :), '-', 'color', cmap(i_tf,:), 'linewidth', 2)
+    end
+    for i_tf = 1:size(intra_norm, 1);
+        plot(intra_norm(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
+    end
+    
+end
 
 
 

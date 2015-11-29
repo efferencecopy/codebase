@@ -37,7 +37,9 @@ function params = anlyMod_avgOuterleave(params)
             axIdx = cellfun(@(x) ~isempty(x), regexpi(groupFiles{i_ax}, abfLibrary));
             
             ledIdx = params.ax{axIdx}.idx.LED_470;
-            tdict = outerleave(params.ax{axIdx}, ledIdx);
+            tmpWF = params.ax{axIdx}.dat(:, ledIdx,:);
+            sampFreq = params.ax{axIdx}.head.sampRate;
+            tdict = outerleave(tmpWF, sampFreq);
             params.(groupName).tdict{i_ax} = tdict;
             params.(groupName).head{i_ax} = params.ax{axIdx}.head;
             

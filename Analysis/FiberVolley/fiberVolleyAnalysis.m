@@ -1,4 +1,4 @@
-function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES, RMLINENOISE)
+function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES, RMLINENOISE, EXPTTYPE)
 
 
 if ~exist('PLOTFIGURES', 'var')
@@ -79,7 +79,9 @@ for i_fid = 1:numel(fnames)
     end
     assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
     
-    tdict = outerleave(tmp, optostimidx);
+    tmpWF = tmp.dat(:, optostimidx, :);
+    sampRate = tmp.head.sampRate;
+    tdict = outerleave(tmpWF, sampRate);
     nSweepTypes = size(tdict.conds,1);
     
     
@@ -163,7 +165,12 @@ for i_sweepType = 1:numel(sweepTypeFields)
             % figure out the appropriate index to the data. It should have
             % the correct "HSx_" prefix, and have the correct units
             whichChan = validChans(i_ch);
-            correctUnits = strcmpi('mV', ax.(swpType).(drugType).head.recChUnits);
+            switch EXPTTYPE
+                case 'Intracellular'
+                    correctUnits = strcmpi('pA', ax.(swpType).(drugType).head.recChUnits);
+                otherwise
+                    correctUnits = strcmpi('mV', ax.(swpType).(drugType).head.recChUnits);
+            end
             correctHS = strncmpi(sprintf('HS%d_', whichChan), ax.(swpType).(drugType).head.recChNames, 3);
             chIdx = correctUnits & correctHS;
             assert(sum(chIdx)==1, 'ERROR: incorrect channel selection')
