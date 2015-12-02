@@ -107,16 +107,10 @@ for a = 1:numel(lines)
     UB =[inf,  inf, omega+5];
     
     % meat and potatoes
-    options = optimset;
-    options.TolX = 1e-10;
-    options.TolFun = 1e-10;
-    options.MaxIter = 1e8;
     errtype = 'dotcorr'; % does a good job with getting the phase and freq
-    [initGuess, ~, flag] = fminsearch(@errfun, initGuess, options);
-    assert(flag==1, 'ERROR searching');
+    initGuess = fminsearch(@errfun, initGuess);
     errtype = 'SSE'; % refines the fit by getting the amplitude
-    [params,~,flag] = fminsearch(@errfun, initGuess, options);
-    assert(flag==1, 'ERROR searching');
+    params = fminsearch(@errfun, initGuess);
     
     % subtract out the line noise, and advance to the next line...
     %  WHEN SUBTRACTING FROM THE FULL WAVEFORM I NEED TO REDEFINE TIME ZERO

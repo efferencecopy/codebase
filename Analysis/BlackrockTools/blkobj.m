@@ -7,7 +7,6 @@ classdef blkobj
         trial = [];
         ras = {};
         other = {};
-        idx = [];
     end
     
     methods
@@ -72,7 +71,6 @@ classdef blkobj
             obj.trial = stro.trial;
             obj.ras = stro.ras;
             obj.other = stro.other;
-            obj.idx = stro.idx;
             
         end
         

@@ -16,7 +16,6 @@ function stro = blk2stro(varargin)
     stro.sum = [];
     stro.trial = [];
     stro.ras = {};
-    stro.idx = [];
     stro.other = {};
     
     
