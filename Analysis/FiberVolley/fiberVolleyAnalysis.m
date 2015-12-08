@@ -369,13 +369,13 @@ for i_sweepType = 1:numel(sweepTypeFields)
                 
                 tmp_trace = trace.(swpType).(conds{i_cond});
                 
-                lines = [5.5, 60.*(1:2)];
+                lines = 60;
                 winEnd_idx = size(tmp_trace,1);
                 if info.(swpType).(conds{i_cond}).pTF >= 40;
                     % just look at the data following the last pulse.
                     lastpulse = find(info.(swpType).(conds{i_cond}).pulseOff_idx==1, 1, 'last');
                     sampRate = info.(swpType).(conds{i_cond}).sampRate;
-                    winStart_idx = lastpulse + ceil(0.100 ./ sampRate);
+                    winStart_idx = lastpulse + ceil(0.15 .* sampRate);
                 else
                     % this takes all the data (even the pulses) but is better
                     % then just taking the data after the last pulse b/c long
@@ -394,11 +394,11 @@ for i_sweepType = 1:numel(sweepTypeFields)
     end
     
     % filter some of the traces more agressively
-    conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx', 'synapticTransmission', 'ttx', 'cd2_ttx'};
+    conds = {'synapticTransmission'};
     for i_cond = 1:numel(conds)
         if isfield(trace.(swpType), conds{i_cond})
             tmp_trace = trace.(swpType).(conds{i_cond});
-            tmp_trace = butterfilt(tmp_trace, 750, sampFreq, 'low', 1);
+            tmp_trace = butterfilt(tmp_trace, 1000, sampFreq, 'low', 1);
             trace.(swpType).(conds{i_cond}) = tmp_trace;
         end
     end

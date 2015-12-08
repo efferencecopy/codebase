@@ -76,6 +76,7 @@ function io_exportData(varargin)
     
     % grab the contents of the user data
     cellFillData = get(gcf, 'userdata');
+    cellFillData.h = [];
     
     % save the data interactively
     uisave('cellFillData', ['cellFillData_', cellFillData.raw.info.shortName, '.mat'])

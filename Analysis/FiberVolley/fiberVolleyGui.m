@@ -65,7 +65,7 @@ function io_callAnalysisRoutine(varargin)
     
     % call the main fiber volley analysis function
     plotfigs = true;
-    rmlinenoise = true;
-    fiberVolleyAnalysis(idx, udat.io.exptWorkbook, plotfigs, rmlinenoise);
+    rmlinenoise = false;
+    fiberVolleyAnalysis(idx, udat.io.exptWorkbook, plotfigs, rmlinenoise, 'extracellular');
 end
 

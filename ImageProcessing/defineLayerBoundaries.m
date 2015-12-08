@@ -52,9 +52,9 @@ function io_exportData(varargin)
     % delete the actual raw image so that the file size isn't huge
     cellFillData.raw.img = [];
     
-    % delete the handle for listener function (which causes matlab to
-    % complain when the .mat file is opened for post-hoc anslysis)
-    cellFillData.h.gui.sliderListen=[];
+    % delete the handles (which cause matlab to complain when the .mat file
+    % is opened for post-hoc anslysis)
+    cellFillData.h = [];
     
     % cd to the appropriate directory
     dir_start = pwd;
