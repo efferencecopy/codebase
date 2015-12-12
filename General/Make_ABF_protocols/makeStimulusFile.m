@@ -54,7 +54,7 @@ for i_cond = 1:size(conditions, 1)
     assert(tmp_pAmp<=10, 'ERROR: pulse amp > 10 volts');
     assert(tmp_pWidth<=1, 'ERROR: pulse amp > 1 second');
     
-    if tmp_pFreq == 0 % only one pulse
+    if strcmpi(params.type, 'pulse') || tmp_pFreq == 0 % only one pulse
         templates{i_cond}(tStartIdx : tStartIdx+samplesPerPulse-1) = tmp_pAmp;
         templates{i_cond}(tStartIdx+samplesPerPulse : end) = 0;
         
@@ -101,10 +101,15 @@ end
 % create a matrix of sweeps to be exported to the atf file
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%
-trlTypes = 1:size(conditions,1);
-trlTypes = repmat(trlTypes, 1, params.nReps);
-randIdx = randperm(numel(trlTypes)); % randomize the order
-trlTypes = trlTypes(randIdx);
+if isfield(params, 'trlTypes')
+    trlTypes = params.trlTypes;
+else
+    trlTypes = 1:size(conditions,1);
+    trlTypes = repmat(trlTypes, 1, params.nReps);
+    randIdx = randperm(numel(trlTypes)); % randomize the order
+    trlTypes = trlTypes(randIdx);
+end
+
 sweeps = nan(numel(tt), numel(trlTypes));
 for i_swp = 1:numel(trlTypes)
     sweeps(:,i_swp) = templates{trlTypes(i_swp)}(:);
