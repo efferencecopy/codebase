@@ -62,20 +62,19 @@ for i_fid = 1:numel(fnames)
     % out the appropriate field name for each condition, to do this, I need
     % to figure out which channel has the optical stimulation, and then run
     % 'outerleave.m'
-    [ledidx, laseridx] = deal([]);
-    if isfield(tmp.idx, 'LED_470')
-        ledidx = tmp.idx.LED_470;
-    end
-    if isfield(tmp.idx, 'Laser')
-        laseridx = tmp.idx.Laser;
-    end
-    both_idx_defined = any(ledidx) && any(laseridx);
-    assert(~both_idx_defined, 'ERROR: LED and Laser were used simultaneously');
+    led_present = isfield(tmp.idx, 'LED_470'); %ledidx = tmp.idx.LED_470;
+    laser_present = isfield(tmp.idx, 'Laser'); %laseridx = tmp.idx.Laser;
+    estim_present = isfield(tmp.idx, 'estim_in');
+
+    N_stimtypes = sum([led_present, laser_present, estim_present]);
+    assert(N_stimtypes==1, 'ERROR: Too many stimulus types are defined');
     
-    if any(ledidx)
-        optostimidx = ledidx;
-    elseif any(laseridx)
-        optostimidx = laseridx;
+    if led_present
+        optostimidx = tmp.idx.LED_470;
+    elseif laser_present
+        optostimidx = tmp.idx.Laser;
+    elseif estim_present
+        optostimidx = tmp.idx.estim_in;
     end
     assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
     
@@ -178,26 +177,25 @@ for i_sweepType = 1:numel(sweepTypeFields)
             tmp = ax.(swpType).(drugType).dat(:, chIdx,:);
             tmp = squeeze(tmp);
             
-            
             % baseline subtract, determine when the pulses came on...
             thresh = 0.05;
-            [ledidx, laseridx] = deal([]);
-            if isfield(ax.(swpType).(drugType).idx, 'LED_470')
-                ledidx = ax.(swpType).(drugType).idx.LED_470;
-            end
-            if isfield(ax.(swpType).(drugType).idx, 'Laser')
-                laseridx = ax.(swpType).(drugType).idx.Laser;
-            end
-            both_idx_defined = any(ledidx) && any(laseridx);
-            assert(~both_idx_defined, 'ERROR: LED and Laser were used simultaneously');
+            led_present = isfield(ax.(swpType).(drugType).idx, 'LED_470');
+            laser_present = isfield(ax.(swpType).(drugType).idx, 'Laser');
+            estim_present = isfield(ax.(swpType).(drugType).idx, 'estim_in');
             
-            if any(ledidx)
-                optostimidx = ledidx;
-            elseif any(laseridx)
-                optostimidx = laseridx;
+            N_stimtypes = sum([led_present, laser_present, estim_present]);
+            assert(N_stimtypes==1, 'ERROR: Too many stimulus types are defined');
+            
+            if led_present
+                optostimidx = ax.(swpType).(drugType).idx.LED_470;
+            elseif laser_present
+                optostimidx = ax.(swpType).(drugType).idx.Laser;
+            elseif estim_present
+                optostimidx = ax.(swpType).(drugType).idx.estim_in;
             end
             assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
-
+            
+            
             template = ax.(swpType).(drugType).dat(:,optostimidx,1);
             template = template > thresh;
             template = [0; diff(template)];
@@ -214,7 +212,12 @@ for i_sweepType = 1:numel(sweepTypeFields)
             % filter out the high frequency stuff. Filtering shouldn't go
             % below 1500 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 1500;
+            switch EXPTTYPE
+                case 'E-stim'
+                    lp_freq = 4000;
+                otherwise
+                    lp_freq = 4000;
+            end
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             

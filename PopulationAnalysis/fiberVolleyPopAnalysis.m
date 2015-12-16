@@ -25,6 +25,8 @@ switch EXPTTYPE
     case 8
         EXPTTYPE = 'Intracellular';
     case 9
+        EXPTTYPE = 'E-stim';
+    case 10
         EXPTTYPE = 'all manuscript';
 end
 
@@ -75,31 +77,6 @@ end
 
 in = [MouseName, Site]
 
-% % uncomment these lines for a few files that are useful for code
-% % development:
-%
-% in = {'CH_150112_B', [1];...
-%       'CH_141215_E', [2]};
-
-% flag some strange data files where the channels were not properly
-% indicated (channel 2 appears in the first and only column...)
-EXCEPTIONS = {'EB_150529_A', 1;...
-              'EB_150529_B', 1;...
-              'EB_150630_D', 1;...
-              'CD_151028_B', 1;...
-              'CD_151028_B', 2;...
-              'CD_151028_B', 3;...
-              'CD_151028_B', 4;...
-              'CD_151028_B', 5;...
-              'CD_151029_C', 1;...
-              'CD_151029_C', 3;...
-              'CD_151029_C', 4;...
-              'CD_151029_C', 5;...
-              'CH_151102_C', 1;...
-              'CH_151102_C', 2;...
-              'CH_151102_C', 3;...
-              'CH_151102_C', 4;...
-              'CH_151102_C', 5};
 
 %% EXTRACT THE RAW DATA FROM EACH DATA FILE
 
@@ -170,10 +147,14 @@ end
 disp('All done importing data')
 
 
+
+
+
 %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
 prePulseTime = 0.001; % in sec
-postPulseTime = 0.009; % in sec
+postPulseTime = 0.010; % in sec
+Nexpts = size(in,1);
 
 for i_ex = 1:Nexpts
     
@@ -206,16 +187,14 @@ for i_ex = 1:Nexpts
                     % deal with some exceptions
                     if ~info{i_ex}.ignoreChans(i_ch)
                         continue
-                    end
-                    
-                    % strange cases
-                    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-                    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-                    if any(mouseMatch & siteMatch)
-                        %  HS2 is the data channel, but since HS1 wasn't
-                        %  used, the data are in the first column
-                        if i_ch == 1; error('something went wrong'); end
-                        i_ch = 1;
+                    else
+                        % occasionally CH1 is disabled, and CH2 occupies the
+                        % 1st and only column, adjust i_ch to account for these
+                        % cases
+                        Nchannels = sum(info{i_ex}.ignoreChans);
+                        if (Nchannels == 1) && (i_ch == 2)
+                            i_ch = 1;
+                        end
                     end
                     
                     
@@ -251,7 +230,8 @@ clc
 % window be unique for each pulse?
 FIRSTPULSE = false;
 
-parfor i_ex = 1:Nexpts
+Nexpts = size(in,1);
+for i_ex = 1:Nexpts
     
     % Determine the pharmacology conditions that are present. Look
     % specifically for a fiber volley, a TTX, and a synapticTransmission
@@ -277,13 +257,17 @@ parfor i_ex = 1:Nexpts
         sampRate = info{i_ex}.(pTypes{1}).(tmpnames{1}).sampRate; % assuming sampRates are the same across experments within a day
         prePulseSamps = ceil(prePulseTime .* sampRate); % % samples prior to pulse onset
         postPulseSamps = ceil(postPulseTime .* sampRate); % samples available after pulse ONSET
-        switch conds{i_cond}
-            case 'synapticTransmission'
-                photoDelay= 1e-3;
-            otherwise
-                photoDelay= 300e-6; % timeout following pulse offset (in sec)
+        if strcmpi(conds{i_cond}, 'synapticTransmission')
+            photoDelay= 1e-3;
+        elseif strcmpi(EXPTTYPE, 'E-stim')
+            photoDelay = 80e-6;
+        else
+            photoDelay= 300e-6; % timeout following pulse offset (in sec)
         end
         anlyWindowInPts = ceil(450e-6 .* sampRate);
+        if rem(anlyWindowInPts, 2)==0;
+            anlyWindowInPts = anlyWindowInPts+1;
+        end
         
         for i_ch = 1:2;
             
@@ -291,14 +275,11 @@ parfor i_ex = 1:Nexpts
             if ~info{i_ex}.ignoreChans(i_ch)
                 continue
             else
-                
-                % strange cases
-                mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-                siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-                if any(mouseMatch & siteMatch)
-                    %  HS2 is the data channel, but since HS1 wasn't
-                    %  used, the data are in the first column
-                    if i_ch == 1; error('something went wrong'); end
+                % occasionally CH1 is disabled, and CH2 ocupys the
+                % 1st and only column, adjust i_ch to account for these
+                % cases
+                Nchannels = sum(info{i_ex}.ignoreChans);
+                if (Nchannels == 1) && (i_ch == 2)
                     i_ch = 1;
                 end
             end
@@ -590,7 +571,7 @@ end % expts
 close all
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = false;
+RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
 Nexpts = size(in,1);
@@ -600,14 +581,17 @@ for i_ex = 1:Nexpts
     % define the conditions that will get plotted
     switch EXPTTYPE
         case '4-AP'
-            conds = {'ttx_cd2', 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
+            conds = {'ttx_cd2', 'ttx_cd2_4AP'};
         case 'Baclofen'
             conds = {'ttx_cd2', 'ttx_cd2_bac10'};
         case 'Intracellular'
             conds = {'nbqx_apv_ttx'};
+        case 'E-stim'
+            conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx', 'FV_Na'};
+            
         otherwise
             
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % with cadmium
             %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
             %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
             %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
@@ -624,13 +608,11 @@ for i_ex = 1:Nexpts
         if ~info{i_ex}.ignoreChans(i_ch)
             continue
         else
-            % strange cases
-            mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-            siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-            if any(mouseMatch & siteMatch)
-                % HS2 is the data channel, but since HS1 wasn't
-                % used, the data are in the first column
-                if i_ch == 1; error('something went wrong'); end
+            % occasionally CH1 is disabled, and CH2 occupies the
+            % 1st and only column, adjust i_ch to account for these
+            % cases
+            Nchannels = sum(info{i_ex}.ignoreChans);
+            if (Nchannels == 1) && (i_ch == 2)
                 i_ch = 1;
             end
         end
@@ -659,13 +641,20 @@ for i_ex = 1:Nexpts
         
         for i_cond = 1:numel(conds)
             
+            
             %
             % plot the raw (Average) traces
             %
             for i_tf = 1:Ntfs
                 
-                % check to see if this condition exists
-                if ~isfield(dat{i_ex}.(pTypes{i_tf}), 'stats') || ~isfield(dat{i_ex}.(pTypes{i_tf}).stats, conds{i_cond})
+                
+                % check to see if this ptype exists
+                if ~isfield(dat{i_ex}.(pTypes{i_tf}), 'stats')
+                    continue
+                end
+                
+                % check to see if this drug condition exists
+                if ~isfield(dat{i_ex}.(pTypes{i_tf}).snips, conds{i_cond})
                     continue
                 end
                 
@@ -684,7 +673,7 @@ for i_ex = 1:Nexpts
                 
                 plot(tt, tmp_raw, 'linewidth', 2), hold on,
                 
-                if CHECK_TRIAL_STATS
+                if CHECK_TRIAL_STATS && isfield(dat{i_ex}.(pTypes{i_tf}).stats, conds{i_cond})
                     
                     % check the peak and trough indicies
                     inds = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).trpk_inds{i_ch};
@@ -883,19 +872,25 @@ STIMSITE = true;  % true => stimsite,  false => distal site
 PVALTYPE = 'diffval';
 
 % only do this for the main experiment (TF and FV)
-assert(any(strcmpi(EXPTTYPE, {'main expt', 'intracellular'})), 'ERROR: this anaysis is only for the TF and FV experiments');
+assert(~strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for the TF and FV experiments');
 
 
 % define the conditions that will get plotted
 switch EXPTTYPE
     case '4-AP'
-        conds = {'ttx_cd2', 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
+        conds = {'ttx_cd2', 'ttx_cd2_4AP'};
+        opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
     case 'Baclofen'
         conds = {'ttx_cd2', 'ttx_cd2_bac10'};
+        opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
     case 'Intracellular'
         conds = {'nbqx_apv_ttx'};
+        opsinTypes = {'chief_cit', 'chronos', 'chief_flx'};
+    case 'e-stim'
+        conds = {'Fv_Na'};
+        opsinTypes = {'e_stim'};
     otherwise
-
+        opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
         %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
         %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
@@ -903,7 +898,6 @@ switch EXPTTYPE
 end
 
 %initialize the outputs
-opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
 statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
@@ -923,19 +917,19 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for i_ex = 1:numel(dat)
     
-    
-    % skip cases where the led was not targeted to either of the recording
-    % sites
-    if isnan(info{i_ex}.stimSite)
+    % figure out which (if any) channels should be analyzed
+    CHANNEL = info{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites were targeted
         continue
     end
-    
-    % Determine which recording channel to analyze
-    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-        CHANNEL = 1;
-    else % all other experiments...
+    Nchannels = sum(info{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
         if STIMSITE
             CHANNEL = info{i_ex}.stimSite;
         else
@@ -950,6 +944,7 @@ for i_ex = 1:numel(dat)
     opsin = lower(info{i_ex}.opsin);
     
     pTypes = fieldnames(dat{i_ex});
+    
     Nptypes = numel(pTypes);
     for i_ptype = 1:Nptypes
         
@@ -1060,7 +1055,7 @@ for i_opsin = 1:numel(opsinTypes)
             Ntfs = numel(tfs);
             pAmps = tmp_dat{2};
             cmap = colormap('copper');
-            cidx = round(linspace(1, size(cmap,1), Ntfs));
+            cidx = round(linspace(1, size(cmap,1), 5)); % hard coding for 5 TFs
             cmap = cmap(cidx,:);
             set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
             hold on
@@ -1172,8 +1167,9 @@ end
 
 STIMSITE = true;  % true => stimsite,  false => distal site
 PULSENUM = 3;
+NORMVALS = true;
 STATTYPE = 'diffval';
-CONDITION = 'FV_Na';
+CONDITION = 'FV_Na'; % 'FV_Na', or 'nbqx_apv_cd2_ttx'
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
@@ -1183,6 +1179,14 @@ cd(GL_DATPATH)
 cd '../../Calibration files'
 load led_cal.mat % data now stored in 'cal' struct
 
+% pull out the waveform of the first pulse, keep track of the power (TF is
+% irrelevant) so that I can average acorss mice
+firstPulse.wf = {}; % waveforms, 1 cell for each mouse, 1 row for each amp
+firstPulse.amp = {}; % pAmps, 1 cell for each mouse, 1 row for each amp
+firstPulse.tf = {}; % just make sure that only 1 TF was tested per mouse
+firstPulst.stat = {}; % for the line series plots
+firstPulse.opsin = {}; % 1 opsin per mouse
+
 
 % initialize the figure
 f = figure; hold on;
@@ -1191,18 +1195,19 @@ f = figure; hold on;
 for i_ex = 1:numel(dat)
     
     
-    % skip cases where the led was not targeted to either of the recording
-    % sites
-    if isnan(info{i_ex}.stimSite)
+    % figure out which (if any) channels should be analyzed
+    CHANNEL = info{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites were targeted
         continue
     end
-    
-    % Determine which recording channel to analyze
-    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-        CHANNEL = 1;
-    else % all other experiments...
+    Nchannels = sum(info{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
         if STIMSITE
             CHANNEL = info{i_ex}.stimSite;
         else
@@ -1228,17 +1233,30 @@ for i_ex = 1:numel(dat)
         
         tmp = dat{i_ex}.(pTypes{i_ptype}).stats.(CONDITION).(STATTYPE){CHANNEL};
         if numel(tmp)<PULSENUM; continue; end;
-        ppr = tmp(PULSENUM)./tmp(1);
+        if NORMVALS
+            ppr = tmp(PULSENUM)/tmp(1);
+        else
+            ppr = tmp(PULSENUM);
+        end
         
         ex_ppr = cat(1, ex_ppr, ppr);
-        ex_tf = cat(1, ex_tf, info{i_ex}.(pTypes{i_ptype}).none.pTF);
-        ex_amps = cat(1, ex_amps, info{i_ex}.(pTypes{i_ptype}).none.pAmp);
+        ex_tf = cat(1, ex_tf, info{i_ex}.(pTypes{i_ptype}).(CONDITION).pTF);
+        ex_amps = cat(1, ex_amps, info{i_ex}.(pTypes{i_ptype}).(CONDITION).pAmp);
         
         % convert amplitudes from volts to mW/mm2
         ex_powDensity = ppval(cal.pp.led_470, ex_amps);
         
         % run a correlation b/w PPR and light power
         rho = corr(ex_ppr, ex_powDensity, 'type', 'Pearson');
+        
+        % store the first pulse waveform
+        tmp_wf = dat{i_ex}.(pTypes{i_ptype}).snips.(CONDITION){CHANNEL}(1,:);
+        
+        firstPulse.wf{i_ex}(i_ptype,:) = tmp_wf;
+        firstPulse.amp{i_ex}(i_ptype) = info{i_ex}.(pTypes{i_ptype}).(CONDITION).pAmp; 
+        firstPulse.tf{i_ex}(i_ptype) = info{i_ex}.(pTypes{i_ptype}).(CONDITION).pTF; 
+        firstPulse.opsin{i_ex} = info{i_ex}.opsin;
+        firstPulse.stats{i_ex}(i_ptype) = dat{i_ex}.(pTypes{i_ptype}).stats.(CONDITION).(STATTYPE){CHANNEL}(1);
     end
     
     %
@@ -1276,13 +1294,122 @@ for i_ex = 1:numel(dat)
     end
     
 end
-%set(gca, 'yscale', 'log')
 xlabel('Power (mW per mm^2)')
-ylabel(sprintf('Paired Pulse Ratio \n (%s)', STATTYPE))
-set(gca, 'yscale', 'log')
+if NORMVALS
+    ylabel(sprintf('Paired Pulse Ratio \n on the %s', STATTYPE))
+else
+    ylabel(sprintf('raw %s', STATTYPE))
+end
+%set(gca, 'yscale', 'log')
 
 
 
+%
+% Plot the shape of the first pulse across pAmps
+%
+opsins = {'chr2', 'chief_cit'};
+
+for i_opsin = 1:numel(opsins)
+    
+    idx_opsin = strcmpi(firstPulse.opsin, opsins{i_opsin});
+    idx_opsin = find(idx_opsin);
+    
+    opsin_wfs = [];
+    opsin_amps = [];
+    opsin_stats = [];
+    for i_ex = idx_opsin
+        
+        tmp_tf = firstPulse.tf{i_ex};
+        assert(numel(unique(tmp_tf))==1, 'too many tfs');
+        
+        tmp_pamp = firstPulse.amp{i_ex};
+        tmp_wf = firstPulse.wf{i_ex};
+        tmp_stats = firstPulse.stats{i_ex};
+        if ~any(ceil(tmp_pamp)>=10) % only take stuff with maximal light power so that I have something to normallize to
+            continue
+        end
+        
+        % normalize the wfs
+        [~, maxidx] = max(tmp_pamp);
+        normval = min(tmp_wf(maxidx,:));
+        tmp_wf = bsxfun(@rdivide, tmp_wf, -normval);
+        
+        % normalize the stats
+        normval = tmp_stats(maxidx);
+        if NORMVALS
+            tmp_stats = tmp_stats ./ normval;
+        end
+        
+        opsin_wfs = cat(1, opsin_wfs, tmp_wf);
+        opsin_amps = cat(1, opsin_amps, tmp_pamp(:));
+        opsin_stats = cat(1, opsin_stats, tmp_stats(:));
+        
+    end
+    
+    
+    edges = [4,6,8,10];
+    [N, ind] = histc(opsin_amps, edges);
+    
+    
+    
+    % plot of waveforms
+    legtext = {};
+    f = figure; hold on,
+    f.Name = opsins{i_opsin};
+    f.Position = [ 244   307   425   443];
+    for i_amp = 1:numel(edges)
+        pamp = edges(i_amp);
+        l_wfs = ind == i_amp;
+        assert(sum(l_wfs)==N(i_amp), 'error')
+        
+        tt = ((0:size(opsin_wfs, 2)-1)-prePulseSamps) ./ sampRate;
+        tt = tt.*1000;
+        plot(tt, mean(opsin_wfs(l_wfs,:), 1), 'linewidth', 2)
+        
+        powDensity = ppval(cal.pp.led_470, pamp);
+        legtext = cat(2, legtext, [num2str(round(powDensity)) 'mW per mm2']);
+    end
+    axis tight
+    legend(legtext, 'Location', 'best')
+    legend boxoff
+    xlabel('time (ms)')
+    if NORMVALS
+        ylabel('normalized amplitude')
+    else
+        ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
+    end
+    
+    % line series plot of stats
+    plt_pow = [];
+    plt_xbar = [];
+    plt_sem = [];
+    for i_amp = 1:numel(edges)
+        pamp = edges(i_amp);
+        l_wfs = ind == i_amp;
+        assert(sum(l_wfs)==N(i_amp), 'error')
+        
+        plt_pow(i_amp) = ppval(cal.pp.led_470, pamp);
+        plt_xbar(i_amp) = mean(opsin_stats(l_wfs));
+        plt_sem(i_amp) = stderr(opsin_stats(l_wfs));
+    end
+    
+    f = figure;
+    f.Name = opsins{i_opsin};
+    f.Position = [834   387   261   360];
+    errorbar(plt_pow, plt_xbar, plt_sem, 'linewidth', 2)
+    xlabel('Power (mW per mm2')
+    if NORMVALS
+        ylabel('normalized amplitude')
+        ylim([0 1])
+    else
+        ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
+    end
+    
+    
+    xlim([min(plt_pow)-1, max(plt_pow)+1])
+    box off
+    
+end
 
 
 
@@ -1343,12 +1470,12 @@ for i_tf = 1:numel(TFs)
     
     
     % pull out the data for oChIEF:
-    tf_idx = pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
+    tf_idx = pop.chief_cit.(STAT_TYPE).FV_Na.(FV_STAT){1} == TFs(i_tf);
     if sum(tf_idx) >= 1;
-        trim_dat = cellfun(@(x) x(:,1:7), pop.ochief.(STAT_TYPE).FV_Na.(FV_STAT){3}(tf_idx), 'uniformoutput', false);
+        trim_dat = cellfun(@(x) x(:,1:7), pop.chief_cit.(STAT_TYPE).FV_Na.(FV_STAT){3}(tf_idx), 'uniformoutput', false);
         ochief_fv_raw = vertcat(trim_dat{:});
         
-        trim_dat = cellfun(@(x) x(:,1:7), pop.ochief.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}(tf_idx), 'uniformoutput', false);
+        trim_dat = cellfun(@(x) x(:,1:7), pop.chief_cit.(STAT_TYPE).nbqx_apv_cd2_ttx.(OPSIN_STAT){3}(tf_idx), 'uniformoutput', false);
         ochief_opsin_raw = vertcat(trim_dat{:});
     else
         ochief_fv_raw = nan(5,7); % a hack to allow plotting of tf conds for oChIEF that don't exist for ChR2
@@ -1439,16 +1566,29 @@ OPSIN_STAT = 'diffval';
 STIMSITE = true;
 NORMTOMAX = false;
 
+[pop_fv, pop_opsin, pop_pamp] = deal({});
+
+% load in the LED calibration data to convert from Volts to power denisty
+cd(GL_DATPATH)
+cd '../../Calibration files'
+load led_cal.mat % data now stored in 'cal' struct
+
 figure, hold on,
 for i_ex = 1:numel(dat)
-    
-    
-    % Determine which recording channel to analyze
-    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-        CHANNEL = 1;
-    else % all other experiments...
+     
+    % figure out which (if any) channels should be analyzed
+    CHANNEL = info{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites were targeted
+        continue
+    end
+    Nchannels = sum(info{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
         if STIMSITE
             CHANNEL = info{i_ex}.stimSite;
         else
@@ -1459,6 +1599,7 @@ for i_ex = 1:numel(dat)
             end
         end
     end
+    
     
     
     % there could be multiple TFs and pAmps. figure out what the deal is.
@@ -1483,6 +1624,10 @@ for i_ex = 1:numel(dat)
         
         [opsin_raw, fv_raw] = deal(nan(numel(fldnames), 1));
         for i_fld = 1:numel(fldnames)
+            
+            if ~isfield(dat{i_ex}.(fldnames{i_fld}).stats, 'FV_Na')
+                continue
+            end
             
             % get the FV_Na stat
             tmp = dat{i_ex}.(fldnames{i_fld}).stats.FV_Na.(FV_STAT){CHANNEL}(1);
@@ -1514,14 +1659,20 @@ for i_ex = 1:numel(dat)
         opsin_avg = opsin_avg ./ opsin_avg(end);
     end
     
+    % compile the data across experiments
+    pop_fv{i_ex} = fv_avg;
+    pop_opsin{i_ex} = opsin_avg;
+    pop_pamp{i_ex} =  ppval(cal.pp.led_470, pAmps_unique);
+    
+    
     
     switch lower(info{i_ex}.opsin)
         case 'chr2'
-            p = plot(opsin_avg, fv_avg, 'b-o');
+            p = plot(opsin_avg, fv_avg, 'b-o', 'markerfacecolor', 'b');
         case 'chief_cit'
-            p = plot(opsin_avg, fv_avg, 'r-o');
+            p = plot(opsin_avg, fv_avg, 'r-o', 'markerfacecolor', 'r');
         case 'chronos'
-            p = plot(opsin_avg, fv_avg, 'g-o');
+            p = plot(opsin_avg, fv_avg, 'g-o', 'markerfacecolor', 'g');
     end
     
     % axis labels and such
@@ -1533,39 +1684,73 @@ for i_ex = 1:numel(dat)
 end
 
 
-
+% plot the opsin current and FV against light power
+figure
+for i_ex = 1:numel(dat)
+    
+    switch lower(info{i_ex}.opsin)
+        case 'chr2'
+            pltclr = 'b';
+        case 'chief_cit'
+            pltclr = 'r';
+        case 'chronos'
+            pltclr = 'g';
+    end
+    
+    % opsin first
+    subplot(1,2,1), hold on
+    plot(pop_pamp{i_ex}, pop_opsin{i_ex}, '-o', 'markerfacecolor', pltclr, 'color', pltclr);
+    xlabel('Light Power')
+    ylabel('Opsin Curent')
+    
+    
+    % FV second
+    subplot(1,2,2), hold on
+    plot(pop_pamp{i_ex}, pop_fv{i_ex}, '-o', 'markerfacecolor', pltclr, 'color', pltclr);
+    xlabel('Light Power')
+    ylabel('FV amplitude')
+end
 
 
 
 
 %%  SHAPE OF THE FIRST PULSE RESPONSE
 
+% only do this for the main experiment (TF and FV)
+assert(any(strcmpi(EXPTTYPE, {'main expt', 'Intracellular', '4-AP'})), 'ERROR: this anaysis is only for the TF and FV experiments');
+
 
 STIMSITE = true;
 
-conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+switch EXPTTYPE
+    case 'Intracellular'
+        conds = {'nbqx_apv_ttx', 'FV_Na'};
+    case '4-AP'
+        conds = {'ttx_cd2', 'ttx_cd2_4AP'};
+    otherwise
+        conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+end
 chr2_examp = {[] []};
-ochief_examp = {[] []};
+chief_cit_examp = {[] []};
+chief_flx_examp = {[] []};
 chronos_examp = {[] []};
+Nexpts = size(in,1);
+
 for i_ex = 1:Nexpts
     
-    
-    % skip cases where the led was not targeted to either of the recording
-    % sites
-    if isnan(info{i_ex}.stimSite)
+    % figure out which (if any) channels should be analyzed
+    CHANNEL = info{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites was targeted
         continue
     end
-    
-    
-    % skip cases were TTX was not used
-    
-    
-    % Determine which recording channel to analyze
-    mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-    siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-    if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-        CHANNEL = 1;
-    else % all other experiments...
+    Nchannels = sum(info{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
         if STIMSITE
             CHANNEL = info{i_ex}.stimSite;
         else
@@ -1578,10 +1763,15 @@ for i_ex = 1:Nexpts
     end
     
     
+    % run the analysis
     for i_cond = 1:numel(conds)
         
         pTypes = fieldnames(dat{i_ex});
         Ntfs = numel(pTypes);
+        
+        if ~isfield(info{i_ex}.(pTypes{1}), conds{i_cond})
+            continue
+        end
         
         sampRate = info{i_ex}.(pTypes{1}).(conds{i_cond}).sampRate;
         prePulseSamps = ceil(prePulseTime .* sampRate); % samples prior to pulse onset
@@ -1591,21 +1781,21 @@ for i_ex = 1:Nexpts
         firstPulse = nan(Ntfs, prePulseSamps+postPulseSamps+1);
         for i_tf = 1:Ntfs
             
-            tmp_dat = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
-            switch conds{i_cond}
-                case 'FV_Na'
-                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
-                    normFact = normFact * -1;
-                case 'nbqx_apv_cd2_ttx'
-                    normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
+            if any(strcmpi(pTypes{i_tf}, {'tf100', 'tf60'}))
+                continue
             end
+            
+            tmp_dat = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){CHANNEL}(1,:);
+            normFact = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{CHANNEL}(1);
+            normFact = min(tmp_dat);
+            normFact = normFact * -1;
             
             firstPulse(i_tf,:) = tmp_dat ./ normFact;
             
         end
         
         % take the average, and normalize
-        firstPulse = mean(firstPulse,1);
+        firstPulse = nanmean(firstPulse,1);
         
         
         % store the first pulse according to the opsin type, but only
@@ -1627,7 +1817,9 @@ for i_ex = 1:Nexpts
         
         switch lower(info{i_ex}.opsin)
             case 'chief_cit'
-                ochief_examp{i_cond} = cat(1, ochief_examp{i_cond}, firstPulse);
+                chief_cit_examp{i_cond} = cat(1, chief_cit_examp{i_cond}, firstPulse);
+            case 'chief_flx'
+                chief_flx_examp{i_cond} = cat(1, chief_flx_examp{i_cond}, firstPulse);
             case 'chr2'
                 chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
             case 'chronos'
@@ -1642,15 +1834,17 @@ end % expts
 for i_cond = 1:numel(conds)
     
     % the example first
-    tt = (0:size(ochief_examp{i_cond},2)-1)./20e3;
+    tt = (0:size(chief_cit_examp{i_cond},2)-1)./20e3;
     tt = tt-tt(prePulseSamps);
     tt = tt.*1000;
     
     figure, hold on,
-    plot(tt, ochief_examp{i_cond}', 'm');
-    plot(tt, chr2_examp{i_cond}', 'c');
+    plot(tt, chief_cit_examp{i_cond}', 'r');
+    plot(tt, chief_flx_examp{i_cond}', 'm');
+    plot(tt, chr2_examp{i_cond}', 'b');
     plot(tt, chronos_examp{i_cond}', 'g');
-    plot(tt, mean(ochief_examp{i_cond}, 1), 'r', 'linewidth', 4);
+    plot(tt, mean(chief_cit_examp{i_cond}, 1), 'r', 'linewidth', 4);
+    plot(tt, mean(chief_flx_examp{i_cond}, 1), 'm', 'linewidth', 4);
     plot(tt, mean(chr2_examp{i_cond}, 1), 'b', 'linewidth', 4);
     plot(tt, mean(chronos_examp{i_cond}, 1), 'g', 'linewidth', 4);
     xlabel('time (msec)')
@@ -1667,7 +1861,8 @@ for i_cond = 1:numel(conds)
     
     if strcmpi(conds{i_cond}, 'FV_Na')
         figure, hold on,
-        plot(tt, cumsum(-mean(ochief_examp{i_cond}, 1)), 'r', 'linewidth', 4);
+        plot(tt, cumsum(-mean(chief_cit_examp{i_cond}, 1)), 'r', 'linewidth', 4);
+        plot(tt, cumsum(-mean(chief_flx_examp{i_cond}, 1)), 'm', 'linewidth', 4);
         plot(tt, cumsum(-mean(chr2_examp{i_cond}, 1)), 'b', 'linewidth', 4);
         plot(tt, cumsum(-mean(chronos_examp{i_cond}, 1)), 'g', 'linewidth', 4);
         xlabel('time (msec)')
@@ -1688,21 +1883,20 @@ Npulses = 7;
 
 clc; close all
 
-% only do this for the main experiment (TF and FV)
-%assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
-
 % prepare the population structure
 opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
 tfnames = {'tf10', 'tf20', 'tf40', 'tf60', 'tf100'};
 switch EXPTTYPE
     case '4-AP'
-        drugconds = {'ttx_cd2', 'ttx_cd2_4AP200' 'ttx_cd2_4AP800', 'ttx_cd2_4AP1800'};
+        drugconds = {'ttx_cd2', 'ttx_cd2_4AP'};
     case 'Baclofen'
         drugconds = {'ttx_cd2', 'ttx_cd2_bac10'};
     case 'Intracellular'
         drugconds = {'nbqx_apv_ttx'};
-    case 'otherwise'
+    case 'main expt'
         drugconds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
+    otherwise
+        error('This analysis is not supported for the specified EXPTTYPE')
 end
 
 for i_opsin = 1:numel(opsinTypes)
@@ -1723,13 +1917,19 @@ for a_ex = 1:Nexpt
             continue
         end
         
-        % determine which channel to analyze
-        % Determine which recording channel to analyze
-        mouseMatch = strcmpi(in{a_ex,1}, EXCEPTIONS(:,1));
-        siteMatch = in{a_ex,2} == vertcat(EXCEPTIONS{:,2});
-        if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-            CHANNEL = 1;
-        else % all other experiments...
+        % figure out which (if any) channels should be analyzed
+        CHANNEL = info{a_ex}.stimSite;
+        if isnan(CHANNEL) % cases where neither recording sites was targeted
+            continue
+        end
+        Nchannels = sum(info{a_ex}.ignoreChans);
+        if Nchannels == 1
+            if ~STIMSITE
+                continue % no other stim site to show...
+            elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+                CHANNEL = 1;
+            end
+        else
             if STIMSITE
                 CHANNEL = info{a_ex}.stimSite;
             else
@@ -1740,6 +1940,7 @@ for a_ex = 1:Nexpt
                 end
             end
         end
+        
         
         % iterate over the pharmacology conditions
         for a_drug = 1:numel(drugconds)
@@ -1753,12 +1954,18 @@ for a_ex = 1:Nexpt
             % pull out the relevant data, normalize, and add to the population
             % structure
             snips = dat{a_ex}.(tmp_tfcond).snips.(tmp_drugcond){CHANNEL};
-            troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
-            troughidx_row = 1:size(snips,1);
-            troughidx = sub2ind(size(snips), troughidx_row(:), troughidx_col(:));
-            normvals = snips(troughidx);
-            normvals = abs(normvals); % maintains the sign of the opsin current
-            normsnips = bsxfun(@rdivide, snips, normvals);
+            switch drugconds{a_drug}
+                case 'nbqx_apv_cd2_ttx'
+                    troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
+                    troughidx_row = 1:size(snips,1);
+                    troughidx = sub2ind(size(snips), troughidx_row(:), troughidx_col(:));
+                    normvals = snips(troughidx);
+                    normvals = abs(normvals); % maintains the sign of the opsin current
+                    normsnips = bsxfun(@rdivide, snips, normvals);
+                case 'FV_Na'
+                    normvals = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).pk2tr{CHANNEL};
+                    normsnips = bsxfun(@rdivide, snips, normvals(:));
+            end
             
             
             % correct for differences in the sampling rate
@@ -1847,7 +2054,8 @@ for a_opsin = 1:numel(opsinTypes)
                 
                 % plot the SEM
                 if PLOTERR
-                    shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2})
+                    transparent = true;
+                    shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2}, transparent)
                 else
                     plot(tt, xbar, '-', 'color', pltclr, 'linewidth', 2);
                 end
@@ -1864,11 +2072,12 @@ end
 % choose a stimulation location:
 STIMSITE = true;
 PLOTERR = false;
+NORMALIZE = false;
 
 clc; close all
 
 % only do this for the main experiment (TF and FV)
-correctExpt = any(strcmpi(EXPTTYPE, {'main expt', '4-AP', 'baclofen'}));
+correctExpt = any(strcmpi(EXPTTYPE, {'main expt', '4-AP', 'baclofen', 'intracellular'}));
 assert(correctExpt, 'ERROR: This analysis is for a different type of experiment');
 
 % prepare the population structure
@@ -1887,12 +2096,8 @@ for a_ex = 1:Nexpt
     opsin = lower(info{a_ex}.opsin);
     
     pTypes = fieldnames(dat{a_ex});
+    
     for a_ptype = 1:numel(pTypes)
-        % this pulse type might not exist. Detect these cases and continue
-        if ~isfield(dat{a_ex}, pTypes{a_ptype})
-            continue
-        end
-        
         
         % find the TTX pharm condition
         conds = fieldnames(dat{a_ex}.(pTypes{a_ptype}).snips);
@@ -1906,13 +2111,20 @@ for a_ex = 1:Nexpt
         ttxidx = find(ttxidx);
         for i_ttx = ttxidx'; % so that I can compare multiple K+ drugs
             
-            % determine which channel to analyze
-            % Determine which recording channel to analyze
-            mouseMatch = strcmpi(in{a_ex,1}, EXCEPTIONS(:,1));
-            siteMatch = in{a_ex,2} == vertcat(EXCEPTIONS{:,2});
-            if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-                CHANNEL = 1;
-            else % all other experiments...
+            
+            % figure out which (if any) channels should be analyzed
+            CHANNEL = info{a_ex}.stimSite;
+            if isnan(CHANNEL) % cases where neither recording sites was targeted
+                continue
+            end
+            Nchannels = sum(info{a_ex}.ignoreChans);
+            if Nchannels == 1
+                if ~STIMSITE
+                    continue % no other stim site to show...
+                elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+                    CHANNEL = 1;
+                end
+            else
                 if STIMSITE
                     CHANNEL = info{a_ex}.stimSite;
                 else
@@ -1927,23 +2139,24 @@ for a_ex = 1:Nexpt
             % pull out the relevant data, normalize, and add to the population
             % structure
             raw = dat{a_ex}.(pTypes{a_ptype}).(conds{i_ttx})(:,CHANNEL);
-            pulse1_snip = dat{a_ex}.(pTypes{a_ptype}).snips.(conds{i_ttx}){CHANNEL}(1,:);
-            troughidx = dat{a_ex}.(pTypes{a_ptype}).stats.(conds{i_ttx}).trpk_inds{CHANNEL}(1,1);
-            normval = pulse1_snip(troughidx);
-            normval = abs(normval); % this preserves the sign of the original signal
-            raw = raw ./ normval;
+            if NORMALIZE
+                pulse1_snip = dat{a_ex}.(pTypes{a_ptype}).snips.(conds{i_ttx}){CHANNEL}(1,:);
+                troughidx = dat{a_ex}.(pTypes{a_ptype}).stats.(conds{i_ttx}).trpk_inds{CHANNEL}(1,1);
+                normval = pulse1_snip(troughidx);
+                normval = abs(normval); % this preserves the sign of the original signal
+                raw = raw ./ normval;
+            end
             
             % figure out how many pulses there were, cut off everything past
             % the 7th pulse. If not 7 pulses, move along
+            sampRate = info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).sampRate;
             pulseOnIdx = find(info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).pulseOn_idx);
+            ipi_samps = unique(round(diff(pulseOnIdx)));
             pulseOnIdx = pulseOnIdx(1);
             pulseOffIdx = find(info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).pulseOff_idx);
             if numel(pulseOffIdx)<7; continue; end
             pulseOffIdx = pulseOffIdx(7);
-            sampRate = info{a_ex}.(pTypes{a_ptype}).(conds{i_ttx}).sampRate;
-            preTimeSec = 0.030;
-            preTimeSamps = ceil(preTimeSec .* sampRate);
-            raw = raw(pulseOnIdx - preTimeSamps : pulseOffIdx+preTimeSamps);
+            raw = raw(pulseOnIdx - ipi_samps : pulseOffIdx+ipi_samps-5);
             
             % correct for differences in the sampling rate
             correctSR = sampRate == 20e3;
@@ -1979,44 +2192,6 @@ for a_ex = 1:Nexpt
     end
     
 end
-% 
-% cmap = colormap('parula'); close;%also opens a figure;
-% inds = round(linspace(1, 50, numel(tfnames)));
-% cmap = cmap(inds,:);
-% for a_opsin = 1:numel(opsinTypes)
-%     figure, hold on,
-%     
-%     
-%     for a_tf = 1:numel(tfnames)
-%         
-%         if isempty(avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw)
-%             continue
-%         end
-%         
-%         drugconds = fieldnames(avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw);
-%         tfclr = cmap(a_tf,:);
-%         drugcolors = repmat(tfclr, numel(drugconds), 1);
-%         drugcolors = bsxfun(@times, drugcolors, linspace(1, 0.5, numel(drugconds))');
-%         for a_drug = 1:numel(drugconds)
-%             
-%             tmpdat = avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw.(drugconds{a_drug});
-%             if isempty(tmpdat); continue; end
-%             
-%             tmpmean = nanmean(tmpdat, 1);
-%             tmpsem = nanstd(tmpdat, [], 1) ./ sqrt(size(tmpdat,1));
-%             Nsamps = numel(tmpmean);
-%             preTimeSamps = ceil(preTimeSec .* 20e3);
-%             tt = ([0:Nsamps-1]-preTimeSamps) ./ 20e3;
-%             if PLOTERR
-%                 shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', drugcolors(a_drug,:), 'linewidth', 2})
-%             else
-%                 plot(tt, tmpmean, '-', 'color',drugcolors(a_drug,:), 'linewidth', 2)
-%             end
-%         end
-%         
-%     end
-% end
-
 
 
 for a_tf = 1:numel(tfnames)
@@ -2054,13 +2229,17 @@ for a_tf = 1:numel(tfnames)
             tmpmean = nanmean(tmpdat, 1);
             tmpsem = nanstd(tmpdat, [], 1) ./ sqrt(size(tmpdat,1));
             Nsamps = numel(tmpmean);
-            preTimeSamps = ceil(preTimeSec .* 20e3);
-            tt = ([0:Nsamps-1]-preTimeSamps) ./ 20e3;
+            tt = ([0:Nsamps-1]-ipi_samps) ./ 20e3;
             
             if PLOTERR
-                shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', pltclr(a_drug,:), 'linewidth', 2})
+                shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', pltclr(a_drug,:), 'linewidth', 2}, 1)
             else
                 plot(tt, tmpmean, '-', 'color', pltclr(a_drug,:), 'linewidth', 2)
+                
+%                 set(gca, 'colororder', colormap(parula(size(tmpdat,1))));
+%                 plot(tt, tmpdat', 'linewidth', 2);
+%                 
+                
             end
             
             tmp = [opsinTypes{a_opsin}, ': ', drugconds{a_drug}];
@@ -2168,7 +2347,12 @@ for i_ex = 1:Nexpts;
         
         % store the data, grouped by unique conditions. First, I need to figure
         % out the appropriate field name for each condition
-        tmpWF = ax.dat(:, ax.idx.LED_470, :);
+        ledChIdx = strcmpi('LED_470', ax.head.recChNames);
+        if ~any(ledChIdx)
+            ledChIdx = strcmpi('Laser', ax.head.recChNames);
+        end
+        
+        tmpWF = ax.dat(:, ledChIdx, :);
         sampRate = ax.head.sampRate;
         tdict = outerleave(tmpWF, sampRate);
         
@@ -2195,14 +2379,12 @@ for i_ex = 1:Nexpts;
             if ~channels{l_expt, i_ch}
                 continue
             else
-                
-                % strange cases
-                mouseMatch = strcmpi(in{i_ex,1}, EXCEPTIONS(:,1));
-                siteMatch = in{i_ex,2} == vertcat(EXCEPTIONS{:,2});
-                if any(mouseMatch & siteMatch)
-                    %  HS2 is the data channel, but since HS1 wasn't
-                    %  used, the data are in the first column
-                    if i_ch == 1; error('something went wrong'); end
+                % occasionally CH1 is disabled, and CH2 occupies the
+                % 1st and only column, adjust i_ch to account for these
+                % cases
+                recChs = cellfun(@(x) ~isempty(regexpi(x, '_Vm')), ax.head.recChNames);
+                Nchannels = sum(recChs);
+                if (Nchannels == 1) && (i_ch == 2)
                     i_ch = 1;
                 end
             end
@@ -2216,7 +2398,7 @@ for i_ex = 1:Nexpts;
             correctHS = strncmpi(sprintf('HS%d_', whichChan), ax.head.recChNames, 3);
             datChIdx = correctUnits & correctHS;
             assert(sum(datChIdx)==1, 'ERROR: incorrect channel selection')
-            ledChIdx = strcmpi('LED_470', ax.head.recChNames);
+
             
             %
             % Extract the first pulse from all the sweeps, do the running
@@ -2266,7 +2448,7 @@ for i_ex = 1:Nexpts;
                 
                 % cacluate the peak and trough idx
                 tt = ([0:numel(tmp)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
-                [troughidx, peakidx]  = anlyMod_getWFepochs(tmp, tt, conds{i_cond}, pwidth, photoDelay);
+                [troughidx, peakidx]  = anlyMod_getWFepochs(tmp, tt, conds{i_cond}, pwidth, photoDelay, 'inward');
                 
                 % add a few points on either side of the true trough/peak
                 trough_window = troughidx-4: min([troughidx+4, numel(tmp)]);
@@ -2357,26 +2539,26 @@ for i_opsin = 1:numel(opsins)
         idx = l_opsin(i_ex);
         
         % Determine which recording channel to analyze
-        mouseMatch = strcmpi(smoothStats{idx}.mouseName, EXCEPTIONS(:,1));
-        siteMatch = smoothStats{idx}.siteNum == vertcat(EXCEPTIONS{:,2});
-        if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-            CHANNEL = 1;
-        else % all other experiments...
-            if STIMSITE
-                CHANNEL = smoothStats{idx}.stimSite;
-            else
-                if smoothStats{idx}.stimSite == 1
-                    CHANNEL = 2;
-                elseif smoothStats{idx}.stimSite == 2
-                    CHANNEL = 1;
-                end
+        if STIMSITE
+            CHANNEL = smoothStats{idx}.stimSite;
+        else
+            if smoothStats{idx}.stimSite == 1
+                CHANNEL = 2;
+            elseif smoothStats{idx}.stimSite == 2
+                CHANNEL = 1;
             end
         end
-        
+
         % plot each of the drug conditions
         for i_cond = 1:numel(conds)
             if ~isfield(smoothStats{idx}, conds{i_cond})
                 continue
+            end
+            
+            % fix the CHANNEL in the cases where HS1 was not recorded from
+            if CHANNEL == 2 && numel(smoothStats{idx}.(conds{i_cond}).trough)==1
+                CHANNEL = 1;
+                disp('here')
             end
             
             tmp = smoothStats{idx}.(conds{i_cond}).trough{CHANNEL};
@@ -2460,19 +2642,14 @@ for i_opsin = 1:numel(opsins)
         idx = l_opsin(i_ex);
         
         % Determine which recording channel to analyze
-        mouseMatch = strcmpi(smoothStats{idx}.mouseName, EXCEPTIONS(:,1));
-        siteMatch = smoothStats{idx}.siteNum == vertcat(EXCEPTIONS{:,2});
-        if any(mouseMatch & siteMatch) % a strange exception that bucks the rules.
-            CHANNEL = 1;
-        else % all other experiments...
-            if STIMSITE
-                CHANNEL = smoothStats{idx}.stimSite;
-            else
-                if smoothStats{idx}.stimSite == 1
-                    CHANNEL = 2;
-                elseif smoothStats{idx}.stimSite == 2
-                    CHANNEL = 1;
-                end
+        % Determine which recording channel to analyze
+        if STIMSITE
+            CHANNEL = smoothStats{idx}.stimSite;
+        else
+            if smoothStats{idx}.stimSite == 1
+                CHANNEL = 2;
+            elseif smoothStats{idx}.stimSite == 2
+                CHANNEL = 1;
             end
         end
         
@@ -2480,6 +2657,12 @@ for i_opsin = 1:numel(opsins)
         for i_cond = 1:Nconds
             if ~isfield(smoothStats{idx}, conds{i_cond})
                 continue
+            end
+            
+            % fix the CHANNEL in the cases where HS1 was not recorded from
+            if CHANNEL == 2 && numel(smoothStats{idx}.(conds{i_cond}).trough)==1
+                CHANNEL = 1;
+                disp('here')
             end
             
             s = subplot(Nexpts, Nconds, (Nconds.*(i_ex-1) + i_cond) );
@@ -2493,6 +2676,7 @@ for i_opsin = 1:numel(opsins)
                 mytitle(conds{i_cond})
             end
             drawnow
+            ylabel(smoothStats{idx}.mouseName)
             
         end
     end
@@ -2784,65 +2968,6 @@ load('intra.mat');
 
 opsinTypes = {'chief_cit', 'chief_flx', 'chronos'};
 
-% run the analysis once just to figure out what the normalization factors
-% will be
-for i_opsin = 1:numel(opsinTypes)
-    
-    lfp_tmp = lfp.(opsinTypes{i_opsin}).pnp1.nbqx_apv_cd2_ttx.diffval;
-    lfp_tfs = TFS_to_analyze;
-    lfp_xbar = [];
-    for i_tf = 1:numel(lfp_tfs)
-        tf_idx = lfp_tmp{1} == lfp_tfs(i_tf);
-        l_7pulses = cellfun(@(x) size(x,2)>=7, lfp_tmp{3});
-        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
-        
-        % only take the first 7 pulses
-        trim_dat = cellfun(@(x) x(:,1:7), lfp_tmp{3}(tf_idx), 'uniformoutput', false);
-        cat_dat = vertcat(trim_dat{:});
-        lfp_xbar = cat(1, lfp_xbar, nanmean(cat_dat, 1));
-    end
-    
-    % normalize the LFP data to fit the full range from 1 to zero.
-    diff_from_1 = 1-lfp_xbar;
-    lfp_norm_val = max(diff_from_1(end,:));
-    
-    
-    intra_tmp = intra.(opsinTypes{i_opsin}).pnp1.nbqx_apv_ttx.diffval;
-    intra_tfs = unique(intra_tmp{1});
-    intra_tfs = intersect(lfp_tfs, intra_tfs); % only take the ones that match the LFP tfs
-    intra_xbar = [];
-    for i_tf = 1:numel(intra_tfs)
-        
-        tf_idx = intra_tmp{1} == intra_tfs(i_tf);
-        l_7pulses = cellfun(@(x) size(x,2)>=7, intra_tmp{3});
-        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
-        
-        % only take the first 7 pulses
-        trim_dat = cellfun(@(x) x(:,1:7), intra_tmp{3}(tf_idx), 'uniformoutput', false);
-        cat_dat = vertcat(trim_dat{:});
-        intra_xbar = cat(1, intra_xbar, nanmean(cat_dat, 1));
-    end
-    
-    % normalize the intracellular data to fit the full range from 1 to zero
-    diff_from_1 = 1-intra_xbar;
-    norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
-    intra_norm = 1-norm_diffs;
-        
-    figure; cmap = colormap('copper'); close
-    cidx = round(linspace(1, size(cmap,1), 5));
-    cmap = cmap(cidx,:);
-    figure
-    hold on,
-    for i_tf = 1:size(lfp_norm,1)
-        plot(lfp_norm(i_tf, :), '-', 'color', cmap(i_tf,:), 'linewidth', 2)
-    end
-    for i_tf = 1:size(intra_norm, 1);
-        plot(intra_norm(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
-    end
-    
-end
-
-
 for i_opsin = 1:numel(opsinTypes)
     
     lfp_tmp = lfp.(opsinTypes{i_opsin}).pnp1.nbqx_apv_cd2_ttx.diffval;
@@ -2886,18 +3011,17 @@ for i_opsin = 1:numel(opsinTypes)
     norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
     intra_norm = 1-norm_diffs;
         
-    figure; cmap = colormap('copper'); close
-    cidx = round(linspace(1, size(cmap,1), 5));
-    cmap = cmap(cidx,:);
-    figure
+
+    cmap = copper(5);
+    f=figure;
+    f.Name = opsinTypes{i_opsin};
     hold on,
     for i_tf = 1:size(lfp_norm,1)
         plot(lfp_norm(i_tf, :), '-', 'color', cmap(i_tf,:), 'linewidth', 2)
-    end
-    for i_tf = 1:size(intra_norm, 1);
         plot(intra_norm(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
     end
-    
+    legend('LFP', 'Intracellular', 'Location', 'SouthWest')
+    legend boxoff
 end
 
 
@@ -2948,16 +3072,15 @@ for a_ex = 1:nexpts
         if ~info{a_ex}.ignoreChans(CHANNEL)
             continue
         else
-            % strange cases
-            mouseMatch = strcmpi(in{a_ex,1}, EXCEPTIONS(:,1));
-            siteMatch = in{a_ex,2} == vertcat(EXCEPTIONS{:,2});
-            if any(mouseMatch & siteMatch)
-                % HS2 is the data channel, but since HS1 wasn't
-                % used, the data are in the first column
-                if CHANNEL == 1; error('something went wrong'); end
+             % occasionally CH1 is disabled, and CH2 occupies the
+            % 1st and only column, adjust i_ch to account for these
+            % cases
+            Nchannels = sum(info{a_ex}.ignoreChans);
+            if (Nchannels == 1) && (CHANNEL == 2)
                 CHANNEL = 1;
             end
         end
+        
         noise = dat{a_ex}.(fields{a_field}).stats.FV_Na.bkgnd_sigma{CHANNEL};
         signal = dat{a_ex}.(fields{a_field}).stats.FV_Na.diffval{CHANNEL}(1);
         SNR = cat(1, SNR, abs(signal./noise));
