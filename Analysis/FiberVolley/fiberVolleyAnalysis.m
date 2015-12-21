@@ -216,7 +216,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
                 case 'E-stim'
                     lp_freq = 4000;
                 otherwise
-                    lp_freq = 4000;
+                    lp_freq = 1500;
             end
             filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
