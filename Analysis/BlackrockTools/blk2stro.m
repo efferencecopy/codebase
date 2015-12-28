@@ -3,7 +3,7 @@ function stro = blk2stro(varargin)
     % syntax for input arguments:
     % stro = blk2stro(pathToNEV, 'NSx', pathToNSx, 'trialdef', trialDefStructure)
 
-    % trial def could be something like: ns4::trl_start
+    % 
     
     
     
@@ -20,20 +20,10 @@ function stro = blk2stro(varargin)
     
     
     % import the nev. Add trial events, and spike times
-    nev = my_openNEV(inargs.nev, 'read', 'nosave', 'nomat');
+    nev = openNEV(inargs.nev, 'read', 'nosave', 'nomat');
     nev = forceDouble(nev);
     stro.sum.nev.MetaTags = nev.MetaTags;
     
-    
-    % build the 'trial' field. Include the trials start/stop times and any
-    % other event timing that was provided during experiment
-    [stro.trial, stro.sum.trialFields] = parseTrialEvents(nev, inargs.trialdef);
-    
-    
-    % add the spike times (from the nev file).
-    stro = addSpikeTimes(nev, stro);
-    clear nev % unnecessary now.
-
     % load in the nsx data
     for i_nsx = 1:6
 
@@ -46,12 +36,20 @@ function stro = blk2stro(varargin)
         nsx{i_nsx} = openNSx(fpath, 'read', 'precision', 'double');
         nsx{i_nsx} = forceDouble(nsx{i_nsx});
     end
+    
+    
+    % build the 'trial' field. Include the trials start/stop times and any
+    % other event timing that was provided during experiment
+    [stro.trial, stro.sum.trialFields] = parseTrialEvents_byNEV(nev, inargs.trialdef);
+    
+    
+    % add the spike times to the .ras array (from the nev file).
+    stro = addSpikeTimes(nev, stro);
+    clear nev % unnecessary now.
+    
 
-
-    % add the raster data (from the nsx files)
+    % add the analog/continuous data to the .ras array (from the nsx files)
     stro = addRasterData(nsx, stro);
-    
-    
     
     % build the 'sum' field, one for each NSx version
     for i_ns = 1:numel(nsx)
@@ -98,8 +96,15 @@ function p = parseInputs(optionalInputs)
     p.parse(optionalInputs{:});
 end
 
-function [trial, trialFields] = parseTrialEvents(nev, trialdef)
+function [trial, trialFields] = parseTrialEvents_byNEV(nev, trialdef)
 
+    % this function will fill out the stro.trial array with event times,
+    % and relies on event times being defined in the NEV file (which is a
+    % thresholding of the analog signals for things like 'stimOn' or
+    % 'trialStart'. If the NEV file is not reliable or present, then use
+    % 'parseTrialEvents_byNSX', but that will require digitizing the analog
+    % experimental control signals (stimOn, trialStart etc...)
+    
     timeStamps = nev.Data.Spikes.TimeStamp;
     eventsByEtrode = nev.Data.Spikes.Electrode;
     sampRate_ev = nev.MetaTags.SampleRes;
@@ -277,6 +282,7 @@ function stro = addRasterData(nsx, stro)
         stro.sum.trialFields = cat(2, stro.sum.trialFields, trl_field_name);
         col = numel(stro.sum.trialFields);
         assert(size(stro.trial,2)==(col-1), 'ERROR: stro.trial has unexpected dimensions')
+        keyboard
         assert(size(stro.trial,1)==(numel(tstart_nsx_sec)), 'ERROR: wrong number of tstarts for nsx')
         stro.trial(:,col) = tstart_nsx_sec(:);
 
