@@ -2,15 +2,12 @@ function stro = blk2stro(varargin)
 
     % syntax for input arguments:
     % stro = blk2stro(pathToNEV, 'NSx', pathToNSx, 'trialdef', trialDefStructure)
-
-    % 
-    
     
     
     inargs = parseInputs(varargin);
     inargs = inargs.Results;
     assert(~isempty(inargs.trialdef), 'ERROR: trial definitions must be defined')
-
+    
     
     %initialize the structure
     stro.sum = [];
@@ -19,10 +16,11 @@ function stro = blk2stro(varargin)
     stro.other = {};
     
     
-    % import the nev. Add trial events, and spike times
+    % import the nev.
     nev = openNEV(inargs.nev, 'read', 'nosave', 'nomat');
     nev = forceDouble(nev);
     stro.sum.nev.MetaTags = nev.MetaTags;
+    
     
     % load in the nsx data
     for i_nsx = 1:6
@@ -38,18 +36,26 @@ function stro = blk2stro(varargin)
     end
     
     
-    % build the 'trial' field. Include the trials start/stop times and any
-    % other event timing that was provided during experiment
-    [stro.trial, stro.sum.trialFields] = parseTrialEvents_byNEV(nev, inargs.trialdef);
-    
-    
-    % add the spike times to the .ras array (from the nev file).
-    stro = addSpikeTimes(nev, stro);
-    clear nev % unnecessary now.
-    
-
-    % add the analog/continuous data to the .ras array (from the nsx files)
-    stro = addRasterData(nsx, stro);
+    % build the .Trial and .Ras fields
+    switch inargs.trialdef.method
+        case 'nev'
+            
+            % build the 'trial' field.
+            [stro.trial, stro.sum.trialFields] = parseTrialEvents_byNEV(nev, inargs.trialdef);
+            
+            % add the spike times to the .ras array (from the nev file).
+            stro = addSpikeTimes(nev, stro);
+            clear nev % unnecessary now.
+            
+            % add the analog/continuous data to the .ras array (from the nsx files)
+            stro = addRasterData(nsx, stro);
+            
+        case 'nsx'
+            
+            
+        otherwise
+            error('unknown trial definition method')
+    end
     
     % build the 'sum' field, one for each NSx version
     for i_ns = 1:numel(nsx)
@@ -282,7 +288,6 @@ function stro = addRasterData(nsx, stro)
         stro.sum.trialFields = cat(2, stro.sum.trialFields, trl_field_name);
         col = numel(stro.sum.trialFields);
         assert(size(stro.trial,2)==(col-1), 'ERROR: stro.trial has unexpected dimensions')
-        keyboard
         assert(size(stro.trial,1)==(numel(tstart_nsx_sec)), 'ERROR: wrong number of tstarts for nsx')
         stro.trial(:,col) = tstart_nsx_sec(:);
 

@@ -20,7 +20,7 @@ classdef blkobj
             if ~exist('fileName', 'var') || isempty(fileName) % no file name supplied
                 currentDir = pwd;
                 cd(GL_DATPATH)
-                [fileName,fpath] = uigetfile({'*.nev', '*.ns1', '*.ns2', '*.ns3', '*.ns4', '*.ns5', '*.ns6'});
+                [fileName,fpath] = uigetfile({'*.nev'; '*.ns1'; '*.ns2'; '*.ns3'; '*.ns4'; '*.ns5'; '*.ns6'});
                 fpath = [fpath,fileName];
                 cd(currentDir);
                 
