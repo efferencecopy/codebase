@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 9;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -111,12 +111,12 @@ raw(2:end, idx_fname) = tmp_fnames;
 Nexpts = size(in,1);
 dat = {};
 
-pool = gcp('nocreate');
-if isempty(pool)
-    pool = parpool(min([32, Nexpts]));
-end
-
-parfor i_ex = 1:Nexpts;
+% pool = gcp('nocreate');
+% if isempty(pool)
+%     pool = parpool(min([32, Nexpts]));
+% end
+% 
+for i_ex = 1:Nexpts;
     
     % figure out what rows in the work book to pay attention to
     l_mouse = cellfun(@(x) ~isempty(x), regexp(raw(:,1), in{i_ex,1}));
@@ -886,9 +886,9 @@ switch EXPTTYPE
     case 'Intracellular'
         conds = {'nbqx_apv_ttx'};
         opsinTypes = {'chief_cit', 'chronos', 'chief_flx'};
-    case 'e-stim'
+    case 'E-stim'
         conds = {'Fv_Na'};
-        opsinTypes = {'e_stim'};
+        opsinTypes = {'estim'};
     otherwise
         opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
