@@ -4,8 +4,8 @@ function varargout = openNEV(varargin)
 %
 % Opens an .nev file for reading, returns all file information in a NEV
 % structure. Works with File Spec 2.1 & 2.2 & 2.3.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
-% Use OUTPUT = openNEV(fname, 'read', 'report', 'noparse', 'nowarning', 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+% Use OUTPUT = openNEV(fname, 'noread', 'report', 'noparse', 'nowarning', 
 %                             'nosave', 'nomat', 'uV', 'overwrite').
 % 
 % NOTE: All input arguments are optional. Input arguments may be in any order.
@@ -15,8 +15,8 @@ function varargout = openNEV(varargin)
 %                 file user interface. 
 %                 DEFAULT: Will open Open File UI.
 %
-%   'read':       Will read the spike waveforms if user passes this argument.
-%                 DEFAULT: will not read spike waveform.
+%   'noread':     Will not read the spike waveforms if user passes this argument.
+%                 DEFAULT: will read spike waveform.
 %
 %   'report':     Will show a summary report if user passes this argument.
 %                 DEFAULT: will not show report.
@@ -49,7 +49,7 @@ function varargout = openNEV(varargin)
 %
 %   '8bits':      Indicates that 8 bits on the digital IO port was used
 %                 instead of 16 bits.
-%                 DEFAULT: will assumes that 8 bits of digital IO were used.
+%                 DEFAULT: will assumes that 16 bits of digital IO were used.
 %
 %   't:':         Indicats the time window of the NEV file to be read. For
 %                 example, if t: is set to 2 (i.e. 't:0.6')
@@ -69,7 +69,7 @@ function varargout = openNEV(varargin)
 %
 %   OUTPUT:       Contains the NEV structure.
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   USAGE EXAMPLE: 
 %   
 %   openNEV('report','read');
@@ -79,7 +79,7 @@ function varargout = openNEV(varargin)
 %   parsed. The data needs to be in the proper format (refer below). The 
 %   spike waveforms are in raw units and not in uV.
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   DIGITAL PARAMETERS/MARKERS FORMAT:
 %
 %   In order for this function to parse your experimental parameters they 
@@ -126,22 +126,64 @@ function varargout = openNEV(varargin)
 %   use LabVIEW SendtoCerebus.vi by Kian Torab then there is no need for 
 %   a '*' in the beginning.
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   Kian Torab
-%   ktorab@blackrockmicro.com
+%   kian@blackrockmicro.com
 %   Blackrock Microsystems
-%   
-%   Version 4.4.0.1
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Version History
 %
 % 4.4.0.0:
 %   - Major performance boost in reading NEV files when tracking data is 
 %   stored in the file.
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 4.4.0.2:
+%   - Updated documentation.
+%
+% 4.4.0.3: 5 January 2014
+%   - Fixed the way DayOfWeek is read in MetaTags.
+%   - Fixed 'noread' argument, so when passed, openNEV will not read the
+%   spike waveforms.
+%
+% 4.4.1.0: 25 January 2014
+%   - Fixed a bug that resulted from passing 'read' to openNEV.
+%
+% 4.4.2.0: 28 February 2014
+%   - Fixed bug related to loading data with t:XX:XX argument.
+%
+% 4.4.3.0: 12 June 2014
+%   - Fixed a typo in the help.
+%
+% 4.4.3.1: 13 June 2014
+%   - Updated the version numbers in the help and in the function itself.
+%
+% 5.0.0.0: 02 December 2014
+%   - Fixed a bug where Application name wasn't being read properly.
+%   - Warnings now don't show up in more places when "nowarning" is used.
+%   - Added field FileExt to MetaTags.
+%   - Added 512 synchronized reading capability.
+%   - Fixed the date in NSx.MetaTags.DateTime.
+%
+% 5.1.0.0: 28 March 2015
+%   - Added the ability to read from networked drives in Windows.
+%   - Fixed the DateTime variable in MetaTags.
+%   - Fixed the date in NSx.MetaTags.DateTime (again).
+%   - Fixed a bug related to >512-ch data loading.
+%
+% 5.1.1.0: 1 April 2015
+%   - Fixed a bug with NeuroMotive when spike window is changed from the
+%     original length.
+%
+% 5.1.2.0: June 30 2015
+%   - Fixed a bug regarding the number of packages when 'no read' is used.
+%
+% 5.1.3.0: July 10 2015
+%   - Fixed a bug with NeuroMotive data reading when both objects and
+%     markers were being recorded.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Defining structures
+%% Defining structures
 NEV = struct('MetaTags',[], 'ElectrodesInfo', [], 'Data', []);
 NEV.MetaTags = struct('Subject', [], 'Experimenter', [], 'DateTime', [],...
     'SampleRes',[],'Comment',[],'FileTypeID',[],'Flags',[], 'openNEVver', [], ...
@@ -162,18 +204,20 @@ NEV.Data.PatientTrigger = struct('TimeStamp', [], 'TriggerType', []);
 NEV.Data.Reconfig = struct('TimeStamp', [], 'ChangeType', [], 'CompName', [], 'ConfigChanged', []);
 Flags = struct;
 
-NEV.MetaTags.openNEVver = '4.3.6.0';
-
-% Check for multiple versions of openNEV in path
+%% Check for multiple versions of openNEV in path
 if size(which('openNEV', '-ALL'),1) > 1
     disp('WARNING: There are multiple openNEV functions in the path. Use which openNEV -ALL for more information.');
 end
 
-% Validating input arguments
+%% Validating input arguments
 for i=1:length(varargin)
     switch lower(varargin{i})
         case 'report'
             Flags.Report = varargin{i};
+        case 'noread'
+            Flags.ReadData = varargin{i};
+        case 'nomultinsp'
+            Flags.MultiNSP = varargin{i};
         case 'read'
             Flags.ReadData = varargin{i};
         case 'nosave'
@@ -190,12 +234,15 @@ for i=1:length(varargin)
             Flags.digIOBits = '8bits';
         case 'overwrite'
             Flags.Overwrite = 'overwrite';
+        case 'nooverwrite'
+            Flags.Overwrite = 'nooverwrite';
         otherwise
             temp = varargin{i};
             if length(temp)>3 && ...
                     (strcmpi(temp(3),'\') || ...
                      strcmpi(temp(1),'/') || ...
-                     strcmpi(temp(2),'/'))                
+                     strcmpi(temp(2),'/') || ...
+                     strcmpi(temp(1:2), '\\'))                
                 fileFullPath = varargin{i};
                 if exist(fileFullPath, 'file') ~= 2
                     disp('The file does not exist.');
@@ -212,6 +259,8 @@ for i=1:length(varargin)
                     temp(1) = 0;
                 end
                 readTime = [temp(1), temp(end)];
+                Flags.SaveFile = 'nosave';
+                Flags.NoMAT = 'nomat';
             else
                 if ~isnumeric(varargin{i})
                     disp(['Invalid argument ''' varargin{i} ''' .']);
@@ -228,10 +277,10 @@ for i=1:length(varargin)
     end
 end; clear i;
 
-% Defining and validating variables
+%% Defining and validating variables
 if ~exist('fileFullPath', 'var')
     if exist('getFile.m', 'file') == 2
-        [fileName pathName] = getFile('*.nev', 'Choose a NEV file...');
+        [fileName pathName] = getFile('*.nev;*.nevm', 'Choose a NEV file...');
     else
         [fileName pathName] = uigetfile;
     end
@@ -246,6 +295,15 @@ if ~exist('fileFullPath', 'var')
     end
 end
 
+[~, ~, fileExt] = fileparts(fileFullPath);
+
+%% Loading .x files for multiNSP configuration
+if strcmpi(fileExt(2:4), 'nev') && length(fileExt) == 5
+    fileFullPath(1) = fileFullPath(end);
+    fileFullPath(end) = [];
+end
+
+
 if ~isfield(Flags, 'Report');        Flags.Report = 'noreport'; end
 if ~isfield(Flags, 'WarningStat');   Flags.WarningStat = 'warning'; end;
 if ~isfield(Flags, 'ReadData');      Flags.ReadData = 'read'; end
@@ -254,11 +312,25 @@ if ~isfield(Flags, 'SaveFile');      Flags.SaveFile = 'save'; end;
 if ~isfield(Flags, 'NoMAT');         Flags.NoMAT = 'yesmat'; end;
 if ~isfield(Flags, 'waveformUnits'); Flags.waveformUnits = 'raw'; end;
 if ~isfield(Flags, 'digIOBits');     Flags.digIOBits = '16bits'; end;
-if ~isfield(Flags, 'Overwrite');     Flags.Overwrite = 'noOverwrite'; end;
+if ~isfield(Flags, 'Overwrite');     Flags.Overwrite = 'nooverwrite'; end;
+if ~isfield(Flags, 'MultiNSP');      Flags.MultiNSP = 'multinsp'; end;
 if strcmpi(Flags.Report, 'report')
     disp(['openNEV ' NEV.MetaTags.openNEVver]);
 end
-%  Validating existance of parseCommand
+
+syncShift = 0;
+
+% Check to see if 512 setup and calculate offset
+if strcmpi(Flags.MultiNSP, 'multinsp')
+    fiveTwelveFlag = regexp(fileFullPath, '-i[0123]-');
+    if ~isempty(fiveTwelveFlag)
+        syncShift = multiNSPSync(fileFullPath);
+    else
+        Flags.MultiNSP = 'no';
+    end
+end
+
+%%  Validating existance of parseCommand
 if strcmpi(Flags.ParseData, 'parse') 
     if exist('parseCommand.m', 'file') ~= 2
         disp('This version of openNEV requires function parseCommand.m to be placed in path.');
@@ -273,11 +345,11 @@ end
 tic;
 matPath = [fileFullPath(1:end-4) '.mat'];
 
-% Check for a MAT file and load that instead of NEV
-if exist(matPath, 'file') == 2 && strcmpi(Flags.NoMAT, 'yesmat')
+%% Check for a MAT file and load that instead of NEV
+if exist(matPath, 'file') == 2 && strcmpi(Flags.NoMAT, 'yesmat') && strcmpi(Flags.WarningStat, 'warning')
     disp('MAT file corresponding to selected NEV file already exists. Loading MAT instead...');
     load(matPath);
-    if isempty(NEV.Data.Spikes.Waveform) && strcmpi(Flags.ReadData, 'read')
+    if isempty(NEV.Data.Spikes.Waveform) && strcmpi(Flags.ReadData, 'read') && strcmpi(Flags.WarningStat, 'warning')
         disp('The MAT file does not contain waveforms. Loading NEV instead...');
     else
         if ~nargout
@@ -290,7 +362,7 @@ if exist(matPath, 'file') == 2 && strcmpi(Flags.NoMAT, 'yesmat')
     end
 end
 
-% Reading BasicHeader information from file
+%% Reading BasicHeader information from file
 FID                       = fopen(fileFullPath, 'r', 'ieee-le');
 BasicHeader               = fread(FID, 336, '*uint8');
 NEV.MetaTags.FileTypeID   = char(BasicHeader(1:8)');
@@ -303,9 +375,11 @@ NEV.MetaTags.PacketBytes  = Trackers.countPacketBytes;
 NEV.MetaTags.TimeRes      = double(typecast(BasicHeader(21:24), 'uint32'));
 NEV.MetaTags.SampleRes    = typecast(BasicHeader(25:28), 'uint32');
 t                         = double(typecast(BasicHeader(29:44), 'uint16'));
-NEV.MetaTags.Application  = char(BasicHeader(45:76)');
+tempApp                   = BasicHeader(45:76)';
+tempApp(find(tempApp == 0):end) = [];
+NEV.MetaTags.Application  = char(tempApp); clear tempApp;
 NEV.MetaTags.Comment      = char(BasicHeader(77:332)');
-[NEV.MetaTags.FilePath, NEV.MetaTags.Filename] = fileparts(fileFullPath);
+[NEV.MetaTags.FilePath, NEV.MetaTags.Filename, NEV.MetaTags.FileExt] = fileparts(fileFullPath);
 Trackers.countExtHeader   = typecast(BasicHeader(333:336), 'uint32');
 clear BasicHeader;
 
@@ -327,17 +401,15 @@ if ~any(strcmpi(NEV.MetaTags.FileSpec, {'2.1', '2.2', '2.3'}))
 end
 clear fileFullPath;
 
-% Parsing and validating FileSpec and DateTime variables
+%% Parsing and validating FileSpec and DateTime variables
 NEV.MetaTags.DateTimeRaw = t.';
-NEV.MetaTags.DateTime = [num2str(t(2)) '/'  num2str(t(4)) '/' num2str(t(1))...
-    ' ' datestr(t(3), 'dddd') ' ' num2str(t(5)) ':'  ...
-    num2str(t(6)) ':'  num2str(t(7)) '.' num2str(t(8))] ;
+NEV.MetaTags.DateTime = datestr(datenum(t(1), t(2), t(4), t(5), t(6), t(7)));
 clear t;
 
-% Removing extra garbage characters from the Comment field.
+%% Removing extra garbage characters from the Comment field.
 NEV.MetaTags.Comment(find(NEV.MetaTags.Comment==0,1):end) = 0;
 
-% Recording after BasicHeader file position
+%% Recording after BasicHeader file position
 Trackers.fBasicHeader = ftell(FID); %#ok<NASGU>
 
 % Calculating the length of the data
@@ -347,7 +419,7 @@ NEV.MetaTags.DataDuration = fread(FID, 1, 'uint32=>double');
 NEV.MetaTags.DataDurationSec = double(NEV.MetaTags.DataDuration) / double(NEV.MetaTags.SampleRes);
 fseek(FID, currentLocation, 'bof');
 
-% Reading ExtendedHeader information
+%% Reading ExtendedHeader information
 for ii=1:Trackers.countExtHeader
     ExtendedHeader = fread(FID, 32, '*uint8');
     PacketID = char(ExtendedHeader(1:8)');
@@ -397,9 +469,9 @@ for ii=1:Trackers.countExtHeader
             Mode                    = ExtendedHeader(25);
             NEV.IOLabels{Mode+1}    = char(ExtendedHeader(9:24).');
             clear Mode;
-        case 'NSASEXEV' % Not implemented in the Cerebus firmware. 
-                        % Needs to be updated once implemented into the 
-                        % firmware by Blackrock Microsystems.
+        case 'NSASEXEV' %% Not implemented in the Cerebus firmware. 
+                        %% Needs to be updated once implemented into the 
+                        %% firmware by Blackrock Microsystems.
             NEV.NSAS.Freq          = typecast(ExtendedHeader(9:10),'uint16');
             NEV.NSAS.DigInputConf  = char(ExtendedHeader(11));
             NEV.NSAS.AnalCh1Conf   = char(ExtendedHeader(12));
@@ -444,17 +516,17 @@ end
 NEV.MetaTags.ChannelID = [NEV.ElectrodesInfo.ElectrodeID];
 clear ExtendedHeader PacketID ii;
 
-% Recording after ExtendedHeader file position and calculating Data Length
+%% Recording after ExtendedHeader file position and calculating Data Length
 %  and number of data packets
 fseek(FID, 0, 'eof');
 Trackers.fData = ftell(FID);
 Trackers.countDataPacket = (Trackers.fData - Trackers.fExtendedHeader)/Trackers.countPacketBytes;
 NEV.MetaTags.PacketCount = Trackers.countDataPacket;
 
-%
+%%
 Flags.UnparsedDigitalData = 0;
 
-% Reading packet headers and digital values
+%% Reading packet headers and digital values
 Timestamp = [];
 PacketIDs = [];
 tempClassOrReason = [];
@@ -463,9 +535,9 @@ if NEV.MetaTags.PacketCount ~= 0
     fseek(FID, Trackers.fExtendedHeader, 'bof');
     tRawData  = fread(FID, [10 Trackers.countDataPacket], '10*uint8=>uint8', Trackers.countPacketBytes - 10);
     Timestamp = tRawData(1:4,:);
-    Timestamp = typecast(Timestamp(:), 'uint32').';
+    Timestamp = typecast(Timestamp(:), 'uint32').' + syncShift;
 
-    % Calculate the number of packets that need to be read based on the time input parameters
+    %% Calculate the number of packets that need to be read based on the time input parameters
     if ~exist('readTime', 'var')
         Trackers.readPackets = [1, length(Timestamp)];
     else
@@ -514,7 +586,7 @@ else
     Trackers.readPackets = zeros(1,2);
 end
 
-% Defining PacketID constants
+%% Defining PacketID constants
 digserPacketID = 0;
 neuralIndicesPacketIDBounds = [1, 16384];
 commentPacketID = 65535;
@@ -523,7 +595,7 @@ trackingPacketID = 65533;
 patientTrigPacketID = 65532;
 reconfigPacketID = 65531;
 
-% Parse read digital data. Please refer to help to learn about the proper
+%% Parse read digital data. Please refer to help to learn about the proper
 % formatting if the data.
 digserIndices              = find(PacketIDs == digserPacketID);
 neuralIndices              = find(neuralIndicesPacketIDBounds(2) >= PacketIDs & PacketIDs >= neuralIndicesPacketIDBounds(1));
@@ -545,7 +617,7 @@ clear tempClassOrReason;
 DigiValues                 = tempDigiVals(digserIndices);
 clear tempDigiVals;
 
-% Reads the waveforms if 'read' is passed to the function
+%% Reads the waveforms if 'read' is passed to the function
 if strcmpi(Flags.ReadData, 'read')
     allExtraDataPacketIndices  = [commentIndices, ...
                                   videoSyncPacketIDIndices, ...
@@ -565,6 +637,8 @@ if strcmpi(Flags.ReadData, 'read')
             NEV.Data.Comments.Color = tRawData(9:12, commentIndices);
             NEV.Data.Comments.Color = typecast(NEV.Data.Comments.Color(:), 'uint32').';
             NEV.Data.Comments.Text  = char(tRawData(13:Trackers.countPacketBytes, commentIndices).');
+     
+            %NEV.MetaTags.Comment(find(NEV.MetaTags.Comment==0,1):end) = 0;
             
             % Transferring NeuroMotive Events to its own structure
             neuroMotiveEvents = find(NEV.Data.Comments.CharSet == 255);
@@ -605,29 +679,41 @@ if strcmpi(Flags.ReadData, 'read')
             tmp.MarkerCount   = tRawData(13:14, trackingPacketIDIndices);
             tmp.MarkerCount   = typecast(tmp.MarkerCount(:), 'uint16').';
             
-            tmp.rigidBodyPoints = tRawData(15:102, trackingPacketIDIndices);
-            tmp.rigidBodyPoints = reshape(typecast(tmp.rigidBodyPoints(:), 'uint16'), 44, length(tmp.ParentID));
+            tmp.rigidBodyPoints = tRawData(15:NEV.MetaTags.PacketBytes, trackingPacketIDIndices);
+            tmp.rigidBodyPoints = reshape(typecast(tmp.rigidBodyPoints(:), 'uint16'), size(tmp.rigidBodyPoints, 1)/2, size(tmp.rigidBodyPoints, 2));
             
-            objectIndex = [0 '1' '2' '3' '4' '1' '2' '3' '4'];
-            for IDX = 1:size(NEV.ObjTrackInfo,2)
-                emptyChar = find (NEV.ObjTrackInfo(IDX).TrackableName == 0, 1);
-                NEV.ObjTrackInfo(IDX).TrackableName(emptyChar) = objectIndex(IDX);
-                indicesOfEvent = find(tmp.NodeID == IDX-1);
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp = tmp.TimeStamp(indicesOfEvent);
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStampSec = tmp.TimeStampSec(indicesOfEvent);
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).ParentID =    tmp.ParentID(indicesOfEvent);
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).NodeCount =   tmp.NodeCount(indicesOfEvent);
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCount = tmp.MarkerCount(indicesOfEvent);
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(size(NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp,2)).X = [];
-                NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(size(NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp,2)).X = [];
-                for xyIDX = 1:size(NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp,2)
-                    NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(xyIDX).X = ...
-                        tmp.rigidBodyPoints(1:2:NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCount(xyIDX)*2, indicesOfEvent(xyIDX));
-                    NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(xyIDX).Y = ...
-                        tmp.rigidBodyPoints(2:2:NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCount(xyIDX)*2, indicesOfEvent(xyIDX));
+            if (isfield(NEV, 'ObjTrackInfo'))
+                for IDX = 1:size(NEV.ObjTrackInfo,2)
+                    emptyChar = find(NEV.ObjTrackInfo(IDX).TrackableName == 0, 1);
+                    if isnan(str2double(NEV.ObjTrackInfo(IDX).TrackableName(emptyChar-1)))
+                        if ~strcmpi(NEV.ObjTrackInfo(IDX-1).TrackableName(1:3), NEV.ObjTrackInfo(IDX).TrackableName(1:3))
+                            objectIndex = 1;
+                        else
+                            objectIndex = objectIndex + 1;
+                        end
+                        NEV.ObjTrackInfo(IDX).TrackableName(emptyChar) = num2str(objectIndex);
+                    else
+                        NEV.ObjTrackInfo(IDX).TrackableName(emptyChar) = [];
+                    end
+                    indicesOfEvent = find(tmp.NodeID == IDX-1);
+                    if ~isempty(indicesOfEvent)
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp = tmp.TimeStamp(indicesOfEvent);
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStampSec = tmp.TimeStampSec(indicesOfEvent);
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).ParentID =    tmp.ParentID(indicesOfEvent);
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).NodeCount =   tmp.NodeCount(indicesOfEvent);
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCount = tmp.MarkerCount(indicesOfEvent);
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(size(NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp,2)).X = [];
+                        NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(size(NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp,2)).X = [];
+                        for xyIDX = 1:size(NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).TimeStamp,2)
+                            NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(xyIDX).X = ...
+                                tmp.rigidBodyPoints(1:2:NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCount(xyIDX)*2, indicesOfEvent(xyIDX));
+                            NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCoordinates(xyIDX).Y = ...
+                                tmp.rigidBodyPoints(2:2:NEV.Data.Tracking.(NEV.ObjTrackInfo(IDX).TrackableName).MarkerCount(xyIDX)*2, indicesOfEvent(xyIDX));
+                        end
+                    end
                 end
             end
-            clear trackingPacketIDIndices, tmp;
+            clear trackingPacketIDIndices tmp;
         end
         if ~isempty(patientTrigPacketIDIndices)
             NEV.Data.PatientTrigger.TimeStamp    = Timestamp(patientTrigPacketIDIndices);
@@ -668,7 +754,7 @@ if strcmpi(Flags.ReadData, 'read')
 end
 clear digserIndices;
 
-% Parse digital data if requested
+%% Parse digital data if requested
 if ~isempty(DigiValues)
     if strcmpi(Flags.ParseData, 'parse')
         try
@@ -737,7 +823,7 @@ if strcmpi(Flags.ParseData, 'parse')
     end
 end
 
-% Show a report if 'report' is passed as an argument
+%% Show a report if 'report' is passed as an argument
 if strcmpi(Flags.Report, 'report')
     % Displaying report
     disp( '*** FILE INFO **************************');
@@ -756,23 +842,35 @@ if strcmpi(Flags.Report, 'report')
     disp(['The load time was for NEV file was ' num2str(toc, '%0.1f') ' seconds.']);
 end
 
-% Saving the NEV structure as a MAT file for easy access
+%% Saving the NEV structure as a MAT file for easy access
 if strcmpi(Flags.SaveFile, 'save')
     if exist(matPath, 'file') == 2 && strcmpi(Flags.Overwrite, 'nooverwrite')
-        disp(['File ' matPath ' already exists.']);
-        overWrite = input('Would you like to overwrite (Y/N)? ', 's');
+        if strcmpi(Flags.WarningStat, 'warning')    
+            disp(['File ' matPath ' already exists.']);
+            overWrite = input('Would you like to overwrite (Y/N)? ', 's');
+        else
+            overWrite = 'n';
+        end
         if strcmpi(overWrite, 'y')
-            disp('Saving MAT file. This may take a few seconds...');
+            if strcmpi(Flags.WarningStat, 'warning')  
+                disp('Saving MAT file. This may take a few seconds...');
+            end
             save(matPath, 'NEV', '-v7.3');
         else
-            disp('File was not overwritten.');
+            if strcmpi(Flags.WarningStat, 'warning')  
+                disp('File was not overwritten.');
+            end
         end
-    elseif exist(matPath, 'file') == 2 && strcmpi(Flags.Overwrite, 'overwrite')        
-        disp(['File ' matPath ' already exists.']);
-        disp('Overwriting the old MAT file. This may take a few seconds...');
+    elseif exist(matPath, 'file') == 2 && strcmpi(Flags.Overwrite, 'overwrite')
+        if strcmpi(Flags.WarningStat, 'warning')
+            disp(['File ' matPath ' already exists.']);
+            disp('Overwriting the old MAT file. This may take a few seconds...');
+        end
         save(matPath, 'NEV', '-v7.3');        
     else
-        disp('Saving MAT file. This may take a few seconds...');
+        if strcmpi(Flags.WarningStat, 'warning')
+            disp('Saving MAT file. This may take a few seconds...');
+        end
         save(matPath, 'NEV', '-v7.3');
     end
     clear overWrite;

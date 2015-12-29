@@ -231,7 +231,7 @@ clc
 FIRSTPULSE = false;
 
 Nexpts = size(in,1);
-for i_ex = 1:Nexpts
+parfor i_ex = 1:Nexpts
     
     % Determine the pharmacology conditions that are present. Look
     % specifically for a fiber volley, a TTX, and a synapticTransmission
@@ -392,6 +392,9 @@ for i_ex = 1:Nexpts
                         pk2tr = peak-trough;
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                        
+                        latency = tt(troughidx);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).latency{i_ch}(i_pulse) = latency;
                         
                     elseif any(regexpi(conds{i_cond}, 'ttx'))
                         
@@ -571,11 +574,11 @@ end % expts
 close all
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = true;
+RESTRICT_TO_STIM_SITE = false;
 NORM_TO_PULSE1 = true;
 
 Nexpts = size(in,1);
-for i_ex = 1:Nexpts
+for i_ex = Nexpts-3:Nexpts
     
     
     % define the conditions that will get plotted
@@ -870,6 +873,7 @@ end
 
 STIMSITE = true;  % true => stimsite,  false => distal site
 PVALTYPE = 'diffval';
+NORMALIZE = true;
 
 % only do this for the main experiment (TF and FV)
 assert(~strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for the TF and FV experiments');
@@ -898,7 +902,7 @@ switch EXPTTYPE
 end
 
 %initialize the outputs
-statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
+statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'latency'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
@@ -970,7 +974,11 @@ for i_ex = 1:numel(dat)
                 
                 % convert to paired pulse measures by normalizing by the
                 % height of the first pulse.
-                ex_p1p2 = ex_stat ./ ex_stat(1);
+                if NORMALIZE
+                    ex_p1p2 = ex_stat ./ ex_stat(1);
+                else
+                    ex_p1p2 = ex_stat;
+                end
                 
                 % grab the data field of the 'pop' structure
                 tmp_pop_p1p2 = pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat});
@@ -1874,11 +1882,11 @@ for i_cond = 1:numel(conds)
 end
 
 
-%% SHAPE OF OPSIN CURRENT FOR EACH PULSE, WITH TAU FITS
+%% SHAPE OF WAVEFORMS FOR EACH PULSE, SCALED TO HAVE SAME AMPLITUDE
 
 % choose a stimulation location:
 STIMSITE = true;
-PLOTERR = false;
+PLOTERR = true;
 Npulses = 7;
 
 clc; close all
@@ -2042,9 +2050,11 @@ for a_opsin = 1:numel(opsinTypes)
             % iterate over the pulses
             for a_pulse = 1:Npulses
                 
-                
                 xbar = mean(tmpdat{a_pulse}, 1);
-                sem = std(tmpdat{a_pulse}, [], 1) ./ sqrt(size(tmpdat{a_pulse}, 1));
+                N = sqrt(size(tmpdat{a_pulse}, 1));
+                sem = std(tmpdat{a_pulse}, [], 1) ./ sqrt(N);
+                if N==1; sem = nan(size(sem)); end
+                
                 tt = [0:numel(xbar)-1] ./ 20e3;
                 if isempty(xbar)
                     continue
@@ -2055,7 +2065,7 @@ for a_opsin = 1:numel(opsinTypes)
                 % plot the SEM
                 if PLOTERR
                     transparent = true;
-                    shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2}, transparent)
+                    shadedErrorBar(tt, xbar, sem, {'-','color', pltclr, 'linewidth', 2}, transparent);
                 else
                     plot(tt, xbar, '-', 'color', pltclr, 'linewidth', 2);
                 end
@@ -2071,10 +2081,9 @@ end
 
 % choose a stimulation location:
 STIMSITE = true;
-PLOTERR = false;
+PLOTERR = true;
 NORMALIZE = false;
 
-clc; close all
 
 % only do this for the main experiment (TF and FV)
 correctExpt = any(strcmpi(EXPTTYPE, {'main expt', '4-AP', 'baclofen', 'intracellular'}));
@@ -2227,19 +2236,19 @@ for a_tf = 1:numel(tfnames)
             
             tmpdat = avgopsincurent.(opsinTypes{a_opsin}).(tfnames{a_tf}).raw.(drugconds{a_drug});
             tmpmean = nanmean(tmpdat, 1);
-            tmpsem = nanstd(tmpdat, [], 1) ./ sqrt(size(tmpdat,1));
+            N = size(tmpdat,1);
+            if N>1
+            tmpsem = nanstd(tmpdat, [], 1) ./ sqrt(N);
+            else
+                tmpsem = nan(size(tmpdat));
+            end
             Nsamps = numel(tmpmean);
             tt = ([0:Nsamps-1]-ipi_samps) ./ 20e3;
             
             if PLOTERR
-                shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', pltclr(a_drug,:), 'linewidth', 2}, 1)
+                shadedErrorBar(tt, tmpmean, tmpsem, {'-','color', pltclr(a_drug,:), 'linewidth', 2}, 1);
             else
-                plot(tt, tmpmean, '-', 'color', pltclr(a_drug,:), 'linewidth', 2)
-                
-%                 set(gca, 'colororder', colormap(parula(size(tmpdat,1))));
-%                 plot(tt, tmpdat', 'linewidth', 2);
-%                 
-                
+                plot(tt, tmpdat', '-', 'color', pltclr(a_drug,:), 'linewidth', 2)
             end
             
             tmp = [opsinTypes{a_opsin}, ': ', drugconds{a_drug}];

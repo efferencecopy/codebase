@@ -14,7 +14,7 @@ function varargout = openNSx(varargin)
 %
 %   'read':       Will read the data in addition to the header information
 %                 if user passes this argument.
-%                 DEFAULT: will only read the header information.
+%                 DEFAULT: will read the entire file.
 %
 %   'report':     Will show a summary report if user passes this argument.
 %                 DEFAULT: will not show report.
@@ -54,7 +54,7 @@ function varargout = openNSx(varargin)
 %
 %   't:XX:YY':    User can specify the beginning and end of the data
 %                 segment to be read. If the start time is greater than the
-%                 length of data the program will exit with an error
+%                 length of data the program will exit with an errorNS
 %                 message. If the end time is greater than the length of
 %                 data the end packet will be selected for end of data. The
 %                 user can specify the start and end values by comma 
@@ -73,6 +73,14 @@ function varargout = openNSx(varargin)
 %                 the number of seconds. The same is true for 'min', 'hour'
 %                 and 'sample'.
 %                 DEFAULT: reads 'sample'.
+%
+%   'uV':         Will read the spike waveforms in unit of uV instead of
+%                 raw values. Note that this conversion may lead to loss of
+%                 information (e.g. 15/4 = 4) since the waveforms type will
+%                 stay in int16. It's recommended to read raw spike
+%                 waveforms and then perform the conversion at a later
+%                 time.
+%                 DEFAULT: will read waveform information in raw.
 %
 %   'precision':  This will specify the precision for NSx file. If set to
 %                 'double' the NSx data will be read as 'double' and if set
@@ -122,28 +130,98 @@ function varargout = openNSx(varargin)
 %   of Only channels 15 through 30 will be read. If any of the arguments 
 %   above are omitted the default values will be used.
 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   Kian Torab
 %   kian@blackrockmicro.com
 %   Blackrock Microsystems
-%   Version 5.1.7.0
-%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Defining the NSx data structure and sub-branches.
+% Version History
+%
+% 5.1.8.2:
+%   - Fixed the way DayOfWeek is read in MetaTags.
+%
+% 5.1.9.0:
+%   - Fixed a bug where with skipFactor being read correctly as a num.
+%
+% 5.1.10.0:
+%   - Updated feature to save data headers for a paused file. It is a
+%     dependent feature for seperatePausedNSx.
+%
+% 5.1.11.0:
+%   - Fixed an issue where 1 sample would not be read when using the
+%     t:xx:xx argument and 'sample'.
+%   - Fixed an error when 'duration' was used to load specific data length.
+%
+% 5.1.12.0:
+%   - Better error handling if a file is not provided and an output
+%     variable was requested by the calling function.
+%
+% 5.2.0.0: June 12, 2014
+%   - It removes the extra ElectrodesInfo entried for channels not
+%     read if 'c:XX:XX' or 'e:XX:XX' are used.
+%   - It reports variable ChannelCount under MetaTags correctly.
+%   - It automatically compensate for any NSx file with non-0 beginnings
+%     and adds 0s for to the begining of the file to properly align the
+%     timestamps.
+%
+% 5.2.1.0: June 12, 2014
+%   - Fixed a small bug where extra 0s were tacked on to the beginning of
+%     paused file segments.
+%   - Updated the version.
+%
+% 5.2.2.0: June 13, 2014
+%   - Fixed bug for when 'noread' was used on a paused file.
+%
+% 6.0.1.0: December 2, 2014
+%   - Fixed a bug related to file format 2.1 not being read correctly.
+%   - Corrected the way Filename, FileExt, and FilePath was being
+%     processed.
+%   - File dialogue now only shows NSx files on non Windows-based
+%     computers.
+%   - Added 512 synchronized reading capability.
+%   - Now on non-Windows computers only NSx files are shown in the file
+%     dialogue.
+%   - Fixed the date in NSx.MetaTags.DateTime.
+%
+% 6.1.0.0: 28 March 2015
+%   - Added the ability to read from networked drives in Windows.
+%   - Fixed the DateTime variable in MetaTags.
+%   - Fixed the date in NSx.MetaTags.DateTime (again).
+%   - Fixed a bug related to starting and stopping packets when a specific
+%     time is passed to the function.
+%   - Fixed a bug where 512+ ch rules were being applied to smaller channel
+%     count configuration.
+%
+% 6.1.1.0: 15 June 2015
+%   - Bug fixes related to timestamps when the recording didn't start at
+%     proctime 0.
+%
+% 6.2.0.0: 1 October 2015
+%   - Fixed a bug related to reading the correct length of time when a skip
+%     factor was used.
+%   - Bug fixes related to information that separatePausedNSx depends on.
+%   - Added 'uV' as an option to read the data in the unit of uV.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Defining the NSx data structure and sub-branches.
 NSx          = struct('MetaTags',[],'Data',[], 'RawData', []);
 NSx.MetaTags = struct('FileTypeID',[],'SamplingLabel',[],'ChannelCount',[],'SamplingFreq',[], 'TimeRes', [], ...
                       'ChannelID',[],'DateTime',[],'DateTimeRaw',[], 'Comment', [], 'FileSpec', [], ...
                       'Timestamp', [], 'DataPoints', [], 'DataDurationSec', [], 'openNSxver', [], 'Filename', [], 'FilePath', [], ...
                       'FileExt', []);
 
-NSx.MetaTags.openNSxver = '5.1.6.0';
+NSx.MetaTags.openNSxver = '6.2.0.0';
 
 % Defining constants
 ExtHeaderLength = 66;
 elecReading     = 0;
 maxNSPChannels  = 128;
 NSx.RawData.PausedFile = 0;
+syncShift = 0;
 
-% Validating the input arguments. Exit with error message if error occurs.
+%% Validating the input arguments. Exit with error message if error occurs.
 next = '';
 for i=1:length(varargin)
     inputArgument = varargin{i};
@@ -164,14 +242,18 @@ for i=1:length(varargin)
         Report = inputArgument;
     elseif strcmpi(inputArgument, 'noread')
         ReadData = inputArgument;
+    elseif strcmpi(inputArgument, 'nomultinsp')
+        multinsp = 'no';
+    elseif strcmpi(inputArgument, 'uV')
+        waveformUnits = 'uV';
     elseif strcmpi(inputArgument, 'read')
         ReadData = inputArgument;
     elseif (strncmp(inputArgument, 't:', 2) && inputArgument(3) ~= '\' && inputArgument(3) ~= '/') || strcmpi(next, 'duration')
         if strncmp(inputArgument, 't:', 2)
             inputArgument(1:2) = [];
+            inputArgument = str2num(inputArgument);
         end
         modifiedTime = 1;
-        inputArgument = str2num(inputArgument);
         StartPacket = inputArgument(1);
         EndPacket = inputArgument(end);
         next = '';
@@ -181,7 +263,7 @@ for i=1:length(varargin)
             Elec = str2num(inputArgument(3:end)); %#ok<ST2NM>
             if min(Elec)<1 || max(Elec)>128
                 disp('The electrode number cannot be less than 1 or greater than 128.');
-                if nargout; varargout{1} = []; end
+                if nargout; varargout{1} = -1; end
                 return;
             end
             for chanIDX = 1:length(Elec)
@@ -191,6 +273,7 @@ for i=1:length(varargin)
         else
             disp('To read data by ''electrodes'' the function KTUEAMapFile needs to be in path.');
             clear variables;
+            if nargout; varargout{1} = -1; end
             return;
         end
         next = '';
@@ -198,7 +281,11 @@ for i=1:length(varargin)
         if strncmp(inputArgument, 's:', 2)
             skipFactor = str2num(inputArgument(3:end)); %#ok<ST2NM>
         else
-            skipFactor = inputArgument;
+            if ischar(inputArgument)
+                skipFactor = str2num(inputArgument);
+            else
+                skipFactor = inputArgument;
+            end
         end
         next = '';
     elseif (strncmp(inputArgument, 'c:', 2) && inputArgument(3) ~= '\' && inputArgument(3) ~= '/') || strcmpi(next, 'channels')
@@ -223,7 +310,7 @@ for i=1:length(varargin)
                 precisionType = '*int16';
             otherwise
                 disp('Read type is not valid. Refer to ''help'' for more information.');
-                if nargout; varargout{1} = []; end
+                if nargout; varargout{1} = -1; end
                 return;
         end
         clear precisionTypeRaw;
@@ -232,40 +319,38 @@ for i=1:length(varargin)
         TimeScale = inputArgument;
     else
         temp = inputArgument;
-        if length(temp)>3 && strcmpi(temp(end-3),'.')
+        if length(temp)>3 && ...
+                (strcmpi(temp(3),'\') || ...
+                 strcmpi(temp(1),'/') || ...
+                 strcmpi(temp(2),'/') || ...
+                 strcmpi(temp(1:2), '\\')) 
             fname = inputArgument;
             if exist(fname, 'file') ~= 2
                 disp('The file does not exist.');
                 if nargout; 
-                    varargout{1} = []; 
+                    varargout{1} = -1; 
                 end
                 return;
             end
         else
             disp(['Invalid argument ''' inputArgument ''' .']);
-            if nargout; varargout{1} = []; end
+            if nargout; varargout{1} = -1; end
             return;
         end
     end
 end
 clear next;
 
-% Popup the Open File UI. Also, process the file name, path, and extension
+%% Popup the Open File UI. Also, process the file name, path, and extension
 %  for later use, and validate the entry.
 if ~exist('fname', 'var')
-    if ~ismac
-        [fname, path] = getFile('*.ns*', 'Choose an NSx file...');
-    else
-        [fname, path] = getFile('*.*', 'Choose an NSx file...');
-    end
+    [fname, path] = getFile('*.ns1;*.ns2;*.ns3;*.ns4;*.ns5;*.ns6;*.ns6m', 'Choose an NSx file...');
     if fname == 0
         disp('No file was selected.');
-        if nargout
-            clear variables;
-        end
+        if nargout; varargout{1} = -1; end
         return;
     end
-    fext = fname(end-3:end);
+    [~, ~, fext] = fileparts(fname);
 else
     if isempty(fileparts(fname))
         fname = which(fname);
@@ -275,35 +360,54 @@ else
     path  = [path '/'];
 end
 if fname==0
-    if nargout; varargout{1} = []; end
+    if nargout; varargout{1} = -1; end
     return; 
+end
+
+%% Loading .x files for multiNSP configuration
+if strcmpi(fext(2:4), 'ns6') && length(fext) == 5
+    path(1) = fname(end);
+    fname(end) = [];
 end
 
 tic;
 
-% Give all input arguments a default value. All input argumens are
+%% Give all input arguments a default value. All input argumens are
 %  optional.
-if ~exist('Report', 'var');        Report = 'noreport';    end
-if ~exist('ReadData', 'var');      ReadData = 'read';    end
-if ~exist('StartPacket', 'var');   StartPacket = 0;        end
-if ~exist('TimeScale', 'var');     TimeScale = 'sample';   end
+if ~exist('Report', 'var');        Report = 'noreport'; end
+if ~exist('ReadData', 'var');      ReadData = 'read'; end
+if ~exist('StartPacket', 'var');   StartPacket = 1; end
+if ~exist('TimeScale', 'var');     TimeScale = 'sample'; end
 if ~exist('precisionType', 'var'); precisionType = '*short=>short'; end
-if ~exist('skipFactor', 'var');    skipFactor = 1;         end
-if ~exist('modifiedTime', 'var');  modifiedTime = 0;       end
+if ~exist('skipFactor', 'var');    skipFactor = 1; end
+if ~exist('modifiedTime', 'var');  modifiedTime = 0; end
+if ~exist('multinsp', 'var');      multinsp = 'yes'; end
+if ~exist('waveformUnits', 'var'); waveformUnits = 'raw'; end
+
+% Check to see if 512 setup and calculate offset
+if strcmpi(multinsp, 'yes')
+    fiveTwelveFlag = regexp(fname, '-i[0123]-');
+    if ~isempty(fiveTwelveFlag)
+        syncShift = multiNSPSync(fullfile(path, fname));
+    else
+        multinsp = 'no';
+    end
+end
 
 if strcmpi(ReadData, 'noread')
-    disp('NOTE: Reading the header information only. To read the data use with parameter ''read'': openNSx(''read'')');
+%    disp('NOTE: Reading the header information only. To read the data use with parameter ''read'': openNSx(''read'')');
 end
 
 if strcmp(Report, 'report')
     disp(['openNSx ' NSx.MetaTags.openNSxver]);
 end
 
-% Reading Basic Header from file into NSx structure.
-FID                       = fopen([path fname], 'r', 'ieee-le');
-NSx.MetaTags.Filename     = fname;
-NSx.MetaTags.FilePath     = path(1:end-1);
-NSx.MetaTags.FileExt      = fext;
+%% Reading Basic Header from file into NSx structure.
+FID = fopen([path fname], 'r+', 'ieee-le');
+
+fileFullPath = fullfile(path, fname);
+[NSx.MetaTags.FilePath, NSx.MetaTags.Filename, NSx.MetaTags.FileExt] = fileparts(fileFullPath);
+
 NSx.MetaTags.FileTypeID   = fread(FID, [1,8]   , '*char');
 if strcmpi(NSx.MetaTags.FileTypeID, 'NEURALSG')
 	NSx.MetaTags.FileSpec      = '2.1';
@@ -314,7 +418,7 @@ if strcmpi(NSx.MetaTags.FileTypeID, 'NEURALSG')
     NSx.MetaTags.ChannelCount  = ChannelCount;
     NSx.MetaTags.ChannelID     = fread(FID, [ChannelCount 1], '*uint32');
     try
-    	t                          = dir([path fname]);
+    	t                          = dir(fileFullPath);
     	NSx.MetaTags.DateTime      = t.date;
     end
 elseif strcmpi(NSx.MetaTags.FileTypeID, 'NEURALCD')
@@ -331,17 +435,17 @@ elseif strcmpi(NSx.MetaTags.FileTypeID, 'NEURALCD')
     readSize                   = double(ChannelCount * ExtHeaderLength);
     ExtendedHeader             = fread(FID, readSize, '*uint8');
     
-    % Removing extra garbage characters from the Comment field.
+    %% Removing extra garbage characters from the Comment field.
     NSx.MetaTags.Comment(find(NSx.MetaTags.Comment==0,1):end) = 0;    
     
-	% Populating extended header information
+	%% Populating extended header information
 	for headerIDX = 1:ChannelCount
 		offset = double((headerIDX-1)*ExtHeaderLength);
 		NSx.ElectrodesInfo(headerIDX).Type = char(ExtendedHeader((1:2)+offset))';
 		if (~strcmpi(NSx.ElectrodesInfo(headerIDX).Type, 'CC'))
 			disp('extended header not supported');
 			fclose(FID);
-			if nargout; varargout{1} = []; end
+			if nargout; varargout{1} = -1; end
 			return;			
 		end
 		NSx.ElectrodesInfo(headerIDX).ElectrodeID = typecast(ExtendedHeader((3:4)+offset), 'uint16');
@@ -361,17 +465,16 @@ elseif strcmpi(NSx.MetaTags.FileTypeID, 'NEURALCD')
 		NSx.ElectrodesInfo(headerIDX).LowFilterType  = typecast(ExtendedHeader((65:66)+offset), 'uint16');
 	end
 	clear ExtendedHeader;
-	% Parsing and validating FileSpec and DateTime variables
+	%% Parsing and validating FileSpec and DateTime variables
 	NSx.MetaTags.DateTimeRaw = t.';
-	NSx.MetaTags.DateTime = [num2str(t(2)) '/'  num2str(t(4)) '/' num2str(t(1))...
-		' ' datestr(t(3), 'dddd') ' ' num2str(t(5)) ':'  ...
-		num2str(t(6)) ':'  num2str(t(7)) '.' num2str(t(8))] ;
+	NSx.MetaTags.DateTime = datestr(datenum(t(1), t(2), t(4), t(5), t(6), t(7)));
 	clear t;
 else
     disp('This version of openNSx can only read File Specs 2.1, 2.2 and 2.3');
     disp(['The selected file spec is ' NSx.MetaTags.FileSpec '.']);
     fclose(FID);
     clear variables;
+	if nargout; varargout{1} = -1; end
     return;
 end
 
@@ -386,7 +489,44 @@ NSx.RawData.Headers = fread(FID, f.EOexH, '*uint8');
 NSx.RawData.DataHeader = fread(FID, 9, '*uint8');
 fseek(FID, f.EOexH, 'bof');
 
-% Reading all data headers and calculating all the file pointers for data
+
+
+%% Added by NH - Feb 19, 2014
+% Create incrementing loop to skip from dataheader to dataheader and 
+% collect the dataheader data in individual cells
+headerCount = 0;
+if NSx.RawData.PausedFile == 1
+    while double(ftell(FID)) < f.EOF
+        headerCount = headerCount + 1;
+        DataHeader{headerCount} = fread(FID, 9);
+        fseek(FID,-9,'cof');
+        fread(FID,5);
+        DataPoints(headerCount) = fread(FID,1,'uint32');
+
+
+        f.BOData(headerCount) = double(ftell(FID));
+        fseek(FID, DataPoints(headerCount) * ChannelCount * 2, 'cof');
+        f.EOData(headerCount) = double(ftell(FID));
+    end
+
+    % Create an array that will contain all of the dataheader data
+    % collected in the cells above
+    FinalDataHeader = [];
+
+    %Fill the above mentioned pre-created array
+    for i = 1:headerCount
+        FinalDataHeader = cat(1,FinalDataHeader,DataHeader(i));
+    end
+
+    % Convert to correct type for interpreting in separatingPausedNSx
+    FinalDataHeader = cell2mat(FinalDataHeader);
+
+    NSx.RawData.DataHeader = FinalDataHeader;
+
+    fseek(FID, f.EOexH, 'bof');
+end
+
+%% Reading all data headers and calculating all the file pointers for data
 % and headers
 if strcmpi(NSx.MetaTags.FileTypeID, 'NEURALSG')
     % Determining DataPoints
@@ -399,32 +539,42 @@ elseif strcmpi(NSx.MetaTags.FileTypeID, 'NEURALCD')
         if (fread(FID, 1, 'uint8') ~= 1)
             % Fixing another bug in Central 6.01.00.00 TOC where DataPoints is
             % not written back into the Data Header
-            % BIG NEEDS TO BE FIXED
+            %% BIG NEEDS TO BE FIXED
             NSx.MetaTags.DataPoints = double(f.EOF - f.BOData)/(ChannelCount*2);
             break;
         end
         segmentCount = segmentCount + 1;
-        NSx.MetaTags.Timestamp(segmentCount)  = fread(FID, 1, 'uint32');
+        %%% MODIFY THIS LINE BELOW %%%
+        startTimeStamp = fread(FID, 1, 'uint32');
+        if strcmpi(multinsp, 'yes')
+            startTimeStamp = startTimeStamp + syncShift;
+            fseek(FID, -4, 'cof');
+            fwrite(FID, startTimeStamp, '*uint32');
+        end
+        NSx.MetaTags.Timestamp(segmentCount)  = startTimeStamp;
         NSx.MetaTags.DataPoints(segmentCount) = fread(FID, 1, 'uint32');
         f.BOData(segmentCount) = double(ftell(FID));
         fseek(FID, NSx.MetaTags.DataPoints(segmentCount) * ChannelCount * 2, 'cof');
         f.EOData(segmentCount) = double(ftell(FID));
         % Fixing the bug in 6.01.00.00 TOC where DataPoints is not
         % updated and is left as 0
-        NSx.MetaTags.DataPoints(segmentCount) = (f.EOData(segmentCount)-f.BOData(segmentCount))/(ChannelCount*2);
+        % NSx.MetaTags.DataPoints(segmentCount) = (f.EOData(segmentCount)-f.BOData(segmentCount))/(ChannelCount*2);
     end
 end
 
+%% Temporary removing this code as it's causing a bug in other segments. It
+%% does not appear to be neccesary any longer.
 % Fixing a bug in 6.03.00.00 TOC where an extra data packet (length 9) was
 % written for no reason. Removing the information read for the extra
 % invalid packet
-if length(NSx.MetaTags.DataPoints) > 1 && all(NSx.MetaTags.Timestamp(1:2) == [0,0])
-    NSx.MetaTags.DataPoints(1) = [];
-    NSx.MetaTags.Timestamp(1) = [];
-    f.BOData(1) = [];
-    f.EOData(1) = [];
-    segmentCount = 1;
-end
+% if length(NSx.MetaTags.DataPoints) > 1 && all(NSx.MetaTags.Timestamp(1:2) == [0,0])
+%     NSx.MetaTags.DataPoints(1) = [];
+%     NSx.MetaTags.Timestamp(1) = [];
+%     f.BOData(1) = [];
+%     f.EOData(1) = [];
+%     segmentCount = 1;
+% end
+%%
 
 % Determining if the file has a pause in it
 if length(NSx.MetaTags.DataPoints) > 1
@@ -432,37 +582,92 @@ if length(NSx.MetaTags.DataPoints) > 1
     if modifiedTime == 1
         disp('This data file contains pauses.');
         disp('openNSx cannot read files with pauses using the ''t:XX'' parameter.');
-        fclose(FID); clear variables; return;
+        fclose(FID); clear variables; if nargout; varargout{1} = -1; end; return;
     end
 end
 
-% Copying ChannelID to MetaTags for filespec 2.2 and 2.3 for compatibility with filespec 2.1
+%% Added by NH - Feb 19, 2014
+% Create incrementing loop to skip from dataheader to dataheader and 
+% collect the dataheader data in individual cells
+
+CurrentPlace = ftell(FID);
+fseek(FID, f.EOexH, 'bof');
+headerCount = 0;
+if NSx.RawData.PausedFile == 1
+    while double(ftell(FID)) < f.EOF
+        headerCount = headerCount + 1;
+        DataHeader{headerCount} = fread(FID, 9);
+        fseek(FID,-9,'cof');
+        fread(FID,5);
+        DataPoints(headerCount) = fread(FID,1,'uint32');
+
+
+        f.BOData(headerCount) = double(ftell(FID));
+        fseek(FID, DataPoints(headerCount) * ChannelCount * 2, 'cof');
+        f.EOData(headerCount) = double(ftell(FID));
+    end
+
+    % Create an array that will contain all of the dataheader data
+    % collected in the cells above
+    FinalDataHeader = [];
+
+    %Fill the above mentioned pre-created array
+    for i = 1:headerCount
+        FinalDataHeader = cat(1,FinalDataHeader,DataHeader(i));
+    end
+
+    % Convert to correct type for interpreting in separatingPausedNSx
+    FinalDataHeader = cell2mat(FinalDataHeader);
+
+    NSx.RawData.DataHeader = FinalDataHeader;
+
+    fseek(FID, f.EOexH, 'bof');
+end
+
+fseek(FID,CurrentPlace,'bof');
+
+
+%% Copying ChannelID to MetaTags for filespec 2.2 and 2.3 for compatibility with filespec 2.1
 if strcmpi(NSx.MetaTags.FileTypeID, 'NEURALCD')
     NSx.MetaTags.ChannelID = [NSx.ElectrodesInfo.ElectrodeID]';
 end
 
-% Determining the number of channels to read and validating the input
+%% Determining the number of channels to read and validating the input
 if ~elecReading
     if ~exist('userRequestedChanRow', 'var')
         userRequestedChannels = NSx.MetaTags.ChannelID;
     else
         if any(userRequestedChanRow > ChannelCount)
             disp(['Channel file only contains ' num2str(ChannelCount) ' channels.']);
-            fclose(FID); clear variables; return;
+            fclose(FID); clear variables; if nargout; varargout{1} = -1; end; return;
         else
             userRequestedChannels = NSx.MetaTags.ChannelID(userRequestedChanRow);
+            NSx.MetaTags.ChannelCount = length(userRequestedChannels);
         end
     end
 end
+
 for idx = 1:length(userRequestedChannels)
     if ~any(ismember(NSx.MetaTags.ChannelID, userRequestedChannels(idx)))
         disp(['Electrode ' num2str(Mapfile.Channel2Electrode(userRequestedChannels(idx))) ' does not exist in this file.']);
-        fclose(FID); clear variables; return;
+        fclose(FID); 
+        clear variables; 
+        if nargout; varargout{1} = -1; end
+        return;
     end
     userRequestedChanRow(idx) = find(NSx.MetaTags.ChannelID == userRequestedChannels(idx),1);
 end
 
-% Adjusts StartPacket and EndPacket based on what time setting (sec, min,
+%% Removing extra ElectrodesInfo for channels not read
+if strcmpi(NSx.MetaTags.FileTypeID, 'NEURALCD')
+    for headerIDX = length(NSx.ElectrodesInfo):-1:1
+        if ~ismember(headerIDX, userRequestedChanRow)
+            NSx.ElectrodesInfo(headerIDX) = [];
+        end
+    end
+end
+
+%% Adjusts StartPacket and EndPacket based on what time setting (sec, min,
 %  hour, or packets) the user has indicated in the input argument.
 if ~NSx.RawData.PausedFile
     if ~exist('EndPacket', 'var')
@@ -470,26 +675,38 @@ if ~NSx.RawData.PausedFile
     end
     switch TimeScale
         case 'sec'
-            StartPacket = double(StartPacket) * NSx.MetaTags.SamplingFreq;
+            StartPacket = double(StartPacket) * NSx.MetaTags.SamplingFreq + 1;
             EndPacket = EndPacket * NSx.MetaTags.SamplingFreq;
         case 'min'
-            StartPacket = StartPacket * NSx.MetaTags.SamplingFreq * 60;
+            StartPacket = StartPacket * NSx.MetaTags.SamplingFreq * 60 + 1;
             EndPacket = EndPacket * NSx.MetaTags.SamplingFreq * 60;
         case 'hour'
-            StartPacket = StartPacket * NSx.MetaTags.SamplingFreq * 3600;
+            StartPacket = StartPacket * NSx.MetaTags.SamplingFreq * 3600 + 1;
             EndPacket = EndPacket * NSx.MetaTags.SamplingFreq * 3600;
     end
-	EndPacket = EndPacket - 1;
-    % Validate StartPacket and EndPacket to make sure they do not exceed the
+    
+    %% Validate StartPacket and EndPacket to make sure they do not exceed the
     %  length of packets in the file. If EndPacket is over then the last packet
     %  will be set for EndPacket. If StartPacket is over then will exist with an
     %  error message.
-    if EndPacket >= NSx.MetaTags.DataPoints
+    if StartPacket >= EndPacket
+        disp('The starting packet is greater than the end packet.');
+        disp('The file was not read.');
+        fclose(FID);
+        if nargout; varargout{1} = -1; end
+        return;
+    end
+    if StartPacket <= 0
+        disp('The starting packet must be greater or equal to 1.');
+        disp('The starting packet was changed to 1.');
+        StartPacket = 1;
+    end
+    if EndPacket > NSx.MetaTags.DataPoints
         if StartPacket >= NSx.MetaTags.DataPoints
             disp('The starting packet is greater than the total data duration.');
             disp('The file was not read.');
             fclose(FID);
-            if nargout; varargout{1} = []; end
+            if nargout; varargout{1} = -1; end
             return;
         end
         disp('The time interval specified is longer than the data duration.');
@@ -498,6 +715,11 @@ if ~NSx.RawData.PausedFile
         pause;
         EndPacket = NSx.MetaTags.DataPoints - 1;
     end
+    
+    % Adjusting the endPacket for the skipFactor to reduce the length of
+    % the data read.
+    EndPacket = EndPacket / skipFactor; 
+        
     DataLength = EndPacket - StartPacket + 1;
 end
 % from now StartPacket and EndPacket are in terms of Samples and are zero-based
@@ -518,7 +740,7 @@ if strcmp(ReadData, 'read')
     else
         fseek(FID, f.BOData, 'bof');
         % Skip the file to the beginning of the time requsted, if not 0
-        fseek(FID, StartPacket * 2 * ChannelCount, 'cof');
+        fseek(FID, (StartPacket - 1) * 2 * ChannelCount, 'cof');
         
         % Skip the file to the first channel to read
         fseek(FID, (find(NSx.MetaTags.ChannelID == min(userRequestedChannels))-1) * 2, 'cof');        
@@ -526,14 +748,14 @@ if strcmp(ReadData, 'read')
     end
 end
 
-% Fixing a bug in 6.03 TOC where an extra 0-length packet is introduced
+%% Fixing a bug in 6.03 TOC where an extra 0-length packet is introduced
 if NSx.RawData.PausedFile && strcmp(ReadData, 'read')
     if isempty(NSx.Data{1})
         NSx.Data = cell2mat(NSx.Data(2));
     end
 end
 
-% Fixing a bug in 6.03 where data packets with 0 lengh may be added
+%% Fixing a bug in 6.03 where data packets with 0 lengh may be added
 if any(NSx.MetaTags.DataPoints == 0) && strcmp(ReadData, 'read')
     segmentsThatAreZero = find(NSx.MetaTags.DataPoints == 0);
     NSx.MetaTags.DataPoints(segmentsThatAreZero) = [];
@@ -541,7 +763,7 @@ if any(NSx.MetaTags.DataPoints == 0) && strcmp(ReadData, 'read')
     NSx.Data(segmentsThatAreZero) = [];
 end
 
-% Removing extra channels that were read, but weren't supposed to be read
+%% Removing extra channels that were read, but weren't supposed to be read
 channelThatWereRead = min(userRequestedChanRow):max(userRequestedChanRow);
 if ~isempty(setdiff(channelThatWereRead,userRequestedChanRow))
 	deleteChannels = setdiff(channelThatWereRead, userRequestedChanRow) - min(userRequestedChanRow) + 1;
@@ -554,30 +776,58 @@ if ~isempty(setdiff(channelThatWereRead,userRequestedChanRow))
     end
 end
 
-% Adjusting the ChannelID variable to match the read electrodes
+%% Adjusting the ChannelID variable to match the read electrodes
 channelIDToDelete = setdiff(1:ChannelCount, userRequestedChanRow);
 NSx.MetaTags.ChannelID(channelIDToDelete) = [];
 
-% Calculating the DataPoints in seconds and adding it to MetaData
+%% Adjusting the file for a non-0 timestamp start
+if length(NSx.MetaTags.Timestamp) > 1
+    cellIDX = 1; % only do this for the first cell segment and not modify the subsequent segments
+    if strcmpi(ReadData, 'read')
+        NSx.Data{cellIDX} = [zeros(NSx.MetaTags.ChannelCount, floor(NSx.MetaTags.Timestamp(cellIDX) / skipFactor)) NSx.Data{cellIDX}];
+    end
+    NSx.MetaTags.DataPoints(cellIDX) = NSx.MetaTags.DataPoints(cellIDX) + NSx.MetaTags.Timestamp(cellIDX);
+    NSx.MetaTags.DataDurationSec(cellIDX) = NSx.MetaTags.DataPoints(cellIDX) / NSx.MetaTags.SamplingFreq;
+    NSx.MetaTags.Timestamp(cellIDX) = 0;
+elseif strcmpi(ReadData, 'read')
+    NSx.Data = [zeros(NSx.MetaTags.ChannelCount, floor(NSx.MetaTags.Timestamp / skipFactor)) NSx.Data];
+    NSx.MetaTags.DataPoints = size(NSx.Data,2);
+    NSx.MetaTags.DataDurationSec = NSx.MetaTags.DataPoints / NSx.MetaTags.SamplingFreq;
+    NSx.MetaTags.Timestamp = 0;
+end
+
+if strcmpi(multinsp, 'yes')
+    NSx.Data = [zeros(NSx.MetaTags.ChannelCount, syncShift) NSx.Data];
+    NSx.MetaTags.DataPoints = size(NSx.Data,2);
+    NSx.MetaTags.DataDurationSec = NSx.MetaTags.DataPoints / NSx.MetaTags.SamplingFreq;
+end
+
+%% Adjusting for the data's unit.
+if strcmpi(waveformUnits, 'uV')
+    NSx.Data = NSx.Data / 4;
+end
+
+%% Calculating the DataPoints in seconds and adding it to MetaData
 NSx.MetaTags.DataDurationSec = double(NSx.MetaTags.DataPoints)/NSx.MetaTags.SamplingFreq;
 
-% Displaying a report of basic file information and the Basic Header.
+%% Displaying a report of basic file information and the Basic Header.
 if strcmp(Report, 'report')
     disp( '*** FILE INFO **************************');
-    disp(['File Path          = '  path]);
-    disp(['File Name          = '  fname   ]);
-	disp(['File Version       = '  NSx.MetaTags.FileSpec   ]);
+    disp(['File Path          = '  NSx.MetaTags.FilePath]);
+    disp(['File Name          = '  NSx.MetaTags.Filename]);
+    disp(['File Extension     = '  NSx.MetaTags.FileExt]);
+	disp(['File Version       = '  NSx.MetaTags.FileSpec]);
     disp(['Duration (seconds) = '  num2str(NSx.MetaTags.DataDurationSec)]);
     disp(['Total Data Points  = '  num2str(NSx.MetaTags.DataPoints)]);
     disp(' ');
     disp( '*** BASIC HEADER ***********************');
-    disp(['File Type ID       = '          NSx.MetaTags.FileTypeID      ]);
-    disp(['Sample Frequency   = '  num2str(double(NSx.MetaTags.SamplingFreq))         ]);
-    disp(['Electrodes Read    = '  num2str(double(NSx.MetaTags.ChannelCount))   ]);
+    disp(['File Type ID       = '  NSx.MetaTags.FileTypeID]);
+    disp(['Sample Frequency   = '  num2str(double(NSx.MetaTags.SamplingFreq))]);
+    disp(['Electrodes Read    = '  num2str(double(NSx.MetaTags.ChannelCount))]);
     disp(['Data Point Read    = '  num2str(size(NSx.Data,2))]);
 end
 
-% If user does not specify an output argument it will automatically create
+%% If user does not specify an output argument it will automatically create
 %  a structure.
 outputName = ['NS' fext(4)];
 if (nargout == 0),
