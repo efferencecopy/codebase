@@ -49,13 +49,13 @@ classdef blkobj
             
             % convert the blackrock files to a stro structure.
             if ~exist('exptParamsDefs', 'var')
-                trialDef = [];
+                exdef = [];
             else
-                trialDef = exptParamsDefs; % execute the script of trial definitions
+                exdef = exptParamsDefs; % execute the script of trial definitions
             end
             
             % call blk2stro to unpack the data
-            stro = blk2stro('trialdef', trialDef,...
+            stro = blk2stro('exdef', exdef,...
                            'nev', fpath{1},...
                            'ns1', fpath{2},...
                            'ns2', fpath{3},...

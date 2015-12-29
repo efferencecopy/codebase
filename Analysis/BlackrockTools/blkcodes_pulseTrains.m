@@ -1,6 +1,8 @@
-function trialdef = blkcodes_pulseTrains()
+function exdef = blkcodes_pulseTrains()
 
-trialdef.tstart = 135; % anlg 7
-trialdef.tstop  = 136; % anlg 8
-trialdef.stimon = 143; % anlg 15
-trialdef.method = 'nev'; % how should the trials be defined?
+exdef.tcode.trl_start = 135; % anlg 7
+exdef.tcode.trl_stop  = 136; % anlg 8
+exdef.tcode.stim_on = 143; % anlg 15
+
+
+exdef.params.method = 'ns5'; % how should the trials be defined?
