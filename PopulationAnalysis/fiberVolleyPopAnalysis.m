@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 8;
+EXPTTYPE = 1;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -574,7 +574,7 @@ end % expts
 close all
 
 CHECK_TRIAL_STATS = true;
-RESTRICT_TO_STIM_SITE = false;
+RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
 Nexpts = size(in,1);
@@ -947,7 +947,7 @@ for i_ex = 1:numel(dat)
     
     opsin = lower(info{i_ex}.opsin);
     
-    pTypes = fieldnames(dat{i_ex});
+    pTypes = fieldnames(dat{i_ex})
     
     Nptypes = numel(pTypes);
     for i_ptype = 1:Nptypes
@@ -1729,7 +1729,7 @@ assert(any(strcmpi(EXPTTYPE, {'main expt', 'Intracellular', '4-AP'})), 'ERROR: t
 
 
 STIMSITE = true;
-PLOTERR = false;
+PLOTERR = true;
 
 switch EXPTTYPE
     case 'Intracellular'
@@ -1862,19 +1862,19 @@ for i_cond = 1:numel(conds)
         % chief cit 
         xbar = mean(chief_cit_examp{i_cond}, 1);
         sem = stderr(chief_cit_examp{i_cond}, 1);
-        shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 2}, 1)
+        shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 3}, 1);
         % chief flx 
         xbar = mean(chief_flx_examp{i_cond}, 1);
         sem = stderr(chief_flx_examp{i_cond}, 1);
-        shadedErrorBar(tt, xbar, sem, {'m', 'linewidth', 2}, 1);
+        shadedErrorBar(tt, xbar, sem, {'m', 'linewidth', 3}, 1);
         % chronos 
         xbar = mean(chronos_examp{i_cond}, 1);
         sem = stderr(chronos_examp{i_cond}, 1);
-        shadedErrorBar(tt, xbar, sem, {'g', 'linewidth', 2}, 1);
+        shadedErrorBar(tt, xbar, sem, {'g', 'linewidth', 3}, 1);
         % chr2 
         xbar = mean(chr2_examp{i_cond}, 1);
         sem = stderr(chr2_examp{i_cond}, 1);
-        shadedErrorBar(tt, xbar, sem, {'b', 'linewidth', 2}, 1);
+        shadedErrorBar(tt, xbar, sem, {'b', 'linewidth', 3}, 1);
     end
     xlabel('time (msec)')
     ylabel('Normalized amplitude')
@@ -1905,11 +1905,12 @@ for i_cond = 1:numel(conds)
 end
 
 
-%% SHAPE OF WAVEFORMS FOR EACH PULSE, SCALED TO HAVE SAME AMPLITUDE
+%% SHAPE OF WAVEFORMS FOR EACH PULSE (NORMALIZED AND UN-NORMALIZED)
 
 % choose a stimulation location:
-STIMSITE = true;
+NORMVALS = true;
 PLOTERR = false;
+STIMSITE = true;
 Npulses = 7;
 
 clc; close all
@@ -1985,17 +1986,21 @@ for a_ex = 1:Nexpt
             % pull out the relevant data, normalize, and add to the population
             % structure
             snips = dat{a_ex}.(tmp_tfcond).snips.(tmp_drugcond){CHANNEL};
-            switch drugconds{a_drug}
-                case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
-                    troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
-                    troughidx_row = 1:size(snips,1);
-                    troughidx = sub2ind(size(snips), troughidx_row(:), troughidx_col(:));
-                    normvals = snips(troughidx);
-                    normvals = abs(normvals); % maintains the sign of the opsin current
-                    normsnips = bsxfun(@rdivide, snips, normvals);
-                case 'FV_Na'
-                    normvals = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).pk2tr{CHANNEL};
-                    normsnips = bsxfun(@rdivide, snips, normvals(:));
+            if NORMVALS
+                switch drugconds{a_drug}
+                    case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
+                        troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
+                        troughidx_row = 1:size(snips,1);
+                        troughidx = sub2ind(size(snips), troughidx_row(:), troughidx_col(:));
+                        normvals = snips(troughidx);
+                        normvals = abs(normvals); % maintains the sign of the opsin current
+                        normsnips = bsxfun(@rdivide, snips, normvals);
+                    case 'FV_Na'
+                        normvals = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).pk2tr{CHANNEL};
+                        normsnips = bsxfun(@rdivide, snips, normvals(:));
+                end
+            else
+                normsnips = snips;
             end
             
             
@@ -2104,7 +2109,7 @@ end
 
 % choose a stimulation location:
 STIMSITE = true;
-PLOTERR = false;
+PLOTERR = true;
 NORMALIZE = false;
 
 
@@ -2986,89 +2991,172 @@ end
 
 
 
+%% COMPARE OPSINCURRENTS (INTRA VS LFP)
 
+fin
 
-%% COMPARE INTRACELLULAR AND LFP RECORDINGS
-
-clc
-
-NORMVALS = true;
+STIMSITE = true;
+NORMVALS = false;
+LOWPOWER = true;
+COMBINECHIEF = false;
 
 % need to load the data
-load('lfp.mat');
-load('intra.mat');
+load('lfp_all.mat');
+pop.lfp.dat = dat; clear dat;
+pop.lfp.info = info; clear info;
 
-opsinTypes = {'chief_cit', 'chr2', 'chronos'};
+load('intra_all_pow.mat');
+pop.intra.dat = dat; clear dat;
+pop.intra.info = info; clear info;
 
-for i_opsin = 1:numel(opsinTypes)
-    
-    lfp_tmp = lfp.(opsinTypes{i_opsin}).pnp1.nbqx_apv_cd2_ttx.diffval;
-    lfp_tfs = unique(lfp_tmp{1});
-    
-    intra_tmp = intra.(opsinTypes{i_opsin}).pnp1.nbqx_apv_ttx.diffval;
-    intra_tfs = unique(intra_tmp{1});
-    
-    TFS_to_analyze = intersect(lfp_tfs, intra_tfs); % only take the ones that match the LFP tfs
-    
-    TFS_to_analyze(TFS_to_analyze==100) = [];
-    
-    lfp_xbar = [];
-    for i_tf = 1:numel(TFS_to_analyze)
-        tf_idx = lfp_tmp{1} == TFS_to_analyze(i_tf);
-        l_7pulses = cellfun(@(x) size(x,2)>=7, lfp_tmp{3});
-        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
-        
-        % only take the first 7 pulses
-        trim_dat = cellfun(@(x) x(:,1:7), lfp_tmp{3}(tf_idx), 'uniformoutput', false);
-        cat_dat = vertcat(trim_dat{:});
-        lfp_xbar = cat(1, lfp_xbar, nanmean(cat_dat, 1));
-    end
-    
-    % normalize the LFP data to fit the full range from 1 to zero.
-    if NORMVALS
-        diff_from_1 = 1-lfp_xbar;
-        norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
-        lfp_norm = 1-norm_diffs;
-    else
-        lfp_norm = lfp_xbar;
-    end
-    
-    
-    
-    intra_xbar = [];
-    for i_tf = 1:numel(TFS_to_analyze)
-        
-        tf_idx = intra_tmp{1} == TFS_to_analyze(i_tf);
-        l_7pulses = cellfun(@(x) size(x,2)>=7, intra_tmp{3});
-        tf_idx = tf_idx & l_7pulses; % only analyzes experiments where there are >= 7 pulses per train
-        
-        % only take the first 7 pulses
-        trim_dat = cellfun(@(x) x(:,1:7), intra_tmp{3}(tf_idx), 'uniformoutput', false);
-        cat_dat = vertcat(trim_dat{:});
-        intra_xbar = cat(1, intra_xbar, nanmean(cat_dat, 1));
-    end
-    
-    % normalize the intracellular data to fit the full range from 1 to zero
-    if NORMVALS
-        diff_from_1 = 1-intra_xbar;
-        norm_diffs = diff_from_1 ./ max(diff_from_1(end,:));
-        intra_norm = 1-norm_diffs;
-    else
-        intra_norm = intra_xbar;
-    end
 
-    cmap = copper(numel(TFS_to_analyze));
-    f=figure;
-    f.Name = opsinTypes{i_opsin};
-    f.Position = [259   330   279   346];
+tforder = [10, 20, 40, 60, 100];
+
+% preallocate all the arrays
+opsins = {'chr2', 'chief_cit', 'chief_flx', 'chronos', 'chief_all'};
+for i_fld = {'lfp', 'intra'};
+    Nexp = numel(pop.(i_fld{1}).dat);
+    for i_opsin = opsins;
+        catdat.(i_fld{1}).(i_opsin{1}).raw = nan(numel(tforder), 7, Nexp); 
+    end
+end
+
+for i_fld = {'lfp', 'intra'}
+    
+    
+    Nexp = numel(pop.(i_fld{1}).dat);
+    for i_ex = 1:Nexp
+        
+       ex_opsin = lower(pop.(i_fld{1}).info{i_ex}.opsin);
+       
+       if COMBINECHIEF
+           if any(strcmpi(ex_opsin, {'chief_flx', 'chief_cit'}))
+               ex_opsin = 'chief_all';
+           end
+       end
+       
+       % which channel should be analyzed?
+       CHANNEL = pop.(i_fld{1}).info{i_ex}.stimSite;
+       if isnan(CHANNEL) % cases where neither recording sites were targeted
+           continue
+       end
+       Nchannels = sum(pop.(i_fld{1}).info{i_ex}.ignoreChans);
+       if Nchannels == 1
+           if ~STIMSITE
+               continue % no other stim site to show...
+           elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+               CHANNEL = 1;
+           end
+       else
+           if ~STIMSITE
+               if CHANNEL == 1
+                   CHANNEL = 2;
+               elseif CHANNEL == 2
+                   CHANNEL = 1;
+               end
+           end
+       end
+       
+       
+       % extract the raw data for the TTX condition
+       tfnames = fieldnames(pop.(i_fld{1}).dat{i_ex});
+       for i_tf = 1:numel(tfnames)
+           
+           drugconds = fieldnames(pop.(i_fld{1}).info{i_ex}.(tfnames{i_tf}));
+           ttxidx = cellfun(@(x) regexpi(x, 'ttx'), drugconds, 'uniformoutput', false);
+           ttxidx = cellfun(@(x) ~isempty(x), ttxidx);
+           if ~any(ttxidx)
+               continue
+           else
+               assert(sum(ttxidx) == 1, 'ERROR: found multiple TTX indx')
+           end
+           ttxcond = drugconds{ttxidx};
+           
+           % allow the user to only anlyze data that came from weak
+           % expression intracellular data
+           if LOWPOWER
+               if strcmpi(i_fld{1}, 'intra')
+                   tmp_pamp = pop.(i_fld{1}).info{i_ex}.(tfnames{i_tf}).(ttxcond).pAmp;
+                   if tmp_pamp <7; continue; end
+               end
+           end
+           
+           tmptf = pop.(i_fld{1}).info{i_ex}.(tfnames{i_tf}).(ttxcond).pTF;
+           rowidx = tforder == tmptf;
+           
+           tmpraw = pop.(i_fld{1}).dat{i_ex}.(tfnames{i_tf}).stats.(ttxcond).diffval{CHANNEL};
+           if numel(tmpraw)<7; continue; end
+           catdat.(i_fld{1}).(ex_opsin).raw(rowidx, 1:7, i_ex) = tmpraw(1:7);
+           
+               
+       end
+    end
+end
+
+
+% normalize the data, and keep track of the xbar and sem for each TF
+for i_fld = {'lfp', 'intra'}
+    for i_opsin = opsins
+        
+        switch i_opsin{1}
+            case 'chr2'
+                tfval = 40;
+            case {'chief_cit', 'chief_flx', 'chief_all'}
+                tfval = 40;
+            case 'chronos'
+                tfval = 40;
+        end
+        
+        % grab the raw data and normalize by the first pulse
+        tmpdat = catdat.(i_fld{1}).(i_opsin{1}).raw;
+        p1_vals = tmpdat(:,1,:); % all 1st pulses of all TFs and expts;
+        tmpdat = bsxfun(@rdivide, tmpdat, p1_vals);
+        
+        if NORMVALS
+            
+            % normalize the difference between the P1 and P7 for a particular
+            % TF (which depends on the opsin)
+            diff_from_1 = 1-tmpdat;
+            normfact = mean(diff_from_1(tforder == tfval,5:7,:), 2);
+            norm_diffs = bsxfun(@rdivide, diff_from_1, normfact);
+            
+            
+            catdat.(i_fld{1}).(i_opsin{1}).normvals = 1-norm_diffs;
+            
+        else
+            catdat.(i_fld{1}).(i_opsin{1}).normvals = tmpdat;
+        end
+        
+        
+    end
+end
+
+% plot the results
+
+for i_opsin = opsins
+    
+    f = figure;
+    f.Position = [415   417   348   344];
+    f.Name = i_opsin{1};
     hold on,
-    for i_tf = 1:size(lfp_norm,1)
-        plot(lfp_norm(i_tf, :), '-', 'color', cmap(i_tf,:), 'linewidth', 2)
-        plot(intra_norm(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
+    
+    tmp_lfp = catdat.lfp.(i_opsin{1}).normvals;
+    xbar_lfp = nanmean(tmp_lfp, 3);
+    
+    tmp_intra = catdat.intra.(i_opsin{1}).normvals;
+    xbar_intra = nanmean(tmp_intra, 3);
+    
+    cmap = copper(numel(tforder));
+    for i_tf = 1:numel(tforder)
+        plot(xbar_lfp(i_tf,:), '-', 'color', cmap(i_tf,:), 'linewidth', 3)
+        plot(xbar_intra(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
     end
-    legend('LFP', 'Intracellular', 'Location', 'SouthWest')
-    legend boxoff
-    ylim([0 1])
+    xlabel('pulse number')
+    ylabel('opsin current');
+    if ~NORMVALS
+        ylim([0 1])
+    end
+    
 end
 
 
