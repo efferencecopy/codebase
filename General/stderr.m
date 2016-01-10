@@ -1,14 +1,20 @@
 function sem = stderr(data, dim)
 
-if ~isvector(data)
-    if ~exist('dim', 'var')
+if isempty(data)
+    sem = NaN;
+    return
+end
+
+
+if ~exist('dim', 'var')
+    if ~isvector(data)
         dim = 1;
-    end
-else
-    if isrow(data)
-        dim = 2;
     else
-        dim = 1;
+        if isrow(data)
+            dim = 2;
+        else
+            dim = 1;
+        end
     end
 end
 

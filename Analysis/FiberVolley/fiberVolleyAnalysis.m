@@ -25,11 +25,12 @@ validConds = {'none',...
               'nbqx_apv_cd2_ttx',...
               'nbqx_apv_ttx',...
               'ttx',...
-              'cd2_ttx'};
+              'cd2_ttx',...
+              'ttx_cd2',...
+              'ttx_cd2_4ap'};
           
 exptConds = cellfun(@(x) regexprep(x, '\+', '_'), exptConds, 'uniformoutput', false);
-idx = cellfun(@(x,y) regexpi(x,y), exptConds, repmat({validConds}, size(exptConds)), 'uniformoutput', false);
-idx = cellfun(@(x) any([x{:}]), idx);
+idx = cellfun(@(x) any(strcmpi(x,validConds)), exptConds);
 assert(all(idx), 'ERROR: at least one experimental condition is not recognized');
 
 % ERROR CHECKING: make sure that the tmp.head.validChans is consistent
@@ -214,11 +215,13 @@ for i_sweepType = 1:numel(sweepTypeFields)
             % (which is only a few ms wide)
             switch EXPTTYPE
                 case 'E-stim'
-                    lp_freq = 4000;
+                    lp_freq = 6000;
                 otherwise
                     lp_freq = 1500;
             end
-            filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+            %filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+            filtered = tmp;
+            warning('not filtering raw data')
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             
             % take the mean
@@ -253,6 +256,8 @@ for i_sweepType = 1:numel(sweepTypeFields)
     % none - nbqx_apv                   =>   synapticTransmission
     % ttx - cd2_ttx                     =>   direct release from terminals?
     % none                              =>   control
+    % ttx conditions                    =>   opsin current
+    % ttx_cd2 - ttx_cd2_4ap             =>   Potissum currents
     
     
     % generate some field names
@@ -361,6 +366,26 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).directRelease.realTrialNum = info.(swpType).ttx.realTrialNum;
     end
     
+    % are there conditions that can be used to determine potasium currents
+    ttx_cd2_present = isfield(trace.(swpType), 'ttx_cd2');
+    cd2_ttx_4ap_present = isfield(trace.(swpType), 'ttx_cd2_4AP');
+    if ttx_cd2_present && cd2_ttx_4ap_present
+        
+        pWidthMatch = info.(swpType).ttx_cd2.pWidth == info.(swpType).ttx_cd2_4AP.pWidth;
+        pAmpMatch = info.(swpType).ttx_cd2.pAmp == info.(swpType).ttx_cd2_4AP.pAmp;
+        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
+        
+        trace.(swpType).potassium = trace.(swpType).ttx_cd2 - trace.(swpType).ttx_cd2_4AP;
+        
+        info.(swpType).potassium.pulseOn_idx = info.(swpType).ttx_cd2.pulseOn_idx;
+        info.(swpType).potassium.pulseOff_idx = info.(swpType).ttx_cd2.pulseOff_idx;
+        info.(swpType).potassium.sampRate = info.(swpType).ttx_cd2.sampRate;
+        info.(swpType).potassium.pWidth = info.(swpType).ttx_cd2.pWidth;
+        info.(swpType).potassium.pAmp = info.(swpType).ttx_cd2.pAmp;
+        info.(swpType).potassium.pTF = info.(swpType).ttx_cd2.pTF;
+        info.(swpType).potassium.realTrialNum = info.(swpType).ttx_cd2.realTrialNum;
+    end
+    
     
     
     if RMLINENOISE
@@ -407,8 +432,6 @@ for i_sweepType = 1:numel(sweepTypeFields)
     end
     
 end
-
-
 
 
 

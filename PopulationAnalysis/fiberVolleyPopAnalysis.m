@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 9;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -260,7 +260,7 @@ parfor i_ex = 1:Nexpts
         if strcmpi(conds{i_cond}, 'synapticTransmission')
             photoDelay= 1e-3;
         elseif strcmpi(EXPTTYPE, 'E-stim')
-            photoDelay = 80e-6;
+            photoDelay = 300e-6;
         else
             photoDelay= 300e-6; % timeout following pulse offset (in sec)
         end
@@ -584,7 +584,7 @@ for i_ex = 1:Nexpts
     % define the conditions that will get plotted
     switch EXPTTYPE
         case '4-AP'
-            conds = {'ttx_cd2', 'ttx_cd2_4AP'};
+            conds = {'ttx_cd2', 'ttx_cd2_4AP', 'potassium'};
         case 'Baclofen'
             conds = {'ttx_cd2', 'ttx_cd2_bac10'};
         case 'Intracellular'
@@ -669,9 +669,8 @@ for i_ex = 1:Nexpts
                 tt = (tt - prePulseTime) .* 1000; % in ms.
                 
                 subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs), 'align'),
-                cmap = colormap('copper');
-                cidx = round(linspace(1, size(cmap,1), max([Ncols, Ntfs])));
-                cmap = cmap(cidx,:);
+                cmap = gray(max([Ncols, Ntfs])+3);
+                cmap = cmap(1:Npulses, :);
                 set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
                 
                 plot(tt, tmp_raw, 'linewidth', 2), hold on,
@@ -766,6 +765,7 @@ for i_ex = 1:Nexpts
         hold on,
         statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
         Nstats = numel(statTypes);
+        cmap = copper(Ntfs);
         for i_cond = 1:Nconds
             
             for i_stat = 1:Nstats
@@ -891,7 +891,7 @@ switch EXPTTYPE
         conds = {'nbqx_apv_ttx'};
         opsinTypes = {'chief_cit', 'chronos', 'chief_flx', 'chr2'};
     case 'E-stim'
-        conds = {'Fv_Na'};
+        conds = {'FV_Na'};
         opsinTypes = {'estim'};
     otherwise
         opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
@@ -947,7 +947,7 @@ for i_ex = 1:numel(dat)
     
     opsin = lower(info{i_ex}.opsin);
     
-    pTypes = fieldnames(dat{i_ex})
+    pTypes = fieldnames(dat{i_ex});
     
     Nptypes = numel(pTypes);
     for i_ptype = 1:Nptypes
@@ -1062,9 +1062,7 @@ for i_opsin = 1:numel(opsinTypes)
             tfs = unique(tfs);
             Ntfs = numel(tfs);
             pAmps = tmp_dat{2};
-            cmap = colormap('copper');
-            cidx = round(linspace(1, size(cmap,1), 5)); % hard coding for 5 TFs
-            cmap = cmap(cidx,:);
+            cmap = copper(max([Ntfs, 5])); % a minimum of 5 tfs
             set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
             hold on
             
@@ -1908,9 +1906,10 @@ end
 %% SHAPE OF WAVEFORMS FOR EACH PULSE (NORMALIZED AND UN-NORMALIZED)
 
 % choose a stimulation location:
-NORMVALS = true;
+NORMVALS = false;
 PLOTERR = false;
 STIMSITE = true;
+ENFORCETFS = 'true'; % culls some expts from Chronos that are not interleaved
 Npulses = 7;
 
 clc; close all
@@ -1933,6 +1932,8 @@ end
 
 for i_opsin = 1:numel(opsinTypes)
      opsincurrent.(opsinTypes{i_opsin}) = repmat({[]}, numel(tfnames), Npulses, numel(drugconds));
+     fvlatency.(opsinTypes{i_opsin}) = repmat({[]}, numel(tfnames), Npulses);
+     opsin_amps.(opsinTypes{i_opsin}) = repmat({[]}, numel(tfnames), Npulses);
 end
 
 
@@ -1941,6 +1942,21 @@ Nexpt = size(in,1);
 for a_ex = 1:Nexpt
     
     opsin = lower(info{a_ex}.opsin);
+    
+    % what TFs are present in this file?
+    ex_tfs = fieldnames(dat{a_ex});
+    has10 = any(strcmpi(ex_tfs, 'tf10'));
+    has20 = any(strcmpi(ex_tfs, 'tf20'));
+    has40 = any(strcmpi(ex_tfs, 'tf40'));
+    has60 = any(strcmpi(ex_tfs, 'tf60'));
+    has100 = any(strcmpi(ex_tfs, 'tf100'));
+    
+    if ENFORCETFS
+        if ~(has40 && has60) && strcmpi(opsin, 'chronos')
+            continue
+        end
+    end
+    
     for a_ptype = 1:numel(tfnames)
         
         % this pulse type might not exist. Detect these cases and continue
@@ -1986,26 +2002,58 @@ for a_ex = 1:Nexpt
             % pull out the relevant data, normalize, and add to the population
             % structure
             snips = dat{a_ex}.(tmp_tfcond).snips.(tmp_drugcond){CHANNEL};
-            if NORMVALS
-                switch drugconds{a_drug}
+            exptSampRate = info{a_ex}.(tmp_tfcond).(tmp_drugcond).sampRate;
+            diffvals = [];
+            if ~NORMVALS
+                normsnips = snips;
+                
+                %keep track of the raw diff vals, but only for the opsin
+                %currents
+                if any(strcmpi(tmp_drugcond, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}))
+                    diffvals = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).diffval{CHANNEL};
+                    diffvals = abs(diffvals);                    
+                end
+                
+            elseif NORMVALS
+                switch tmp_drugcond
                     case {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}
                         troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
-                        troughidx_row = 1:size(snips,1);
-                        troughidx = sub2ind(size(snips), troughidx_row(:), troughidx_col(:));
-                        normvals = snips(troughidx);
+                        idx_row = 1:size(snips,1);
+                        trough_idx = sub2ind(size(snips), idx_row(:), troughidx_col(:));
+                        normvals = snips(trough_idx);
                         normvals = abs(normvals); % maintains the sign of the opsin current
                         normsnips = bsxfun(@rdivide, snips, normvals);
                     case 'FV_Na'
-                        normvals = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).pk2tr{CHANNEL};
+                        troughidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,1);
+                        peakidx_col = dat{a_ex}.(tmp_tfcond).stats.(tmp_drugcond).trpk_inds{CHANNEL}(:,2);
+                        idx_row = 1:size(snips,1);
+                        trough_idx = sub2ind(size(snips), idx_row(:), troughidx_col(:));
+                        peak_idx = sub2ind(size(snips), idx_row(:), peakidx_col(:));
+                        trough_vals = snips(trough_idx);
+                        peak_vals = snips(peak_idx);
+                        normvals = peak_vals - trough_vals;
                         normsnips = bsxfun(@rdivide, snips, normvals(:));
                 end
-            else
-                normsnips = snips;
+                
+                % estimate the latency, but only for the FV
+                pWidth = info{a_ex}.(tmp_tfcond).(tmp_drugcond).pWidth;
+                preSamps = ceil((prePulseTime+pWidth+25e-6).*exptSampRate);
+                tt = [0 : size(normsnips,2)-1] ./ exptSampRate;
+                tt = tt - prePulseTime;
+                if strcmpi(tmp_drugcond, 'FV_Na')
+                    tmp_snips = normsnips(:,preSamps:end);
+                    thresh  = normsnips(trough_idx) .* 0.6;
+                    aboveThresh = bsxfun(@le, tmp_snips, thresh);
+                    cross_down = [nan(size(tmp_snips,1),1), diff(aboveThresh, 1, 2)==1]; % rember that the wf is negative...
+                    cross_down = mat2cell(cross_down, ones(size(tmp_snips,1),1), size(tmp_snips,2));
+                    latency_idx = cellfun(@(x) find(x==1, 1, 'first'), cross_down);
+                    latency_idx = latency_idx + preSamps;
+                    latency_tt = tt(latency_idx);
+                end
+                
             end
             
-            
-            % correct for differences in the sampling rate
-            exptSampRate = info{a_ex}.(tmp_tfcond).(tmp_drugcond).sampRate;
+           % correct for differences in the sampling rate
             correctSR = exptSampRate == 20e3;
             if ~correctSR
                 
@@ -2024,9 +2072,24 @@ for a_ex = 1:Nexpt
             Npulses_ex = size(snips, 1);
             for a_pulse = 1 : min([Npulses, Npulses_ex])
                 
+                % store the waveform
                 tmp = opsincurrent.(opsin){a_ptype, a_pulse, a_drug};
                 tmp = cat(1, tmp, normsnips(a_pulse,:));
                 opsincurrent.(opsin){a_ptype, a_pulse, a_drug} = tmp;
+                
+                % store the FV latencies
+                if strcmpi(tmp_drugcond, 'FV_Na')
+                    tmp = fvlatency.(opsin){a_ptype, a_pulse};
+                    tmp = cat(1, tmp, latency_tt(a_pulse));
+                    fvlatency.(opsin){a_ptype, a_pulse} = tmp;
+                end
+                
+                % store the opsin current diff vals
+                if any(strcmpi(tmp_drugcond, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'})) && ~NORMVALS
+                    tmp = opsin_amps.(opsin){a_ptype, a_pulse};
+                    tmp = cat(1, tmp, diffvals(a_pulse));
+                    opsin_amps.(opsin){a_ptype, a_pulse} = tmp;
+                end
                 
             end
         end
@@ -2035,9 +2098,14 @@ for a_ex = 1:Nexpt
     
 end
 
-cmap = colormap('copper'); close;
-cidx = round(linspace(1, size(cmap,1), Npulses));
-cmap = cmap(cidx,:);
+
+
+%
+% PLOT THE WAVEFORMS
+%
+cmap = gray(Npulses+3);
+cmap = cmap(1:Npulses, :);
+cmap = flipud(cmap);
 for a_opsin = 1:numel(opsinTypes)
     
     % first, determine if there are any data for this drug/opsin combo
@@ -2104,6 +2172,68 @@ for a_opsin = 1:numel(opsinTypes)
         end
     end
 end
+
+
+%
+% Plot the latencies
+%
+if NORMVALS
+    cmap = copper(numel(tfnames));
+    f=figure;
+    f.Position = [99         370        1072         307];
+    for i_opsin = 1:numel(opsinTypes)
+        
+        tmpdat = fvlatency.(opsinTypes{i_opsin});
+        xbar = cellfun(@mean, tmpdat);
+        sem = cellfun(@stderr, tmpdat);
+        
+        subplot(1, numel(opsinTypes), i_opsin)
+        hold on,
+        for i_tf = 1:numel(tfnames);
+            errorbar(1:numel(xbar(i_tf,:)), xbar(i_tf,:), sem(i_tf,:), 'color', cmap(i_tf,:));
+        end
+        ylim([0, 2.2e-3])
+        xlim([0.5, 7.5])
+        title(opsinTypes{i_opsin})
+        legend(tfnames, 'location', 'best')
+        legend boxoff
+        xlabel('pulse number')
+        ylabel('FV latency (sec)')
+    end
+end
+
+
+%
+% Plot the raw opsin currents to compare P1 and P7
+%
+if ~NORMVALS
+    f=figure;
+    hold on;
+    pltclr = {'b', 'r', 'g', 'm'};
+    
+    for i_opsin = 1:numel(opsinTypes)
+        
+        tmpdat = opsin_amps.(opsinTypes{i_opsin});
+        xbar = cellfun(@mean, tmpdat);
+        sem = cellfun(@stderr, tmpdat);
+        
+        % plot the first pulse
+        x = (1:numel(tfnames)) + (0.2*i_opsin-1);
+        errorbar(x, xbar(:,1)', sem(:,1)', 's', 'color', pltclr{i_opsin}, 'linewidth', 2, 'markersize', 10, 'markerfacecolor', pltclr{i_opsin})
+        
+        % plot the last pulse
+        x2 = x + 0.1;
+        errorbar(x2, xbar(:,7)', sem(:,7)', 's', 'color', pltclr{i_opsin}, 'linewidth', 2, 'markersize', 10)
+        
+        % plot the line segments
+        plot([x;x2], xbar(:, [1,7])', 'color', pltclr{i_opsin}, 'linewidth', 2)
+        
+    end
+    ylim([0 0.09])
+    set(gcf, 'Position', [13 430 1420 325]);
+    set(gca, 'Position', [0.0423 0.1100 0.9352 0.8150]);
+end
+
 
 %% AVERAGE RECORDING WAVEFORM OF OPSIN CURRENT FOR WHOLE SWEEP
 
