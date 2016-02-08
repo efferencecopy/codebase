@@ -70,6 +70,12 @@ else
 end
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+% Plot to get the parameters of the line 
+H.mainLine=plot(x,y,lineProps{:});
+
+
 %Make upper and lower error bars if only one was specified
 if isvector(errBar);
     errBar=repmat(errBar(:)',2,1);
@@ -82,10 +88,6 @@ end
 
 assert(length(x) == size(errBar,2), 'ERROR: length(x) must equal length(errBar)');
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-% Plot to get the parameters of the line 
-H.mainLine=plot(x,y,lineProps{:});
-
 
 % Work out the color of the shaded region and associated lines
 % Using alpha requires the render to be openGL and so you can't
@@ -94,7 +96,7 @@ H.mainLine=plot(x,y,lineProps{:});
 % de-saturated solid colour for the patch surface .
 col=get(H.mainLine,'color');
 edgeColor=col+(1-col)*0.55;
-patchSaturation=0.15; %How de-saturated or transparent to make patch
+patchSaturation=0.18; %How de-saturated or transparent to make patch
 if transparent
     faceAlpha=patchSaturation;
     patchColor=col;

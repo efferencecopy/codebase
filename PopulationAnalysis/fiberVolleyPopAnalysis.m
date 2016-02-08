@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 9;
+EXPTTYPE = 3;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -37,7 +37,7 @@ fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
 wb_expt_nameidx = strcmpi(wb_expt(1,:), 'mouse name');
 wb_expt_siteidx = strcmpi(wb_expt(1,:), 'site');
 if strcmpi(EXPTTYPE, 'all manuscript')
-    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps');
+    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps') | strcmpi(wb_expt(1,:), 'Intracellular') | strcmpi(wb_expt(1,:), 'E-stim');
 else
     exptlistidx = strcmpi(wb_expt(1,:), EXPTTYPE);
 end
@@ -115,6 +115,7 @@ pool = gcp('nocreate');
 if isempty(pool)
     pool = parpool(min([32, Nexpts]));
 end
+
 
 parfor i_ex = 1:Nexpts;
     
@@ -243,13 +244,15 @@ parfor i_ex = 1:Nexpts
         fldnames = cat(1, fldnames, fieldnames(info{i_ex}.(pTypes{i_tf})));
     end
     fldnames = unique(fldnames);
-    tags = {'FV_', 'ttx', 'synapticTransmission'};
+    tags = {'FV_', 'ttx', 'synapticTransmission'}; %default line
+    
     conds = {};
     for i_t = 1:numel(tags)
         idx = cellfun(@(x) ~isempty(x), regexpi(fldnames, tags{i_t}));
         conds = cat(2, conds, fldnames(idx)');
     end
-    
+    conds
+
     for i_cond = 1:numel(conds)  %#ok<*PFTUS>
         
 
@@ -262,7 +265,7 @@ parfor i_ex = 1:Nexpts
         elseif strcmpi(EXPTTYPE, 'E-stim')
             photoDelay = 300e-6;
         else
-            photoDelay= 300e-6; % timeout following pulse offset (in sec)
+            photoDelay= 200e-6; % timeout following pulse offset (in sec)
         end
         anlyWindowInPts = ceil(450e-6 .* sampRate);
         if rem(anlyWindowInPts, 2)==0;
@@ -380,6 +383,7 @@ parfor i_ex = 1:Nexpts
                         assert(~isempty(peak_window) && numel(peak_window)==anlyWindowInPts, 'ERROR: no data for peak windwo')
                     end
                     
+                    
                     %
                     % store some stats for each pulse
                     %
@@ -396,7 +400,7 @@ parfor i_ex = 1:Nexpts
                         latency = tt(troughidx);
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).latency{i_ch}(i_pulse) = latency;
                         
-                    elseif any(regexpi(conds{i_cond}, 'ttx'))
+                    elseif any(regexpi(conds{i_cond}, 'ttx')) || strcmpi(conds{i_cond}, 'nbqx_apv_cd2')
                         
                         trough = mean(snippet(trough_window));
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
@@ -580,7 +584,6 @@ NORM_TO_PULSE1 = true;
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
     
-    
     % define the conditions that will get plotted
     switch EXPTTYPE
         case '4-AP'
@@ -594,10 +597,12 @@ for i_ex = 1:Nexpts
             
         otherwise
             
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % with cadmium
-            %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
-            %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
-            %     conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+            %conds = {'none', 'nbqx_apv', 'synapticTransmission'}; % first two pharm params with subtractions
+            %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+            %conds = {'FV_Na', 'FV_Na_Ca2_mGluR'}; % both %FVs
+            %conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+            %conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
     end
     
     
@@ -670,7 +675,7 @@ for i_ex = 1:Nexpts
                 
                 subplot(Nconds, Ntfs, i_tf+((i_cond-1) * Ntfs), 'align'),
                 cmap = gray(max([Ncols, Ntfs])+3);
-                cmap = cmap(1:Npulses, :);
+                cmap = cmap(1:Ncols, :);
                 set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
                 
                 plot(tt, tmp_raw, 'linewidth', 2), hold on,
@@ -851,7 +856,7 @@ for i_ex = 1:Nexpts
                             yvals = [1-noise_calibration, 1+noise_calibration];
                             for i_plt = 1:numel(order)
                                 idx = order(i_plt);
-                                plot(xvals, repmat(yvals(i_plt,:), 2, 1), ':', 'color', cmap(i_plt,:), 'linewidth', 1);
+                                %plot(xvals, repmat(yvals(i_plt,:), 2, 1), ':', 'color', cmap(i_plt,:), 'linewidth', 1);
                             end
                         end
                     end
@@ -946,7 +951,6 @@ for i_ex = 1:numel(dat)
     end
     
     opsin = lower(info{i_ex}.opsin);
-    
     pTypes = fieldnames(dat{i_ex});
     
     Nptypes = numel(pTypes);
@@ -1067,6 +1071,7 @@ for i_opsin = 1:numel(opsinTypes)
             hold on
             
             legtext = {};
+            hvec = [];
             pp_dat_allTFs = {};
             for i_tf = 1:Ntfs;
                 
@@ -1084,7 +1089,7 @@ for i_opsin = 1:numel(opsinTypes)
                     nrepeats = sum(~isnan(cat_dat), 1)
                 end
                 
-                errorbar(1:7, xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2) % only plot the first 7 pulses
+                [hvec(i_tf),~] = my_errorbar(1:7, xbar, sem, 'color', cmap(i_tf,:), 'linewidth', 2); % only plot the first 7 pulses
                 legtext = cat(2, legtext, num2str(tfs(i_tf)));
                 
                 % store the pp data in an array that I can use to perform
@@ -1097,8 +1102,8 @@ for i_opsin = 1:numel(opsinTypes)
             if i_stat==1
                 ylabel(sprintf('%s \n Pn:P1 ratio', conds{i_cond}))
             end
-            if i_stat==1  && i_cond==2
-                legend(legtext, 'location', 'best')
+            if i_stat==1  && i_cond==1
+                legend(hvec, legtext, 'location', 'best')
                 legend boxoff
             end
             yvals = get(gca, 'ylim');
@@ -1172,32 +1177,34 @@ end
 % function of pulse number for each frequency
 
 STIMSITE = true;  % true => stimsite,  false => distal site
-PULSENUM = 3;
-NORMVALS = true;
+PULSENUM = 1;
+PLOTPPR = false; % if true, PPR = P(PULSENUM) ./ P(1), else the stat is raw P(PULSENUM)
+NORM_TO_LED10 = false; % norm data to LED=10V
 STATTYPE = 'diffval';
 CONDITION = 'FV_Na'; % 'FV_Na', or 'nbqx_apv_cd2_ttx'
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
 
-% load in the LED calibration data to convert from Volts to power denisty
-cd(GL_DATPATH)
-cd '../../Calibration files'
-load led_cal.mat % data now stored in 'cal' struct
+% load in the calibration data to convert from Volts to power denisty
+load led_470_cal.mat;
+cal_led = cal;
+load laser_450_cal.mat;
+cal_laser = cal;
 
 % pull out the waveform of the first pulse, keep track of the power (TF is
 % irrelevant) so that I can average acorss mice
+firstPulse = [];
 firstPulse.wf = {}; % waveforms, 1 cell for each mouse, 1 row for each amp
 firstPulse.amp = {}; % pAmps, 1 cell for each mouse, 1 row for each amp
 firstPulse.tf = {}; % just make sure that only 1 TF was tested per mouse
-firstPulst.stat = {}; % for the line series plots
+firstPulse.stats = {}; % for the line series plots
 firstPulse.opsin = {}; % 1 opsin per mouse
 
+allPulses = [];
+allPulses.rawstats = {};
 
-% initialize the figure
-f = figure; hold on;
 
-[rho_chr2, rho_ochief, rho_chronos] = deal([]);
 for i_ex = 1:numel(dat)
     
     
@@ -1225,9 +1232,9 @@ for i_ex = 1:numel(dat)
         end
     end
     
-    % get P2:P1 ratios for the FV
+    % get P2:P1 ratios
     ex_tf = [];
-    ex_amps = [];
+    ex_powDensity = [];
     ex_ppr = [];
     
     pTypes = fieldnames(dat{i_ex});
@@ -1237,83 +1244,58 @@ for i_ex = 1:numel(dat)
             continue
         end
         
+        
+        % deal with the raw data
         tmp = dat{i_ex}.(pTypes{i_ptype}).stats.(CONDITION).(STATTYPE){CHANNEL};
-        if numel(tmp)<PULSENUM; continue; end;
-        if NORMVALS
-            ppr = tmp(PULSENUM)/tmp(1);
+        if numel(tmp)<7; continue; end;
+        if PLOTPPR
+            assert(PULSENUM>1, 'ERROR: for PPR, PULSENUM must be > 1')
+            amp = tmp(PULSENUM)/tmp(1);
         else
-            ppr = tmp(PULSENUM);
+            amp = tmp(PULSENUM);
         end
         
-        ex_ppr = cat(1, ex_ppr, ppr);
+        % convert amplitudes from volts to mW/mm2. Treat the LED
+        % differently then the Laser
+        cmd_voltage = info{i_ex}.(pTypes{i_ptype}).(CONDITION).pAmp;
+        switch info{i_ex}.(pTypes{i_ptype}).(CONDITION).stimtype
+            case 'laser'
+                mW_mm2 = ppval(cal_laser.pp_mW_mm2, cmd_voltage);
+            case 'led'
+                mW_mm2 = ppval(cal_led.pp_mW_mm2, cmd_voltage);
+        end
+        
+        % compile the data for a single experiment
         ex_tf = cat(1, ex_tf, info{i_ex}.(pTypes{i_ptype}).(CONDITION).pTF);
-        ex_amps = cat(1, ex_amps, info{i_ex}.(pTypes{i_ptype}).(CONDITION).pAmp);
+        assert(all(ex_tf == 20), 'ERROR: not all TFs equal 20')
         
-        % convert amplitudes from volts to mW/mm2
-        ex_powDensity = ppval(cal.pp.led_470, ex_amps);
-        
-        % run a correlation b/w PPR and light power
-        rho = corr(ex_ppr, ex_powDensity, 'type', 'Pearson');
-        
-        % store the first pulse waveform
-        tmp_wf = dat{i_ex}.(pTypes{i_ptype}).snips.(CONDITION){CHANNEL}(1,:);
+        % store the representative pulse waveform
+        tmp_wf = dat{i_ex}.(pTypes{i_ptype}).snips.(CONDITION){CHANNEL}(PULSENUM,:);
         
         firstPulse.wf{i_ex}(i_ptype,:) = tmp_wf;
-        firstPulse.amp{i_ex}(i_ptype) = info{i_ex}.(pTypes{i_ptype}).(CONDITION).pAmp; 
+        firstPulse.mW_mm2{i_ex}(i_ptype) = mW_mm2; 
         firstPulse.tf{i_ex}(i_ptype) = info{i_ex}.(pTypes{i_ptype}).(CONDITION).pTF; 
         firstPulse.opsin{i_ex} = info{i_ex}.opsin;
-        firstPulse.stats{i_ex}(i_ptype) = dat{i_ex}.(pTypes{i_ptype}).stats.(CONDITION).(STATTYPE){CHANNEL}(1);
-    end
-    
-    %
-    % do some plotting if there are data
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if ~isempty(ex_ppr)
+        firstPulse.stats{i_ex}(i_ptype) = amp;
         
-        switch lower(info{i_ex}.opsin)
-            case 'chr2'
-                pltclr = 'b';
-                rho_chr2 = cat(1, rho_chr2, rho);
-            case 'chief_cit'
-                pltclr = 'r';
-                rho_ochief = cat(1, rho_ochief, rho);
-            case 'chronos'
-                pltclr = 'g';
-                rho_chronos = cat(1, rho_chronos, rho);
+        % store all the raw pulse stats
+        if strcmpi(info{i_ex}.opsin, 'chr2')
+            tmp = dat{i_ex}.(pTypes{i_ptype}).stats.(CONDITION).(STATTYPE){CHANNEL};
+            allPulses.rawstats{i_ex}(i_ptype,:) = tmp(:)';
+            allPulses.mW_mm2{i_ex}(i_ptype) = mW_mm2;
         end
         
-        assert(all(ex_tf == ex_tf(1)), 'ERROR: not all TFs equal')
-        if ex_tf(1) == 10
-            symbol = 'o';
-        elseif ex_tf(1) == 20;
-            symbol = 's';
-        elseif ex_tf(1) == 50;
-            symbol = 'v';
-        else
-            error('undefined tf')
-        end
-        
-        
-        figure(f); hold on,
-        plot(ex_powDensity, ex_ppr, ['-', symbol, pltclr])
-        
     end
-    
-end
-xlabel('Power (mW per mm^2)')
-if NORMVALS
-    ylabel(sprintf('Paired Pulse Ratio \n on the %s', STATTYPE))
-else
-    ylabel(sprintf('raw %s', STATTYPE))
-end
-%set(gca, 'yscale', 'log')
 
+end
 
 
 %
-% Plot the shape of the first pulse across pAmps
+% Plot the shape of the Nth pulse across pAmps, and a line series showing
+% the dependence of the stat type on the light power. This shows only the
+% Nth pulse
 %
-opsins = {'chr2', 'chief_cit'};
+opsins = {'chr2'};
 
 for i_opsin = 1:numel(opsins)
     
@@ -1326,24 +1308,27 @@ for i_opsin = 1:numel(opsins)
     for i_ex = idx_opsin
         
         tmp_tf = firstPulse.tf{i_ex};
-        assert(numel(unique(tmp_tf))==1, 'too many tfs');
-        
-        tmp_pamp = firstPulse.amp{i_ex};
+        tmp_pamp = round(firstPulse.mW_mm2{i_ex}, 1);
         tmp_wf = firstPulse.wf{i_ex};
         tmp_stats = firstPulse.stats{i_ex};
-        if ~any(ceil(tmp_pamp)>=10) % only take stuff with maximal light power so that I have something to normallize to
-            continue
-        end
         
-        % normalize the wfs
-        [~, maxidx] = max(tmp_pamp);
-        normval = min(tmp_wf(maxidx,:));
-        tmp_wf = bsxfun(@rdivide, tmp_wf, -normval);
-        
-        % normalize the stats
-        normval = tmp_stats(maxidx);
-        if NORMVALS
-            tmp_stats = tmp_stats ./ normval;
+        % I'm going to normalize to the value at 10Volts. so the data need
+        % to contain some 10 volt trials
+        if NORM_TO_LED10
+            
+            assert(~PLOTPPR, 'ERROR: PLOTPPR can not be true')
+            
+            normidx = tmp_pamp == 25.7; % in mW_mm2
+            if ~any(normidx); continue; end
+            
+            % normalize the wfs
+            normval = min(tmp_wf(normidx,:));
+            tmp_wf = tmp_wf ./ abs(normval); % preserve the sign
+            
+            
+            % normalize the stats
+            normval = tmp_stats(normidx);
+            tmp_stats = tmp_stats ./ normval; % do not preserve the sign (all positive)
         end
         
         opsin_wfs = cat(1, opsin_wfs, tmp_wf);
@@ -1351,36 +1336,29 @@ for i_opsin = 1:numel(opsins)
         opsin_stats = cat(1, opsin_stats, tmp_stats(:));
         
     end
-    
-    
-    edges = [4,6,8,10];
-    [N, ind] = histc(opsin_amps, edges);
-    
-    
-    
+ 
     % plot of waveforms
     legtext = {};
     f = figure; hold on,
     f.Name = opsins{i_opsin};
     f.Position = [ 244   307   425   443];
-    for i_amp = 1:numel(edges)
-        pamp = edges(i_amp);
-        l_wfs = ind == i_amp;
-        assert(sum(l_wfs)==N(i_amp), 'error')
+    unique_amps = unique(opsin_amps);
+    for i_amp = 1:numel(unique_amps)
+        pamp = unique_amps(i_amp);
+        l_wfs = opsin_amps == pamp;
         
         tt = ((0:size(opsin_wfs, 2)-1)-prePulseSamps) ./ sampRate;
         tt = tt.*1000;
         plot(tt, mean(opsin_wfs(l_wfs,:), 1), 'linewidth', 2)
         
-        powDensity = ppval(cal.pp.led_470, pamp);
-        legtext = cat(2, legtext, [num2str(round(powDensity)) 'mW per mm2']);
+        legtext = cat(2, legtext, [num2str(pamp) 'mW per mm2']);
     end
     axis tight
     legend(legtext, 'Location', 'best')
     legend boxoff
     xlabel('time (ms)')
-    if NORMVALS
-        ylabel('normalized amplitude')
+    if NORM_TO_LED10
+        ylabel('amplitude (norm to 10V LED)')
     else
         ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
     end
@@ -1389,35 +1367,78 @@ for i_opsin = 1:numel(opsins)
     plt_pow = [];
     plt_xbar = [];
     plt_sem = [];
-    for i_amp = 1:numel(edges)
-        pamp = edges(i_amp);
-        l_wfs = ind == i_amp;
-        assert(sum(l_wfs)==N(i_amp), 'error')
+    for i_amp = 1:numel(unique_amps)
+        pamp = unique_amps(i_amp);
+        l_wfs = opsin_amps == pamp;
         
-        plt_pow(i_amp) = ppval(cal.pp.led_470, pamp);
+        plt_pow(i_amp) = pamp;
         plt_xbar(i_amp) = mean(opsin_stats(l_wfs));
         plt_sem(i_amp) = stderr(opsin_stats(l_wfs));
     end
     
     f = figure;
+    my_errorbar(plt_pow, plt_xbar, plt_sem, '-ks', 'markersize', 8, 'markerfacecolor', 'k', 'linewidth', 2);
     f.Name = opsins{i_opsin};
-    f.Position = [834   387   261   360];
-    errorbar(plt_pow, plt_xbar, plt_sem, 'linewidth', 2)
-    xlabel('Power (mW per mm2')
-    if NORMVALS
-        ylabel('normalized amplitude')
+    f.Position = [660   172   464   620];
+    axis tight
+    xlabel('Power (mW per mm2)')
+    xlim([min(plt_pow)-1, max(plt_pow)+1])
+    box off
+    set(gca, 'xscale', 'log')
+    if NORM_TO_LED10
+        ylabel('amplitude (norm to LED=10V)')
+    elseif PLOTPPR
+        ylabel(sprintf('paired pulse ratio: P%d:P1', PULSENUM))
         ylim([0 1])
     else
         ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
+        set(gca, 'XAxisLocation', 'top', 'xtick', [10, 100])
+        ymin = min(get(gca, 'ylim'));
+        ylim([ymin*1.05, 0])
     end
     
     
-    xlim([min(plt_pow)-1, max(plt_pow)+1])
-    box off
+    
+    
     
 end
 
+%
+% Now plot all pulses and all amplitudes. Normalize to the first pulse, and
+% average across experiments. Make sure that the pAmps are ordered
+% consistently across experiments
+%
 
+all_pAmps = cat(1, allPulses.mW_mm2{:});
+unique_pAmps = unique(all_pAmps, 'rows');
+assert(size(unique_pAmps,1)==1, 'ERROR: pulse amps are out of order')
+
+% grab the data, normalize, and average
+all_rawstats = cat(3, allPulses.rawstats{:});
+all_normstats = bsxfun(@rdivide, all_rawstats, all_rawstats(:,1,:));
+
+all_avg_normstats = mean(all_normstats, 3);
+all_sem_normstats = stderr(all_normstats, 3);
+
+f = figure;
+f.Position = [440   285   469   513];
+nAmps = numel(unique_pAmps);
+nPulses = size(all_avg_normstats, 2);
+cmap = winter(nAmps);
+set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren');
+hold on,
+hvec = [];
+for i_amp = 1:nAmps
+    [hvec(i_amp),~] = my_errorbar(1:nPulses, all_avg_normstats(i_amp,:), all_sem_normstats(i_amp,:), '-', 'color', cmap(i_amp,:), 'linewidth', 3);
+end
+yvals = get(gca,'ylim');
+set(gca, 'ylim', [0, max([yvals(2), 1])]);
+xlabel('pulse number')
+hy = ylabel(sprintf('normalized %s %s', CONDITION, STATTYPE));
+hy.Interpreter = 'none';
+legtext = cellfun(@(x) [num2str(x, '%3.1f\n')  ' mW/mm2'], num2cell(unique_pAmps), 'uniformoutput', false);
+legend(hvec, legtext, 'location', 'southwest')
+legend boxoff
 
 %% OPSIN CURRENT VS. FIBER VOLLEY [SPIDER PLOT]
 
@@ -1429,7 +1450,7 @@ close all
 
 FV_STAT = 'diffval';
 OPSIN_STAT = 'diffval';
-STAT_TYPE = 'raw';  % can be 'pnp1' or 'raw'
+STAT_TYPE = 'pnp1';  % can be 'pnp1' or 'raw'
 PLOT_RAW = true;
 PLOT_AVG = false;
 PLOT_ERR = false;
@@ -1575,9 +1596,7 @@ NORMTOMAX = false;
 [pop_fv, pop_opsin, pop_pamp] = deal({});
 
 % load in the LED calibration data to convert from Volts to power denisty
-cd(GL_DATPATH)
-cd '../../Calibration files'
-load led_cal.mat % data now stored in 'cal' struct
+load led_470_cal.mat % data now stored in 'cal' struct
 
 figure, hold on,
 for i_ex = 1:numel(dat)
@@ -1613,8 +1632,11 @@ for i_ex = 1:numel(dat)
     ex_pAmps = nan(numel(pTypeNames), 1);
     ex_TFs = nan(numel(pTypeNames), 1);
     for i_pType = 1:numel(pTypeNames);
-        ex_pAmps(i_pType) = info{i_ex}.(pTypeNames{i_pType}).none.pAmp;
-        ex_TFs(i_pType) = info{i_ex}.(pTypeNames{i_pType}).none.pTF;
+        if ~isfield(info{i_ex}.(pTypeNames{i_pType}), 'FV_Na')
+            continue
+        end
+        ex_pAmps(i_pType) = info{i_ex}.(pTypeNames{i_pType}).nbqx_apv_cd2_ttx.pAmp;
+        ex_TFs(i_pType) = info{i_ex}.(pTypeNames{i_pType}).nbqx_apv_cd2_ttx.pTF;
     end
     
     
@@ -1668,7 +1690,7 @@ for i_ex = 1:numel(dat)
     % compile the data across experiments
     pop_fv{i_ex} = fv_avg;
     pop_opsin{i_ex} = opsin_avg;
-    pop_pamp{i_ex} =  ppval(cal.pp.led_470, pAmps_unique);
+    pop_pamp{i_ex} =  ppval(cal.pp_mW_mm2, pAmps_unique);
     
     
     
@@ -1846,7 +1868,7 @@ for i_cond = 1:numel(conds)
     tt = tt-tt(prePulseSamps);
     tt = tt.*1000;
     
-    figure, hold on,
+    %figure, hold on,
     if ~PLOTERR
         plot(tt, chief_cit_examp{i_cond}', 'r');
         plot(tt, chief_flx_examp{i_cond}', 'm');
@@ -1906,17 +1928,17 @@ end
 %% SHAPE OF WAVEFORMS FOR EACH PULSE (NORMALIZED AND UN-NORMALIZED)
 
 % choose a stimulation location:
-NORMVALS = false;
-PLOTERR = false;
+NORMVALS = true;
+PLOTERR = true;
 STIMSITE = true;
-ENFORCETFS = 'true'; % culls some expts from Chronos that are not interleaved
+ENFORCETFS = false; % culls some expts from Chronos that are not interleaved
 Npulses = 7;
 
 clc; close all
 
 % prepare the population structure
 opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
-tfnames = {'tf10', 'tf20', 'tf40', 'tf60', 'tf100'};
+tfnames = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led', 'tf100_led'};
 switch EXPTTYPE
     case '4-AP'
         drugconds = {'ttx_cd2', 'ttx_cd2_4AP'};
@@ -1941,15 +1963,16 @@ end
 Nexpt = size(in,1);
 for a_ex = 1:Nexpt
     
+    info{a_ex}.mouse
     opsin = lower(info{a_ex}.opsin);
     
     % what TFs are present in this file?
-    ex_tfs = fieldnames(dat{a_ex});
-    has10 = any(strcmpi(ex_tfs, 'tf10'));
-    has20 = any(strcmpi(ex_tfs, 'tf20'));
-    has40 = any(strcmpi(ex_tfs, 'tf40'));
-    has60 = any(strcmpi(ex_tfs, 'tf60'));
-    has100 = any(strcmpi(ex_tfs, 'tf100'));
+    ex_tfs = fieldnames(dat{a_ex})
+    has10 = any(strcmpi(ex_tfs, 'tf10_led'));
+    has20 = any(strcmpi(ex_tfs, 'tf20_led'));
+    has40 = any(strcmpi(ex_tfs, 'tf40_led'));
+    has60 = any(strcmpi(ex_tfs, 'tf60_led'));
+    has100 = any(strcmpi(ex_tfs, 'tf100_led'));
     
     if ENFORCETFS
         if ~(has40 && has60) && strcmpi(opsin, 'chronos')
@@ -2037,12 +2060,16 @@ for a_ex = 1:Nexpt
                 
                 % estimate the latency, but only for the FV
                 pWidth = info{a_ex}.(tmp_tfcond).(tmp_drugcond).pWidth;
-                preSamps = ceil((prePulseTime+pWidth+25e-6).*exptSampRate);
+                if strcmpi(opsin, 'chronos')
+                    preSamps = ceil((prePulseTime+pWidth/2).*exptSampRate);
+                else
+                    preSamps = ceil((prePulseTime+pWidth).*exptSampRate);
+                end
                 tt = [0 : size(normsnips,2)-1] ./ exptSampRate;
                 tt = tt - prePulseTime;
                 if strcmpi(tmp_drugcond, 'FV_Na')
                     tmp_snips = normsnips(:,preSamps:end);
-                    thresh  = normsnips(trough_idx) .* 0.6;
+                    thresh  = normsnips(trough_idx) .* 0.85;
                     aboveThresh = bsxfun(@le, tmp_snips, thresh);
                     cross_down = [nan(size(tmp_snips,1),1), diff(aboveThresh, 1, 2)==1]; % rember that the wf is negative...
                     cross_down = mat2cell(cross_down, ones(size(tmp_snips,1),1), size(tmp_snips,2));
@@ -2078,7 +2105,7 @@ for a_ex = 1:Nexpt
                 opsincurrent.(opsin){a_ptype, a_pulse, a_drug} = tmp;
                 
                 % store the FV latencies
-                if strcmpi(tmp_drugcond, 'FV_Na')
+                if strcmpi(tmp_drugcond, 'FV_Na') && NORMVALS
                     tmp = fvlatency.(opsin){a_ptype, a_pulse};
                     tmp = cat(1, tmp, latency_tt(a_pulse));
                     fvlatency.(opsin){a_ptype, a_pulse} = tmp;
@@ -2105,7 +2132,6 @@ end
 %
 cmap = gray(Npulses+3);
 cmap = cmap(1:Npulses, :);
-cmap = flipud(cmap);
 for a_opsin = 1:numel(opsinTypes)
     
     % first, determine if there are any data for this drug/opsin combo
@@ -2152,6 +2178,9 @@ for a_opsin = 1:numel(opsinTypes)
                 if N==1; sem = nan(size(sem)); end
                 
                 tt = [0:numel(xbar)-1] ./ 20e3;
+                tt = tt - prePulseTime;
+                tt = tt.*1000; % in ms
+                
                 if isempty(xbar)
                     continue
                 end
@@ -2190,7 +2219,7 @@ if NORMVALS
         subplot(1, numel(opsinTypes), i_opsin)
         hold on,
         for i_tf = 1:numel(tfnames);
-            errorbar(1:numel(xbar(i_tf,:)), xbar(i_tf,:), sem(i_tf,:), 'color', cmap(i_tf,:));
+            my_errorbar(1:numel(xbar(i_tf,:)), xbar(i_tf,:), sem(i_tf,:), 'color', cmap(i_tf,:));
         end
         ylim([0, 2.2e-3])
         xlim([0.5, 7.5])
@@ -2219,11 +2248,11 @@ if ~NORMVALS
         
         % plot the first pulse
         x = (1:numel(tfnames)) + (0.2*i_opsin-1);
-        errorbar(x, xbar(:,1)', sem(:,1)', 's', 'color', pltclr{i_opsin}, 'linewidth', 2, 'markersize', 10, 'markerfacecolor', pltclr{i_opsin})
+        my_errorbar(x, xbar(:,1)', sem(:,1)', 's', 'color', pltclr{i_opsin}, 'linewidth', 2, 'markersize', 10, 'markerfacecolor', pltclr{i_opsin});
         
         % plot the last pulse
         x2 = x + 0.1;
-        errorbar(x2, xbar(:,7)', sem(:,7)', 's', 'color', pltclr{i_opsin}, 'linewidth', 2, 'markersize', 10)
+        my_errorbar(x2, xbar(:,7)', sem(:,7)', 's', 'color', pltclr{i_opsin}, 'linewidth', 2, 'markersize', 10);
         
         % plot the line segments
         plot([x;x2], xbar(:, [1,7])', 'color', pltclr{i_opsin}, 'linewidth', 2)
@@ -2851,6 +2880,160 @@ end
 
 
 
+%% RUNDOWN ANALYSIS: 1ST_5 VS. LAST_5
+
+% this script requires the aggregated data on the first/last 5 sweeps
+% (saved .mat files), and also requires importing the stats for cd2 and ttx
+% conditions separately.
+
+fin
+
+load 'first5.mat';
+dat_first = dat;
+info_first = info;
+
+load 'last5.mat';
+dat_last = dat;
+info_last = info;
+
+clear info dat
+
+STIMSITE = true;
+DRUGCOND = 'nbqx_apv_cd2'; 
+STATTYPE = 'diffval';
+
+
+[pop_first, pop_last, pop_pamp] = deal({});
+
+% load in the LED calibration data to convert from Volts to power denisty
+load led_470_cal.mat % data now stored in 'cal' struct
+
+figure; hold on,
+for i_ex = 1:numel(dat_first)
+     
+    % figure out which (if any) channels should be analyzed
+    CHANNEL = info_first{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites were targeted
+        continue
+    end
+    Nchannels = sum(info_first{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
+        if STIMSITE
+            CHANNEL = info_first{i_ex}.stimSite;
+        else
+            if info_first{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info_first{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    
+    
+    % there could be multiple TFs and pAmps. figure out what the deal is.
+    pTypeNames = fieldnames(dat_first{i_ex});
+    ex_pAmps = nan(numel(pTypeNames), 1);
+    ex_TFs = nan(numel(pTypeNames), 1);
+    for i_pType = 1:numel(pTypeNames);
+        if ~isfield(info_first{i_ex}.(pTypeNames{i_pType}), DRUGCOND)
+            continue
+        end
+        ex_pAmps(i_pType) = info_first{i_ex}.(pTypeNames{i_pType}).(DRUGCOND).pAmp;
+        ex_TFs(i_pType) = info_first{i_ex}.(pTypeNames{i_pType}).(DRUGCOND).pTF;
+    end
+    
+    
+    % for each pAmp, average the first pulse stats across available TFs
+    pAmps_unique = unique(ex_pAmps);
+    [first_avg, last_avg] = deal(nan(1, numel(pAmps_unique)));
+    for i_pamp = 1:numel(pAmps_unique);
+        
+        % find the field names with the TF conds that have a particular
+        % pulse amplitude.
+        idx = ex_pAmps == pAmps_unique(i_pamp);
+        fldnames = pTypeNames(idx);
+        
+        [first_raw, last_raw] = deal(nan(numel(fldnames), 1));
+        for i_fld = 1:numel(fldnames)
+            
+            if ~isfield(dat_first{i_ex}.(fldnames{i_fld}).stats, DRUGCOND)
+                continue
+            end
+            
+            % get the first5 stat
+            tmp = dat_first{i_ex}.(fldnames{i_fld}).stats.(DRUGCOND).(STATTYPE){CHANNEL}(1);
+            tmp = abs(tmp);
+            first_raw(i_fld) = tmp;
+            
+            % get the last5 stat
+            tmp = dat_last{i_ex}.(fldnames{i_fld}).stats.(DRUGCOND).(STATTYPE){CHANNEL}(1);
+            tmp = abs(tmp);
+            last_raw(i_fld) = tmp;
+        end
+        
+        % average across TF conditions
+        last_avg(i_pamp) = mean(last_raw);
+        first_avg(i_pamp) = mean(first_raw);
+        
+    end
+    
+
+    % compile the data across experiments
+    pop_first{i_ex} = first_avg;
+    pop_last{i_ex} = last_avg;
+    pop_pamp{i_ex} =  ppval(cal.pp_mW_mm2, pAmps_unique);
+    
+    
+    
+    switch lower(info_first{i_ex}.opsin)
+        case 'chr2'
+            p = plot(first_avg, last_avg, 'b-o', 'markerfacecolor', 'b');
+        case 'chief_cit'
+            p = plot(first_avg, last_avg, 'r-o', 'markerfacecolor', 'r');
+        case 'chronos'
+            p = plot(first_avg, last_avg, 'g-o', 'markerfacecolor', 'g');
+    end
+    
+    % axis labels and such
+    xlabel('first 5 amplitude');
+    ylabel('last 5 amplitude');
+end
+
+% add a unity line
+ymax = max(get(gca, 'YLim'));
+xmax = max(get(gca, 'XLim'));
+maxval = max([xmax, ymax]);
+plot([0 maxval], [0 maxval], 'k');
+axis square
+axis tight
+
+% plot the opsin current and FV against light power
+figure, hold on
+for i_ex = 1:numel(dat_first)
+    
+    switch lower(info_first{i_ex}.opsin)
+        case 'chr2'
+            pltclr = 'b';
+        case 'chief_cit'
+            pltclr = 'r';
+        case 'chronos'
+            pltclr = 'g';
+    end
+    
+    % first5 - last5
+    plot(pop_pamp{i_ex}, pop_first{i_ex}-pop_last{i_ex}, '-o', 'color', pltclr);
+    xlabel('Light Power')
+    ylabel('first5 - last5')
+end
+
+
 
 %% LASER STIM SITE ANALYSIS
 
@@ -2898,13 +3081,10 @@ for i_ex = 1:Nexpts
         tfconds = cat(1, tfconds, fieldnames(dat{idx}));
     end
     assert(iscell(tfconds), 'ERROR: tfconds are unreliable')
-    tfconds = unique(tfconds);
+    tfconds = unique(tfconds)
     
     
     for i_tf = 1:numel(tfconds)
-        
-        % insert tab group here, initialized the x,y coordinates to the
-        % stimulus positions
         
         conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'}; % both opsin current verisons
         npltcols = numel(conds)+1;
@@ -2922,6 +3102,13 @@ for i_ex = 1:Nexpts
                 
                 idx = inds_mouse(i_site);
                 
+                % the tfconds could be laser or led, so skip a dat{idx} if
+                % this site doesn't contain the apropriate stimulation type
+                if ~isfield(dat{idx}, tfconds{i_tf})
+                    continue
+                end
+                
+                % also skip if the pharacology condition is not present
                 if ~isfield(dat{idx}.(tfconds{i_tf}).stats, conds{i_cond})
                     continue
                 end
@@ -3027,6 +3214,8 @@ fin
 
 ERRBARS = true;
 NPULSES = 7;
+PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'nbqx_apv_cd2_ttx' or 'FV_Na'
+STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
 
 % load in data from each area
 load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pop_al.mat');
@@ -3048,8 +3237,8 @@ opsinTypes = {'chr2', 'chief_cit', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
     
     % grab the data
-    pm_tmp_dat = pm_pop.(opsinTypes{i_opsin}).pnp1.synapticTransmission.slope;
-    al_tmp_dat = al_pop.(opsinTypes{i_opsin}).pnp1.synapticTransmission.slope;
+    pm_tmp_dat = pm_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).diffval;
+    al_tmp_dat = al_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).diffval;
     
     pm_tfs = pm_tmp_dat{1};
     pm_tfs = unique(pm_tfs);
@@ -3080,9 +3269,9 @@ for i_opsin = 1:numel(opsinTypes)
         
         [~, pltclr] = hvaPlotColor('pm');
         if ERRBARS
-            errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2)
+            my_errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2);
         else
-            plot(1:NPULSES, xbar, '-', 'color', pltclr, 'linewidth', 2)
+            plot(1:NPULSES, cat_dat', '-', 'color', pltclr, 'linewidth', 2)
         end
         
         
@@ -3100,9 +3289,9 @@ for i_opsin = 1:numel(opsinTypes)
         
         [~, pltclr] = hvaPlotColor('al');
         if ERRBARS
-            errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2)
+            my_errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2);
         else
-            plot(1:NPULSES, xbar, '-', 'color', pltclr, 'linewidth', 2)
+            plot(1:NPULSES, cat_dat', '-', 'color', pltclr, 'linewidth', 2)
         end
         
         % tidy up
@@ -3131,7 +3320,7 @@ LOWPOWER = true;
 COMBINECHIEF = false;
 
 % need to load the data
-load('lfp_all.mat');
+load('lfp_all_pow.mat');
 pop.lfp.dat = dat; clear dat;
 pop.lfp.info = info; clear info;
 
@@ -3278,8 +3467,8 @@ for i_opsin = opsins
     
     cmap = copper(numel(tforder));
     for i_tf = 1:numel(tforder)
-        plot(xbar_lfp(i_tf,:), '-', 'color', cmap(i_tf,:), 'linewidth', 3)
-        plot(xbar_intra(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
+        plot(xbar_lfp(i_tf,:), '--', 'color', cmap(i_tf,:), 'linewidth', 2)
+        plot(xbar_intra(i_tf,:), '-', 'color', cmap(i_tf,:), 'linewidth', 2)
     end
     xlabel('pulse number')
     ylabel('opsin current');
@@ -3291,67 +3480,270 @@ end
 
 
 
+%% OPSIN CURRENT FALL OFF WITH DISTANCE
+
+fin
+
+% load in the workbook 
+fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
+[~,~,wb_expt] = xlsread(fname, 3);
+
+header = wb_expt(1,:);
+for i_head = 1:numel(header)
+    tmp = deblank(header{i_head});
+    tmp(isspace(tmp)) = [];
+    idx.(tmp) = i_head;
+end
+
+wb_expt(1,:) = [];
+mouseNames = wb_expt(:, idx.MouseName);
+sites = cell2mat(wb_expt(:, idx.Site));
+fnames = wb_expt(:, idx.FileName);
+HS1_loc = cell2mat(wb_expt(:, [idx.HS1X, idx.HS1Y]));
+HS2_loc = cell2mat(wb_expt(:, [idx.HS2X, idx.HS2Y]));
+led_loc = cell2mat(wb_expt(:, [idx.StimX, idx.StimY]));
+
+name_site = cellfun(@(x,y) [x, '_', num2str(y)], mouseNames, num2cell(sites), 'uniformoutput', false);
+unique_expts = unique(name_site);
+
+dat = {};
+for i_ex = 1:numel(unique_expts);
+    
+    l_expt = strcmpi(name_site, unique_expts{i_ex});
+    
+    expt_fnames = fnames(l_expt);
+    expt_HS1 = unique(HS1_loc(l_expt,:), 'rows');
+    expt_HS2 = unique(HS2_loc(l_expt,:), 'rows');
+    expt_led = led_loc(l_expt,:);
+    
+    figure
+    [hs1stat, hs2stat, hs1dist, hs2dist] = deal(nan(numel(expt_fnames),1));
+    for i_ax = 1:numel(expt_fnames)
+        
+        ax = abfobj(expt_fnames{i_ax});
+        
+        % find the stim on time
+        above_thresh = ax.dat(:, ax.idx.LED_470)' > 0.5;
+        crossing_up = [false, diff(above_thresh)==1];
+        assert(sum(crossing_up)==1, 'ERROR: too many stim on times')
+        
+        % pull out the data, baseline subtract, average
+        preSamps = ceil(0.050 .* ax.head.sampRate);
+        pulse_width_samps = sum(above_thresh);
+        photoDelay = 2;
+        postSamps = ceil(0.100 .* ax.head.sampRate);
+        totalPostSamps = postSamps + photoDelay + pulse_width_samps;
+        idx = find(crossing_up)-preSamps : find(crossing_up)+totalPostSamps;
+        snips = ax.dat(idx, :, :);
+        
+        bkgnd = mean(snips(1:preSamps, :, :), 1);
+        snips = bsxfun(@minus, snips, bkgnd);
+        
+        snips = mean(snips, 3);
+        
+        tt = ((0:size(snips,1)-1)-preSamps) ./ ax.head.sampRate .* 1000;
+        anly_window = (tt>=1) & (tt<2);
+        
+        
+        if ~any(isnan(expt_HS1))
+            expt_hs1 = snips(:, ax.idx.HS1_Vm);
+            expt_hs1 = butterfilt(expt_hs1, 1000, ax.head.sampRate, 'low', 1);
+            
+            subplot(2,1,1), hold on,
+            plot(tt, expt_hs1)
+            
+            % get the hs1 stat
+            hs1stat(i_ax) = mean(expt_hs1(anly_window));
+            signval = norm(expt_led(i_ax,:)) - norm(expt_HS1);
+            tmp = norm(expt_led(i_ax,:)-expt_HS1);
+            if signval<0
+                hs1dist(i_ax) = -tmp;
+            else
+                hs1dist(i_ax) =tmp;
+            end
+        end
+        
+        
+        if ~any(isnan(expt_HS2))
+            expt_hs2 = snips(:, ax.idx.HS2_Vm);
+            expt_hs2 = butterfilt(expt_hs2, 1000, ax.head.sampRate, 'low', 1);
+            
+            subplot(2,1,2), hold on,
+            plot(tt, expt_hs2)
+            
+            % get the HS2 stat
+            hs2stat(i_ax) = mean(expt_hs2(anly_window));
+            signval = norm(expt_led(i_ax,:)) - norm(expt_HS2);
+            tmp = norm(expt_led(i_ax,:)-expt_HS2);
+            if signval<0
+                hs2dist(i_ax) = -tmp;
+            else
+                hs2dist(i_ax) =tmp;
+            end
+        end
+        
+    end
+    
+    % store the stats across files within an experiment
+    dat{i_ex}.hs1stat = hs1stat;
+    dat{i_ex}.hs1dist = hs1dist;
+    dat{i_ex}.hs2stat = hs2stat;
+    dat{i_ex}.hs2dist = hs2dist;
+    drawnow
+    
+    
+end
+
+figure
+for i_ex = 1:numel(unique_expts)
+    
+    
+    subplot(2,1,1), hold on,
+    
+    %hs1
+    minx = min(dat{i_ex}.hs1dist);
+    maxx = max(dat{i_ex}.hs1dist);
+    x = minx:maxx;
+    plot(dat{i_ex}.hs1dist, dat{i_ex}.hs1stat, 'ko:')
+    if ~any(isnan(minx))
+        plot(x, ppval(spline(dat{i_ex}.hs1dist, dat{i_ex}.hs1stat), x), 'k')
+    end
+    
+    %hs2
+    minx = min(dat{i_ex}.hs2dist);
+    maxx = max(dat{i_ex}.hs2dist);
+    x = minx:maxx;
+    plot(dat{i_ex}.hs2dist, dat{i_ex}.hs2stat, 'bo:')
+    plot(x, ppval(spline(dat{i_ex}.hs2dist, dat{i_ex}.hs2stat), x), 'b')
+    
+    subplot(2,1,2), hold on,
+    plot(dat{i_ex}.hs1dist, i_ex, 'ko')
+    plot(dat{i_ex}.hs2dist, i_ex+.5, 'bo')
+end
+
+
+% dump all the stats in the same bucket, bin distances, and make a summary
+% figure
+USEBOTHCHANS = false;
+popstat = [];
+popdist = [];
+dbin = 100;
+edges = -150:dbin:650;
+for i_ex = 1:numel(unique_expts)
+    if USEBOTHCHANS
+        popstat = cat(1, popstat, dat{i_ex}.hs1stat, dat{i_ex}.hs2stat);
+        popdist = cat(1, popdist, dat{i_ex}.hs1dist, dat{i_ex}.hs2dist);
+    else
+        
+        % only look at one recording channel, and average duplicate points
+        % in each bin
+        tmpdist = dat{i_ex}.hs2dist;
+        tmpstat = dat{i_ex}.hs2stat;
+        
+        [~, ex_inds] = histc(tmpdist, edges);
+        unique_inds = unique(ex_inds);
+        corrected_dist = [];
+        corrected_stat = [];
+        for i_ind = 1:numel(unique_inds)
+            l_ind = ex_inds == unique_inds(i_ind);
+            corrected_dist(i_ind) = mean(tmpdist(l_ind));
+            corrected_stat(i_ind) = mean(tmpstat(l_ind));
+        end
+        
+        popstat = cat(1, popstat, corrected_stat(:));
+        popdist = cat(1, popdist, corrected_dist(:));
+        
+    end
+end
+
+% remove the nans
+l_nan = isnan(popstat);
+popstat(l_nan) = [];
+popdist(l_nan) = [];
+
+% bin distances, and make a summary figure
+[~, inds] = histc(popdist, edges);
+
+bin_xbar = [];
+bin_sem = [];
+for i_bin = 1:numel(edges)
+    bin_xbar(i_bin) = mean(popstat(inds==i_bin));
+    bin_sem(i_bin) = stderr(popstat(inds==i_bin));
+end
+
+figure;
+my_errorbar(edges+(dbin/2), bin_xbar, bin_sem);
+xlabel('distance from rec site (um)')
+ylabel('opsin current amplitude')
+xlim([-150 600])
+
+
 
 %% GET TRIAL COUNTS AND SNR AND GENOTYPES
 
 clc
 
+ISLFP = false; % false only returns age, sex, genotype
+
+
 mdb = initMouseDB('update', 'notext');
 nexpts = numel(info);
 minExTrialCount = [];
 SNR = [];
-genotypes = {};
+genotype = {};
 sex = {};
 for a_ex = 1:nexpts
     
     [~, idx] = mdb.search(info{a_ex}.mouse);
-    genotypes{a_ex, 1} = mdb.mice{idx}.info.strain;
+    genotype{a_ex, 1} = mdb.mice{idx}.info.strain;
     sex{a_ex, 1} = mdb.mice{idx}.info.sex;
     
-    fields = fieldnames(info{a_ex});
-    
-    fieldTcount = inf;
-    for a_field = 1:numel(fields)
+    if ISLFP
+        fields = fieldnames(info{a_ex});
         
-        % make sure you're looking at data and not header info
-        if ~isfield(info{a_ex}.(fields{a_field}) , 'none')
-            continue
-        end
-        
-        conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
-        
-        for a_cond = 1:numel(conds)
+        fieldTcount = inf;
+        for a_field = 1:numel(fields)
             
-            if ~isfield(info{a_ex}.(fields{a_field}), conds{a_cond});
-                error('could not find data')
+            % make sure you're looking at data and not header info
+            if ~isfield(info{a_ex}.(fields{a_field}) , 'none')
+                continue
             end
             
-            tlist = info{a_ex}.(fields{a_field}).(conds{a_cond}).realTrialNum;
-            fieldTcount = min([fieldTcount, numel(tlist)]);
-        end
-        
-        minExTrialCount = cat(1, minExTrialCount, fieldTcount);
-        
-        % now deal with SNR
-        CHANNEL = info{a_ex}.stimSite;
-        if ~info{a_ex}.ignoreChans(CHANNEL)
-            continue
-        else
-             % occasionally CH1 is disabled, and CH2 occupies the
-            % 1st and only column, adjust i_ch to account for these
-            % cases
-            Nchannels = sum(info{a_ex}.ignoreChans);
-            if (Nchannels == 1) && (CHANNEL == 2)
-                CHANNEL = 1;
+            conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx'};
+            
+            for a_cond = 1:numel(conds)
+                
+                if ~isfield(info{a_ex}.(fields{a_field}), conds{a_cond});
+                    error('could not find data')
+                end
+                
+                tlist = info{a_ex}.(fields{a_field}).(conds{a_cond}).realTrialNum;
+                fieldTcount = min([fieldTcount, numel(tlist)]);
             end
+            
+            minExTrialCount = cat(1, minExTrialCount, fieldTcount);
+            
+            % now deal with SNR
+            CHANNEL = info{a_ex}.stimSite;
+            if ~info{a_ex}.ignoreChans(CHANNEL)
+                continue
+            else
+                % occasionally CH1 is disabled, and CH2 occupies the
+                % 1st and only column, adjust i_ch to account for these
+                % cases
+                Nchannels = sum(info{a_ex}.ignoreChans);
+                if (Nchannels == 1) && (CHANNEL == 2)
+                    CHANNEL = 1;
+                end
+            end
+            
+            noise = dat{a_ex}.(fields{a_field}).stats.FV_Na.bkgnd_sigma{CHANNEL};
+            signal = dat{a_ex}.(fields{a_field}).stats.FV_Na.diffval{CHANNEL}(1);
+            SNR = cat(1, SNR, abs(signal./noise));
+            
+            
+            
         end
-        
-        noise = dat{a_ex}.(fields{a_field}).stats.FV_Na.bkgnd_sigma{CHANNEL};
-        signal = dat{a_ex}.(fields{a_field}).stats.FV_Na.diffval{CHANNEL}(1);
-        SNR = cat(1, SNR, abs(signal./noise));
-        
-        
-        
     end
 end
 
@@ -3364,6 +3756,17 @@ stdTrialCount = std(minExTrialCount)
 minSNR = min(SNR)
 meanSNR = mean(SNR)
 stdSNR = std(SNR)
+
+% determine how many mice were used, of each genotype, and sex
+mouseNames = in(:,1);
+[uniqueMice, ~, idx] = unique(mouseNames);
+new_genotype = {};
+new_sex = {};
+for i_mouse = 1:numel(uniqueMice)
+    tmpidx = find(idx==i_mouse, 1, 'first');
+    new_genotype{i_mouse} = genotype{tmpidx};
+    new_sex{i_mouse} = sex{tmpidx};
+end
 
 
 

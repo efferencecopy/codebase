@@ -38,6 +38,9 @@ assert(all(idx), 'ERROR: at least one experimental condition is not recognized')
 channelConfigs = cell2mat(channels);
 channelConfigs = unique(channelConfigs, 'rows');
 channelList = find(channelConfigs);
+if size(channelConfigs,1)~=1
+    keyboard
+end
 assert(size(channelConfigs,1)==1, 'ERROR: The recorded channels changes from file to file')
 
 
@@ -123,6 +126,19 @@ for i_fid = 1:numel(fnames)
             swpType = ['tf', num2str(fileTFs(i_sweepType)), '_recov', num2str(fileRecovs(i_sweepType))];
         end
         
+        % add the stimulation type to the field name. this will prevent
+        % confusion if the LED and Laser were used with identical stimulus
+        % parameters
+        exceptions = {'2015_10_15_0016_rescued', '2015_10_15_0018_rescued', '2015_10_15_0020_rescued'};
+        exceptions = any(cellfun(@(x) ~isempty(x), regexpi(fnames{i_fid}, exceptions))); % files that had no LED WFs aquired so I recscued the files by copying idential cmd waveforms from a laser stim example.
+        if led_present || exceptions
+            swpType = [swpType, '_led'];
+        elseif laser_present
+            swpType = [swpType, '_laser'];
+        elseif estim_present
+            swpType = [swpType, '_estim'];
+        end
+        
         drugType = exptConds{i_fid};
         
         % make a franken-abf struct
@@ -189,10 +205,13 @@ for i_sweepType = 1:numel(sweepTypeFields)
             
             if led_present
                 optostimidx = ax.(swpType).(drugType).idx.LED_470;
+                stimtype = 'led';
             elseif laser_present
                 optostimidx = ax.(swpType).(drugType).idx.Laser;
+                stimtype = 'laser';
             elseif estim_present
                 optostimidx = ax.(swpType).(drugType).idx.estim_in;
+                stimtype = 'estim';
             end
             assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
             
@@ -215,14 +234,18 @@ for i_sweepType = 1:numel(sweepTypeFields)
             % (which is only a few ms wide)
             switch EXPTTYPE
                 case 'E-stim'
-                    lp_freq = 6000;
+                    filtered = tmp;
                 otherwise
                     lp_freq = 1500;
+                    filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             end
-            %filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
-            filtered = tmp;
-            warning('not filtering raw data')
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
+            
+%             % remove these lines of code with unnecessary, they're only to
+%             % verify that the rundown from Chronos doesn't effect our
+%             % interpretation of the FV fidelity (it does though...)
+%             warning('trucating datasets')
+%             filtered = filtered(:, end-4:end);
             
             % take the mean
             average = mean(filtered,2);
@@ -238,6 +261,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).(drugType).pWidth = ax.(swpType).(drugType).pWidth;
         info.(swpType).(drugType).pAmp = ax.(swpType).(drugType).pAmp;
         info.(swpType).(drugType).pTF = ax.(swpType).(drugType).pTF;
+        info.(swpType).(drugType).stimtype = stimtype;
         
     end % i_drug
 end % i_swpType
@@ -281,6 +305,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).synapticTransmission.pAmp = info.(swpType).none.pAmp;
         info.(swpType).synapticTransmission.pTF = info.(swpType).none.pTF;
         info.(swpType).synapticTransmission.realTrialNum = info.(swpType).none.realTrialNum;
+        info.(swpType).synapticTransmission.stimtype = info.(swpType).none.stimtype;
     end
     
     % is there a ttx condition that can be used to define fiber volley with
@@ -303,6 +328,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
         info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
         info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
+        info.(swpType).FV_Na_Ca2_mGluR.stimtype = info.(swpType).nbqx_apv.stimtype;
     
     elseif nbqx_apv_Present && nbqx_apv_cd2_ttx_Present
         
@@ -321,6 +347,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
             info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
             info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
             info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
+            info.(swpType).FV_Na_Ca2_mGluR.stimtype = info.(swpType).nbqx_apv.stimtype;
         end
     end
     
@@ -342,6 +369,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na.pAmp = info.(swpType).nbqx_apv_cd2.pAmp;
         info.(swpType).FV_Na.pTF = info.(swpType).nbqx_apv_cd2.pTF;
         info.(swpType).FV_Na.realTrialNum = info.(swpType).nbqx_apv_cd2.realTrialNum;
+        info.(swpType).FV_Na.stimtype = info.(swpType).nbqx_apv_cd2.stimtype;
     end
     
     
@@ -364,6 +392,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).directRelease.pAmp = info.(swpType).ttx.pAmp;
         info.(swpType).directRelease.pTF = info.(swpType).ttx.pTF;
         info.(swpType).directRelease.realTrialNum = info.(swpType).ttx.realTrialNum;
+        info.(swpType).directRelease.stimtype = info.(swpType).ttx.stimtype;
     end
     
     % are there conditions that can be used to determine potasium currents
@@ -384,6 +413,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).potassium.pAmp = info.(swpType).ttx_cd2.pAmp;
         info.(swpType).potassium.pTF = info.(swpType).ttx_cd2.pTF;
         info.(swpType).potassium.realTrialNum = info.(swpType).ttx_cd2.realTrialNum;
+        info.(swpType).potassium.stimtype = info.(swpType).ttx_cd2.stimtype;
     end
     
     

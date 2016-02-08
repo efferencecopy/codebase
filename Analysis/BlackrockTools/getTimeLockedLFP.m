@@ -1,11 +1,12 @@
-function [trialSnips, pulseSnips] = getTimeLockedLFP(lfp_data, blk, STIMTYPE, NSX)
+function trialSnips = getTimeLockedLFP(lfp_data, blk, STIMTYPE, NSX)
 
 
 stim_ch_idx = blk.sum.idx.(['stim_on_', NSX]);
 tmpWFs = blk.ras(:, stim_ch_idx);
 tmpWFs = cellfun(@(x) x./1000, tmpWFs, 'uniformoutput', false); % outerleave expects things to be in volts.
 sampFreq_nsx = blk.sum.(NSX).MetaTags.SamplingFreq;
-tdict = outerleave(tmpWFs, sampFreq_nsx);
+BLACKROCKCORRECTION = true;
+tdict = outerleave(tmpWFs, sampFreq_nsx, BLACKROCKCORRECTION);
 
 switch STIMTYPE
     case 'sinusoid'
@@ -43,7 +44,6 @@ end
 % pull out snippets of data from before/after each pulse in the pulse
 % train. baseline subtract each of them from their pre-pulse baseline.
 % Average across trials
-pulseSnips = {};
 trialSnips = {};
 Nptypes = size(tdict.conds, 1);
 for i_ptype = 1:Nptypes
@@ -61,8 +61,12 @@ for i_ptype = 1:Nptypes
     Npulses = unique(cellfun(@numel, pulseOnIdx));
     assert(numel(Npulses) == 1, 'ERROR: mismatch in pulse numbers')
     
-    % initialize the outputs
-    trialSnips.(fldname) = repmat({[]}, 1, Nchannels);
+    % initialize the outputs (needs to be [nTrials x nTime])
+    preTimeSamps = round((preTime .* sampFreq_nsx));
+    ipi = 1/p_tf;
+    postTimeSamps = round(((ipi .* Npulses)+postTime) .* sampFreq_nsx);
+    Ntt = preTimeSamps + postTimeSamps + 1;
+    trialSnips.(fldname) = repmat({nan(numel(trial_nums), Ntt)}, 1, Nchannels);
     
     
     for i_trl = 1:numel(trial_nums)
@@ -72,18 +76,15 @@ for i_ptype = 1:Nptypes
         for i_ch = 1:Nchannels
             
             % set aside the trial snippets
-            idx_on_first = pulseOnIdx{trlNum}(1);
-            preTimeSamps = round((preTime .* sampFreq_nsx));
-            idx_first = idx_on_first - preTimeSamps;
-            ipi = 1/p_tf;
-            idx_last = idx_on_first + round(((ipi .* Npulses)+postTime) .* sampFreq_nsx);
+            idx_on_p1 = pulseOnIdx{trlNum}(1);
+            idx_first = idx_on_p1 - preTimeSamps;
+            idx_last = idx_on_p1 + postTimeSamps;
             
             snip = lfp_data{trlNum, i_ch}(idx_first : idx_last);
             snip = snip - mean(snip(1:preTimeSamps));
-            trialSnips.(fldname){1, i_ch} = cat(1, trialSnips.(fldname){i_ch}, snip);
+            trialSnips.(fldname){1, i_ch}(i_trl, :) = snip;
             trialSnips.preTime = preTime;
             trialSnips.postTime = postTime;
-            
             
         end
         

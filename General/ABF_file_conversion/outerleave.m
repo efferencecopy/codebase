@@ -1,4 +1,4 @@
-function tDict = outerleave(stimWF, sampRate)
+function tDict = outerleave(stimWF, sampRate, BLACKROCKCORRECTION)
 %
 %  EXAMPLE    tDict = outerleave(ax, ledIdx)
 % 
@@ -10,6 +10,10 @@ function tDict = outerleave(stimWF, sampRate)
 %     100 usec, becuse there is jitter in blacrock's timing of events
 %     relative to how clampex aquires signals.
 
+
+if ~exist('BLACKROCKCORRECTION', 'var')
+    BLACKROCKCORRECTION = false;
+end
 
 % condition the inputs if the data come from a .abf file
 if ~iscell(stimWF)
@@ -47,14 +51,14 @@ for swp = 1:Nsweeps
     
     
     tmpWidth = pOffTimes-pOnTimes;
-    if range(tmpWidth) < eps % pulse by pulse diffs are < eps
+    if range(tmpWidth) < (1e-6) && ~BLACKROCKCORRECTION% pulse by pulse diffs are < 1us, typically only for clampex data so exclude blackrock things
         tmpWidth = mean(tmpWidth);
-    elseif all(tmpWidth > 100e-6)
+    elseif all(tmpWidth > 100e-6) && BLACKROCKCORRECTION
         %blackrock timing is inconsistent pulse to pulse...but this fix
         %should only be used for pulses that are wide.
         tmpWidth = mean(tmpWidth);
         tmpWidth = tmpWidth .* 1e4; % in hundreds of usec.
-        tmpWidth = round(tmpWidth) ./ 1e4;
+        tmpWidth = floor(tmpWidth) ./ 1e4;
         assert(si<=50e-6, 'ERROR: pulse widths may be unreliable')
     else
         error('Found too many pWidths, but can not fix it')
