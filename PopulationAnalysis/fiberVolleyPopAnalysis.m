@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 3;
+EXPTTYPE = 5;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -251,7 +251,6 @@ parfor i_ex = 1:Nexpts
         idx = cellfun(@(x) ~isempty(x), regexpi(fldnames, tags{i_t}));
         conds = cat(2, conds, fldnames(idx)');
     end
-    conds
 
     for i_cond = 1:numel(conds)  %#ok<*PFTUS>
         
@@ -584,6 +583,7 @@ NORM_TO_PULSE1 = true;
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
     
+    
     % define the conditions that will get plotted
     switch EXPTTYPE
         case '4-AP'
@@ -597,9 +597,9 @@ for i_ex = 1:Nexpts
             
         otherwise
             
-            %conds = {'none', 'nbqx_apv', 'synapticTransmission'}; % first two pharm params with subtractions
+            conds = {'none', 'nbqx_apv', 'synapticTransmission'}; % first two pharm params with subtractions
             %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+            %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
             %conds = {'FV_Na', 'FV_Na_Ca2_mGluR'}; % both %FVs
             %conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
             %conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
@@ -637,7 +637,8 @@ for i_ex = 1:Nexpts
         else
             set(gcf, 'position', [9 10 1135 776]);
         end
-        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
+        pamp = info{i_ex}.(pTypes{1}).(conds{1}).pAmp;
+        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d, pamp: %.1f', info{i_ex}.mouse, in{i_ex, 2}, i_ch, pamp))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
@@ -702,7 +703,7 @@ for i_ex = 1:Nexpts
                             startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,1);
                             stopIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,2);
                             m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse);
-                            m = m./1000; % slope was calculated in seconds, but ploting is in ms.
+                            m = m./1000 % slope was calculated in seconds, but ploting is in ms.
                             b = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_intercept{i_ch}(i_pulse);
                             fit_tt = tt(startIdx:stopIdx);
                             fit_vals = m .* fit_tt + b;
@@ -1699,6 +1700,8 @@ for i_ex = 1:numel(dat)
             p = plot(opsin_avg, fv_avg, 'b-o', 'markerfacecolor', 'b');
         case 'chief_cit'
             p = plot(opsin_avg, fv_avg, 'r-o', 'markerfacecolor', 'r');
+        case 'chief_flx'
+            p = plot(opsin_avg, fv_avg, 'm-o', 'markerfacecolor', 'm');
         case 'chronos'
             p = plot(opsin_avg, fv_avg, 'g-o', 'markerfacecolor', 'g');
     end
@@ -1721,6 +1724,8 @@ for i_ex = 1:numel(dat)
             pltclr = 'b';
         case 'chief_cit'
             pltclr = 'r';
+        case 'chief_flx'
+            pltclr = 'm';
         case 'chronos'
             pltclr = 'g';
     end
@@ -1868,7 +1873,7 @@ for i_cond = 1:numel(conds)
     tt = tt-tt(prePulseSamps);
     tt = tt.*1000;
     
-    %figure, hold on,
+    figure, hold on,
     if ~PLOTERR
         plot(tt, chief_cit_examp{i_cond}', 'r');
         plot(tt, chief_flx_examp{i_cond}', 'm');
@@ -3056,22 +3061,22 @@ for i_ex = 1:Nexpts
     sites = cat(1, in{inds_mouse,2});
     [~, analysis_order] = sort(sites);
     inds_mouse = inds_mouse(analysis_order); % now the list is ordered by proximal to distal
+    assert(numel(inds_mouse) == 2,'error: more than 2 stim sites')
     
-    figure
-    set(gcf, 'defaulttextinterpreter', 'none', 'position', [17 278 1353 420]);
-    set(gcf, 'name', sprintf('%s, site: %d', in{inds_mouse(1),1}, floor(in{inds_mouse(1),2})))
-    cmap = colormap('parula'); clf;%also opens a figure;
-    inds = round(linspace(1, 50, numel(inds_mouse)));
-    cmap = cmap(inds,:);
+    f = figure;
+    set(f, 'defaulttextinterpreter', 'none', 'units', 'normalized', 'position', [0 0.1435 1 0.6620]);
+    set(f, 'name', sprintf('%s, site: %d', in{inds_mouse(1),1}, floor(in{inds_mouse(1),2})))
+    cmap = copper(4);
+    cmap_tf = {'tf10_', 'tf20_', 'tf40_', 'tf60_'};
     
     % assume that the primary channel is the one that's in L2/3
-    CH_proximal = structcat(info(inds_mouse), 'stimSite');
-    CH_proximal = unique(cell2mat(CH_proximal));
-    assert(numel(CH_proximal)==1, 'ERROR: too many ''proximal'' sites');
-    if CH_proximal == 1
-        CH_distal = 2;
+    CH_L23 = structcat(info(inds_mouse), 'stimSite');
+    CH_L23 = unique(cell2mat(CH_L23));
+    assert(numel(CH_L23)==1, 'ERROR: too many ''L23'' sites');
+    if CH_L23 == 1
+        CH_L5 = 2;
     else
-        CH_distal = 1;
+        CH_L5 = 1;
     end
     
     % figure out the total number of tfconds, across stimulation locations
@@ -3081,7 +3086,7 @@ for i_ex = 1:Nexpts
         tfconds = cat(1, tfconds, fieldnames(dat{idx}));
     end
     assert(iscell(tfconds), 'ERROR: tfconds are unreliable')
-    tfconds = unique(tfconds)
+    tfconds = unique(tfconds);
     
     
     for i_tf = 1:numel(tfconds)
@@ -3102,58 +3107,81 @@ for i_ex = 1:Nexpts
                 
                 idx = inds_mouse(i_site);
                 
+                
                 % the tfconds could be laser or led, so skip a dat{idx} if
-                % this site doesn't contain the apropriate stimulation type
+                % this site doesn't contain the apropriate stimulation
+                % type. Also skip if the pharacology condition is not present
                 if ~isfield(dat{idx}, tfconds{i_tf})
-                    continue
+                    BLANKPLOT = true;
+                    linestyle = '.';
+                elseif ~isfield(dat{idx}.(tfconds{i_tf}).stats, conds{i_cond})
+                    BLANKPLOT = true;
+                    linestyle = '.';
+                else
+                    
+                    BLANKPLOT = false;
+                    
+                    % figure out the plot colors. The LED should have a
+                    % different color as the laser. and I should make sure that
+                    % all LED stim is in L2/3, all laser stim is in L5;
+                    if i_site == 1; % L2/3
+                        ledcheck = regexpi(tfconds{i_tf}, '_led');
+                        assert(~isempty(ledcheck), 'ERROR: led should be L2/3')
+                        linestyle = ':';
+                    elseif i_site == 2; % L5
+                        lasercheck = regexpi(tfconds{i_tf}, '_laser');
+                        assert(~isempty(lasercheck), 'ERROR: laser should be L2/3')
+                        linestyle = '-';
+                    end
                 end
                 
-                % also skip if the pharacology condition is not present
-                if ~isfield(dat{idx}.(tfconds{i_tf}).stats, conds{i_cond})
-                    continue
-                end
                 
-                % figure for distal channel goes on top, figure for proximal channel goes on bottom
-                for i_ch = 1:2;
-                    switch i_ch
-                        case 1
-                            CHANNEL = CH_proximal;
-                        case 2
-                            CHANNEL = CH_distal;
+                
+                % figure for L2/3 recording channel goes on top, figure for L5 recording channel goes on bottom
+                for i_pltrow = 1:2;
+                    
+                    if i_pltrow == 1
+                        CHANNEL = CH_L23;
+                    elseif i_pltrow == 2;
+                        CHANNEL = CH_L5;
                     end
                     
-                    if (CHANNEL == 2) && numel(dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).(STAT)) == 1
-                        continue % the data don't exist; that channel was not recorded
+                    if BLANKPLOT
+                        tmp_raw = nan;
+                    else
+                        if (CHANNEL == 2) && numel(dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).(STAT)) == 1
+                            error('Could not find the data')
+                        end
+                        
+                        
+                        tmp_raw = dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).(STAT){CHANNEL};
+                        if ~any(regexpi(conds{i_cond}, 'ttx')) % PPR for everything but opsin current
+                            tmp_raw = tmp_raw ./ tmp_raw(1);
+                        end
                     end
                     
-                    
-                    tmp_raw = dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).(STAT){CHANNEL};
-                    tmp_sigma = dat{idx}.(tfconds{i_tf}).stats.(conds{i_cond}).bkgnd_sigma{CHANNEL};
-                    if ~any(regexpi(conds{i_cond}, 'ttx'))
-                        tmp_sigma = tmp_sigma ./ tmp_raw(1); % needs to be b/4 the next line b/c tmp_raw is destructively modified
-                        tmp_raw = tmp_raw ./ tmp_raw(1);
-                    end
-                    
-                    subplot(2, npltcols, (i_ch-1)*npltcols + i_cond)
+                    subplot(2, npltcols, (i_pltrow-1)*npltcols + i_cond)
                     hold on,
-                    plot(1:numel(tmp_raw), tmp_raw, 'o-', 'color', cmap(i_site,:), 'linewidth', 2)
-                    xvals = get(gca, 'xlim');
-                    if any(regexpi(conds{i_cond}, 'FV_Na'))
-                        yvals = [1-tmp_sigma, 1+tmp_sigma];
-                        plot(xvals, repmat(yvals, 2, 1), ':', 'color', cmap(i_site,:), 'linewidth', 1);
-                    end
-                    if i_ch == 1
+                    tfcolor_idx = find(strcmpi(tfconds{i_tf}(1:5), cmap_tf));
+                    plot(1:numel(tmp_raw), tmp_raw, linestyle, 'color', cmap(tfcolor_idx,:), 'linewidth', 2)
+                    axis tight
+                    
+                    if i_pltrow == 1
                         if any(regexpi(conds{i_cond}, '_ttx'))
                             title(info{inds_mouse(1)}.opsin)
                         else
                             title(conds{i_cond})
                         end
+                        ylabel('Record in L2/3')
+                    else
+                        ylabel('Record in L5')
                     end
+                    
                     % adjust the axes
                     switch conds{i_cond}
                         case {'FV_Na', 'synapticTransmission'}
                             yvals = get(gca, 'ylim');
-                            set(gca, 'ylim', 1.05.* [0, max([yvals(2), max(tmp_raw)])]);
+                            set(gca, 'ylim', 1.05.* [0, max([yvals(2), 1])]);
                         otherwise
                     end
                 end
@@ -3184,21 +3212,21 @@ for i_ex = 1:Nexpts
             
             imshow(uint8(img));
             s.Position = [0.72, 0.1, 0.27, 0.85];
-            title(sprintf('(0,0) is HS%d', CH_proximal))
+            title(sprintf('(0,0) is HS%d', CH_L23))
         end
     end
     
-    
-    % add an icon for the stimulus locations
-    centPos = round(ginput(1));
-    xy = cell2mat(structcat(info(inds_mouse), 'optStimCords'));
-    pixperum = pixPerMicron(size(img,1), size(img,2));
-    xy = round(xy .* pixperum); %now in pix
-    xy = bsxfun(@plus, xy, centPos); % pix relative to neuron
-    hold on,
-    for a = 1:size(xy,1)
-        plot(xy(a,1), xy(a,2), 'o', 'markeredgecolor', cmap(a,:), 'markerfacecolor', cmap(a,:), 'markersize', 10)
-    end
+%     
+%     % add an icon for the stimulus locations
+%     centPos = round(ginput(1));
+%     xy = cell2mat(structcat(info(inds_mouse), 'optStimCords'));
+%     pixperum = pixPerMicron(size(img,1), size(img,2));
+%     xy = round(xy .* pixperum); %now in pix
+%     xy = bsxfun(@plus, xy, centPos); % pix relative to neuron
+%     hold on,
+%     for a = 1:size(xy,1)
+%         plot(xy(a,1), xy(a,2), 'o', 'markeredgecolor', cmap(a,:), 'markerfacecolor', cmap(a,:), 'markersize', 10)
+%     end
     
     % update plots in quasi realtime
     drawnow
@@ -3683,7 +3711,7 @@ xlim([-150 600])
 
 clc
 
-ISLFP = false; % false only returns age, sex, genotype
+ISLFP = true; % false only returns age, sex, genotype
 
 
 mdb = initMouseDB('update', 'notext');
@@ -3705,7 +3733,7 @@ for a_ex = 1:nexpts
         for a_field = 1:numel(fields)
             
             % make sure you're looking at data and not header info
-            if ~isfield(info{a_ex}.(fields{a_field}) , 'none')
+            if ~isfield(info{a_ex}.(fields{a_field}) , 'nbqx_apv_cd2_ttx')
                 continue
             end
             
@@ -3714,7 +3742,7 @@ for a_ex = 1:nexpts
             for a_cond = 1:numel(conds)
                 
                 if ~isfield(info{a_ex}.(fields{a_field}), conds{a_cond});
-                    error('could not find data')
+                    warning('could not find data')
                 end
                 
                 tlist = info{a_ex}.(fields{a_field}).(conds{a_cond}).realTrialNum;
