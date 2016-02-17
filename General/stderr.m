@@ -7,14 +7,14 @@ end
 
 
 if ~exist('dim', 'var')
-    if ~isvector(data)
-        dim = 1;
-    else
+    if isvector(data)
         if isrow(data)
             dim = 2;
         else
             dim = 1;
         end
+    else
+        dim = 1;
     end
 end
 

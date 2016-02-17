@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 5;
+EXPTTYPE = 2;
 BRAINAREA = 'any';
 switch EXPTTYPE
     case 1
@@ -417,34 +417,31 @@ parfor i_ex = 1:Nexpts
                         startIdx = find((tmp_snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
                         fit_tt = tt(startIdx : end);
                         fit_dat = tmp_snippet(startIdx : end);
-                        
+                       
                         dataforfit = ~isempty(fit_dat);
-                        
                         if dataforfit
-                            % make sure none of the fit_dat points are
-                            % positive because the fitting routine will
-                            % assume that all the points are negative
-                            critval_slope = log(abs(fit_dat(1))) - 2; % two orders of magnitude
-                            if any(log(abs(fit_dat)) < critval_slope)
-                                l_zero = log(abs(fit_dat)) <= critval_slope;
-                                stopIdx = find(l_zero==1, 1, 'first')-1;
-                                fit_tt = fit_tt(1:stopIdx);
-                                fit_dat = fit_dat(1:stopIdx);
-                                dataforfit = ~isempty(fit_dat);
-                            end
-                        end
-                        
-                        
-                        if dataforfit
-                            betas = [fit_tt(:), ones(size(fit_tt(:)))] \ log(abs(fit_dat(:)));
+                            fit_dat = -fit_dat; % so that it's a decaying exponential
+                            
+                            N_2ms = round(sampRate .* 0.002);
+                            pred = [ones(N_2ms,1), fit_tt(1:N_2ms)'];
+                            resp = fit_dat(1:N_2ms)';
+                            guess = pred \ resp;
+                            guess(1) = exp(guess(1)); % to solve for amplitude of exponential
+                            fitopt = fitoptions('exp1');
+                            fitopt.StartPoint = guess;
+                            fitopt.Lower = [0, -inf]; % constrain amps to be +, Taus to be -.
+                            fitopt.Upper = [inf, 0];
+                            fitopt.TolFun = 1e-10;
+                            fitopt.TolX = 1e-10;
+                            bobj = fit(fit_tt(:), fit_dat(:), 'exp1'); % fit model: YY = beta0 .* exp(beta1 * XX)
                         else
                             betas = [nan, nan];
                             startIdx = nan;
                         end
                         
                         % store the slope params
-                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse) = betas(1);
-                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse) = betas(2);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_yint{i_ch}(i_pulse) = bobj.a;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_invtc{i_ch}(i_pulse) = bobj.b;
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
                         
                         
@@ -583,7 +580,6 @@ NORM_TO_PULSE1 = true;
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
     
-    
     % define the conditions that will get plotted
     switch EXPTTYPE
         case '4-AP'
@@ -597,9 +593,9 @@ for i_ex = 1:Nexpts
             
         otherwise
             
-            conds = {'none', 'nbqx_apv', 'synapticTransmission'}; % first two pharm params with subtractions
+            %conds = {'none', 'FV_Na', 'synapticTransmission'};
             %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
-            %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
             %conds = {'FV_Na', 'FV_Na_Ca2_mGluR'}; % both %FVs
             %conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
             %conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
@@ -637,8 +633,8 @@ for i_ex = 1:Nexpts
         else
             set(gcf, 'position', [9 10 1135 776]);
         end
-        pamp = info{i_ex}.(pTypes{1}).(conds{1}).pAmp;
-        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d, pamp: %.1f', info{i_ex}.mouse, in{i_ex, 2}, i_ch, pamp))
+       %pamp = info{i_ex}.(pTypes{1}).(conds{1}).pAmp;
+        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d, pamp: %.1f', info{i_ex}.mouse, in{i_ex, 2}, i_ch, 10))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
@@ -703,7 +699,7 @@ for i_ex = 1:Nexpts
                             startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,1);
                             stopIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_inds{i_ch}(i_pulse,2);
                             m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope{i_ch}(i_pulse);
-                            m = m./1000 % slope was calculated in seconds, but ploting is in ms.
+                            m = m./1000; % slope was calculated in seconds, but ploting is in ms.
                             b = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).slope_intercept{i_ch}(i_pulse);
                             fit_tt = tt(startIdx:stopIdx);
                             fit_vals = m .* fit_tt + b;
@@ -713,21 +709,17 @@ for i_ex = 1:Nexpts
                     
                     
                     % check best fitting decay tau for the opsin current
-                    try
                     if any(strcmpi(conds{i_cond}, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}))
                         for i_pulse = 1:size(tmp_raw,2);
                             startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse);
-                            m = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_m{i_ch}(i_pulse);
-                            m = m./1000; % slope was calculated in seconds, but ploting is in ms.
-                            b = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_b{i_ch}(i_pulse);
+                            invtc = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_invtc{i_ch}(i_pulse);
+                            invtc = invtc./1000; % slope was calculated in seconds, but ploting is in ms.
+                            beta0 = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_yint{i_ch}(i_pulse);
                             fit_tt = tt(startIdx:end);
-                            fit_vals = exp(m .* fit_tt) .* exp(b);
+                            fit_vals = beta0 .* exp(invtc .* fit_tt);
                             fit_vals = -fit_vals; % compensate for the fact that the fit was on abs(rawdata), but opsin current is negative
                             plot(fit_tt, fit_vals, 'm-')
                         end
-                    end
-                    catch
-                        continue
                     end
                     
                 end
@@ -769,7 +761,7 @@ for i_ex = 1:Nexpts
         hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary Stats');
         hAx(i_cond) = axes('Parent', hTabs(i_cond));
         hold on,
-        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_m'};
+        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_invtc'};
         Nstats = numel(statTypes);
         cmap = copper(Ntfs);
         for i_cond = 1:Nconds
@@ -908,7 +900,7 @@ switch EXPTTYPE
 end
 
 %initialize the outputs
-statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'latency'};
+statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_invtc'};
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
@@ -973,8 +965,8 @@ for i_ex = 1:numel(dat)
                 
                 % structure the pnp1 data
                 ex_stat = dat{i_ex}.(pTypes{i_ptype}).stats.(conds{i_cond}).(statTypes{i_stat}){CHANNEL};
-                if strcmpi(statTypes{i_stat}, 'tau_m')
-                    ex_stat = 1./ex_stat; % tau_m isn't a tau, need to convert to tau
+                if strcmpi(statTypes{i_stat}, 'tau_invtc')
+                    ex_stat = 1./ex_stat; % tau_invtc isn't a tau, need to convert to tau
                 end
                 
                 % convert to paired pulse measures by normalizing by the
@@ -1936,7 +1928,7 @@ end
 NORMVALS = true;
 PLOTERR = true;
 STIMSITE = true;
-ENFORCETFS = false; % culls some expts from Chronos that are not interleaved
+ENFORCETFS = true; % culls some expts from Chronos that are not interleaved
 Npulses = 7;
 
 clc; close all
@@ -2283,7 +2275,7 @@ assert(correctExpt, 'ERROR: This analysis is for a different type of experiment'
 
 % prepare the population structure
 opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
-tfnames = {'tf10', 'tf20', 'tf40', 'tf60', 'tf100'};
+tfnames = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led', 'tf100_led'};
 avgopsincurent = [];
 for i_opsin = 1:numel(opsinTypes)
     for i_tf = 1:numel(tfnames)
@@ -2456,6 +2448,208 @@ for a_tf = 1:numel(tfnames)
     end
 end
 
+
+
+%% TIME CONSTANT ANALYSIS (ONE VS. TWO)
+
+close all
+
+STIMSITE = true;
+PLOTALL = true;
+
+
+tau_prePulseTime = 0; % in sec
+tau_postPulseTime = 0.023; % in sec, chosen so that I can average 10 and 20 Hz sweeps.
+Nexpts = size(in,1);
+poptau = {};
+for i_ex = 1:Nexpts
+
+    pTypes = fieldnames(dat{i_ex});
+    Ntfs = numel(pTypes);
+    tmp_snippet = []; % concatenate across TFs for each channel
+    for i_tf = 1:Ntfs
+        
+        % only allow 10 and 20 Hz to pass through
+        if ~any(strcmpi(pTypes{i_tf}, {'tf10_led', 'tf20_led', 'tf_40_led'}))
+            continue
+        end
+        
+        conds = fieldnames(dat{i_ex}.(pTypes{i_tf}));
+        ttx_idx = cellfun(@(x) ~isempty(regexpi(x, 'ttx')), conds);
+        assert(sum(ttx_idx)<=1, 'ERROR: too many ttx conditions')
+        if ~any(ttx_idx)
+            continue
+        end
+        i_cond = find(ttx_idx);
+        
+        sampRate = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).sampRate;
+        prePulseSamps = ceil(tau_prePulseTime .* sampRate);
+        postPulseSamps = ceil(tau_postPulseTime .* sampRate);
+        pulseOn_idx = find(info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pulseOn_idx);
+        
+        i_pulse = 1;
+        snip_idx = pulseOn_idx(i_pulse)-prePulseSamps : 1 : pulseOn_idx(i_pulse)+postPulseSamps;
+        
+        % figure out which (if any) channels should be analyzed
+        CHANNEL = info{i_ex}.stimSite;
+        if isnan(CHANNEL) % cases where neither recording sites were targeted
+            continue
+        end
+        Nchannels = sum(info{i_ex}.ignoreChans);
+        if Nchannels == 1
+            if ~STIMSITE
+                continue % no other stim site to show...
+            elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+                CHANNEL = 1;
+            end
+        else
+            if STIMSITE
+                CHANNEL = info{i_ex}.stimSite;
+            else
+                if info{i_ex}.stimSite == 1
+                    CHANNEL = 2;
+                elseif info{i_ex}.stimSite == 2
+                    CHANNEL = 1;
+                end
+            end
+        end
+        
+        % pull out the snippet, subtract off the baseline and
+        % store it for each pulse in the train
+        snippet_full = dat{i_ex}.(pTypes{i_tf}).(conds{i_cond})(snip_idx , CHANNEL);
+        basetime = round(0.001 .* sampRate);
+        baseline = mean(snippet_full(end-basetime : end));
+        snippet_full = snippet_full - baseline;
+        
+        tmp_snippet = cat(1, tmp_snippet, snippet_full');
+        
+    end
+    
+    if isempty(tmp_snippet)
+        poptau{i_ex}.snips = []; % in case there are no data
+        continue
+    end
+    
+    
+    % average across 10, 20 Hz
+    tmp_snippet = mean(tmp_snippet, 1);
+    tt = [0:numel(tmp_snippet)-1] ./ sampRate;
+    poptau{i_ex}.snips = tmp_snippet;
+    
+    % grab the subset of the data to fit
+    [troughidx, peakidx]  = anlyMod_getWFepochs(tmp_snippet, tt, conds{i_cond}, 300e-6, 200e-6, 'inward');
+    startVal = tmp_snippet(troughidx) .* 0.95;
+    startIdx = find((tmp_snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
+    fit_tt = tt(startIdx : end);
+    fit_dat = tmp_snippet(startIdx : end);
+    
+    %inital guesses, and 1exp fit
+    N_2ms = round(sampRate .* 0.002);
+    pred = [ones(N_2ms,1), fit_tt(1:N_2ms)'];
+    resp = fit_dat(1:N_2ms)';
+    guess = pred \ resp;
+    guess(1) = exp(guess(1)); % to solve for amplitude of exponential
+    fitopt = fitoptions('exp1');
+    fitopt.StartPoint = guess;
+    fitopt.Lower = [0, -inf]; % constrain amps to be +, Taus to be -.
+    fitopt.Upper = [inf, 0];
+    fitopt.TolFun = 1e-10;
+    fitopt.TolX = 1e-10;
+    [fexp1, gof1] = fit(fit_tt(:), -fit_dat(:), 'exp1', fitopt);
+    poptau{i_ex}.tau_1 = 1./fexp1.b;
+    poptau{i_ex}.amp_1 = fexp1.a;
+    poptau{i_ex}.gof_1 = gof1.rsquare;
+    
+    % fit a bi-exponential
+    fitopt = fitoptions('exp2');
+    fitopt.StartPoint = [guess(1)/2, guess(1)*10, guess(1)/2, guess(1)/5];
+    fitopt.Lower = [0, -inf, 0, -inf]; % constrain amps to be +, Taus to be -.
+    fitopt.Upper = [inf, 0, inf, 0];
+    fitopt.TolFun = 1e-10;
+    fitopt.TolX = 1e-10;
+    [fexp2, gof2] = fit(fit_tt(:), -fit_dat(:), 'exp2', fitopt);
+    bothTaus = [1./fexp2.b, 1./fexp2.d];
+    bothAmps = [fexp2.a, fexp2.c];
+    [~, idx] = sort(abs(bothTaus)); %sort by faster tau first
+    poptau{i_ex}.tau_2 = bothTaus(idx);
+    poptau{i_ex}.amp_2 = bothAmps(idx);
+    poptau{i_ex}.gof_2 = gof2.rsquare;
+    
+    if PLOTALL
+        figure, hold on,
+        set(gcf, 'name', num2str(i_ex))
+        plot(tt, tmp_snippet);
+        fit1 = -1.*(fexp1.a .* exp(fexp1.b .* fit_tt));
+        plot(fit_tt, fit1, 'r')
+        fit2 = -1.* ( (fexp2.a .* exp(fexp2.b .* fit_tt)) + (fexp2.c .* exp(fexp2.d .* fit_tt)) );
+        plot(fit_tt, fit2, 'g')
+        legend({'raw', 'exp1', 'exp2'}, 'location', 'best')
+        ylabel(info{i_ex}.opsin)
+        title(sprintf('gof1: %.2f, gof2: %.2f', gof1.rsquare, gof2.rsquare))
+        drawnow
+    end
+    
+    
+end
+
+opsins = {'chr2', 'chronos', 'chief_cit', 'chief_flx'};
+opsintau = [];
+for i_opsin = opsins
+    opsintau.(i_opsin{1}).tau1 = [];
+    opsintau.(i_opsin{1}).gof1 = [];
+    opsintau.(i_opsin{1}).gof2 = [];
+    opsintau.(i_opsin{1}).amp2 = [];
+end
+
+for i_ex = 1:Nexpts
+    tmpopsin = lower(info{i_ex}.opsin);
+    if ~isempty(poptau{i_ex}.snips) % data were fitted
+        opsintau.(tmpopsin).tau1 = cat(1, opsintau.(tmpopsin).tau1, poptau{i_ex}.tau_1);
+        opsintau.(tmpopsin).gof1 = cat(1, opsintau.(tmpopsin).gof1, poptau{i_ex}.gof_1);
+        opsintau.(tmpopsin).gof2 = cat(1, opsintau.(tmpopsin).gof2, poptau{i_ex}.gof_2);
+        opsintau.(tmpopsin).amp2 = cat(1, opsintau.(tmpopsin).amp2, poptau{i_ex}.amp_2);
+    end
+end
+
+
+% plot of single exp time constants
+figure, hold on
+pltclr = {'b', 'g', 'r', 'm'};
+for i_op=1:4
+    if ~isempty(opsintau.(opsins{i_op}).tau1)
+        plot(i_op, -opsintau.(opsins{i_op}).tau1*1000, 'o', 'color', pltclr{i_op})
+        plot(i_op, mean(-opsintau.(opsins{i_op}).tau1*1000), 's', 'color', pltclr{i_op}, 'markerfacecolor', pltclr{i_op})
+    end
+end
+ylabel('Time constant (ms)')
+xlim([0 5])
+set(gca, 'xtick', [1,2,3,4], 'xticklabel', {'chr2', 'chronos', 'chief cit', 'chief flx'})
+
+
+% plot of R-squared values for single/double exp fits
+figure, hold on
+for i_op = 1:4;
+    if ~isempty(opsintau.(opsins{i_op}).gof2)
+        plot([i_op-.2, i_op+.2], [opsintau.(opsins{i_op}).gof1(:),opsintau.(opsins{i_op}).gof2(:)], '-o', 'color', pltclr{i_op})
+    end
+end
+ylabel('R-squared')
+xlim([0 5])
+title('R-square of 1exp on left')
+set(gca, 'xtick', [1,2,3,4], 'xticklabel', {'chr2', 'chronos', 'chief cit', 'chief flx'})
+
+
+% plot of Amplitudes for each exp in the DOUBLE exp fit
+figure, hold on
+for i_op = 1:4;
+    if ~isempty(opsintau.(opsins{i_op}).amp2)
+        plot([i_op-.2, i_op+.2], opsintau.(opsins{i_op}).amp2, '-o', 'color', pltclr{i_op})
+    end
+end
+ylabel('Amplitudes')
+xlim([0 5])
+set(gca, 'xtick', [1,2,3,4], 'xticklabel', {'chr2', 'chronos', 'chief cit', 'chief flx'})
+title('Fast Tau on left')
 
 
 
@@ -3343,9 +3537,9 @@ end
 fin
 
 STIMSITE = true;
-NORMVALS = false;
-LOWPOWER = true;
-COMBINECHIEF = false;
+NORMVALS = true;
+LOWPOWER = false;
+COMBINECHIEF = true;
 
 % need to load the data
 load('lfp_all_pow.mat');
@@ -3382,6 +3576,7 @@ for i_fld = {'lfp', 'intra'}
            end
        end
        
+
        % which channel should be analyzed?
        CHANNEL = pop.(i_fld{1}).info{i_ex}.stimSite;
        if isnan(CHANNEL) % cases where neither recording sites were targeted
@@ -3711,7 +3906,7 @@ xlim([-150 600])
 
 clc
 
-ISLFP = true; % false only returns age, sex, genotype
+ISLFP = false; % false only returns age, sex, genotype
 
 
 mdb = initMouseDB('update', 'notext');
@@ -3720,11 +3915,39 @@ minExTrialCount = [];
 SNR = [];
 genotype = {};
 sex = {};
+date_inj = [];
+date_record = [];
+date_birth = [];
 for a_ex = 1:nexpts
     
+    % get genotype and sex
     [~, idx] = mdb.search(info{a_ex}.mouse);
     genotype{a_ex, 1} = mdb.mice{idx}.info.strain;
-    sex{a_ex, 1} = mdb.mice{idx}.info.sex;
+    sex{a_ex, 1} = upper(mdb.mice{idx}.info.sex(1));
+    
+    
+    % get injection date
+    tmpDate = regexpi(info{a_ex}.mouse, '_\w*_', 'match');
+    tmpDate = tmpDate{1}(2:end-1);
+    if str2double(tmpDate(1:2)) <= 12
+        % assume mmddyy
+        date_inj(a_ex,1) = datenum(tmpDate, 'mmddyy');
+    else
+        %assume yymmdd
+        date_inj(a_ex,1) = datenum(tmpDate, 'yymmdd');
+    end
+    
+    % get the date of recording, grab the name of the first file from the
+    % first cell
+    tmpDate = mdb.mice{idx}.phys.cell(1).file(1).FileName;
+    tmpDate = regexpi(tmpDate, '\d{4}_\d{2}_\d{2}', 'match'); % remove the file number
+    tmpDate = regexprep(tmpDate{1}, '_', '');
+    date_record(a_ex,1) = datenum(tmpDate, 'yyyymmdd');
+    
+    % get the date of birth
+    tmpDate = mdb.mice{idx}.info.dob;
+    date_birth(a_ex,1) = datenum(tmpDate, 'mm/dd/yyyy');
+    
     
     if ISLFP
         fields = fieldnames(info{a_ex});
@@ -3795,6 +4018,30 @@ for i_mouse = 1:numel(uniqueMice)
     new_genotype{i_mouse} = genotype{tmpidx};
     new_sex{i_mouse} = sex{tmpidx};
 end
+
+
+% determine the age at recording and incubation time for each construct
+popage = [];
+for i_ex = 1:numel(dat)
+    opsin = info{i_ex}.opsin;
+    
+    if ~isfield(popage, opsin)
+        popage.(opsin) = [];
+        popage.(opsin).days_incubate = [];
+        popage.(opsin).days_old = [];
+    end
+   
+   incubation = date_record(i_ex) - date_inj(i_ex);
+   popage.(opsin).days_incubate = cat(1, popage.(opsin).days_incubate, incubation);
+   
+   daysold = date_record(i_ex) - date_birth(i_ex);
+   popage.(opsin).days_old = cat(1, popage.(opsin).days_old, daysold);
+    
+    
+end
+
+
+
 
 
 

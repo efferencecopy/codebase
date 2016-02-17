@@ -302,7 +302,7 @@ function newDate = convertDate(oldDate)
 
     % don't do anything if the date wasn't already specified.
     if any(strcmpi(oldDate, {'nan', 'mm/dd/yyyy'}))
-        newDate = NaN;
+        newDate = '';
         return
     end
     
@@ -315,26 +315,32 @@ function newDate = convertDate(oldDate)
         seps = [1, seps, numel(oldDate)];
         assert(~isempty(seps), 'Date string improperly specified')
         for a = 1:numel(seps)-1
-            tmp{a} = oldDate(seps(a):seps(a+1)-1);
+            tmp{a} = oldDate(seps(a):seps(a+1));
+            tmp{a} = regexprep(tmp{a}, '/|\.|-', '');
         end
         
         % figure out what to do with the parsed args
-        if tmp{1} > 12
+        if (str2double(tmp{1}) > 12) && (str2double(tmp{2}) <= 12)
             yy = tmp{1};
             mm = tmp{2};
             dd = tmp{3};
-        elseif tmp{3} > 12
+        elseif (str2double(tmp{1}) <= 12) && (str2double(tmp{3}) > 2012)
             mm = tmp{1};
             dd = tmp{2};
             yy = tmp{3};
         end
         
+        % make sure YY is 4 digit
+        if numel(yy)<4;
+            yy = ['20', yy];
+        end
+        
         % store the value
-        newDate = datestr([mm, '/', dd, '/', yy], 23);
+        newDate = datestr([mm, '/', dd, '/', yy], 'mm/dd/yyyy');
         
         
     elseif numel(oldDate)<=5
-        
+        error('I do not know if this part of the code is still relevant')
         % excel on the PC specifies datenums from 12/30/1899. So add an
         % offset to bring things into alignment with the mac.
         offset = datenum('12/30/1899');
