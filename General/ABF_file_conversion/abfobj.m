@@ -148,9 +148,14 @@ classdef abfobj
                 vclamp = regexpi(obj.head.recChUnits{a}, 'pA');
                 if isempty(vclamp); continue; end
                 
-                % the index to the recorded membrane current
-                if all(isfield(obj.idx, {[validChName{1}, 'Im'], [validChName{1}, 'Vclamp']}));
-                    tmp = obj.idx.([validChName{1}, 'Im']);
+                % the index to the recorded membrane current. The names of
+                % the recorded channels is unreliable, bc a "current clamp"
+                % protocol can be run in "voltage clamp". The recorded
+                % units are reliabe though
+                if isfield(obj.idx, [validChName{1}, 'Vclamp']);
+                    idx_pA = ~cellfun(@isempty, regexpi(obj.head.recChUnits, 'pA'));
+                    idx_HSx = ~cellfun(@isempty, regexpi(obj.head.recChNames, validChName));
+                    tmp = find(idx_pA & idx_HSx);
                     idx_Im = [idx_Im, tmp];
                     
                     % the index to the comand waveform
@@ -187,7 +192,7 @@ classdef abfobj
                     idx_pulse = find(idxOnset) : find(idxOffset);
                     
                     % the Im doesn't start until after the onset of the
-                    % Vcmd pulse. Find the most negative point folloing the
+                    % Vcmd pulse. Find the most negative point following the
                     % Vcmd pulse
                     minVal = min(obj.dat(idx_pulse, idx_Im(ch), swp));
                     respStart = find(obj.dat(:, idx_Im(ch), swp) == minVal, 1, 'first');

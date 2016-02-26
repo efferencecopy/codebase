@@ -5,8 +5,9 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 2;
-BRAINAREA = 'any';
+EXPTTYPE = 1;
+BRAINAREA = 'al';
+COMBINE_CHIEF = true;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -37,7 +38,7 @@ fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
 wb_expt_nameidx = strcmpi(wb_expt(1,:), 'mouse name');
 wb_expt_siteidx = strcmpi(wb_expt(1,:), 'site');
 if strcmpi(EXPTTYPE, 'all manuscript')
-    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps') | strcmpi(wb_expt(1,:), 'Intracellular') | strcmpi(wb_expt(1,:), 'E-stim');
+    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps');% | strcmpi(wb_expt(1,:), 'Intracellular') | strcmpi(wb_expt(1,:), 'E-stim');
 else
     exptlistidx = strcmpi(wb_expt(1,:), EXPTTYPE);
 end
@@ -106,6 +107,14 @@ tmp_fnames = cellfun(@(x,y) [x,y], prefix, tmp_fnames, 'uniformoutput', false);
 tmp_fnames = cellfun(@(x,y) [x,y], tmp_fnames, repmat({'.abf'}, Nfiles, 1), 'uniformoutput', false);
 raw(2:end, idx_fname) = tmp_fnames;
 
+% combine the chief variants if desired
+if COMBINE_CHIEF
+    newopsin = raw(:, opsinIdx);
+    newopsin = cellfun(@(x) regexprep(x, 'chief_cit', 'chief_all'), newopsin, 'uniformoutput', false);
+    newopsin = cellfun(@(x) regexprep(x, 'chief_flx', 'chief_all'), newopsin, 'uniformoutput', false);
+    raw(:, opsinIdx) = newopsin;
+end
+
 
 % do the analysis
 Nexpts = size(in,1);
@@ -151,7 +160,7 @@ disp('All done importing data')
 
 
 
-%% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
+ %% PULL OUT SNIPPETS OF DATA FOR EACH PULSE (ANALYZE THEM LATER)
 
 prePulseTime = 0.001; % in sec
 postPulseTime = 0.010; % in sec
@@ -594,8 +603,8 @@ for i_ex = 1:Nexpts
         otherwise
             
             %conds = {'none', 'FV_Na', 'synapticTransmission'};
-            %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
+            %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
             %conds = {'FV_Na', 'FV_Na_Ca2_mGluR'}; % both %FVs
             %conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
             %conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
@@ -633,8 +642,8 @@ for i_ex = 1:Nexpts
         else
             set(gcf, 'position', [9 10 1135 776]);
         end
-       %pamp = info{i_ex}.(pTypes{1}).(conds{1}).pAmp;
-        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d, pamp: %.1f', info{i_ex}.mouse, in{i_ex, 2}, i_ch, 10))
+        pamp = info{i_ex}.(pTypes{1}).(conds{1}).pAmp;
+        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d, pamp: %.1f', info{i_ex}.mouse, in{i_ex, 2}, i_ch, pamp))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
@@ -878,21 +887,22 @@ assert(~strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for 
 
 
 % define the conditions that will get plotted
+if COMBINE_CHIEF
+    opsinTypes = {'chr2', 'chief_all', 'chronos'};
+else
+    opsinTypes = {'chr2', 'chief_cit','chief_flx', 'chronos'};
+end
 switch EXPTTYPE
     case '4-AP'
         conds = {'ttx_cd2', 'ttx_cd2_4AP'};
-        opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
     case 'Baclofen'
         conds = {'ttx_cd2', 'ttx_cd2_bac10'};
-        opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
     case 'Intracellular'
         conds = {'nbqx_apv_ttx'};
-        opsinTypes = {'chief_cit', 'chronos', 'chief_flx', 'chr2'};
     case 'E-stim'
         conds = {'FV_Na'};
-        opsinTypes = {'estim'};
+        opsinTypes = {'estim'}; % overwrite the default
     otherwise
-        opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
         %     conds = {'FV_Na', 'FV_Na_Ca2_mGluR', 'synapticTransmission'}; % both %FVs
         %     conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
@@ -900,7 +910,7 @@ switch EXPTTYPE
 end
 
 %initialize the outputs
-statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_invtc'};
+statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'latency'}; % can also include 'tau_invtc' or 'latency'
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
@@ -945,6 +955,7 @@ for i_ex = 1:numel(dat)
     
     opsin = lower(info{i_ex}.opsin);
     pTypes = fieldnames(dat{i_ex});
+    
     
     Nptypes = numel(pTypes);
     for i_ptype = 1:Nptypes
@@ -1078,7 +1089,7 @@ for i_opsin = 1:numel(opsinTypes)
                 
                 xbar = nanmean(cat_dat, 1);
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
-                if strcmpi(conds{i_cond}, 'FV_Na')
+                if ~isempty(regexpi(conds{i_cond}, '_ttx'))
                     nrepeats = sum(~isnan(cat_dat), 1)
                 end
                 
@@ -1107,55 +1118,64 @@ for i_opsin = 1:numel(opsinTypes)
             end
             
             
-%             if strcmpi(PVALTYPE, statTypes{i_stat}) && ~strcmpi(conds{i_cond}, 'synapticTransmission')
-%                 %
-%                 %  Do some inferential tests and present a table with the
-%                 %  results
-%                 %
-%                 %%%%%%%%%%%%%%%%%%%%%%%%%%
-%                 [p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs] = deal(nan(Ntfs, 1));
-%                 
-%                 % Test for significant decreases in PPRs. Look specifically at
-%                 % P7:P1. Do the test individually for each TF
-%                 %
-%                 % Ho -> distribution of PPRs has Xbar = 1;
-%                 for i_tf = 1:Ntfs
-%                     tmp = pp_dat_allTFs{i_tf}(:,7);
-%                     p_for_each_tf(i_tf, 1) = signrank(tmp-1);
-%                 end
-%                 
-%                 
-%                 % Test for differences in P7:P1 across TFs. Here I'm asking if
-%                 % there's a significant effect of TF on the PPR. Do an anova
-%                 % like test with post-hoc comparisons
-%                 %
-%                 % Ho -> distributions of PPRs have the identical median
-%                 tmp_dat_p2 = [];
-%                 tmp_dat_p7 = [];
-%                 tmp_group = [];
-%                 for i_tf = 1:Ntfs
-%                     tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
-%                     tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
-%                     tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
-%                 end
-%                 p_p7_across_tfs(1) = kruskalwallis(tmp_dat_p7, tmp_group, 'off');
-%                 
-%                 
-%                 % Test for differences in P2:P1 across TFs. Here I'm asking if
-%                 % there's a significant effect of TF on the PPR. Do an anova
-%                 % like test with post-hoc comparisons
-%                 %
-%                 % Ho -> distributions of PPRs have the identical median
-%                 p_p2_across_tfs(1) = kruskalwallis(tmp_dat_p2, tmp_group, 'off');
-%                 
-%                 
-%                 fprintf('  comparisons for %s values for %s  \n',...
-%                     upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
-%                 
-%                 rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
-%                 T = table(p_for_each_tf, p_p7_across_tfs, p_p2_across_tfs, 'RowNames', rownames)
-%                 fprintf('\n\n')
-%             end
+            if strcmpi(PVALTYPE, statTypes{i_stat}) && ~strcmpi(conds{i_cond}, 'synapticTransmission')
+                %
+                %  Do some inferential tests and present a table with the
+                %  results
+                %
+                %%%%%%%%%%%%%%%%%%%%%%%%%%
+                [p2_for_each_tf, p7_for_each_tf, p1_p7_across_tfs, p1_p2_across_tfs] = deal(nan(Ntfs, 1));
+                
+                % Test for significant decreases in PPRs. Look specifically at
+                % P2:P1. Do the test individually for each TF
+                %
+                % Ho -> distribution of PPRs has Xbar = 1;
+                for i_tf = 1:Ntfs
+                    tmp = pp_dat_allTFs{i_tf}(:,2);
+                    [~, p2_for_each_tf(i_tf, 1)] = ttest(tmp-1);
+                end
+                
+                % Test for significant decreases in PPRs. Look specifically at
+                % P7:P1. Do the test individually for each TF
+                %
+                % Ho -> distribution of PPRs has Xbar = 1;
+                for i_tf = 1:Ntfs
+                    tmp = pp_dat_allTFs{i_tf}(:,7);
+                    [~, p7_for_each_tf(i_tf, 1)] = ttest(tmp-1);
+                end
+                
+                
+                % Test for differences in P7:P1 across TFs. Here I'm asking if
+                % there's a significant effect of TF on the PPR. Do an anova
+                % like test with post-hoc comparisons
+                %
+                % Ho -> distributions of PPRs have the identical median
+                tmp_dat_p2 = [];
+                tmp_dat_p7 = [];
+                tmp_group = [];
+                for i_tf = 1:Ntfs-1
+                    tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
+                    tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
+                    tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
+                end
+                p1_p7_across_tfs(1) = anova1(tmp_dat_p7, tmp_group, 'off');
+                
+                
+                % Test for differences in P2:P1 across TFs. Here I'm asking if
+                % there's a significant effect of TF on the PPR. Do an anova
+                % like test with post-hoc comparisons
+                %
+                % Ho -> distributions of PPRs have the identical median
+                p1_p2_across_tfs(1) = anova1(tmp_dat_p2, tmp_group, 'off');
+                
+                
+                fprintf('  comparisons for %s values for %s  \n',...
+                    upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
+                
+                rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
+                T = table(p2_for_each_tf, p1_p2_across_tfs, p7_for_each_tf, p1_p7_across_tfs, 'RowNames', rownames)
+                fprintf('\n\n')
+            end
             
         end
     end
@@ -1690,7 +1710,7 @@ for i_ex = 1:numel(dat)
     switch lower(info{i_ex}.opsin)
         case 'chr2'
             p = plot(opsin_avg, fv_avg, 'b-o', 'markerfacecolor', 'b');
-        case 'chief_cit'
+        case {'chief_cit', 'chief_all'}
             p = plot(opsin_avg, fv_avg, 'r-o', 'markerfacecolor', 'r');
         case 'chief_flx'
             p = plot(opsin_avg, fv_avg, 'm-o', 'markerfacecolor', 'm');
@@ -1714,7 +1734,7 @@ for i_ex = 1:numel(dat)
     switch lower(info{i_ex}.opsin)
         case 'chr2'
             pltclr = 'b';
-        case 'chief_cit'
+        case {'chief_cit', 'chief_all'}
             pltclr = 'r';
         case 'chief_flx'
             pltclr = 'm';
@@ -1746,7 +1766,7 @@ assert(any(strcmpi(EXPTTYPE, {'main expt', 'Intracellular', '4-AP'})), 'ERROR: t
 
 
 STIMSITE = true;
-PLOTERR = true;
+PLOTERR = false;
 
 switch EXPTTYPE
     case 'Intracellular'
@@ -1760,6 +1780,7 @@ end
 chr2_examp = {[] []};
 chief_cit_examp = {[] []};
 chief_flx_examp = {[] []};
+chief_all_examp = {[] []};
 chronos_examp = {[] []};
 Nexpts = size(in,1);
 
@@ -1847,6 +1868,8 @@ for i_ex = 1:Nexpts
                 chief_cit_examp{i_cond} = cat(1, chief_cit_examp{i_cond}, firstPulse);
             case 'chief_flx'
                 chief_flx_examp{i_cond} = cat(1, chief_flx_examp{i_cond}, firstPulse);
+            case 'chief_all'
+                chief_all_examp{i_cond} = cat(1, chief_all_examp{i_cond}, firstPulse);
             case 'chr2'
                 chr2_examp{i_cond} = cat(1, chr2_examp{i_cond}, firstPulse);
             case 'chronos'
@@ -1861,29 +1884,35 @@ end % expts
 for i_cond = 1:numel(conds)
     
     % the example first
-    tt = (0:size(chief_cit_examp{i_cond},2)-1)./20e3;
+    tt = (0:size(chr2_examp{i_cond},2)-1)./20e3;
     tt = tt-tt(prePulseSamps);
     tt = tt.*1000;
     
     figure, hold on,
     if ~PLOTERR
-        plot(tt, chief_cit_examp{i_cond}', 'r');
-        plot(tt, chief_flx_examp{i_cond}', 'm');
-        plot(tt, chr2_examp{i_cond}', 'b');
-        plot(tt, chronos_examp{i_cond}', 'g');
-        plot(tt, mean(chief_cit_examp{i_cond}, 1), 'r', 'linewidth', 4);
-        plot(tt, mean(chief_flx_examp{i_cond}, 1), 'm', 'linewidth', 4);
+%         plot(tt, chief_cit_examp{i_cond}', 'r');
+%         plot(tt, chief_flx_examp{i_cond}', 'm');
+%         plot(tt, chief_all_examp{i_cond}', 'r');
+%         plot(tt, chr2_examp{i_cond}', 'b');
+%         plot(tt, chronos_examp{i_cond}', 'g');
+%         plot(tt, mean(chief_cit_examp{i_cond}, 1), 'r', 'linewidth', 4);
+%         plot(tt, mean(chief_flx_examp{i_cond}, 1), 'm', 'linewidth', 4);
+        plot(tt, mean(chief_all_examp{i_cond}, 1), 'r', 'linewidth', 4);
         plot(tt, mean(chr2_examp{i_cond}, 1), 'b', 'linewidth', 4);
         plot(tt, mean(chronos_examp{i_cond}, 1), 'g', 'linewidth', 4);
     else
-        % chief cit 
-        xbar = mean(chief_cit_examp{i_cond}, 1);
-        sem = stderr(chief_cit_examp{i_cond}, 1);
+%         % chief cit 
+%         xbar = mean(chief_cit_examp{i_cond}, 1);
+%         sem = stderr(chief_cit_examp{i_cond}, 1);
+%         shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 3}, 1);
+%         % chief flx 
+%         xbar = mean(chief_flx_examp{i_cond}, 1);
+%         sem = stderr(chief_flx_examp{i_cond}, 1);
+%         shadedErrorBar(tt, xbar, sem, {'m', 'linewidth', 3}, 1);
+        % chief all
+        xbar = mean(chief_all_examp{i_cond}, 1);
+        sem = stderr(chief_all_examp{i_cond}, 1);
         shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 3}, 1);
-        % chief flx 
-        xbar = mean(chief_flx_examp{i_cond}, 1);
-        sem = stderr(chief_flx_examp{i_cond}, 1);
-        shadedErrorBar(tt, xbar, sem, {'m', 'linewidth', 3}, 1);
         % chronos 
         xbar = mean(chronos_examp{i_cond}, 1);
         sem = stderr(chronos_examp{i_cond}, 1);
@@ -1909,8 +1938,8 @@ for i_cond = 1:numel(conds)
     
     if strcmpi(conds{i_cond}, 'FV_Na')
         figure, hold on,
-        plot(tt, cumsum(-mean(chief_cit_examp{i_cond}, 1)), 'r', 'linewidth', 4);
-        plot(tt, cumsum(-mean(chief_flx_examp{i_cond}, 1)), 'm', 'linewidth', 4);
+        %plot(tt, cumsum(-mean(chief_cit_examp{i_cond}, 1)), 'r', 'linewidth', 4);
+        %plot(tt, cumsum(-mean(chief_flx_examp{i_cond}, 1)), 'm', 'linewidth', 4);
         plot(tt, cumsum(-mean(chr2_examp{i_cond}, 1)), 'b', 'linewidth', 4);
         plot(tt, cumsum(-mean(chronos_examp{i_cond}, 1)), 'g', 'linewidth', 4);
         xlabel('time (msec)')
@@ -1934,7 +1963,12 @@ Npulses = 7;
 clc; close all
 
 % prepare the population structure
-opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
+if COMBINE_CHIEF
+    opsinTypes = {'chr2', 'chief_all', 'chronos'};
+else
+    opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
+end
+
 tfnames = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led', 'tf100_led'};
 switch EXPTTYPE
     case '4-AP'
@@ -2274,7 +2308,11 @@ correctExpt = any(strcmpi(EXPTTYPE, {'main expt', '4-AP', 'baclofen', 'intracell
 assert(correctExpt, 'ERROR: This analysis is for a different type of experiment');
 
 % prepare the population structure
-opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
+if COMBINE_CHIEF
+    opsinTypes = {'chr2', 'chief_all', 'chronos'};
+else
+    opsinTypes = {'chr2', 'chief_cit', 'chronos', 'chief_flx'};
+end
 tfnames = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led', 'tf100_led'};
 avgopsincurent = [];
 for i_opsin = 1:numel(opsinTypes)
@@ -2406,7 +2444,7 @@ for a_tf = 1:numel(tfnames)
         switch opsinTypes{a_opsin}
             case 'chr2'
                 pltclr = [0 0 1];
-            case 'chief_cit'
+            case {'chief_cit', 'chief_all'}
                 pltclr = [1 0 0];
             case 'chief_flx'
                 pltclr = [1 0 .5];
@@ -2592,7 +2630,12 @@ for i_ex = 1:Nexpts
     
 end
 
-opsins = {'chr2', 'chronos', 'chief_cit', 'chief_flx'};
+if COMBINE_CHIEF
+    opsins = {'chr2', 'chronos', 'chief_all'};
+else
+    opsins = {'chr2', 'chronos', 'chief_cit', 'chief_flx'};
+end
+
 opsintau = [];
 for i_opsin = opsins
     opsintau.(i_opsin{1}).tau1 = [];
@@ -2615,40 +2658,40 @@ end
 % plot of single exp time constants
 figure, hold on
 pltclr = {'b', 'g', 'r', 'm'};
-for i_op=1:4
+for i_op=1:numel(opsins)
     if ~isempty(opsintau.(opsins{i_op}).tau1)
         plot(i_op, -opsintau.(opsins{i_op}).tau1*1000, 'o', 'color', pltclr{i_op})
         plot(i_op, mean(-opsintau.(opsins{i_op}).tau1*1000), 's', 'color', pltclr{i_op}, 'markerfacecolor', pltclr{i_op})
     end
 end
 ylabel('Time constant (ms)')
-xlim([0 5])
-set(gca, 'xtick', [1,2,3,4], 'xticklabel', {'chr2', 'chronos', 'chief cit', 'chief flx'})
+xlim([0 numel(opsins)+1])
+set(gca, 'xtick', 1:numel(opsins), 'xticklabel', opsins)
 
 
 % plot of R-squared values for single/double exp fits
 figure, hold on
-for i_op = 1:4;
+for i_op = 1:numel(opsins)
     if ~isempty(opsintau.(opsins{i_op}).gof2)
         plot([i_op-.2, i_op+.2], [opsintau.(opsins{i_op}).gof1(:),opsintau.(opsins{i_op}).gof2(:)], '-o', 'color', pltclr{i_op})
     end
 end
 ylabel('R-squared')
-xlim([0 5])
+xlim([0 numel(opsins)+1])
 title('R-square of 1exp on left')
-set(gca, 'xtick', [1,2,3,4], 'xticklabel', {'chr2', 'chronos', 'chief cit', 'chief flx'})
+set(gca, 'xtick', 1:numel(opsins), 'xticklabel', opsins)
 
 
 % plot of Amplitudes for each exp in the DOUBLE exp fit
 figure, hold on
-for i_op = 1:4;
+for i_op = 1:numel(opsins)
     if ~isempty(opsintau.(opsins{i_op}).amp2)
         plot([i_op-.2, i_op+.2], opsintau.(opsins{i_op}).amp2, '-o', 'color', pltclr{i_op})
     end
 end
 ylabel('Amplitudes')
-xlim([0 5])
-set(gca, 'xtick', [1,2,3,4], 'xticklabel', {'chr2', 'chronos', 'chief cit', 'chief flx'})
+xlim([0 numel(opsins)+1])
+set(gca, 'xtick', 1:numel(opsins), 'xticklabel', opsins)
 title('Fast Tau on left')
 
 
@@ -2915,7 +2958,12 @@ smoothStats = smoothStats(~l_empty);
 catdat = {};
 
 exptOpsins = structcat(smoothStats, 'opsin');
-opsins = {'chr2', 'chief_cit', 'chronos'};
+
+if COMBINE_CHIEF
+    opsins = {'chr2', 'chief_all', 'chronos'};
+else
+    opsins = {'chr2', 'chief_cit', 'chronos'};
+end
 
 for i_cond = 1:numel(conds)
     for i_opsin = 1:numel(opsins);
@@ -3243,6 +3291,8 @@ sites = cellfun(@floor, in(:,2), 'uniformoutput', false); % use floor to elimina
 comboname = cellfun(@(x,y) [x,num2str(y)], mouseNames, sites, 'uniformoutput', false);
 [uniqueExpts, ~, exptID] = unique(comboname);
 
+% initalize the pop structure
+siteraw = {};
 
 % iterate over the unique experiments and overlay the PPR metrics for FV,
 % opsin current, and fEPSP slope
@@ -3253,13 +3303,17 @@ for i_ex = 1:Nexpts
     % the excel workbook
     inds_mouse = find(exptID == i_ex);
     sites = cat(1, in{inds_mouse,2});
+    opsinTag = structcat(info, 'opsin');
+    opsinTag = unique(opsinTag(inds_mouse));
+    opsinTag = opsinTag{1};
+    
     [~, analysis_order] = sort(sites);
     inds_mouse = inds_mouse(analysis_order); % now the list is ordered by proximal to distal
     assert(numel(inds_mouse) == 2,'error: more than 2 stim sites')
     
     f = figure;
     set(f, 'defaulttextinterpreter', 'none', 'units', 'normalized', 'position', [0 0.1435 1 0.6620]);
-    set(f, 'name', sprintf('%s, site: %d', in{inds_mouse(1),1}, floor(in{inds_mouse(1),2})))
+    set(f, 'name', sprintf('%s, site: %d, opsin: %s', in{inds_mouse(1),1}, floor(in{inds_mouse(1),2}), opsinTag))
     cmap = copper(4);
     cmap_tf = {'tf10_', 'tf20_', 'tf40_', 'tf60_'};
     
@@ -3324,7 +3378,7 @@ for i_ex = 1:Nexpts
                         linestyle = ':';
                     elseif i_site == 2; % L5
                         lasercheck = regexpi(tfconds{i_tf}, '_laser');
-                        assert(~isempty(lasercheck), 'ERROR: laser should be L2/3')
+                        assert(~isempty(lasercheck), 'ERROR: laser should be L5')
                         linestyle = '-';
                     end
                 end
@@ -3353,6 +3407,25 @@ for i_ex = 1:Nexpts
                             tmp_raw = tmp_raw ./ tmp_raw(1);
                         end
                     end
+                    
+                    
+                    % store the data into a population structure for future
+                    % analysis:
+                    % sitepop{i_ex}{i_stimSite}.(recLayer).(tfcond).(pharmCond)
+                    % 
+                    % i_stimSite will be a 1 or 2. 1 is in L2/3, 2=L5
+                    % recLayer is L2/3 or L5.
+                    % tfcond will be LED_yyy or Laser_yyy
+                    if ~isnan(tmp_raw)
+                        recLayer = {'recL23', 'recL5'};
+                        stimSite = {'stimL23' 'stimL5'};
+                        recLayer = recLayer{i_pltrow};
+                        stimSite = stimSite{i_site};
+                        siteraw{i_ex}.(stimSite).(recLayer).(tfconds{i_tf}).(conds{i_cond}) = tmp_raw;
+                        siteraw{i_ex}.opsin = opsinTag;
+                    end
+                    
+                    
                     
                     subplot(2, npltcols, (i_pltrow-1)*npltcols + i_cond)
                     hold on,
@@ -3427,6 +3500,132 @@ for i_ex = 1:Nexpts
     
 end
 
+%% POPULATION SUMMARY FOR L5 STIM ANALYSIS
+
+% plot fEPSP slopes measured in L2/3, but stimulated in L2/3 or L5. Do this
+% for each opsin separately. 
+USEALLLFP = true;
+
+% initialize the population structure
+opsinTypes = {'chronos', 'chief_all'};
+tfconds.stimL23 = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led'};
+tfconds.stimL5 =  {'tf10_laser', 'tf20_laser', 'tf40_laser', 'tf60_laser'};
+stimpos = {'stimL23', 'stimL5'};
+recpos = 'recL23';
+conds = {'synapticTransmission', 'FV_Na'};
+sitepop = [];
+for i_opsin = 1:numel(opsinTypes);
+    for i_site = 1:numel(stimpos)
+        for i_tf = 1:numel(tfconds.(stimpos{i_site}));
+            for i_cond = 1:numel(conds)
+                sitepop.(opsinTypes{i_opsin}).(recpos).(stimpos{i_site}).(tfconds.(stimpos{i_site}){i_tf}).(conds{i_cond}) = [];
+            end
+        end
+    end
+end
+
+% compile the data from the siteraw structure into the sitepop structure
+for i_ex = 1:numel(siteraw)
+    
+    tmpopsin = siteraw{i_ex}.opsin;
+    
+    for i_site = 1:numel(stimpos)
+        
+        tffields = fieldnames(siteraw{i_ex}.(stimpos{i_site}).(recpos));
+        Ntfs = numel(tffields);
+        for i_tf = 1:Ntfs
+            
+            for i_cond = 1:numel(conds)
+                
+                % make sure that the drug condition exists
+                if ~isfield(siteraw{i_ex}.(stimpos{i_site}).(recpos).(tffields{i_tf}), conds{i_cond})
+                    continue
+                end
+                
+                % pull out the data from the siteraw structure
+                tmpvals = siteraw{i_ex}.(stimpos{i_site}).(recpos).(tffields{i_tf}).(conds{i_cond});
+                
+                % grab the pop structure
+                tmppop = sitepop.(tmpopsin).(recpos).(stimpos{i_site}).(tffields{i_tf}).(conds{i_cond});
+                
+                % concatenate the data, and put it back into the pop
+                % structure
+                tmppop = cat(1, tmppop, tmpvals(1:7));
+                sitepop.(tmpopsin).(recpos).(stimpos{i_site}).(tffields{i_tf}).(conds{i_cond}) = tmppop;
+            end
+        end
+    end
+    
+end
+
+
+
+% load the big LFP dataset
+poplfp = load('lfp_pop_combinechief.mat'); 
+
+% ploting routines
+pltclr = copper(6);
+for i_opsin = 1:numel(opsinTypes)
+    
+    f = figure;
+    f.Position = [94 139 1319 584];
+    f.Name = opsinTypes{i_opsin};
+    
+    for i_cond = 1:numel(conds)
+        
+        subplot(1,numel(conds), i_cond), hold on,
+        title(conds{i_cond})
+        
+        lineseries = {'--', '-'};
+        %build a sensible legend
+        plot(nan, nan, '--k', 'linewidth', 3)
+        plot(nan, nan, '-k', 'linewidth', 3)
+        legend(stimpos, 'location', 'southeast')
+        legend boxoff
+        
+        for i_site = 1:numel(stimpos)
+            
+            if USEALLLFP && strcmpi(stimpos{i_site}, 'stimL23')
+                
+                tmpdat = poplfp.pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).diffval;
+                trim_dat = cellfun(@(x) x(:,1:7), tmpdat{3}, 'uniformoutput', false);
+                uniqueTFs = unique(tmpdat{1});
+                uniqueTFs(uniqueTFs>60)=[];
+                Ntfs = numel(uniqueTFs);
+                for i_tf = 1:Ntfs
+                    
+                    l_tf = tmpdat{1} == uniqueTFs(i_tf);
+                    catdat = cat(1, trim_dat{l_tf});
+                    xbar = mean(catdat,1);
+                    sem = stderr(catdat, 1);
+                    
+                    my_errorbar(1:numel(xbar), xbar, sem, lineseries{i_site}, 'color', pltclr(i_tf,:), 'linewidth', 3);
+                    
+                end
+                
+            else
+                
+                tffields = fieldnames(sitepop.(opsinTypes{i_opsin}).(recpos).(stimpos{i_site}));
+                Ntfs = numel(tffields);
+                for i_tf = 1:Ntfs
+                    tmpvals = sitepop.(opsinTypes{i_opsin}).(recpos).(stimpos{i_site}).(tffields{i_tf}).(conds{i_cond});
+                    xbar = mean(tmpvals, 1);
+                    sem = stderr(tmpvals,1);
+                    
+                    my_errorbar(1:numel(xbar), xbar, sem, lineseries{i_site}, 'color', pltclr(i_tf,:), 'linewidth', 3);
+                end
+                
+                
+                
+            end
+        end
+        
+        
+        yvals = get(gca, 'ylim');
+        ylim([0, max([yvals(2), 1])])
+        
+    end
+end
 
 
 %% COMPARE PLASTICITY ACROSS BRAIN AREAS
@@ -3440,10 +3639,10 @@ PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'n
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
 
 % load in data from each area
-load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pop_al.mat');
+load('pop_al_combinechief.mat');
 al_pop = pop;
 
-load('C:\Users\charlie\Dropbox\Duke on Dropbox\oChIEF Methods\pop_pm.mat');
+load('pop_pm_combinechief.mat');
 pm_pop = pop;
 
 
@@ -3455,7 +3654,7 @@ pm_pop = pop;
 F = figure;
 set(F, 'position', [109    31   891   754])
 
-opsinTypes = {'chr2', 'chief_cit', 'chronos'};
+opsinTypes = {'chr2', 'chief_all', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
     
     % grab the data
@@ -3491,9 +3690,9 @@ for i_opsin = 1:numel(opsinTypes)
         
         [~, pltclr] = hvaPlotColor('pm');
         if ERRBARS
-            my_errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2);
+            h_pm = my_errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2);
         else
-            plot(1:NPULSES, cat_dat', '-', 'color', pltclr, 'linewidth', 2)
+            h_pm = plot(1:NPULSES, cat_dat', '-', 'color', pltclr, 'linewidth', 2);
         end
         
         
@@ -3511,9 +3710,9 @@ for i_opsin = 1:numel(opsinTypes)
         
         [~, pltclr] = hvaPlotColor('al');
         if ERRBARS
-            my_errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2);
+            h_al = my_errorbar(1:NPULSES, xbar, sem, '-', 'color', pltclr, 'linewidth', 2);
         else
-            plot(1:NPULSES, cat_dat', '-', 'color', pltclr, 'linewidth', 2)
+            h_al = plot(1:NPULSES, cat_dat', '-', 'color', pltclr, 'linewidth', 2);
         end
         
         % tidy up
@@ -3525,7 +3724,7 @@ for i_opsin = 1:numel(opsinTypes)
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
         set(gca, 'ylim', yvals);
-        legend({pm_leg, al_leg}, 'location', 'best')
+        legend([h_pm, h_al], {pm_leg, al_leg}, 'location', 'best')
         legend boxoff
     end
 end
@@ -3537,16 +3736,16 @@ end
 fin
 
 STIMSITE = true;
-NORMVALS = true;
-LOWPOWER = false;
-COMBINECHIEF = true;
+NORMVALS = false;
+LOWPOWER = true;
+COMBINE_CHIEF = true;
 
 % need to load the data
-load('lfp_all_pow.mat');
+load('lfp_all_pow_combine_chief.mat');
 pop.lfp.dat = dat; clear dat;
 pop.lfp.info = info; clear info;
 
-load('intra_all_pow.mat');
+load('intra_lowRa_all_pow_combine_chief.mat'); % intra_all_pow.mat or intra_lowRa_all_pow.mat
 pop.intra.dat = dat; clear dat;
 pop.intra.info = info; clear info;
 
@@ -3554,7 +3753,11 @@ pop.intra.info = info; clear info;
 tforder = [10, 20, 40, 60, 100];
 
 % preallocate all the arrays
-opsins = {'chr2', 'chief_cit', 'chief_flx', 'chronos', 'chief_all'};
+if COMBINE_CHIEF
+    opsins = {'chr2', 'chronos', 'chief_all'};
+else
+    opsins = {'chr2', 'chief_cit', 'chief_flx', 'chronos'};
+end
 for i_fld = {'lfp', 'intra'};
     Nexp = numel(pop.(i_fld{1}).dat);
     for i_opsin = opsins;
@@ -3569,13 +3772,6 @@ for i_fld = {'lfp', 'intra'}
     for i_ex = 1:Nexp
         
        ex_opsin = lower(pop.(i_fld{1}).info{i_ex}.opsin);
-       
-       if COMBINECHIEF
-           if any(strcmpi(ex_opsin, {'chief_flx', 'chief_cit'}))
-               ex_opsin = 'chief_all';
-           end
-       end
-       
 
        % which channel should be analyzed?
        CHANNEL = pop.(i_fld{1}).info{i_ex}.stimSite;
@@ -3640,16 +3836,8 @@ end
 for i_fld = {'lfp', 'intra'}
     for i_opsin = opsins
         
-        switch i_opsin{1}
-            case 'chr2'
-                tfval = 40;
-            case {'chief_cit', 'chief_flx', 'chief_all'}
-                tfval = 40;
-            case 'chronos'
-                tfval = 40;
-        end
-        
         % grab the raw data and normalize by the first pulse
+        tfval = 40;
         tmpdat = catdat.(i_fld{1}).(i_opsin{1}).raw;
         p1_vals = tmpdat(:,1,:); % all 1st pulses of all TFs and expts;
         tmpdat = bsxfun(@rdivide, tmpdat, p1_vals);
@@ -3684,9 +3872,11 @@ for i_opsin = opsins
     
     tmp_lfp = catdat.lfp.(i_opsin{1}).normvals;
     xbar_lfp = nanmean(tmp_lfp, 3);
-    
+        
     tmp_intra = catdat.intra.(i_opsin{1}).normvals;
     xbar_intra = nanmean(tmp_intra, 3);
+    i_opsin
+    N = sum(~isnan(tmp_intra),3)
     
     cmap = copper(numel(tforder));
     for i_tf = 1:numel(tforder)
@@ -3900,6 +4090,83 @@ xlabel('distance from rec site (um)')
 ylabel('opsin current amplitude')
 xlim([-150 600])
 
+%% SERIES RESISTANCE FOR INTRACELLULAR RECORDINGS
+
+
+% grab the fiber volley pop excel workbook
+fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
+[~,txt, raw] = xlsread(fname);
+raw(size(txt,1)+1:end, :) = [];
+raw(:,size(txt,2)+1:end) = [];
+channelIdx = cellfun(@(x) ~isempty(x), regexpi(raw(1,:), 'CH\d'));
+opsinIdx = strcmpi(raw(1,:), 'opsin');
+idx_rmSweeps = strcmpi(raw(1,:), 'rmSweeps');
+idx_mousename = strcmpi(raw(1,:), 'Mouse Name');
+idx_fname =  strcmpi(raw(1,:), 'file name');
+primaryStimSiteIdx = strcmpi(raw(1,:), 'Primary Stim Site (0,0)');
+drugIdx = strcmpi(raw(1,:), 'drugs');
+clear txt
+
+% delete the header row
+raw(1,:) = [];
+
+% replace the 'file names' with fully qualified paths. I'm hoping that this
+% allows for parallel operations
+Nfiles = size(raw,1);
+tmp_fnames = raw(:, idx_fname);
+tmp_mousenames = raw(:, idx_mousename);
+rmsweeps = raw(:, idx_rmSweeps);
+prefix = cellfun(@(x,y) [x,y], repmat({GL_DATPATH}, Nfiles, 1), tmp_mousenames, 'uniformoutput', false);
+prefix = cellfun(@(x,y) [x,y], prefix, repmat({[filesep, 'Physiology', filesep]}, Nfiles, 1), 'uniformoutput', false);
+tmp_fnames = cellfun(@(x,y) [x,y], prefix, tmp_fnames, 'uniformoutput', false);
+fid_path = cellfun(@(x,y) [x,y], tmp_fnames, repmat({'.abf'}, Nfiles, 1), 'uniformoutput', false);
+
+
+
+% do the analysis
+Nexpts = size(in,1);
+popRa = nan(Nexpts, 1);
+for i_ex = 1:Nexpts;
+    
+    % figure out what rows in the work book to pay attention to
+    l_mouse = cellfun(@(x) ~isempty(x), regexp(raw(:,1), in{i_ex,1}));
+    l_site = cell2mat(raw(:,2)) == in{i_ex,2}; 
+    l_ttx = cellfun(@(x) ~isempty(regexpi(x, 'ttx')), raw(:, drugIdx));
+    l_expt = l_mouse & l_site & l_ttx;
+    assert(sum(l_expt)==1, 'ERROR: too many experiments')
+    
+    % run the analysis
+    ax = abfobj(fid_path{l_expt});
+    
+    % get the series resistance for the proper channel
+    ra = ax.getRa;
+    channel = raw{l_expt, primaryStimSiteIdx};
+    if (channel==2) && (size(ra.dat, 2)==1)
+        channel=1;
+    end
+    ra = squeeze(ra.dat(:,channel,:));
+    
+    % remove bad trials if necessary    % remove some sweeps if need be
+    if any(~isnan(rmsweeps{l_expt}))
+        goodSweeps = true(size(ra,1),1);
+        badSweeps = eval(['[',rmsweeps{l_expt},']']);
+        goodSweeps(badSweeps) = false;
+        ra = ra(goodSweeps,:);
+    end
+    
+    popRa(i_ex) = mean(ra);
+    
+end
+
+figure
+histogram(popRa, 10)
+
+average_Ra = mean(popRa)
+
+l_gt20 = popRa > 20;
+in(l_gt20, :)
+
+
 
 
 %% GET TRIAL COUNTS AND SNR AND GENOTYPES
@@ -3910,31 +4177,32 @@ ISLFP = false; % false only returns age, sex, genotype
 
 
 mdb = initMouseDB('update', 'notext');
-nexpts = numel(info);
-minExTrialCount = [];
-SNR = [];
+
+
 genotype = {};
 sex = {};
 date_inj = [];
 date_record = [];
 date_birth = [];
-for a_ex = 1:nexpts
+uniqueMice = unique(in(:,1));
+Nmice = numel(uniqueMice);
+for i_mouse = 1:Nmice
     
     % get genotype and sex
-    [~, idx] = mdb.search(info{a_ex}.mouse);
-    genotype{a_ex, 1} = mdb.mice{idx}.info.strain;
-    sex{a_ex, 1} = upper(mdb.mice{idx}.info.sex(1));
+    [~, idx] = mdb.search(uniqueMice{i_mouse});
+    genotype{i_mouse, 1} = mdb.mice{idx}.info.strain;
+    sex{i_mouse, 1} = upper(mdb.mice{idx}.info.sex(1));
     
     
     % get injection date
-    tmpDate = regexpi(info{a_ex}.mouse, '_\w*_', 'match');
+    tmpDate = regexpi(uniqueMice{i_mouse}, '_\w*_', 'match');
     tmpDate = tmpDate{1}(2:end-1);
     if str2double(tmpDate(1:2)) <= 12
         % assume mmddyy
-        date_inj(a_ex,1) = datenum(tmpDate, 'mmddyy');
+        date_inj(i_mouse,1) = datenum(tmpDate, 'mmddyy');
     else
         %assume yymmdd
-        date_inj(a_ex,1) = datenum(tmpDate, 'yymmdd');
+        date_inj(i_mouse,1) = datenum(tmpDate, 'yymmdd');
     end
     
     % get the date of recording, grab the name of the first file from the
@@ -3942,14 +4210,20 @@ for a_ex = 1:nexpts
     tmpDate = mdb.mice{idx}.phys.cell(1).file(1).FileName;
     tmpDate = regexpi(tmpDate, '\d{4}_\d{2}_\d{2}', 'match'); % remove the file number
     tmpDate = regexprep(tmpDate{1}, '_', '');
-    date_record(a_ex,1) = datenum(tmpDate, 'yyyymmdd');
+    date_record(i_mouse,1) = datenum(tmpDate, 'yyyymmdd');
     
     % get the date of birth
     tmpDate = mdb.mice{idx}.info.dob;
-    date_birth(a_ex,1) = datenum(tmpDate, 'mm/dd/yyyy');
+    date_birth(i_mouse,1) = datenum(tmpDate, 'mm/dd/yyyy');
     
+end
+
+if ISLFP
     
-    if ISLFP
+    SNR = [];
+    nexpts = numel(info);
+    minExTrialCount = [];
+    for a_ex = 1:nexpts
         fields = fieldnames(info{a_ex});
         
         fieldTcount = inf;
@@ -3996,34 +4270,30 @@ for a_ex = 1:nexpts
             
         end
     end
+    
+    minimumAcrossExperiments = min(minExTrialCount)
+    maxAcrossExperiments = max(minExTrialCount)
+    meanTrialCount = mean(minExTrialCount)
+    stdTrialCount = std(minExTrialCount)
+    
+    
+    minSNR = min(SNR)
+    meanSNR = mean(SNR)
+    stdSNR = std(SNR)
 end
 
-minimumAcrossExperiments = min(minExTrialCount)
-maxAcrossExperiments = max(minExTrialCount)
-meanTrialCount = mean(minExTrialCount)
-stdTrialCount = std(minExTrialCount)
 
-
-minSNR = min(SNR)
-meanSNR = mean(SNR)
-stdSNR = std(SNR)
-
-% determine how many mice were used, of each genotype, and sex
-mouseNames = in(:,1);
-[uniqueMice, ~, idx] = unique(mouseNames);
-new_genotype = {};
-new_sex = {};
-for i_mouse = 1:numel(uniqueMice)
-    tmpidx = find(idx==i_mouse, 1, 'first');
-    new_genotype{i_mouse} = genotype{tmpidx};
-    new_sex{i_mouse} = sex{tmpidx};
-end
 
 
 % determine the age at recording and incubation time for each construct
 popage = [];
-for i_ex = 1:numel(dat)
-    opsin = info{i_ex}.opsin;
+for i_mouse = 1:Nmice
+    
+    
+    % pull out the opsin for this mouse, just select the first experiment
+    idx_expt = strcmpi(in(:,1), uniqueMice{i_mouse});
+    idx_expt = find(idx_expt, 1, 'first');
+    opsin = info{idx_expt}.opsin;
     
     if ~isfield(popage, opsin)
         popage.(opsin) = [];
@@ -4031,17 +4301,21 @@ for i_ex = 1:numel(dat)
         popage.(opsin).days_old = [];
     end
    
-   incubation = date_record(i_ex) - date_inj(i_ex);
+   incubation = date_record(i_mouse) - date_inj(i_mouse);
    popage.(opsin).days_incubate = cat(1, popage.(opsin).days_incubate, incubation);
    
-   daysold = date_record(i_ex) - date_birth(i_ex);
+   daysold = date_record(i_mouse) - date_birth(i_mouse);
    popage.(opsin).days_old = cat(1, popage.(opsin).days_old, daysold);
-    
     
 end
 
-
-
-
-
+% print out the mean age at recording and days incubated
+fields = fieldnames(popage);
+for opsinType = fields'
+    tmpmean = mean(popage.(opsinType{1}).days_old);
+    fprintf('\n %s, mean age at recording = %.2f\n', opsinType{1},  tmpmean);
+    
+    tmpmean = mean(popage.(opsinType{1}).days_incubate);
+    fprintf('%s, incubation in days = %.2f\n\n', opsinType{1},  tmpmean);
+end
 
