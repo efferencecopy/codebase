@@ -241,15 +241,11 @@ for i_sweepType = 1:numel(sweepTypeFields)
             end
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             
-%             % remove these lines of code with unnecessary, they're only to
-%             % verify that the rundown from Chronos doesn't effect our
-%             % interpretation of the FV fidelity (it does though...)
-%             warning('trucating datasets')
-%             filtered = filtered(:, end-4:end);
-            
             % take the mean
             average = mean(filtered,2);
             trace.(swpType).(drugType)(:,i_ch) = average;
+            
+            % normalize by the amplitude of the first FV, or opsin current
             
         end % i_ch
         

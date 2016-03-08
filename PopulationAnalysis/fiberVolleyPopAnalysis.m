@@ -6,8 +6,8 @@ fin
 
 % decide what experiment to run
 EXPTTYPE = 1;
-BRAINAREA = 'al';
-COMBINE_CHIEF = true;
+BRAINAREA = 'any';
+COMBINE_CHIEF = false;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -408,7 +408,19 @@ parfor i_ex = 1:Nexpts
                         latency = tt(troughidx);
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).latency{i_ch}(i_pulse) = latency;
                         
-                    elseif any(regexpi(conds{i_cond}, 'ttx')) || strcmpi(conds{i_cond}, 'nbqx_apv_cd2')
+                    elseif strcmpi(conds{i_cond}, 'nbqx_apv_cd2')
+                        
+                        trough = mean(snippet(trough_window));
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                        
+                        % deal with cases where the opsin current is
+                        % outward
+                        tmp_snippet = snippet;
+                        if strcmpi(direction, 'outward');
+                            tmp_snippet = -tmp_snippet;
+                        end
+                        
+                    elseif any(regexpi(conds{i_cond}, 'ttx'))
                         
                         trough = mean(snippet(trough_window));
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
@@ -453,6 +465,9 @@ parfor i_ex = 1:Nexpts
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_invtc{i_ch}(i_pulse) = bobj.b;
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
                         
+                        % store the latency to the trough
+                        latency = tt(troughidx);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).latency{i_ch}(i_pulse) = latency;
                         
                     elseif strcmpi(conds{i_cond},  'synapticTransmission')
                         
@@ -586,35 +601,36 @@ CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
 NORM_TO_PULSE1 = true;
 
+
+% define the conditions that will get plotted
+switch EXPTTYPE
+    case '4-AP'
+        conds = {'ttx_cd2', 'ttx_cd2_4AP', 'potassium'};
+    case 'Baclofen'
+        conds = {'ttx_cd2', 'ttx_cd2_bac10'};
+    case 'Intracellular'
+        conds = {'nbqx_apv_ttx'};
+    case 'E-stim'
+        conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx', 'FV_Na'};
+        
+    otherwise
+        
+        conds = {'nbqx_apv_cd2_ttx', 'FV_Na', 'synapticTransmission'};
+        %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
+        %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
+        %conds = {'FV_Na', 'FV_Na_Ca2_mGluR'}; % both %FVs
+        %conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
+        %conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
+end
+
+
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
-    
-    % define the conditions that will get plotted
-    switch EXPTTYPE
-        case '4-AP'
-            conds = {'ttx_cd2', 'ttx_cd2_4AP', 'potassium'};
-        case 'Baclofen'
-            conds = {'ttx_cd2', 'ttx_cd2_bac10'};
-        case 'Intracellular'
-            conds = {'nbqx_apv_ttx'};
-        case 'E-stim'
-            conds = {'nbqx_apv_cd2', 'nbqx_apv_cd2_ttx', 'FV_Na'};
-            
-        otherwise
-            
-            %conds = {'none', 'FV_Na', 'synapticTransmission'};
-            conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'nbqx_apv_cd2'}; % last two pharm steps with subtraction
-            %conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'};
-            %conds = {'FV_Na', 'FV_Na_Ca2_mGluR'}; % both %FVs
-            %conds = {'FV_Na_Ca2_mGluR', 'nbqx_apv_ttx',  'synapticTransmission'}; % no cadmium
-            %conds = {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx',  'synapticTransmission'}; % both opsin current verisons
-    end
-    
     
     for i_ch = 1:2;
         
         if RESTRICT_TO_STIM_SITE && (i_ch ~= info{i_ex}.stimSite)
-           continue
+            continue
         end
         
         % deal with data and channels that need to be ignored.
@@ -642,8 +658,7 @@ for i_ex = 1:Nexpts
         else
             set(gcf, 'position', [9 10 1135 776]);
         end
-        pamp = info{i_ex}.(pTypes{1}).(conds{1}).pAmp;
-        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d, pamp: %.1f', info{i_ex}.mouse, in{i_ex, 2}, i_ch, pamp))
+        set(gcf, 'name', sprintf('%s, site %.1f, chan: %d', info{i_ex}.mouse, in{i_ex, 2}, i_ch))
         set(gcf, 'defaulttextinterpreter', 'none')
         s = warning('off', 'MATLAB:uitabgroup:OldVersion');
         hTabGroup = uitabgroup('Parent',hFig);
@@ -770,7 +785,7 @@ for i_ex = 1:Nexpts
         hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary Stats');
         hAx(i_cond) = axes('Parent', hTabs(i_cond));
         hold on,
-        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_invtc'};
+        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_invtc'}; % could be 'tau_invtc', or 'latency'
         Nstats = numel(statTypes);
         cmap = copper(Ntfs);
         for i_cond = 1:Nconds
@@ -879,7 +894,7 @@ end
 
 
 STIMSITE = true;  % true => stimsite,  false => distal site
-PVALTYPE = 'diffval';
+CALCPVALS = true;
 NORMALIZE = true;
 
 % only do this for the main experiment (TF and FV)
@@ -911,11 +926,16 @@ end
 
 %initialize the outputs
 statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'latency'}; % can also include 'tau_invtc' or 'latency'
+pop = [];
+avgtf = [];
 for i_opsin = 1:numel(opsinTypes)
     for i_cond = 1:numel(conds)
         for i_stat = 1:numel(statTypes)
             pop.(opsinTypes{i_opsin}).pnp1.(conds{i_cond}).(statTypes{i_stat}) = {[],[],{}}; % {[TF], [pulseAmp], {Vals}}
             pop.(opsinTypes{i_opsin}).raw.(conds{i_cond}).(statTypes{i_stat}) = {[],[],{}}; % {[TF], [pulseAmp], {Vals}}
+            avgtf.(opsinTypes{i_opsin}).avg10to40.(conds{i_cond}).(statTypes{i_stat}) = []; % Nexpts x Npulses
+            avgtf.(opsinTypes{i_opsin}).avg10to60.(conds{i_cond}).(statTypes{i_stat}) = []; % Nexpts x Npulses
+            avgtf.(opsinTypes{i_opsin}).avg10to100.(conds{i_cond}).(statTypes{i_stat}) = [];
         end
     end
 end
@@ -957,17 +977,21 @@ for i_ex = 1:numel(dat)
     pTypes = fieldnames(dat{i_ex});
     
     
-    Nptypes = numel(pTypes);
-    for i_ptype = 1:Nptypes
-        
-        for i_cond = 1:numel(conds);
+    
+    
+    for i_cond = 1:numel(conds);
+      
+        for i_stat = 1:numel(statTypes)
             
-            % skip instances where the drug condition does not exist
-            if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats, conds{i_cond})
-                continue
-            end
-            
-            for i_stat = 1:numel(statTypes)
+            Nptypes = numel(pTypes);
+            avgOverTF.tf = [];
+            avgOverTF.vals = [];
+            for i_ptype = 1:Nptypes
+                
+                % skip instances where the drug condition does not exist
+                if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats, conds{i_cond})
+                    continue
+                end
                 
                 % skip instances where the stat type doesn't exist
                 if ~isfield(dat{i_ex}.(pTypes{i_ptype}).stats.(conds{i_cond}), statTypes{i_stat})
@@ -1030,7 +1054,37 @@ for i_ex = 1:numel(dat)
                 pop.(opsin).pnp1.(conds{i_cond}).(statTypes{i_stat}) = tmp_pop_p1p2;
                 pop.(opsin).raw.(conds{i_cond}).(statTypes{i_stat}) = tmp_pop_raw;
                 
+                % deal with averaging across TFs
+                if numel(ex_p1p2)<7;
+                    ex_p1p2(end+1) = nan;
+                end
+                avgOverTF.vals = cat(1, avgOverTF.vals, ex_p1p2(1:7));
+                avgOverTF.tf = cat(1, avgOverTF.tf, tf);
             end
+            
+            % average over TFs, and store the data
+            l_10to40 = avgOverTF.tf <= 40;
+            if any(l_10to40)
+                tmpavg = nanmean(avgOverTF.vals(l_10to40,:), 1);
+                avgtf.(opsin).avg10to40.(conds{i_cond}).(statTypes{i_stat})(end+1,:) = tmpavg; % Nexpts x Npulses
+            end
+            
+            if any(avgOverTF.tf <= 60);
+                l_10to60 = avgOverTF.tf <= 60;
+                if any(l_10to60)
+                    tmpavg = nanmean(avgOverTF.vals(l_10to60,:), 1);
+                    avgtf.(opsin).avg10to60.(conds{i_cond}).(statTypes{i_stat})(end+1,:) = tmpavg; % Nexpts x Npulses
+                end
+            end
+            
+            if any(avgOverTF.tf <= 100);
+                l_10to100 = avgOverTF.tf <= 100;
+                if any(l_10to100)
+                    tmpavg = nanmean(avgOverTF.vals(l_10to60,:), 1);
+                    avgtf.(opsin).avg10to100.(conds{i_cond}).(statTypes{i_stat})(end+1,:) = tmpavg; % Nexpts x Npulses
+                end
+            end
+            
         end
     end
 end
@@ -1089,7 +1143,7 @@ for i_opsin = 1:numel(opsinTypes)
                 
                 xbar = nanmean(cat_dat, 1);
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
-                if ~isempty(regexpi(conds{i_cond}, '_ttx'))
+                if ~isempty(regexpi(conds{i_cond}, 'FV_Na'))
                     nrepeats = sum(~isnan(cat_dat), 1)
                 end
                 
@@ -1118,63 +1172,83 @@ for i_opsin = 1:numel(opsinTypes)
             end
             
             
-            if strcmpi(PVALTYPE, statTypes{i_stat}) && ~strcmpi(conds{i_cond}, 'synapticTransmission')
-                %
-                %  Do some inferential tests and present a table with the
-                %  results
-                %
-                %%%%%%%%%%%%%%%%%%%%%%%%%%
-                [p2_for_each_tf, p7_for_each_tf, p1_p7_across_tfs, p1_p2_across_tfs] = deal(nan(Ntfs, 1));
+            if true; %CALCPVALS
                 
-                % Test for significant decreases in PPRs. Look specifically at
-                % P2:P1. Do the test individually for each TF
-                %
-                % Ho -> distribution of PPRs has Xbar = 1;
-                for i_tf = 1:Ntfs
-                    tmp = pp_dat_allTFs{i_tf}(:,2);
-                    [~, p2_for_each_tf(i_tf, 1)] = ttest(tmp-1);
+                whichOpsin = 'chronos';    % 'chronos', 'chr2', 'chief_all', 'chief_cit', 'chief_flx'
+                whichCond =  'Fv_Na';   % 'Fv_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'
+                whichStat = 'latency';  % 'diffval', 'slope', 'latency'
+                
+                opsinMatch = strcmpi(opsinTypes{i_opsin}, whichOpsin);
+                condMatch = strcmpi(conds{i_cond}, whichCond);
+                statMatch = strcmpi(statTypes{i_stat}, whichStat);
+                
+                if all([opsinMatch, condMatch, statMatch])
+                    
+                    keyboard
+                    
+                    %
+                    %  Do some inferential tests and present a table with the
+                    %  results
+                    %
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%
+                    [p2_for_each_tf, p7_for_each_tf, p1_p7_across_tfs, p1_p2_across_tfs] = deal(nan(Ntfs, 1));
+                    
+                    % Test for significant decreases in PPRs. Look specifically at
+                    % P2:P1. Do the test individually for each TF
+                    %
+                    % Ho -> distribution of PPRs has Xbar = 1;
+                    for i_tf = 1:Ntfs
+                        tmp = pp_dat_allTFs{i_tf}(:,2);
+                        tmp(tmp<0) = 0.01;
+                        [~, p2_for_each_tf(i_tf, 1), ~, stattab] = ttest(log(tmp))
+                    end
+                    
+                    % Test for significant decreases in PPRs. Look specifically at
+                    % P7:P1. Do the test individually for each TF
+                    %
+                    % Ho -> distribution of PPRs has Xbar = 1;
+                    for i_tf = 1:Ntfs
+                        tmp = pp_dat_allTFs{i_tf}(:,7);
+                        tmp(tmp<0) = 0.01;
+                        [~, p7_for_each_tf(i_tf, 1), ~, stattab] = ttest(log(tmp))
+                    end
+                    
+                    
+                    % Test for differences in P7:P1 across TFs. Here I'm asking if
+                    % there's a significant effect of TF on the PPR. Do an anova
+                    % like test with post-hoc comparisons
+                    %
+                    % Ho -> distributions of PPRs have the identical median
+                    tmp_dat_p2 = [];
+                    tmp_dat_p7 = [];
+                    tmp_group = [];
+                    for i_tf = 1:Ntfs
+                        tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
+                        tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
+                        tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
+                    end
+                    tmp_dat_p7(tmp_dat_p7<0) = 0.01; % so that the log doesn't bonk
+                    [p1_p7_across_tfs(1), tab, stattab] = anova1(log(tmp_dat_p7), tmp_group);
+                    multcompare(stattab);
+                    
+                    
+                    % Test for differences in P2:P1 across TFs. Here I'm asking if
+                    % there's a significant effect of TF on the PPR. Do an anova
+                    % like test with post-hoc comparisons
+                    %
+                    % Ho -> distributions of PPRs have the identical median
+                    tmp_dat_p2(tmp_dat_p2<0) = 0.01; % so that the log doesn't bonk
+                    [p1_p2_across_tfs(1), tab, stattab] = anova1(log(tmp_dat_p2), tmp_group);
+                    multcompare(stattab);
+                    
+                    
+                    fprintf('  comparisons for %s values for %s  \n',...
+                        upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
+                    
+                    rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
+                    T = table(p2_for_each_tf, p1_p2_across_tfs, p7_for_each_tf, p1_p7_across_tfs, 'RowNames', rownames)
+                    fprintf('\n\n')
                 end
-                
-                % Test for significant decreases in PPRs. Look specifically at
-                % P7:P1. Do the test individually for each TF
-                %
-                % Ho -> distribution of PPRs has Xbar = 1;
-                for i_tf = 1:Ntfs
-                    tmp = pp_dat_allTFs{i_tf}(:,7);
-                    [~, p7_for_each_tf(i_tf, 1)] = ttest(tmp-1);
-                end
-                
-                
-                % Test for differences in P7:P1 across TFs. Here I'm asking if
-                % there's a significant effect of TF on the PPR. Do an anova
-                % like test with post-hoc comparisons
-                %
-                % Ho -> distributions of PPRs have the identical median
-                tmp_dat_p2 = [];
-                tmp_dat_p7 = [];
-                tmp_group = [];
-                for i_tf = 1:Ntfs-1
-                    tmp_dat_p2 = cat(1, tmp_dat_p2, pp_dat_allTFs{i_tf}(:,2));
-                    tmp_dat_p7 = cat(1, tmp_dat_p7, pp_dat_allTFs{i_tf}(:,7));
-                    tmp_group = cat(1, tmp_group, ones(size(pp_dat_allTFs{i_tf}(:,7))).*i_tf);
-                end
-                p1_p7_across_tfs(1) = anova1(tmp_dat_p7, tmp_group, 'off');
-                
-                
-                % Test for differences in P2:P1 across TFs. Here I'm asking if
-                % there's a significant effect of TF on the PPR. Do an anova
-                % like test with post-hoc comparisons
-                %
-                % Ho -> distributions of PPRs have the identical median
-                p1_p2_across_tfs(1) = anova1(tmp_dat_p2, tmp_group, 'off');
-                
-                
-                fprintf('  comparisons for %s values for %s  \n',...
-                    upper(opsinTypes{i_opsin}), upper(conds{i_cond}))
-                
-                rownames = cellfun(@num2str, mat2cell(tfs, ones(size(tfs))), 'uniformoutput', false);
-                T = table(p2_for_each_tf, p1_p2_across_tfs, p7_for_each_tf, p1_p7_across_tfs, 'RowNames', rownames)
-                fprintf('\n\n')
             end
             
         end
@@ -1452,6 +1526,30 @@ hy.Interpreter = 'none';
 legtext = cellfun(@(x) [num2str(x, '%3.1f\n')  ' mW/mm2'], num2cell(unique_pAmps), 'uniformoutput', false);
 legend(hvec, legtext, 'location', 'southwest')
 legend boxoff
+
+% do some inferential tests on the PPRs
+P2_vals = permute(all_normstats(:,2,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+[P2_rho_on_means, Pval] = corr(mean(P2_vals, 1)', unique_pAmps(:), 'type', 'spearman')
+
+
+% is there a differences in the P2:P1 vals across light powers
+P2_vals = permute(all_normstats(:,2,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+groups = repmat([1:size(P2_vals, 2)], size(P2_vals, 1), 1);
+P2_vals = P2_vals(:);
+groups = groups(:);
+[pval, ~, stattab] = anova1(log(P2_vals), groups)
+
+
+P7_vals = permute(all_normstats(:,7,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+[P7_rho_on_means, Pval] = corr(mean(P7_vals, 1)', unique_pAmps(:), 'type', 'spearman')
+
+
+% is there a differences in the P7:P1 vals across light powers
+P7_vals = permute(all_normstats(:,7,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+groups = repmat([1:size(P7_vals, 2)], size(P7_vals, 1), 1);
+P7_vals = P7_vals(:);
+groups = groups(:);
+[pval, ~, stattab] = anova1(log(P7_vals), groups)
 
 %% OPSIN CURRENT VS. FIBER VOLLEY [SPIDER PLOT]
 
@@ -1756,8 +1854,45 @@ for i_ex = 1:numel(dat)
     ylabel('FV amplitude')
 end
 
+opsinTypes = {'chr2', 'chronos', 'chief_all', 'chief_flx', 'chief_cit'};
+popPower = [];
+for i_opsin = 1:numel(opsinTypes)
+    
+    l_opsin = strcmpi(opsinTypes{i_opsin}, structcat(info, 'opsin'));
+    tmpdat = cat(1,pop_pamp{l_opsin});
+    tmpdat(isnan(tmpdat)) = []; % in case there was no data
+    popPower.(opsinTypes{i_opsin}).avg = mean(tmpdat);
+    popPower.(opsinTypes{i_opsin}).sem = stderr(tmpdat);
+    popPower.(opsinTypes{i_opsin}).allPows = tmpdat;
+    
+    % store the raw opsin currents
+    tmpdat = cat(2, pop_opsin{l_opsin})';
+    tmpdat(isnan(tmpdat)) = [];
+    popPower.(opsinTypes{i_opsin}).allOcurrents = tmpdat;
+    
+end
 
+% Kruskal-wallis for light power
+groupName = {};
+groupData = [];
+for i_opsin = 1:numel(opsinTypes)
+   tmpdata = popPower.(opsinTypes{i_opsin}).allPows;
+   groupData = cat(1, groupData, tmpdata);
+   groupName = cat(1, groupName, repmat({opsinTypes{i_opsin}}, numel(tmpdata), 1));
+end
+[P,ANOVATAB,STATS] = kruskalwallis(groupData, groupName, 'on');
+multcompare(STATS)
 
+% Anova for opsin current
+groupName = {};
+groupData = [];
+for i_opsin = 1:numel(opsinTypes)
+   tmpdata = popPower.(opsinTypes{i_opsin}).allOcurrents;
+   groupData = cat(1, groupData, tmpdata);
+   groupName = cat(1, groupName, repmat({opsinTypes{i_opsin}}, numel(tmpdata), 1));
+end
+[P,ANOVATAB,STATS] = anova1(groupData, groupName, 'on');
+multcompare(STATS)
 
 %%  SHAPE OF THE FIRST PULSE RESPONSE
 
@@ -1766,7 +1901,7 @@ assert(any(strcmpi(EXPTTYPE, {'main expt', 'Intracellular', '4-AP'})), 'ERROR: t
 
 
 STIMSITE = true;
-PLOTERR = false;
+PLOTERR = true;
 
 switch EXPTTYPE
     case 'Intracellular'
@@ -1895,24 +2030,24 @@ for i_cond = 1:numel(conds)
 %         plot(tt, chief_all_examp{i_cond}', 'r');
 %         plot(tt, chr2_examp{i_cond}', 'b');
 %         plot(tt, chronos_examp{i_cond}', 'g');
-%         plot(tt, mean(chief_cit_examp{i_cond}, 1), 'r', 'linewidth', 4);
-%         plot(tt, mean(chief_flx_examp{i_cond}, 1), 'm', 'linewidth', 4);
-        plot(tt, mean(chief_all_examp{i_cond}, 1), 'r', 'linewidth', 4);
+        plot(tt, mean(chief_cit_examp{i_cond}, 1), 'r', 'linewidth', 4);
+        plot(tt, mean(chief_flx_examp{i_cond}, 1), 'm', 'linewidth', 4);
+%        plot(tt, mean(chief_all_examp{i_cond}, 1), 'r', 'linewidth', 4);
         plot(tt, mean(chr2_examp{i_cond}, 1), 'b', 'linewidth', 4);
         plot(tt, mean(chronos_examp{i_cond}, 1), 'g', 'linewidth', 4);
     else
-%         % chief cit 
-%         xbar = mean(chief_cit_examp{i_cond}, 1);
-%         sem = stderr(chief_cit_examp{i_cond}, 1);
-%         shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 3}, 1);
-%         % chief flx 
-%         xbar = mean(chief_flx_examp{i_cond}, 1);
-%         sem = stderr(chief_flx_examp{i_cond}, 1);
-%         shadedErrorBar(tt, xbar, sem, {'m', 'linewidth', 3}, 1);
-        % chief all
-        xbar = mean(chief_all_examp{i_cond}, 1);
-        sem = stderr(chief_all_examp{i_cond}, 1);
+        % chief cit 
+        xbar = mean(chief_cit_examp{i_cond}, 1);
+        sem = stderr(chief_cit_examp{i_cond}, 1);
         shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 3}, 1);
+        % chief flx 
+        xbar = mean(chief_flx_examp{i_cond}, 1);
+        sem = stderr(chief_flx_examp{i_cond}, 1);
+        shadedErrorBar(tt, xbar, sem, {'m', 'linewidth', 3}, 1);
+%         % chief all
+%         xbar = mean(chief_all_examp{i_cond}, 1);
+%         sem = stderr(chief_all_examp{i_cond}, 1);
+%         shadedErrorBar(tt, xbar, sem, {'r', 'linewidth', 3}, 1);
         % chronos 
         xbar = mean(chronos_examp{i_cond}, 1);
         sem = stderr(chronos_examp{i_cond}, 1);
@@ -3504,7 +3639,7 @@ end
 
 % plot fEPSP slopes measured in L2/3, but stimulated in L2/3 or L5. Do this
 % for each opsin separately. 
-USEALLLFP = true;
+USEALLLFP = false;
 
 % initialize the population structure
 opsinTypes = {'chronos', 'chief_all'};
@@ -3731,21 +3866,21 @@ end
 
 
 
-%% COMPARE OPSINCURRENTS (INTRA VS LFP)
+%% COMPARE OPSIN CURRENTS (INTRA VS LFP)
 
 fin
 
 STIMSITE = true;
 NORMVALS = false;
 LOWPOWER = true;
-COMBINE_CHIEF = true;
+COMBINE_CHIEF = false;
 
 % need to load the data
-load('lfp_all_pow_combine_chief.mat');
+load('lfp_all_pow_split_chief.mat');
 pop.lfp.dat = dat; clear dat;
 pop.lfp.info = info; clear info;
 
-load('intra_lowRa_all_pow_combine_chief.mat'); % intra_all_pow.mat or intra_lowRa_all_pow.mat
+load('intra_lowRa_all_pow_split_chief.mat'); % intra_all_pow.mat or intra_lowRa_all_pow.mat
 pop.intra.dat = dat; clear dat;
 pop.intra.info = info; clear info;
 
@@ -3890,6 +4025,72 @@ for i_opsin = opsins
     end
     
 end
+
+
+
+
+% compile the stats
+for i_opsin = 1:numel(opsins)
+    
+    
+    % grab the data
+    tmp_lfp = catdat.lfp.(opsins{i_opsin}).normvals;
+    tmp_intra = catdat.intra.(opsins{i_opsin}).normvals;
+    
+    % pull out pulse 7 data
+    tmp_lfp = tmp_lfp(:,7,:);
+    tmp_lfp = permute(tmp_lfp, [1,3,2]);
+    allnans = sum(isnan(tmp_lfp),1) == size(tmp_lfp,1);
+    tmp_lfp = tmp_lfp(:, ~allnans);
+    
+    tmp_intra = tmp_intra(:,7,:);
+    tmp_intra = permute(tmp_intra, [1,3,2]);
+    allnans = sum(isnan(tmp_intra),1) == size(tmp_intra,1);
+    tmp_intra = tmp_intra(:, ~allnans);
+    
+    % the flx version of chief was not tested at 100Hz for the LFP, cut
+    % these data from the intracellular traces
+    if ~COMBINE_CHIEF && strcmpi(opsins{i_opsin}, 'chief_flx');
+        tmp_intra = tmp_intra(1:4,:);
+        tmp_lfp = tmp_lfp(1:4,:);
+    end
+    
+    % compile the lfp data for the anova
+    group_tf = [];
+    group_method = {};
+    YY = [];
+    
+    TFs = [10 20 40 60 100];
+    Ntf = size(tmp_lfp, 1);
+    Nex = size(tmp_lfp, 2);
+    for i_row = 1:Ntf;
+        for i_col = 1:Nex
+            if ~isnan(tmp_lfp(i_row, i_col))
+                group_tf = cat(1, group_tf, TFs(i_row));
+                group_method = cat(1, group_method, 'LFP');
+                YY = cat(1, YY, tmp_lfp(i_row, i_col));
+            end
+        end
+    end
+    
+    Ntf = size(tmp_intra, 1);
+    Nex = size(tmp_intra, 2);
+    for i_row = 1:Ntf;
+        for i_col = 1:Nex
+            if ~isnan(tmp_intra(i_row, i_col))
+                group_tf = cat(1, group_tf, TFs(i_row));
+                group_method = cat(1, group_method, 'Intra');
+                YY = cat(1, YY, tmp_intra(i_row, i_col));
+            end
+        end
+    end
+    
+    % run the anova
+    [p, tab, stats] = anovan(YY, {group_tf, group_method}, 'model', 2, 'varnames', {'Temp Freq', 'Method'});
+    
+end
+
+
 
 
 
