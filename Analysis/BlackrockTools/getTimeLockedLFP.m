@@ -61,6 +61,15 @@ for i_ptype = 1:Nptypes
     Npulses = unique(cellfun(@numel, pulseOnIdx));
     assert(numel(Npulses) == 1, 'ERROR: mismatch in pulse numbers')
     
+    % save the pulse on times for this condition. Set the time of the first
+    % pulse equal to zero
+    tmp_pon_idx = cat(1, pulseOnIdx{trial_idx});
+    tmp_pon_idx = bsxfun(@minus, tmp_pon_idx, tmp_pon_idx(:,1));
+    tmp_pon_sec = tmp_pon_idx ./ sampFreq_nsx;
+    tmp_pon_sec = unique(round(tmp_pon_sec, 3), 'rows'); % round to the nearest ms
+    assert(size(tmp_pon_sec,1)==1, 'ERROR: too many pOn times');
+    trialSnips.pulseOnT_sec.(fldname) = tmp_pon_sec;
+    
     % initialize the outputs (needs to be [nTrials x nTime])
     preTimeSamps = round((preTime .* sampFreq_nsx));
     ipi = 1/p_tf;

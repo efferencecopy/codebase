@@ -1,11 +1,9 @@
 %% designate an experiment to analyze, import the data
 fin
 
-profile on
-
 NSX = 'ns5'; % the version with the LFP continuous data
 STIMTYPE = 'train'; % train or sinusoid
-NOISEMETHOD = 'filter'; % 'subtract' or 'filter'
+NOISEMETHOD = 'none'; % 'subtract' or 'filter'
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -37,7 +35,7 @@ wb_info(1:2,:) = [];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dat = {};
 Nexpts = size(wb_info, 1);
-for i_ex = 1:Nexpts;
+for i_ex = 4:Nexpts;
     
     fprintf('Loading in %s, site: %d\n', wb_info{i_ex,wbidx.mouse_name}, wb_info{i_ex, wbidx.site})
     
@@ -115,30 +113,35 @@ for i_ex = 1:Nexpts;
     
     % Define a new sampling rate for the lfp analysis. Pick one that will allow
     % for the freq components of interest to be preserved and one that's evenly
-    % divided into sampFreq_nsx. The lp_filter will be sampFreq_lfp/5
+    % divided into sampFreq_nsx. The LFP lowpass filter will be constrained
+    % to be <= sampFreq_lfp / 5;
     sampFreq_lfp = 1250;
     
     pool = gcp('nocreate');
     if isempty(pool)
         pool = parpool(32);
     end
-  
+    
     dat{i_ex} = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp, NOISEMETHOD, STIMTYPE, NSX);
     
 end
 
-
 %% PLOT: AVERAGE LFP SIGNAL
 
-PLOTTYPE = 'errbar'; % 'errbar', 'all', 'mean'
+PLOTTYPE = 'mean'; % 'errbar', 'all', 'mean'
 
 % make a tmp variable (duplicate of the preprocessed LFP data)
-trialSnips = lfpSnips;
+trialSnips = dat{5}.lfpsnips;
 
 % pull in the map of electrode positions
 trodeMap = etrodemap('a32-4x8');
 trodePltIdx = reshape(trodeMap', [], 1);
 
+
+ptypes = fieldnames(trialSnips);
+i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime') | strcmpi(ptypes, 'pulseOnT_sec');
+ptypes(i_bad) = [];
+Nptypes = numel(ptypes);
 
 for i_type = 1:Nptypes
     
@@ -178,16 +181,54 @@ end
 
 
 %% CURRENT SOURCE DENSITY ANALYSIS
+close all; clc
+
 
 METHOD = 'kcsd'; % could be 'normal', or 'kcsd'
 
+EX_NUM = 6;
+
 % make a tmp variable (duplicate of the preprocessed LFP data)
-csdSnips = lfpSnips;
+csdSnips = dat{EX_NUM}.lfpsnips;
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% load the metadata
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[~, ~, wb_info] = xlsread('invivoOptostimMetadata.xlsx', 1);
+wbidx.mouse_name = strcmpi(wb_info(1,:), 'mouse name');
+wbidx.site = strcmpi(wb_info(1,:), 'site');
+wbidx.analyze = strcmpi(wb_info(1,:), 'include in analysis');
+wbidx.dat_fname = strcmpi(wb_info(1,:), 'data file');
+wbidx.shank_pos = strcmpi(wb_info(1,:), 'distance to pia for top contact per shank (um)');
+wbidx.shank_area = strcmpi(wb_info(1,:), 'brain area for each shank');
+
+% fix the shank related idx so that all four shanks get analyzed
+wbidx.shank_pos(find(wbidx.shank_pos):find(wbidx.shank_pos)+3) = true;
+wbidx.shank_area(find(wbidx.shank_area):find(wbidx.shank_area)+3) = true;
+
+% delete the headers
+wb_info(1:2,:) = [];
+
+% define the etrode depths
+depths = wb_info(EX_NUM,wbidx.shank_pos);
+if any(cellfun(@isempty, depths))
+    elPos_y = repmat([0.030:0.100:.730]', 1, 4);
+    warning('depths not defined')
+else
+    depths_mm = -1.*[depths{:}]./1000;
+    depths_mm = bsxfun(@plus, repmat([0:0.100:.700]', 1, 4), depths_mm);
+end
+
+
+
+
+%
+% Now do the data analysis
+%
 ptypes = fieldnames(csdSnips);
-i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime');
+i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime') | strcmpi(ptypes, 'pulseOnT_sec');
 ptypes(i_bad) = [];
 
 % rearrange the data according to the location of each channel on the
@@ -252,13 +293,20 @@ for i_cond = 1:numel(ptypes)
                 
             case 'kcsd'
                 
-                elPos = 0.050:0.100:0.750;
-                X = 0:0.01:0.900;
+                elPos = depths_mm(:, i_shank)';
+                X = 0 : 0.010 : max(elPos)+0.050;
                 pots = tmp_data;
+                
+                % delete recording sites that are outside the brain
+                l_oob = elPos < 0;
+                pots(l_oob,:) = [];
+                elPos(l_oob) = [];
                 
                 k = kCSD1d(elPos, pots, 'X', X);
                 k.estimate;
-                csd_final.(ptypes{i_cond}){i_shank} = k.csdEst;
+                csd_final.(ptypes{i_cond}){i_shank}.csd = -1 .* k.csdEst; % invert the polarity of source sink so that warm colors are sinks
+                csd_final.(ptypes{i_cond}){i_shank}.elPos = k.elPos;
+                csd_final.(ptypes{i_cond}){i_shank}.X = k.X;
         end
         
     end
@@ -266,22 +314,33 @@ end
 
 % Try to compute the 2D CSD
 if strcmpi(METHOD, 'kcsd');
-    elPos_y = repmat([0:0.100:.700]', 1, 4);
-    elPos_y = elPos_y(:);
-    elPos_x = repmat([0.100:0.400:1.30], 8, 1);
-    elPos_x = elPos_x(:);
-    elPos = [elPos_x, elPos_y];
+    
     for i_cond = 1:numel(ptypes)
+        
+        elPos_y = depths_mm;
+        elPos_y = elPos_y(:);
+        elPos_x = repmat([0:0.400:1.20], 8, 1);
+        elPos_x = elPos_x(:);
+        elPos = [elPos_x, elPos_y];
+        
         pots = [];
         for i_shank = 1:4
             pots = cat(1, pots, lfp_final.(ptypes{i_cond}){i_shank});
         end
         
-        [X, Y] = meshgrid([0:0.010:1.4], [0:0.010:0.750]);
+        % delete any recording sites that are outside the brain
+        l_oob = elPos_y < 0;
+        elPos(l_oob, :) = [];
+        pots(l_oob,:) = [];
+        
+        [X, Y] = meshgrid([-0.100:0.005:1.30], [0:0.005:max(elPos_y)+0.025]);
         
         k = kcsd2d(elPos, pots, 'X', X, 'Y', Y);
         k.plot_CSD;
         
+        % fix the plot labels
+        f = gcf;
+        f.Name = sprintf('Expt %d, ptype: %s', EX_NUM, ptypes{i_cond});
     end
 end
 
@@ -301,7 +360,7 @@ for i_cond = 1:numel(ptypes)
         
         % add a few lines of data (Duplicates) b/c pcolor destroys a few
         % lines
-        plotDat = csd_final.(ptypes{i_cond}){i_shank};
+        plotDat = csd_final.(ptypes{i_cond}){i_shank}.csd;
         plotDat = [plotDat(1,:); plotDat];
         plotDat = [plotDat, plotDat(:,1)];
         
@@ -329,31 +388,43 @@ f.Position = [361 17 242 758];
 for i_shank = 1:4
     
     t_zero_idx = ceil(csdSnips.preTime .* sampFreq_lfp);
-    Nsamps = ceil(0.015 .* sampFreq_lfp);
-    idx = [t_zero_idx - Nsamps : t_zero_idx + Nsamps];
+    preSamps = ceil(0.005 .* sampFreq_lfp);
+    postSamps = ceil(0.024 .* sampFreq_lfp);
+    idx = [t_zero_idx - preSamps : t_zero_idx + postSamps];
     
     % concatenate across TF conditions
     plotDat = [];
     for i_cond = 1:numel(ptypes)
-        plotDat = cat(3, plotDat, csd_final.(ptypes{i_cond}){i_shank}(:,idx));
+        tmptf = str2double(ptypes{i_cond}(end-1:end));
+        if tmptf <= 40
+            plotDat = cat(3, plotDat, csd_final.(ptypes{i_cond}){i_shank}.csd(:,idx));
+        end
     end
     
     % average across TFs
     plotDat = mean(plotDat, 3);
-    
-    % add row/col that will be deleted by pcolor
-    plotDat = [plotDat(1,:); plotDat];
-    plotDat = [plotDat, plotDat(:,1)];
-    
-    
-    % do the plotting
-    s=subplot(4,1,i_shank);
     newN = size(plotDat,2);
-    tt_sec = ((0:newN-1)-Nsamps) ./ sampFreq_lfp;
-    pos = linspace(0,8,size(plotDat, 1));
-    p=pcolor(tt_sec, pos, flipud(plotDat));
-    shading interp;
-    s.YTickLabel = flipud(s.YTickLabel);
+    tt_sec = ((0:newN-1)-preSamps) ./ sampFreq_lfp;
+    s=subplot(4,1,i_shank);
+    
+    switch METHOD
+        case 'normal'
+            % add row/col that will be deleted by pcolor
+            plotDat = [plotDat(1,:); plotDat];
+            plotDat = [plotDat, plotDat(:,1)];
+            
+            
+            % do the plotting
+            pos = linspace(0,size(plotDat, 1),size(plotDat, 1));
+            p=pcolor(tt_sec, pos, flipud(plotDat));
+            shading interp;
+            s.YTickLabel = flipud(s.YTickLabel);
+        case 'kcsd'
+            imagesc(plotDat);
+            pos = csd_final.(ptypes{i_cond}){i_shank}.X;
+            pos = [min(pos) : 0.100 : max(pos)]; 
+    end
+    colorbar
 end
 
 
@@ -398,6 +469,11 @@ if ~exist('dat', 'var')
 end
 
 
+BINWIDTH = .250e-3;
+DELETEARTIFACTS = false; % deletes spike times in a specified window immediately after the optostim
+TOOSOONTIME = 0.5e-3;
+STANDARDIZE_YLIMS = true;
+DISPLAYDEPTH = false;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 % load the metadata
@@ -424,7 +500,7 @@ trodeMap = etrodemap('a32-4x8');  % pull in the map of electrode positions
 [Nsites, Nshanks] = size(trodeMap);
 
 
-for i_mouse = 1:numel(uniqueMice)
+for i_mouse = 2;%1:numel(uniqueMice)
     
     % determine which data files correspond to this mouse
     l_mouse = strcmpi(uniqueMice{i_mouse}, wb_info(:, wbidx.mouse_name));
@@ -440,7 +516,7 @@ for i_mouse = 1:numel(uniqueMice)
         idx = l_mouse(i_pos);
         tmp_spikeTimes = dat{idx}.spikeTimes;
         ptypes = fieldnames(tmp_spikeTimes);
-        i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime');
+        i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime') | strcmpi(ptypes, 'pulseOnT_sec');
         ptypes(i_bad) = [];
         tfidx = cellfun(@(x,y) regexpi(x, '_tf'), ptypes, 'uniformoutput', false);
         ptypes_tfonly = cellfun(@(x,y) x(y+1:end), ptypes, tfidx, 'uniformoutput', false);
@@ -457,11 +533,22 @@ for i_mouse = 1:numel(uniqueMice)
                 % find the new position
                 [site, shank] = find(trodeMap == i_ch);
                 
+                % grab the data
+                type_spiketimes = tmp_spikeTimes.(ptypes{i_type}).tt{i_ch};
+                
+                if DELETEARTIFACTS
+                    pulseOn_sec = tmp_spikeTimes.pulseOnT_sec.(ptypes{i_type});
+                    for i_pulse = 1:numel(pulseOn_sec)
+                        l_artifacts = (type_spiketimes>pulseOn_sec(i_pulse)) & (type_spiketimes < pulseOn_sec(i_pulse) + TOOSOONTIME);
+                        type_spiketimes(l_artifacts) = [];
+                    end
+                end
+                
                 % put the data into the appropriate position
-                tmp_spiketimes = tmp_spikeTimes.(ptypes{i_type}).tt{i_ch};
-                tmp_N = tmp_spikeTimes.(ptypes{i_type}).Ntrials{i_ch};
-                mu_shank.(ptypes_tfonly{i_type}){i_pos}.spiketimes{site, shank} = tmp_spiketimes;
-                mu_shank.(ptypes_tfonly{i_type}){i_pos}.Ntrials{site, shank} = tmp_N;
+                mu_shank.(ptypes_tfonly{i_type}){i_pos}.spiketimes{site, shank} = type_spiketimes;
+                mu_shank.(ptypes_tfonly{i_type}){i_pos}.Ntrials{site, shank} = tmp_spikeTimes.(ptypes{i_type}).Ntrials{i_ch};
+                mu_shank.(ptypes_tfonly{i_type}){i_pos}.trialIDs = tmp_spikeTimes.(ptypes{i_type}).trialIDs{i_ch};
+                mu_shank.(ptypes_tfonly{i_type}){i_pos}.pulseOnT_sec = tmp_spikeTimes.pulseOnT_sec.(ptypes{i_type});
                 
             end
             
@@ -473,24 +560,16 @@ for i_mouse = 1:numel(uniqueMice)
     %
     % Plotting: PSTHs
     %
-    BINWIDTH = 0.000500;
-    STANDARDIZE_YLIMS = false;
-    startTime = -dat{idx}.spikeTimes.preTime;
+    startTime = dat{idx}.spikeTimes.preTime;
     hFig = figure;
     hFig.Units = 'normalized';
     hFig.Position = [0 0 1 1];
     hTabGroup = uitabgroup(hFig);
     for i_type = 1:numel(ptypes_tfonly)
         
-        l_noData = cellfun(@isempty, dat{idx}.lfpsnips.(ptypes{i_type}));
-        Ntimepoints = cellfun(@(x) size(x, 2), dat{idx}.lfpsnips.(ptypes{i_type}));
-        Ntimepoints = unique(Ntimepoints(~l_noData));
-        sampFreq_nsx = dat{idx}.info.sampFreq_lfp;
-        totalTime = (Ntimepoints ./ sampFreq_nsx);
-        endTime = totalTime + startTime;
-        bins = startTime : BINWIDTH : endTime;
-        
-        assert(numel(Ntimepoints) == 1, 'ERROR: time is not consistent')
+        maxTime = max(mu_shank.(ptypes_tfonly{i_type}){i_pos}.pulseOnT_sec);
+        endTime = maxTime + startTime;
+        bins = -startTime : BINWIDTH : endTime;
         
         % make a tab
         htab(i_type) = uitab(hTabGroup,'Title',ptypes_tfonly{i_type});
@@ -506,7 +585,7 @@ for i_mouse = 1:numel(uniqueMice)
                     Ntrials = mu_shank.(ptypes_tfonly{i_type}){i_pos}.Ntrials{i_site, i_shank};
                     
                     if isempty(pltDat);
-                        continue
+                        pltDat = inf; % a trick to make fake data that won't plot
                     end
                     
                     counts= histc(pltDat, bins);
@@ -516,10 +595,20 @@ for i_mouse = 1:numel(uniqueMice)
                     plotRow = i_site;
                     pltidx = sub2ind([Ncols, Nrows], plotCol, plotRow); % transpose row and col to get the correct linear index for plots
                     hBar(end+1) = subplot(Nrows, Ncols, pltidx, 'align');
-                    bar(bins*1000, counts, 0.8, 'histc');
+                    bar(bins*1000, counts, 0.8, 'histc');                    
+                    ylim([0, max(counts).* 1.1+eps])
                     axis tight
                     if i_site == 1
                         title(sprintf('area: %s', mu_shank_info{i_pos}.brainAreas{i_shank}))
+                    end
+                    
+                    if DISPLAYDEPTH
+                        % figure out the depth of the etrode
+                        firstSiteDepth = mu_shank_info{i_pos}.firstSiteDepth{i_shank};
+                        siteDepth = firstSiteDepth - ((i_site-1)*100);
+                        ylabel(sprintf('%d um', siteDepth));
+                        
+                        set(gca, 'yticklabel', {}, 'xticklabel', {}, 'tickdir', 'out')
                     end
                 end
             end
@@ -527,26 +616,28 @@ for i_mouse = 1:numel(uniqueMice)
         
         % standardize the ylims
         if STANDARDIZE_YLIMS
-            ymax = 0;
-            for i_h = 1:numel(hBar)
-                yvals = get(hBar(i_h), 'ylim');
-                ymax = max([ymax, yvals(2)]);
-            end
-            for i_h = 1:numel(hBar)
-                set(hBar(i_h), 'ylim', [0 ymax])
+            for i_col = 1:Ncols
+                ymax = 0;
+                for i_row = 1:Nrows
+                    pltidx = sub2ind([Ncols, Nrows], i_col, i_row);
+                    subplot(Nrows, Ncols, pltidx);
+                    yvals = get(gca, 'ylim');
+                    ymax = max([ymax, yvals(2)]);
+                end
+                for i_row = 1:Nrows
+                    pltidx = sub2ind([Ncols, Nrows], i_col, i_row);
+                    subplot(Nrows, Ncols, pltidx);
+                    set(gca, 'ylim', [0 ymax])
+                end
             end
         end
-        
     end
+    
     
     %
     % Plotting: PSTHs of the first pulse (avg across TF)
     %
-    BINWIDTH = 200e-6;
-    STANDARDIZE_YLIMS = false;
-    bins = -0.001 : BINWIDTH : 0.015;
-    
-    assert(numel(Ntimepoints) == 1, 'ERROR: time is not consistent')
+    bins = -0.001 : BINWIDTH : 0.014;
     
     % make a tab
     htab(i_type) = uitab(hTabGroup,'Title', 'first pulse');
@@ -560,21 +651,28 @@ for i_mouse = 1:numel(uniqueMice)
                 
                 % average data across TFs
                 counts = [];
+                Ns = [];
                 for i_type = 1:numel(ptypes_tfonly)
+                    
+                     % check to make sure I don't include too high of TFs
+                    if (1000/str2double(ptypes_tfonly{i_type}(end-1:end))) < BINWIDTH
+                        continue
+                    end
                     
                     pltDat = mu_shank.(ptypes_tfonly{i_type}){i_pos}.spiketimes{i_site, i_shank};
                     Ntrials = mu_shank.(ptypes_tfonly{i_type}){i_pos}.Ntrials{i_site, i_shank};
                     
                     if isempty(pltDat);
-                        continue
+                        pltDat = inf;
                     end
                     
                     tmp_counts= histc(pltDat, bins);
-                    tmp_counts = (tmp_counts./Ntrials) ./ BINWIDTH;
                     counts = cat(1, counts, tmp_counts);
+                    Ns = cat(1, Ns, Ntrials);
                 end
                 
-                counts = mean(counts, 1);
+                counts = sum(counts, 1) ./ sum(Ns); % in counts/bin
+                counts = counts ./ BINWIDTH;
                 
                 plotCol = ((i_pos - 1) .* 4) + i_shank;
                 plotRow = i_site;
@@ -585,21 +683,233 @@ for i_mouse = 1:numel(uniqueMice)
                 if i_site == 1
                     title(sprintf('area: %s', mu_shank_info{i_pos}.brainAreas{i_shank}))
                 end
-                
+                set(gca, 'yticklabel', {})
+                if DISPLAYDEPTH
+                    % figure out the depth of the etrode
+                    firstSiteDepth = mu_shank_info{i_pos}.firstSiteDepth{i_shank};
+                    siteDepth = firstSiteDepth - ((i_site-1)*100);
+                    ylabel(sprintf('%d um', siteDepth));
+                    
+                    set(gca, 'yticklabel', {}, 'xticklabel', {}, 'tickdir', 'out')
+                end
             end
         end
     end
+    
     % standardize the ylims
     if STANDARDIZE_YLIMS
-        ymax = 0;
-        for i_h = 1:numel(hBar)
-            yvals = get(hBar(i_h), 'ylim');
-            ymax = max([ymax, yvals(2)]);
-        end
-        for i_h = 1:numel(hBar)
-            set(hBar(i_h), 'ylim', [0 ymax])
+        for i_col = 1:Ncols
+            ymax = 0;
+            for i_row = 1:Nrows
+                pltidx = sub2ind([Ncols, Nrows], i_col, i_row);
+                subplot(Nrows, Ncols, pltidx);
+                yvals = get(gca, 'ylim');
+                ymax = max([ymax, yvals(2)]);
+            end
+            for i_row = 1:Nrows
+                pltidx = sub2ind([Ncols, Nrows], i_col, i_row);
+                subplot(Nrows, Ncols, pltidx);
+                set(gca, 'ylim', [0 ymax])
+            end
         end
     end
+    
+end % loop over mice
+
+
+
+%% PSTH FOR EACH PULSE
+
+if ~exist('dat', 'var')
+    fin
+    load 'invivo_dat_160205.mat'
+end
+
+
+BINWIDTH = 0.250e-3;
+DELETEARTIFACTS = false; % deletes spike times in a specified window immediately after the optostim
+TOOSOONTIME = 1e-3;
+FILTERPSTH = false;
+STANDARDIZE_YLIMS = true;
+DISPLAYDEPTH = false;
+
+
+% design a filter
+A_smooth = 1;
+B_smooth =  normpdf(-3:3, 0, 1);
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% load the metadata
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[~, ~, wb_info] = xlsread('invivoOptostimMetadata.xlsx', 1);
+wbidx.mouse_name = strcmpi(wb_info(1,:), 'mouse name');
+wbidx.site = strcmpi(wb_info(1,:), 'site');
+wbidx.analyze = strcmpi(wb_info(1,:), 'include in analysis');
+wbidx.dat_fname = strcmpi(wb_info(1,:), 'data file');
+wbidx.shank_pos = strcmpi(wb_info(1,:), 'distance to pia for first contact per shank (um)');
+wbidx.shank_area = strcmpi(wb_info(1,:), 'brain area for each shank');
+
+% fix the shank related idx so that all four shanks get analyzed
+wbidx.shank_pos(find(wbidx.shank_pos):find(wbidx.shank_pos)+3) = true;
+wbidx.shank_area(find(wbidx.shank_area):find(wbidx.shank_area)+3) = true;
+
+% delete the headers
+wb_info(1:2,:) = [];
+
+uniqueMice = unique(wb_info(:, wbidx.mouse_name));
+
+% rearrange the data according to position on the electrode array
+trodeMap = etrodemap('a32-4x8');  % pull in the map of electrode positions
+[Nsites, Nshanks] = size(trodeMap);
+
+
+for i_mouse = 2;%1:numel(uniqueMice)
+    
+    % determine which data files correspond to this mouse
+    l_mouse = strcmpi(uniqueMice{i_mouse}, wb_info(:, wbidx.mouse_name));
+    l_valid = logical(cell2mat(wb_info(:, wbidx.analyze)));
+    l_mouse = find(l_mouse & l_valid);
+    Nrecpos = numel(l_mouse);
+    
+    
+    mu_shank = [];
+    mu_shank_info = {};
+    for i_pos = 1:Nrecpos;
+        
+        idx = l_mouse(i_pos);
+        tmp_spikeTimes = dat{idx}.spikeTimes;
+        ptypes = fieldnames(tmp_spikeTimes);
+        i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime') | strcmpi(ptypes, 'pulseOnT_sec');
+        ptypes(i_bad) = [];
+        tfidx = cellfun(@(x,y) regexpi(x, '_tf'), ptypes, 'uniformoutput', false);
+        ptypes_tfonly = cellfun(@(x,y) x(y+1:end), ptypes, tfidx, 'uniformoutput', false);
+        Nptypes = numel(ptypes);
+        
+        % grab the meta-data for this recording location
+        mu_shank_info{i_pos}.firstSiteDepth = wb_info(idx, wbidx.shank_pos);
+        mu_shank_info{i_pos}.brainAreas = wb_info(idx, wbidx.shank_area);
+        
+        for i_type = 1:Nptypes
+            
+            for i_ch = 1:numel(tmp_spikeTimes.(ptypes{i_type}).tt)
+                
+                % grab the spike times for all trials
+                type_spiketimes = tmp_spikeTimes.(ptypes{i_type}).tt{i_ch};
+                
+                % grab the Number of trials for this condition
+                tmp_N = tmp_spikeTimes.(ptypes{i_type}).Ntrials{i_ch};
+                
+                % iterate over pulses, and make a PSTH for each pulse
+                pulseOn_sec = tmp_spikeTimes.pulseOnT_sec.(ptypes{i_type});
+                Npulses = numel(pulseOn_sec);
+                preTime_pulse = 0.002;
+                postTime_pulse = 0.014;
+                bins = -preTime_pulse : BINWIDTH : postTime_pulse;
+                pulse_psth = nan(Npulses, numel(bins));
+                for i_pulse = 1:Npulses
+                    
+                    % adjust spike times to center them around the Nth
+                    % pulse (i_pulse). Then compute the counts per bin.
+                    adj_spiketimes = type_spiketimes-pulseOn_sec(i_pulse);
+                    if DELETEARTIFACTS
+                        l_toosoon = (adj_spiketimes <= TOOSOONTIME) & (adj_spiketimes > 0);
+                        adj_spiketimes(l_toosoon) = [];
+                    end
+                    tmp_counts = histc(adj_spiketimes, bins);
+                    tmp_Hz = (tmp_counts./tmp_N) ./ BINWIDTH;
+                    
+                    % store the data if they exist, otherwise, leave the
+                    % pre-allocated nans.
+                    if ~isempty(tmp_Hz)
+                        if FILTERPSTH
+                            tmp_Hz = filtfilt(B_smooth, A_smooth, tmp_Hz);
+                        end
+                        pulse_psth(i_pulse, 1:numel(bins)) = tmp_Hz;
+                    end
+                    
+                end
+                
+                % put the data into the appropriate position
+                [site, shank] = find(trodeMap == i_ch);
+                mu_shank.(ptypes_tfonly{i_type}){i_pos}.psth_by_pulse{site, shank} = pulse_psth;
+                mu_shank.(ptypes_tfonly{i_type}){i_pos}.bins_by_pulse{site, shank} = bins;
+                
+            end
+            
+        end
+        
+    end
+    
+    
+     
+    %
+    % Plotting: PSTHs
+    %
+    hFig = figure;
+    hFig.Units = 'normalized';
+    hFig.Position = [0 0 1 1];
+    hTabGroup = uitabgroup(hFig);
+    for i_type = 1:numel(ptypes_tfonly)
+        
+
+        % make a tab
+        htab(i_type) = uitab(hTabGroup,'Title',ptypes_tfonly{i_type});
+        hax(i_type) = axes('Parent', htab(i_type));
+        Nrows = 8;
+        Ncols = 4*Nrecpos;
+        for i_pos = 1:Nrecpos
+            for i_shank = 1:Nshanks;
+                for i_site = 1:Nsites;
+                    
+                    pltDat = mu_shank.(ptypes_tfonly{i_type}){i_pos}.psth_by_pulse{i_site, i_shank};
+                    tt = mu_shank.(ptypes_tfonly{i_type}){i_pos}.bins_by_pulse{i_site, i_shank};
+                    
+                    Npulses = size(pltDat, 1);
+                    cmap = copper(Npulses);
+                    
+                    plotCol = ((i_pos - 1) .* 4) + i_shank;
+                    plotRow = i_site;
+                    pltidx = sub2ind([Ncols, Nrows], plotCol, plotRow); % transpose row and col to get the correct linear index for plots
+                    subplot(Nrows, Ncols, pltidx);
+                    set(gca, 'colororder', cmap, 'NextPlot', 'replacechildren')
+                    plot(bins*1000, pltDat');
+                    axis tight
+                    if i_site == 1
+                        title(sprintf('area: %s', mu_shank_info{i_pos}.brainAreas{i_shank}))
+                    end
+                    
+                    if DISPLAYDEPTH
+                        % figure out the depth of the etrode
+                        firstSiteDepth = mu_shank_info{i_pos}.firstSiteDepth{i_shank};
+                        siteDepth = firstSiteDepth - ((i_site-1)*100);
+                        ylabel(sprintf('%d um', siteDepth));
+                        
+                        set(gca, 'yticklabel', {}, 'xticklabel', {}, 'tickdir', 'out')
+                    end
+                end
+            end
+        end
+        
+        % standardize the ylims
+        if STANDARDIZE_YLIMS
+            for i_col = 1:Ncols
+                ymax = 0;
+                for i_row = 1:Nrows
+                    pltidx = sub2ind([Ncols, Nrows], i_col, i_row);
+                    subplot(Nrows, Ncols, pltidx);
+                    yvals = get(gca, 'ylim');
+                    ymax = max([ymax, yvals(2)]);
+                end
+                for i_row = 1:Nrows
+                    pltidx = sub2ind([Ncols, Nrows], i_col, i_row);
+                    subplot(Nrows, Ncols, pltidx);
+                    set(gca, 'ylim', [0 ymax])
+                end
+            end
+        end
+        
+    end
+    drawnow
     
 end % loop over mice
 

@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
+EXPTTYPE = 4;
 BRAINAREA = 'any';
 COMBINE_CHIEF = false;
 switch EXPTTYPE
@@ -670,7 +670,6 @@ for i_ex = 1:Nexpts
         
         for i_cond = 1:numel(conds)
             
-            
             %
             % plot the raw (Average) traces
             %
@@ -1143,7 +1142,7 @@ for i_opsin = 1:numel(opsinTypes)
                 
                 xbar = nanmean(cat_dat, 1);
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
-                if ~isempty(regexpi(conds{i_cond}, 'FV_Na'))
+                if ~isempty(regexpi(conds{i_cond}, 'synapticTransmission'))
                     nrepeats = sum(~isnan(cat_dat), 1)
                 end
                 
@@ -1172,9 +1171,9 @@ for i_opsin = 1:numel(opsinTypes)
             end
             
             
-            if true; %CALCPVALS
+            if CALCPVALS
                 
-                whichOpsin = 'chronos';    % 'chronos', 'chr2', 'chief_all', 'chief_cit', 'chief_flx'
+                whichOpsin = 'estim';    % 'chronos', 'chr2', 'chief_all', 'chief_cit', 'chief_flx'
                 whichCond =  'Fv_Na';   % 'Fv_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'
                 whichStat = 'latency';  % 'diffval', 'slope', 'latency'
                 
@@ -4092,6 +4091,186 @@ end
 
 
 
+%% COMPARE FIBER VOLLEYS (OPTICAL VS. ELECTRICAL)
+
+fin
+
+STIMSITE = true;
+COMBINE_CHIEF = true;
+
+% need to load the data
+load('lfp_all_pow_combine_chief.mat');
+tmp.optical.dat = dat; clear dat;
+tmp.optical.info = info; clear info;
+
+load('estim_all_pow.mat'); % intra_all_pow.mat or intra_lowRa_all_pow.mat
+tmp.estim.dat = dat; clear dat;
+tmp.estim.info = info; clear info;
+
+% concatenate the datasets
+pop = cat(2, tmp.estim.dat, tmp.optical.dat);
+info = cat(2, tmp.estim.info, tmp.optical.info);
+
+
+tforder = [10, 20, 40, 60, 100];
+
+% preallocate all the arrays
+if COMBINE_CHIEF
+    opsins = {'estim', 'chr2', 'chronos', 'chief_all'};
+else
+    opsins = {'estim', 'chr2', 'chronos', 'chief_cit', 'chief_flx'};
+end
+
+Nexp = numel(pop);
+for i_opsin = opsins;
+    catdat.(i_opsin{1}).raw = nan(numel(tforder), 7, Nexp);
+end
+
+
+for i_ex = 1:Nexp
+    
+    ex_opsin = lower(info{i_ex}.opsin);
+    
+    % which channel should be analyzed?
+    CHANNEL = info{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites were targeted
+        continue
+    end
+    Nchannels = sum(info{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
+        if ~STIMSITE
+            if CHANNEL == 1
+                CHANNEL = 2;
+            elseif CHANNEL == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    
+    % extract the raw data for the TTX condition
+    tfnames = fieldnames(pop{i_ex});
+    for i_tf = 1:numel(tfnames)
+        
+        drugconds = fieldnames(info{i_ex}.(tfnames{i_tf}));
+        idx_FV_Na = strcmpi('FV_Na', drugconds);
+        if ~any(idx_FV_Na)
+            continue
+        else
+            assert(sum(idx_FV_Na) == 1, 'ERROR: found multiple TTX indx')
+        end
+        
+        tmptf = info{i_ex}.(tfnames{i_tf}).FV_Na.pTF;
+        if any(tmptf > max(tforder))
+            continue
+        end
+        rowidx = tforder == tmptf;
+        
+        tmpraw = pop{i_ex}.(tfnames{i_tf}).stats.FV_Na.diffval{CHANNEL};
+        if numel(tmpraw)<7; continue; end
+        catdat.(ex_opsin).raw(rowidx, 1:7, i_ex) = tmpraw(1:7);
+    end
+end
+
+
+
+% normalize the data, and keep track of the xbar and sem for each TF
+for i_opsin = opsins
+    
+    % grab the raw data and normalize by the first pulse
+    tmpdat = catdat.(i_opsin{1}).raw;
+    p1_vals = tmpdat(:,1,:); % all 1st pulses of all TFs and expts;
+    tmpdat = bsxfun(@rdivide, tmpdat, p1_vals);
+    catdat.(i_opsin{1}).normvals = tmpdat;
+end
+
+
+% compile the stats
+for i_opsin = 2:numel(opsins)
+    
+    fprintf('  ********  %s   ****\n', opsins{i_opsin})
+    
+    % grab the data
+    tmp_lfp = catdat.(opsins{i_opsin}).normvals;
+    tmp_estim = catdat.estim.normvals;
+    
+    % pull out pulse 7 data
+    tmp_lfp = tmp_lfp(:,7,:);
+    tmp_lfp = permute(tmp_lfp, [1,3,2]);
+    allnans = sum(isnan(tmp_lfp),1) == size(tmp_lfp,1);
+    tmp_lfp = tmp_lfp(:, ~allnans);
+    
+    tmp_estim = tmp_estim(:,7,:);
+    tmp_estim = permute(tmp_estim, [1,3,2]);
+    allnans = sum(isnan(tmp_estim),1) == size(tmp_estim,1);
+    tmp_estim = tmp_estim(:, ~allnans);
+    
+    % the flx version of chief was not tested at 100Hz for the LFP, cut
+    % these data from the intracellular traces
+    switch opsins{i_opsin}
+        case {'chief_flx', 'chronos'}
+            tmp_estim = tmp_estim(1:4,:);
+            tmp_lfp = tmp_lfp(1:4,:);
+        case 'chr2';
+            tmp_estim = tmp_estim(1:3,:);
+            tmp_lfp = tmp_lfp(1:3,:);       
+    end
+    
+    % loop over each of the TFs and do a ttest
+    pval_p7 = [];
+    for i_tf = 1:size(tmp_lfp, 1)
+       ttest_estim = tmp_estim(i_tf,:);
+       ttest_lfp = tmp_lfp(i_tf, :);
+       
+       [~, pval_p7, ~, stats] = ttest2(ttest_estim(:), ttest_lfp(:));
+       
+    end
+    
+    % look at the differences in means
+    estim_avg = nanmean(tmp_estim, 2)
+    lfp_avg = nanmean(tmp_lfp, 2)
+    
+    % compile the lfp data for the anova
+    group_tf = [];
+    group_method = {};
+    YY = [];
+    
+    TFs = [10 20 40 60 100];
+    Ntf = size(tmp_lfp, 1);
+    Nex = size(tmp_lfp, 2)
+    for i_row = 1:Ntf;
+        for i_col = 1:Nex
+            if ~isnan(tmp_lfp(i_row, i_col))
+                group_tf = cat(1, group_tf, TFs(i_row));
+                group_method = cat(1, group_method, 'LFP');
+                YY = cat(1, YY, tmp_lfp(i_row, i_col));
+            end
+        end
+    end
+    
+    Ntf = size(tmp_estim, 1);
+    Nex = size(tmp_estim, 2)
+    for i_row = 1:Ntf;
+        for i_col = 1:Nex
+            if ~isnan(tmp_estim(i_row, i_col))
+                group_tf = cat(1, group_tf, TFs(i_row));
+                group_method = cat(1, group_method, 'Intra');
+                YY = cat(1, YY, tmp_estim(i_row, i_col));
+            end
+        end
+    end
+    
+    % run the anova
+    [p, tab, stats] = anovan(YY, {group_tf, group_method}, 'model', 2, 'varnames', {'Temp Freq', 'Method'});
+end
+
+
 
 
 %% OPSIN CURRENT FALL OFF WITH DISTANCE
@@ -4125,7 +4304,7 @@ for i_ex = 1:numel(unique_expts);
     
     l_expt = strcmpi(name_site, unique_expts{i_ex});
     
-    expt_fnames = fnames(l_expt);
+    expt_fnames = fnames(l_expt)
     expt_HS1 = unique(HS1_loc(l_expt,:), 'rows');
     expt_HS2 = unique(HS2_loc(l_expt,:), 'rows');
     expt_led = led_loc(l_expt,:);

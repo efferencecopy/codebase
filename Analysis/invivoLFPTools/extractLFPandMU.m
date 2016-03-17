@@ -1,6 +1,7 @@
-function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
+function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp, NOISEMETHOD, STIMTYPE, NSX)
    
     lfp_data = blk.ras(:, lfp_ch_idx);
+    sampFreq_nsx = blk.sum.(NSX).MetaTags.SamplingFreq;
 
     % design and implement a notch filter
     lp_cutoff = 60.5;
@@ -11,12 +12,12 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
     
     
     % design and implement a band pass filter
-    bp_lp_cutoff = sampFreq_lfp./5; % guards against alaising during downsampling
+    bp_lp_cutoff = 250; % guards against alaising during downsampling
     bp_hp_cutoff = 2;
-    order = 4;
+    order = 6;
     Wn = [bp_hp_cutoff, bp_lp_cutoff] ./ (sampFreq_nsx ./ 2);
     [B_bp, A_bp] = butter(ceil(order/2), Wn);
-    
+    assert(bp_lp_cutoff <= sampFreq_lfp./5, 'ERROR: LFP sampRate and filter are incompatable');
     
     parfor i_idx = 1: numel(lfp_data);
         
@@ -30,6 +31,8 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
                 lfp_data{i_idx} = rmhum_2(lfp_data{i_idx}, sampFreq_nsx, 1, N, 60);
             case 'filter'
                 lfp_data{i_idx} = filtfilt(B_notch, A_notch, lfp_data{i_idx})
+            case 'none'
+                % do nothing
         end
         
     end
@@ -43,14 +46,12 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
     
     
     ptypes = fieldnames(lfpSnips);
-    i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime');
+    i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime') | strcmpi(ptypes, 'pulseOnT_sec');
     ptypes(i_bad) = [];
-    Nptypes = numel(ptypes);
     
     
     disp(' Down sampling LFP data')
     % downsample
-    sampFreq_nsx = blk.sum.(NSX).MetaTags.SamplingFreq;
     for i_cond = 1:numel(ptypes);
         
         tmp_data = lfpSnips.(ptypes{i_cond});
@@ -71,34 +72,27 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
     dat.lfpsnips = lfpSnips;
     clear lfpSnips;
     
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
     % Calculate the multi-unit spike times
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     disp(' Preparing multi-unit spike times (parfor loops BP filter)')
-    RMS_MULTIPLE = 3.5;
+    RMS_MULTIPLE = 4.5;
     
     mu_data = blk.ras(:, lfp_ch_idx);
     
     % design and implement a band pass filter
-    bp_lp_cutoff = 5000;
-    bp_hp_cutoff = 300;
-    order = 4;
+    bp_lp_cutoff = 6000;
+    bp_hp_cutoff = 700;
+    order = 12;
     Wn = [bp_hp_cutoff, bp_lp_cutoff] ./ (sampFreq_nsx ./ 2);
     [B_mu, A_mu] = butter(ceil(order/2), Wn);
-    
-    % design and implement a notch filter
-    lp_cutoff = 60.5;
-    hp_cutoff = 59.5;
-    order = 2;
-    Wn = [hp_cutoff, lp_cutoff] ./ (sampFreq_nsx ./ 2);
-    [B_notch, A_notch] = butter(ceil(order/2), Wn, 'stop');
-    
+    assert(bp_hp_cutoff>100, 'ERROR: may need notch filter')
     
     parfor i_idx = 1:numel(mu_data)
-        mu_data{i_idx} = filtfilt(B_notch, A_notch, mu_data{i_idx})
-        mu_data{i_idx} = filtfilt(B_mu, A_mu, mu_data{i_idx})
+        mu_data{i_idx} = filtfilt(B_mu, A_mu, mu_data{i_idx});
     end
     
     % sync to the stimulus onset, and baseline subtract
@@ -109,7 +103,7 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
     
     % identify the different pulse types in play
     ptypes = fieldnames(mu_snips);
-    i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime');
+    i_bad = strcmpi(ptypes, 'preTime') | strcmpi(ptypes, 'postTime') | strcmpi(ptypes, 'pulseOnT_sec');
     ptypes(i_bad) = [];
     Nptypes = numel(ptypes);
     
@@ -123,6 +117,7 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
         tmp_data = mu_snips.(ptypes{i_type});
         tmp_spiketimes = {};
         tmp_Ntrials = {};
+        tmp_spikeTrialID = {};
         
         for i_ch = 1:numel(mu_snips.(ptypes{i_type}))
             
@@ -149,8 +144,9 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
                 tt = [0:size(aboveThresh,2)-1] ./ sampFreq_nsx;
                 tt = tt - preTime;
                 
-                [~, t_idx]= find(aboveThresh);
+                [trlID, t_idx]= find(aboveThresh);
                 tmp_spiketimes{i_ch} = tt(t_idx);
+                tmp_spikeTrialID{i_ch} = trlID;
                 tmp_Ntrials{i_ch} = size(aboveThresh, 1);
                 
             end
@@ -158,13 +154,16 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp)
         
         % put the data back where they belong
         spikeTimes.(ptypes{i_type}).tt = tmp_spiketimes;
+        spikeTimes.(ptypes{i_type}).trialIDs = tmp_spikeTrialID;
         spikeTimes.(ptypes{i_type}).Ntrials = tmp_Ntrials;
+        
     end
     
     
     dat.spikeTimes = spikeTimes;
     dat.spikeTimes.preTime = mu_snips.preTime;
     dat.spikeTimes.postTime = mu_snips.postTime;
+    dat.spikeTimes.pulseOnT_sec = mu_snips.pulseOnT_sec;
     
     dat.info.sampFreq_lfp = sampFreq_lfp;
     dat.info.rms_multiple = RMS_MULTIPLE;

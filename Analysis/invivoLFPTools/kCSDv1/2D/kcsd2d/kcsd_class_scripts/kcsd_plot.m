@@ -18,7 +18,8 @@ clims = [-max(abs(CSDs(:))) max(abs(CSDs(:)))];
 scrsize = 0.7*get(0, 'ScreenSize');
 [nx, ny, nt] = size(CSDs);
 current_moment = 1;
-yxratio = max(Y(:))/max(X(:));
+%yxratio = max(Y(:))/max(X(:));% old line
+yxratio = range(Y(:))/range(X(:)); % CAH (3/16)
 Ly = scrsize(3)*0.5;
 Lx = Ly / yxratio;
 
@@ -31,7 +32,7 @@ slider_height = 20;
 fig_height = bottom_spacing + slider_height + axis_slider_spacing + Ly + top_spacing;
 fig_width = 2*side_spacing + Lx;
 
-figg = figure('Position', [50 50 fig_width fig_height], 'Name', tytul);
+figg = figure('Position', [50 50 900 fig_height], 'Name', tytul);
 
 
 
