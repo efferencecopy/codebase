@@ -60,19 +60,21 @@ for i_run = 1:Nruns;
     % grab the trial frame counter
     all_trial_starts = [0, info_run{i_run}.counter{:}];
     
-    % call loadTIFF and convert to dfof
+    % call loadTIFF
     fprintf(' Extracting tiff file %d of %d. ', i_run, Nruns); tic;
     run_dfof = loadTIFF(fnames{i_run,2}, info_img{i_run}); %not actually dfof but setting up for in-place operations
     fprintf('%.1f seconds \n', toc)
-    
     run_dfof = double(run_dfof);
+    
+    % convert to dfof
     frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
     window_size_sec = (NframesON + NframesOFF)./frameRate * 2; % two trials worth of seconds
-    
     fprintf('  Now computing dFoF. '); tic
     run_dfof = dfof_from_tiffstack(run_dfof, frameRate, window_size_sec);
     fprintf('%.0f seconds \n', toc)
     
+    
+    % extract each trial (on and off response separately)
     for i_trial = 1: Ntrials(i_run);
         
         % Define a start and stop position

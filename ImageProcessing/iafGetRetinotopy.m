@@ -1,24 +1,4 @@
-function iafGetRetinotopy
-
-%
-%  SET UP THE IMPORTANT PARAMETERS THAT DEFINE THE ANALYSIS
-%
-
-fnames = {'data-i539-160303-1130.mat', '160303_i539_lateral_az[0 30]el[10 -10]_run1_1_MMStack.tif';...
-    'data-i539-160303-1207.mat', '160303_i539_lateral_az[0 30]el[10 -10]_run2_1_MMStack.tif'};
-
-
-relevantTrialTypes = {'tGratingElevationDeg', 'tGratingAzimuthDeg'}; % options below
-% tBaseGratingDirectionDeg
-% tGratingAzimuthDeg
-% tGratingElevationDeg
-% tGratingDirectionDeg
-% tGratingContrast
-% tGratingDiameterDeg
-% tGratingSpatialFreqCPD
-% tGratingTemporalFreqCPS
-% tGratingStartingPhaseDeg
-% tGratingSpeedDPS
+function final_img = iafGetRetinotopy(fnames, relevantTrialTypes)
 
 
 %
@@ -60,8 +40,8 @@ end
 
 % make a figure showing the final images.
 h.fig = figure;
-h.fig.Position = [847   199   454   475];
 h.fig.Units = 'Normalized';
+h.fig.Position = [0.2908 0.1887 0.3941 0.5498];
 h.ax = axes('position', [0.125 0.200 0.750    0.75]);
 h.dat = final_img;
 h.ttypes = dat.uniqueTrlTypes;
