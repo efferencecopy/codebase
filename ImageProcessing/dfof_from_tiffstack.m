@@ -1,4 +1,4 @@
-function dFoF = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
+function [dFoF, Fo] = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
 %
 % EXAMPLE: dFoF = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
 
@@ -20,3 +20,4 @@ Fo(:,:,1:window_size_samps+5) = [];
 
 % now just do the math
 dFoF =  (img_raw - Fo) ./ Fo;
+
