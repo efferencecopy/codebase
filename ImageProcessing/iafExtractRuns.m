@@ -18,11 +18,16 @@ trialAttributes = [];
 % load the .mat files to get trial by trial data
 fprintf('Loading in data for %d runs\n', size(fnames, 1))
 fprintf(' Loading the Matlab (trial by trial) data files\n')
-Nruns = size(fnames, 2);
+Nruns = size(fnames, 1);
 for i_run = 1:Nruns;
+    
     % Loading/Opening the datasets ('fnames' files)
     info_img{i_run} = loadTIFF_info(fnames{i_run, 2}); % Structure array with one element for each image in the file (per run)
-    info_run{i_run} = importdata(fnames{i_run, 1}); % Import the MATLAB file for each run
+    
+    % Loading in the trial attributes. In some cases the .mat file contains
+    % multiple structures, so just take the one called 'input'
+    tdat = load(fnames{i_run, 1});
+    info_run{i_run} = tdat.input; 
     
     % Defining the matrix attributes (# of rows/columns), according to 'info'
     rows(i_run) = info_img{i_run}.height_pix;

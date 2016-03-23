@@ -2,6 +2,10 @@ function [dFoF, Fo] = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
 %
 % EXAMPLE: dFoF = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
 
+% add eps to all the values of the raw image. This avoids 0./0 errors,
+% which happen for black pixels.
+img_raw = img_raw + eps;
+
 % setup t box car filter coeffs
 window_size_samps = round(frameRate .* window_size_sec);
 B_box = (1/window_size_samps).*ones(1,window_size_samps);

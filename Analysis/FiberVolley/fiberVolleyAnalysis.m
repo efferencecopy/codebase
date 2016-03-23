@@ -237,7 +237,8 @@ for i_sweepType = 1:numel(sweepTypeFields)
                     filtered = tmp;
                 otherwise
                     lp_freq = 1500;
-                    filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+                    %filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+                    filtered = tmp;
             end
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             

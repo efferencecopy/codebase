@@ -5,8 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 4;
-BRAINAREA = 'any';
+EXPTTYPE = 5;
+BRAINAREA = 'PM';
 COMBINE_CHIEF = false;
 switch EXPTTYPE
     case 1
@@ -375,7 +375,7 @@ parfor i_ex = 1:Nexpts
                     snippet = dat{i_ex}.(pTypes{i_tf}).snips.(conds{i_cond}){i_ch}(i_pulse,:);
                     
                     if ~FIRSTPULSE
-                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay, direction);
+                        [troughidx, peakidx]  = anlyMod_getWFepochs(snippet, tt, conds{i_cond}, pWidth, photoDelay, direction, info{i_ex}.opsin);
                     end
                     
                     % store the peak and trough indicies for plotting later (if desired)
@@ -420,7 +420,7 @@ parfor i_ex = 1:Nexpts
                             tmp_snippet = -tmp_snippet;
                         end
                         
-                    elseif any(regexpi(conds{i_cond}, 'ttx'))
+                    elseif any(regexpi(conds{i_cond}, 'ttx')) && ~strcmpi(info{i_ex}.opsin, 'estim')
                         
                         trough = mean(snippet(trough_window));
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
@@ -466,6 +466,24 @@ parfor i_ex = 1:Nexpts
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = startIdx;
                         
                         % store the latency to the trough
+                        latency = tt(troughidx);
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).latency{i_ch}(i_pulse) = latency;
+                        
+                    elseif any(regexpi(conds{i_cond}, 'ttx')) && strcmpi(info{i_ex}.opsin, 'estim')
+                        
+                        trough = mean(snippet(trough_window));
+                        peak = mean(snippet(peak_window));
+                        
+                        pk2tr = peak-trough;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).pk2tr{i_ch}(i_pulse) = pk2tr;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).diffval{i_ch}(i_pulse) = trough;
+                        
+                        % store fake slope params
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_yint{i_ch}(i_pulse) = nan;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_invtc{i_ch}(i_pulse) = nan;
+                        dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse) = nan;
+                        
+                        % store latency to the trough
                         latency = tt(troughidx);
                         dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).latency{i_ch}(i_pulse) = latency;
                         
@@ -707,7 +725,7 @@ for i_ex = 1:Nexpts
                     inds_idx = bsxfun(@plus, inds, Ntime .* (0:Ncols-1)');
                     plot(tt(inds(:,1)), tmp_raw(inds_idx(:,1)), 'ro', 'markerfacecolor', 'r')
                     
-                    if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR'}))
+                    if any(strcmpi(conds{i_cond}, {'FV_Na', 'FV_Na_Ca2_mGluR'})) || strcmpi(info{i_ex}.opsin, 'estim')
                         plot(tt(inds(:,2)), tmp_raw(inds_idx(:,2)), 'co', 'markerfacecolor', 'c')
                     end
                     
@@ -732,7 +750,7 @@ for i_ex = 1:Nexpts
                     
                     
                     % check best fitting decay tau for the opsin current
-                    if any(strcmpi(conds{i_cond}, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'}))
+                    if any(strcmpi(conds{i_cond}, {'nbqx_apv_cd2_ttx', 'nbqx_apv_ttx'})) && ~strcmpi(info{i_ex}.opsin, 'estim')
                         for i_pulse = 1:size(tmp_raw,2);
                             startIdx = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_ind{i_ch}(i_pulse);
                             invtc = dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).tau_invtc{i_ch}(i_pulse);
@@ -893,7 +911,7 @@ end
 
 
 STIMSITE = true;  % true => stimsite,  false => distal site
-CALCPVALS = true;
+CALCPVALS = false;
 NORMALIZE = true;
 
 % only do this for the main experiment (TF and FV)
@@ -914,7 +932,7 @@ switch EXPTTYPE
     case 'Intracellular'
         conds = {'nbqx_apv_ttx'};
     case 'E-stim'
-        conds = {'FV_Na'};
+        conds = {'nbqx_apv_cd2_ttx', 'FV_Na'};
         opsinTypes = {'estim'}; % overwrite the default
     otherwise
         conds = {'FV_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'}; % with cadmium
@@ -1142,7 +1160,7 @@ for i_opsin = 1:numel(opsinTypes)
                 
                 xbar = nanmean(cat_dat, 1);
                 sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
-                if ~isempty(regexpi(conds{i_cond}, 'synapticTransmission'))
+                if ~isempty(regexpi(conds{i_cond}, 'FV_Na'))
                     nrepeats = sum(~isnan(cat_dat), 1)
                 end
                 
@@ -1182,8 +1200,6 @@ for i_opsin = 1:numel(opsinTypes)
                 statMatch = strcmpi(statTypes{i_stat}, whichStat);
                 
                 if all([opsinMatch, condMatch, statMatch])
-                    
-                    keyboard
                     
                     %
                     %  Do some inferential tests and present a table with the
@@ -3641,7 +3657,7 @@ end
 USEALLLFP = false;
 
 % initialize the population structure
-opsinTypes = {'chronos', 'chief_all'};
+opsinTypes = {'chronos', 'chief_flx'};
 tfconds.stimL23 = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led'};
 tfconds.stimL5 =  {'tf10_laser', 'tf20_laser', 'tf40_laser', 'tf60_laser'};
 stimpos = {'stimL23', 'stimL5'};
@@ -3693,16 +3709,18 @@ for i_ex = 1:numel(siteraw)
 end
 
 
-
-% load the big LFP dataset
-poplfp = load('lfp_pop_combinechief.mat'); 
+if USEALLLFP
+    % load the big LFP dataset
+    poplfp = load('lfp_pop_combinechief.mat');
+end
 
 % ploting routines
 pltclr = copper(6);
 for i_opsin = 1:numel(opsinTypes)
     
     f = figure;
-    f.Position = [94 139 1319 584];
+    f.Units = 'Normalized';
+    f.Position = [0.1007    0.1979    0.7109    0.5544];
     f.Name = opsinTypes{i_opsin};
     
     for i_cond = 1:numel(conds)
@@ -3712,7 +3730,7 @@ for i_opsin = 1:numel(opsinTypes)
         
         lineseries = {'--', '-'};
         %build a sensible legend
-        plot(nan, nan, '--k', 'linewidth', 3)
+        plot(nan, nan, '--k', 'linewidth', 2)
         plot(nan, nan, '-k', 'linewidth', 3)
         legend(stimpos, 'location', 'southeast')
         legend boxoff
