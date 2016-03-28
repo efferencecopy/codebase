@@ -117,6 +117,11 @@ function final_img = img_preProcess(one, two) %AvgTrialON, AvgTrialOFF, filterSD
         udat.final_img{i_type} = meanAcrossTime_on - meanAcrossTime_off;
     end
     
+    % include the pre-processed data in the output of this function so that
+    % the user can analyze these data later
+    udat.preProcessed_ON = tmpOn;
+    udat.preProcessed_OFF = tmpOff;
+    
     udat.h.fig.UserData = udat;
     updateImage()
 end

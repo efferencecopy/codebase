@@ -38,15 +38,12 @@ assert(all(idx), 'ERROR: at least one experimental condition is not recognized')
 channelConfigs = cell2mat(channels);
 channelConfigs = unique(channelConfigs, 'rows');
 channelList = find(channelConfigs);
-if size(channelConfigs,1)~=1
-    keyboard
-end
 assert(size(channelConfigs,1)==1, 'ERROR: The recorded channels changes from file to file')
 
 
 
 % read in all the data
-clc
+fprintf('\n');
 fprintf('reading in the data for fiber volley analysis\n')
 for i_fid = 1:numel(fnames)
     fprintf('   reading <%s>\n', fnames{i_fid})
@@ -142,6 +139,7 @@ for i_fid = 1:numel(fnames)
         drugType = exptConds{i_fid};
         
         % make a franken-abf struct
+        ax.(swpType).(drugType).name = tmp.name;
         ax.(swpType).(drugType).head = tmp.head;
         ax.(swpType).(drugType).dat = tmp.dat(:,:,tdict.trlList == i_sweepType);
         ax.(swpType).(drugType).idx = tmp.idx;
@@ -237,8 +235,7 @@ for i_sweepType = 1:numel(sweepTypeFields)
                     filtered = tmp;
                 otherwise
                     lp_freq = 1500;
-                    %filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
-                    filtered = tmp;
+                    filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
             end
             filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             
@@ -246,7 +243,6 @@ for i_sweepType = 1:numel(sweepTypeFields)
             average = mean(filtered,2);
             trace.(swpType).(drugType)(:,i_ch) = average;
             
-            % normalize by the amplitude of the first FV, or opsin current
             
         end % i_ch
         

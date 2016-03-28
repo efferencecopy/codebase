@@ -5,9 +5,9 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 5;
-BRAINAREA = 'PM';
-COMBINE_CHIEF = false;
+EXPTTYPE = 8;
+BRAINAREA = 'any';
+COMBINE_CHIEF = true;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -617,7 +617,7 @@ close all
 
 CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
-NORM_TO_PULSE1 = true;
+NORM_TO_PULSE1 = false;
 
 
 % define the conditions that will get plotted
@@ -1200,7 +1200,7 @@ for i_opsin = 1:numel(opsinTypes)
                 statMatch = strcmpi(statTypes{i_stat}, whichStat);
                 
                 if all([opsinMatch, condMatch, statMatch])
-                    
+                    keyboard
                     %
                     %  Do some inferential tests and present a table with the
                     %  results
@@ -2104,7 +2104,7 @@ end
 %% SHAPE OF WAVEFORMS FOR EACH PULSE (NORMALIZED AND UN-NORMALIZED)
 
 % choose a stimulation location:
-NORMVALS = true;
+NORMVALS = false;
 PLOTERR = true;
 STIMSITE = true;
 ENFORCETFS = true; % culls some expts from Chronos that are not interleaved
@@ -2144,11 +2144,11 @@ end
 Nexpt = size(in,1);
 for a_ex = 1:Nexpt
     
-    info{a_ex}.mouse
+    info{a_ex}.mouse;
     opsin = lower(info{a_ex}.opsin);
     
     % what TFs are present in this file?
-    ex_tfs = fieldnames(dat{a_ex})
+    ex_tfs = fieldnames(dat{a_ex});
     has10 = any(strcmpi(ex_tfs, 'tf10_led'));
     has20 = any(strcmpi(ex_tfs, 'tf20_led'));
     has40 = any(strcmpi(ex_tfs, 'tf40_led'));
@@ -2423,9 +2423,10 @@ if ~NORMVALS
     
     for i_opsin = 1:numel(opsinTypes)
         
+        opsinTypes{i_opsin}
         tmpdat = opsin_amps.(opsinTypes{i_opsin});
-        xbar = cellfun(@mean, tmpdat);
-        sem = cellfun(@stderr, tmpdat);
+        xbar = cellfun(@mean, tmpdat)
+        sem = cellfun(@stderr, tmpdat)
         
         % plot the first pulse
         x = (1:numel(tfnames)) + (0.2*i_opsin-1);
@@ -3657,7 +3658,7 @@ end
 USEALLLFP = false;
 
 % initialize the population structure
-opsinTypes = {'chronos', 'chief_flx'};
+opsinTypes = {'chronos', 'chief_all'};
 tfconds.stimL23 = {'tf10_led', 'tf20_led', 'tf40_led', 'tf60_led'};
 tfconds.stimL5 =  {'tf10_laser', 'tf20_laser', 'tf40_laser', 'tf60_laser'};
 stimpos = {'stimL23', 'stimL5'};
@@ -3888,16 +3889,16 @@ end
 fin
 
 STIMSITE = true;
-NORMVALS = false;
+NORMVALS = true;
 LOWPOWER = true;
-COMBINE_CHIEF = false;
+COMBINE_CHIEF = true;
 
 % need to load the data
-load('lfp_all_pow_split_chief.mat');
+load('lfp_all_pow_combine_chief.mat');
 pop.lfp.dat = dat; clear dat;
 pop.lfp.info = info; clear info;
 
-load('intra_lowRa_all_pow_split_chief.mat'); % intra_all_pow.mat or intra_lowRa_all_pow.mat
+load('intra_lowRa_all_pow_combine_chief.mat'); % or 'intra_lowRa_all_pow_split_chief.mat'
 pop.intra.dat = dat; clear dat;
 pop.intra.info = info; clear info;
 
@@ -4044,69 +4045,69 @@ for i_opsin = opsins
 end
 
 
-
-
-% compile the stats
-for i_opsin = 1:numel(opsins)
-    
-    
-    % grab the data
-    tmp_lfp = catdat.lfp.(opsins{i_opsin}).normvals;
-    tmp_intra = catdat.intra.(opsins{i_opsin}).normvals;
-    
-    % pull out pulse 7 data
-    tmp_lfp = tmp_lfp(:,7,:);
-    tmp_lfp = permute(tmp_lfp, [1,3,2]);
-    allnans = sum(isnan(tmp_lfp),1) == size(tmp_lfp,1);
-    tmp_lfp = tmp_lfp(:, ~allnans);
-    
-    tmp_intra = tmp_intra(:,7,:);
-    tmp_intra = permute(tmp_intra, [1,3,2]);
-    allnans = sum(isnan(tmp_intra),1) == size(tmp_intra,1);
-    tmp_intra = tmp_intra(:, ~allnans);
-    
-    % the flx version of chief was not tested at 100Hz for the LFP, cut
-    % these data from the intracellular traces
-    if ~COMBINE_CHIEF && strcmpi(opsins{i_opsin}, 'chief_flx');
-        tmp_intra = tmp_intra(1:4,:);
-        tmp_lfp = tmp_lfp(1:4,:);
-    end
-    
-    % compile the lfp data for the anova
-    group_tf = [];
-    group_method = {};
-    YY = [];
-    
-    TFs = [10 20 40 60 100];
-    Ntf = size(tmp_lfp, 1);
-    Nex = size(tmp_lfp, 2);
-    for i_row = 1:Ntf;
-        for i_col = 1:Nex
-            if ~isnan(tmp_lfp(i_row, i_col))
-                group_tf = cat(1, group_tf, TFs(i_row));
-                group_method = cat(1, group_method, 'LFP');
-                YY = cat(1, YY, tmp_lfp(i_row, i_col));
-            end
-        end
-    end
-    
-    Ntf = size(tmp_intra, 1);
-    Nex = size(tmp_intra, 2);
-    for i_row = 1:Ntf;
-        for i_col = 1:Nex
-            if ~isnan(tmp_intra(i_row, i_col))
-                group_tf = cat(1, group_tf, TFs(i_row));
-                group_method = cat(1, group_method, 'Intra');
-                YY = cat(1, YY, tmp_intra(i_row, i_col));
-            end
-        end
-    end
-    
-    % run the anova
-    [p, tab, stats] = anovan(YY, {group_tf, group_method}, 'model', 2, 'varnames', {'Temp Freq', 'Method'});
-    
-end
-
+% 
+% 
+% % compile the stats
+% for i_opsin = 1:numel(opsins)
+%     
+%     
+%     % grab the data
+%     tmp_lfp = catdat.lfp.(opsins{i_opsin}).normvals;
+%     tmp_intra = catdat.intra.(opsins{i_opsin}).normvals;
+%     
+%     % pull out pulse 7 data
+%     tmp_lfp = tmp_lfp(:,7,:);
+%     tmp_lfp = permute(tmp_lfp, [1,3,2]);
+%     allnans = sum(isnan(tmp_lfp),1) == size(tmp_lfp,1);
+%     tmp_lfp = tmp_lfp(:, ~allnans);
+%     
+%     tmp_intra = tmp_intra(:,7,:);
+%     tmp_intra = permute(tmp_intra, [1,3,2]);
+%     allnans = sum(isnan(tmp_intra),1) == size(tmp_intra,1);
+%     tmp_intra = tmp_intra(:, ~allnans);
+%     
+%     % the flx version of chief was not tested at 100Hz for the LFP, cut
+%     % these data from the intracellular traces
+%     if ~COMBINE_CHIEF && strcmpi(opsins{i_opsin}, 'chief_flx');
+%         tmp_intra = tmp_intra(1:4,:);
+%         tmp_lfp = tmp_lfp(1:4,:);
+%     end
+%     
+%     % compile the lfp data for the anova
+%     group_tf = [];
+%     group_method = {};
+%     YY = [];
+%     
+%     TFs = [10 20 40 60 100];
+%     Ntf = size(tmp_lfp, 1);
+%     Nex = size(tmp_lfp, 2);
+%     for i_row = 1:Ntf;
+%         for i_col = 1:Nex
+%             if ~isnan(tmp_lfp(i_row, i_col))
+%                 group_tf = cat(1, group_tf, TFs(i_row));
+%                 group_method = cat(1, group_method, 'LFP');
+%                 YY = cat(1, YY, tmp_lfp(i_row, i_col));
+%             end
+%         end
+%     end
+%     
+%     Ntf = size(tmp_intra, 1);
+%     Nex = size(tmp_intra, 2);
+%     for i_row = 1:Ntf;
+%         for i_col = 1:Nex
+%             if ~isnan(tmp_intra(i_row, i_col))
+%                 group_tf = cat(1, group_tf, TFs(i_row));
+%                 group_method = cat(1, group_method, 'Intra');
+%                 YY = cat(1, YY, tmp_intra(i_row, i_col));
+%             end
+%         end
+%     end
+%     
+%     % run the anova
+%     [p, tab, stats] = anovan(YY, {group_tf, group_method}, 'model', 2, 'varnames', {'Temp Freq', 'Method'});
+%     
+% end
+% 
 
 
 %% COMPARE FIBER VOLLEYS (OPTICAL VS. ELECTRICAL)
