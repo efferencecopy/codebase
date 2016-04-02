@@ -5,9 +5,9 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 8;
-BRAINAREA = 'any';
-COMBINE_CHIEF = true;
+EXPTTYPE = 5;
+BRAINAREA = 'pm';
+COMBINE_CHIEF = false;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -617,7 +617,7 @@ close all
 
 CHECK_TRIAL_STATS = true;
 RESTRICT_TO_STIM_SITE = true;
-NORM_TO_PULSE1 = false;
+NORM_TO_PULSE1 = true;
 
 
 % define the conditions that will get plotted
@@ -3792,10 +3792,10 @@ PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'n
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
 
 % load in data from each area
-load('pop_al_combinechief.mat');
+load('pop_al_splitchief_L5stim.mat');
 al_pop = pop;
 
-load('pop_pm_combinechief.mat');
+load('pop_pm_splitchief_L5stim.mat');
 pm_pop = pop;
 
 
@@ -3807,7 +3807,7 @@ pm_pop = pop;
 F = figure;
 set(F, 'position', [109    31   891   754])
 
-opsinTypes = {'chr2', 'chief_all', 'chronos'};
+opsinTypes = {'chr2', 'chief_flx', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
     
     % grab the data

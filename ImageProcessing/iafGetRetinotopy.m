@@ -25,17 +25,19 @@ udat.h.fig = figure;
 udat.h.fig.Units = 'Normalized';
 udat.h.fig.Position = [ 0.2576    0.1867    0.3951    0.6389];
 udat.h.ax = axes('position', [0.15 0.28 0.70 0.70]);
-udat.h.slide = uicontrol('style', 'slider', 'units', 'normalized', 'position', [0.30, 0.1, 0.40, 0.05],...
-                     'Min', 1, 'Max', N_types, 'sliderstep', ones(1,2).*(1/(N_types-1)),...
-                     'Value', 1, 'Interruptible', 'on', 'Callback', @updateImage, 'Enable', 'on',...
-                     'ButtonDownFcn', @updateImage);
+if N_types > 1
+    udat.h.slide = uicontrol('style', 'slider', 'units', 'normalized', 'position', [0.30, 0.1, 0.40, 0.05],...
+        'Min', 1, 'Max', N_types, 'sliderstep', ones(1,2).*(1/(N_types-1)),...
+        'Value', 1, 'Interruptible', 'on', 'Callback', @updateImage, 'Enable', 'on',...
+        'ButtonDownFcn', @updateImage);
+end
 udat.h.artBox = uicontrol('style', 'edit', 'units', 'normalized', 'position', [0.25, 0.02, 0.1, 0.05],...
                           'string', 5, 'Callback', @img_preProcess);
-uicontrol('style', 'text', 'units', 'normalized', 'position', [0.14, 0.014, 0.1, 0.05], ...
+uicontrol('style', 'text', 'units', 'normalized', 'position', [0.12, 0.014, 0.12, 0.05], ...
           'string', 'Artifact', 'FontSize', 12)
 udat.h.smoothBox = uicontrol('style', 'edit', 'units', 'normalized', 'position', [0.75, 0.02, 0.1, 0.05],...
                              'string', 1, 'Callback', @img_preProcess);
-uicontrol('style', 'text', 'units', 'normalized', 'position', [0.595, 0.014, 0.14, 0.05], ...
+uicontrol('style', 'text', 'units', 'normalized', 'position', [0.56, 0.014, 0.18, 0.05], ...
           'string', 'Smoothing', 'FontSize', 12)
 udat.h.fig.UserData = udat;
 img_preProcess();
@@ -47,9 +49,16 @@ end
 function updateImage(one, two)
     
     udat = get(gcf, 'UserData');
-    imgNum = udat.h.slide.Value;
-    imgNum = max([1, imgNum]); % slider step requires range, but don't let the img num < 0
-    imgNum = round(imgNum);
+    
+    N_types = numel(udat.final_img);
+    if N_types > 1
+        imgNum = udat.h.slide.Value;
+        imgNum = max([1, imgNum]); % slider step requires range, but don't let the img num < 0
+        imgNum = round(imgNum);
+    else
+        imgNum = 1;
+    end
+    
     axes(udat.h.ax)
     imagesc(udat.final_img{imgNum}); colormap('gray')
     udat.h.ax.XTick = [];

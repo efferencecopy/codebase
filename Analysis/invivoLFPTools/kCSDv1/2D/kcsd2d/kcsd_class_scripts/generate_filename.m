@@ -47,6 +47,8 @@ function filename = generate_filename(k, tag)
     filename(filename=='.') = 'x';
     s = which('kcsd2d.m');
     s(length(s)-8:length(s)) = [];
-    filename = [s,'/data/', tag, '_', filename];
+    s = 'C:\Users\charlie\Desktop\kcsdData\'; % CAH version
+    filename = [s, tag, '_', filename]; % CAH version
+%     filename = [s,'/data/', tag, '_', filename];
 end
     
