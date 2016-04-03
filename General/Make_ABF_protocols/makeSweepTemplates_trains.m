@@ -25,34 +25,33 @@ nAmps = numel(params.pAmp);
 nFreqs = numel(params.pFreq);
 nPulseWidths = numel(params.pWidth);
 nRecoveryTimes = numel(params.recoveryTime);
-params.nSweeps = nAmps .* nFreqs .* nPulseWidths .* nRecoveryTimes .* params.nReps;
 
 tt = [0:params.swpDur-1]' .* params.si;
 tStartIdx = ceil(params.tStart ./ params.si);
 conditions = fullfact([nAmps, nFreqs, nPulseWidths, nRecoveryTimes]);
 
-params.templates = repmat({nan(numel(tt), 1)}, 1, size(conditions, 1));
+params.templates_trains = repmat({nan(numel(tt), 1)}, 1, size(conditions, 1));
 
 % loop over the conditions and construct the waveform for each sweep
 for i_cond = 1:size(conditions, 1)
     
     % zero out everything up to the sample before the first pulse
-    params.templates{i_cond}(1:tStartIdx-1) = 0;
+    params.templates_trains{i_cond}(1:tStartIdx-1) = 0;
     
     % make a pulse "motif" based on the width of the pulse and the
     % amplitude
     tmp_pAmp = params.pAmp(conditions(i_cond, 1));
     tmp_pFreq = params.pFreq(conditions(i_cond, 2));
     tmp_pWidth = params.pWidth(conditions(i_cond, 3));
-    samplesPerPulse = ceil(tmp_pWidth ./ params.si) + 1; % need to add 1 b/c this is a 'fence post' problem
+    samplesPerPulse = ceil(tmp_pWidth ./ params.si); 
     
     % basic error checking
     assert(tmp_pAmp<=10, 'ERROR: pulse amp > 10 volts');
     assert(tmp_pWidth<=1, 'ERROR: pulse amp > 1 second');
     
     if strcmpi(params.type, 'pulse') || tmp_pFreq == 0 % only one pulse
-        params.templates{i_cond}(tStartIdx : tStartIdx+samplesPerPulse-1) = tmp_pAmp;
-        params.templates{i_cond}(tStartIdx+samplesPerPulse : end) = 0;
+        params.templates_trains{i_cond}(tStartIdx : tStartIdx+samplesPerPulse-1) = tmp_pAmp;
+        params.templates_trains{i_cond}(tStartIdx+samplesPerPulse : end) = 0;
         
     else % multiple pulses
         samplesPerPeriod = ceil(1./tmp_pFreq ./ params.si);
@@ -68,10 +67,10 @@ for i_cond = 1:size(conditions, 1)
         % now construct the train pulse by pulse
         idx = tStartIdx;
         for i_pulse = 1:params.nPulses
-            params.templates{i_cond}(idx:idx+samplesPerPeriod-1) = motif;
+            params.templates_trains{i_cond}(idx:idx+samplesPerPeriod-1) = motif;
             idx = idx + samplesPerPeriod;
         end
-        params.templates{i_cond}(idx:end) = 0; % add the trailing zeros
+        params.templates_trains{i_cond}(idx:end) = 0; % add the trailing zeros
         
         % add a recovery pulse if desired.
         if params.recovery
@@ -81,7 +80,7 @@ for i_cond = 1:size(conditions, 1)
             
             assert(idx + samplesPerPulse < numel(tt), 'ERROR: Train and recovery pulse can not fit in the sweep-time specified')
             
-            params.templates{i_cond}(idx:idx+samplesPerPulse-1) = tmp_pAmp;
+            params.templates_trains{i_cond}(idx:idx+samplesPerPulse-1) = tmp_pAmp;
         end
         
     
