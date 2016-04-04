@@ -51,7 +51,7 @@ fin
 %
 % Define the params that influence the entire data file (trains and RITs)
 %
-params.name = 'WCSTP_SR20kHz_TT11s_PW300us_';  % the name of the output .atf file
+params.name = 'WCSTP_SR20kHz_TT11s_PW300us_xbar7_recovery_ResE6.atf';  % the name of the output .atf file
 params.si   = 50e-6;              % the sample INTERVAL (needs to be an iteger)
 params.swpDur = 20e4;            % The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
 params.tStart = 0.500;            % the time of the first pulse
@@ -77,7 +77,7 @@ params = makeSweepTemplates_trains(params); % templates are stored in params.tem
 %
 % make the sweep template(s) for the Random impulse trains
 %
-params.ritFreq = 5;
+params.ritFreq = 7;
 params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
 
 params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss

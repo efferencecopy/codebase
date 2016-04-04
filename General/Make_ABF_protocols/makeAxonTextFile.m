@@ -72,10 +72,10 @@ end
 
 % iterate over the sweeps, adding line by line. All the entries are
 % doubles, but I need to append \t and \n characters appropriately
-specMotif = '%.12f \t ';
+specMotif = '%.6f \t ';
 nCols = size(sweeps,2);
 formatSpec = repmat(specMotif, 1, nCols-1);
-formatSpec = [formatSpec, '%.12f \n'];
+formatSpec = [formatSpec, '%.6f \n'];
 for row = 1:size(sweeps,1);
     fprintf(fileID, formatSpec, sweeps(row,:));
 end

@@ -13,8 +13,6 @@ function params = makeSweepTemplates_poiss(params, UNITTEST)
 
 if exist('UNITTEST', 'var') && strcmpi(UNITTEST, 'unittest')
     params.pAmp = linspace(1,10, 100); % forces there to be 100 trains
-    params.ritFreq = 20;  % forces all the trains to have the same freq
-    params.ritFreqCut = 58;
 else
     UNITTEST = false;
 end
@@ -78,16 +76,20 @@ if UNITTEST
         crossings = diff(aboveThresh)==1;
         isi_samps = diff(find(crossings));
         isi_sec = isi_samps .* params.si;
-        all_isi(i_cond,:) = histcounts(isi_sec, [0:0.001:1]);
+        all_isi(i_cond,:) = histc(isi_sec, [0:0.001:2]);
         
     end
     
     % plot the resulting (average) CDF
     figure
     avgcounts = mean(all_isi, 1);
-    stairs([0:0.001:0.999], cumsum(avgcounts./sum(avgcounts)));
+    stairs([0:0.001:2], cumsum(avgcounts./sum(avgcounts)));
     set(gca, 'xscale', 'log')
     axis tight
+    title('average CDF of ISIs')
     
+    figure
+    hist(sum(all_isi,2))
+    title('number of pulses per sweep')
 end
 
