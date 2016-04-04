@@ -77,7 +77,7 @@ params = makeSweepTemplates_trains(params); % templates are stored in params.tem
 %
 % make the sweep template(s) for the Random impulse trains
 %
-params.ritFreq = 20;
+params.ritFreq = 5;
 params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
 
 params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
