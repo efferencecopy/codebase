@@ -51,7 +51,7 @@ fin
 %
 % Define the params that influence the entire data file (trains and RITs)
 %
-params.name = 'WCSTP_SR20kHz_TT11s_PW300us_xbar7_recovery_ResE6.atf';  % the name of the output .atf file
+params.name = 'WCSTP_SR20kHz_TT11s_PW300us_xbar7_recovery.atf';  % the name of the output .atf file
 params.si   = 50e-6;              % the sample INTERVAL (needs to be an iteger)
 params.swpDur = 20e4;            % The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
 params.tStart = 0.500;            % the time of the first pulse
@@ -79,6 +79,7 @@ params = makeSweepTemplates_trains(params); % templates are stored in params.tem
 %
 params.ritFreq = 7;
 params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
+params.rit_Nversions = 1;
 
 params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
 
@@ -88,10 +89,10 @@ params = makeSweepTemplates_poiss(params); % templates are stored in params.temp
 allSweepTemplates = cat(2, params.templates_trains, params.templates_poiss);
 
 % present 2 blocks, randomize order within block. Define a block as 1
-% repeat of each recovery train, and 3 repeats of the RIT.
+% repeat of each recovery train, and 1 repeat of the RIT.
 recoveryTrain_idx = 1:numel(params.templates_trains);
 poissTrain_idx = (1:numel(params.templates_poiss)) + max(recoveryTrain_idx);
-blockIdx = [recoveryTrain_idx, repmat(poissTrain_idx, 1, 3)];
+blockIdx = [recoveryTrain_idx, poissTrain_idx];
 trlTypes = [];
 for i_block = 1:5;
     randIdx = randperm(numel(blockIdx));
@@ -102,6 +103,32 @@ params.nSweeps = numel(trlTypes);
 
 % make the .stf file
 makeAxonTextFile(params, allSweepTemplates);
+
+
+%% ONLY RITs. SEVERAL VERSIONS
+
+fin
+
+%
+% Define the params that influence the entire data file (trains and RITs)
+%
+params.name = 'WCSTP_SR20kHz_TT11s_PW300us_RITonly_xbar7.atf';  % the name of the output .atf file
+params.si   = 50e-6;              % the sample INTERVAL (needs to be an iteger)
+params.swpDur = 20e4;            % The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
+params.tStart = 0.500;            % the time of the first pulse
+params.pAmp = 1;                  % A vector of amplitudes for the pulse height [interleaved variable]
+params.pWidth = 350e-6;           % A vector of pulse widths (in seconds)  [interleaved variable]
+
+params.ritFreq = 7;
+params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
+params.rit_Nversions = 50;
+
+params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
+params.nSweeps = numel(params.templates_poiss);
+params.trlTypes = 1:params.nSweeps; % I could randomize order, but each RIT is different, so whatever...
+
+% make the .stf file
+makeAxonTextFile(params, params.templates_poiss);
 
 
 

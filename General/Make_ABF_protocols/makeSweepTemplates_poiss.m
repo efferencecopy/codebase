@@ -9,10 +9,11 @@ function params = makeSweepTemplates_poiss(params, UNITTEST)
 % params.pWidth         =>  A vector of pulse widths (in seconds)  [interleaved variable]
 % params.ritFreq        =>  The frequency of the poiss train (approx)
 % params.ritHiFreqCut   =>  Cut out the frequencies above this value (in Hz)
+% params.rit_Nversions  =>  Number of different verions of RITs with identical params
 
 
 if exist('UNITTEST', 'var') && strcmpi(UNITTEST, 'unittest')
-    params.pAmp = linspace(1,10, 100); % forces there to be 100 trains
+    params.rit_Nversions = 100; % forces there to be 100 trains
 else
     UNITTEST = false;
 end
@@ -24,9 +25,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 nAmps = numel(params.pAmp);
 nFreqs = numel(params.ritFreq);
+nVersions = params.rit_Nversions;
 
 tStartIdx = ceil(params.tStart ./ params.si);
-conditions = fullfact([nAmps, nFreqs]);
+conditions = fullfact([nAmps, nFreqs, nVersions]);
 
 params.templates_poiss = repmat({zeros(params.swpDur, 1)}, 1, size(conditions, 1));
 
