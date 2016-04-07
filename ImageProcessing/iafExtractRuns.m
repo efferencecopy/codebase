@@ -37,8 +37,8 @@ for i_run = 1:Nruns;
     info_img{i_run}.Nframes = Nimage(i_run);
     Ntrials(i_run) = numel([info_run{i_run}.counter{:}]); % Determine the number of trials according the MATLAB file
     
-    NframesON(i_run) = info_run{i_run}.nScansOn; % Determine the number of frames during stim on
-    NframesOFF(i_run) = info_run{i_run}.nScansOff; % Determine the number of frames during the ISI
+    NframesON(i_run) = double(info_run{i_run}.nScansOn); % Determine the number of frames during stim on
+    NframesOFF(i_run) = double(info_run{i_run}.nScansOff); % Determine the number of frames during the ISI
    
 end
 
