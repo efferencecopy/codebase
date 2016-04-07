@@ -1,7 +1,6 @@
-function out = iafExtractRuns(fnames, relevantTrialAttributes)
+function out = iafExtractRuns(name_mat, name_img, relevantTrialAttributes)
 
-% 'fnames' must be an Nx2 cell array. The first column contains the .mat
-%          files and the second column contains the .tiff data
+% 
 %
 % 'relevantTrialAttributes' must be a cell array of strings denoting the 
 %          trial attributes that should be used to distinguish trial types.
@@ -16,17 +15,17 @@ out.OffResponse = {};
 trialAttributes = [];
 
 % load the .mat files to get trial by trial data
-fprintf('Loading in data for %d runs\n', size(fnames, 1))
+fprintf('Loading in data for %d runs\n', numel(name_mat))
 fprintf(' Loading the Matlab (trial by trial) data files\n')
-Nruns = size(fnames, 1);
+Nruns = numel(name_mat);
 for i_run = 1:Nruns;
     
     % Loading/Opening the datasets ('fnames' files)
-    info_img{i_run} = loadTIFF_info(fnames{i_run, 2}); % Structure array with one element for each image in the file (per run)
+    info_img{i_run} = loadTIFF_info(name_img{i_run}); % Structure array with one element for each image in the file (per run)
     
     % Loading in the trial attributes. In some cases the .mat file contains
     % multiple structures, so just take the one called 'input'
-    tdat = load(fnames{i_run, 1});
+    tdat = load(name_mat{i_run});
     info_run{i_run} = tdat.input; 
     
     % Defining the matrix attributes (# of rows/columns), according to 'info'
@@ -67,12 +66,13 @@ for i_run = 1:Nruns;
     
     % call loadTIFF
     fprintf(' Extracting tiff file %d of %d. ', i_run, Nruns); tic;
-    run_dfof = loadTIFF(fnames{i_run,2}, info_img{i_run}); %not actually dfof but setting up for in-place operations
+    run_dfof = loadTIFF(name_img{i_run}, info_img{i_run}); % not actually dfof but setting up for in-place operations
     fprintf('%.1f seconds \n', toc)
     run_dfof = double(run_dfof);
     
     % convert to dfof
     frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
+        out.frameRate = frameRate; % Push frameRate to outer function to be used in later analysis
     window_size_sec = (NframesON + NframesOFF)./frameRate * 2; % two trials worth of seconds
     fprintf('  Now computing dFoF. '); tic
     run_dfof = dfof_from_tiffstack(run_dfof, frameRate, window_size_sec);
@@ -95,8 +95,6 @@ for i_run = 1:Nruns;
         % the the trial data from the run
         frameNums = idx_start : idx_stop;
         Trial_dfof = run_dfof(:, :, frameNums);
-        
-        
         
         % figure out what the trial number is (cumulative over runs)
         if i_run > 1
