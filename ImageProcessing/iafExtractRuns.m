@@ -72,10 +72,10 @@ for i_run = 1:Nruns;
     
     % convert to dfof
     frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
-        out.frameRate = frameRate; % Push frameRate to outer function to be used in later analysis
-    window_size_sec = (NframesON + NframesOFF)./frameRate * 2; % two trials worth of seconds
+    out.frameRate = frameRate; % Push frameRate to outer function to be used in later analysis
+    NsampsPerTrial = NframesON + NframesOFF; 
     fprintf('  Now computing dFoF. '); tic
-    run_dfof = dfof_from_tiffstack(run_dfof, frameRate, window_size_sec);
+    run_dfof = dfof_from_tiffstack(run_dfof, frameRate, NsampsPerTrial);
     fprintf('%.0f seconds \n', toc)
     
     
@@ -98,7 +98,7 @@ for i_run = 1:Nruns;
         
         % figure out what the trial number is (cumulative over runs)
         if i_run > 1
-            trials_from_previous_runs = cumsum(Ntrials(1 : i_run-1));
+            trials_from_previous_runs = sum(Ntrials(1 : i_run-1));
         else
             trials_from_previous_runs = 0;
         end

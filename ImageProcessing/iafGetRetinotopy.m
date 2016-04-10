@@ -2,8 +2,8 @@ function iafGetRetinotopy(experimentType)
 
 
 % specify the actual trial types from the experiment type
-relevantTrialTypes = trialTypeLibrary(experimentType);
-udat.fid.ttypes = relevantTrialTypes;
+udat.fid.ttypes = trialTypeLibrary(experimentType);
+
 % has the user specified the file names? if not, call uigetfile and
 % figure out which .mat files correspond to which .tiff files. do this in a
 % sub-function
@@ -16,7 +16,7 @@ udat.fid.ttypes = relevantTrialTypes;
 
 % extract the runs, separate the data by trial type
 cd(udat.fid.path)
-dat = iafExtractRuns(udat.fid.names_mat, udat.fid.names_img, relevantTrialTypes);
+dat = iafExtractRuns(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes);
 N_types = size(dat.uniqueTrlTypes,1);
 
 % save the ImagingRate in the output of this function so that the user can 
@@ -31,39 +31,60 @@ for i_t_types = 1 : N_types
     udat.AvgTrialOFF{i_t_types} = iafGetAvgMovie(dat.OffResponse{i_t_types});
 end
 
-% make a figure showing the final images.
+%
+% Initialize the GUI window and display the final images
+%
 udat.ttypes = dat.uniqueTrlTypes;
 udat.text = dat.trlTypeHeader;
 udat.h.fig = figure;
 udat.h.fig.Units = 'Normalized';
-udat.h.fig.Position = [ 0.1526    0.2450    0.3211    0.6188];
+udat.h.fig.Position = [0.1526    0.2450    0.3211    0.6188];
 udat.h.ax = axes('position', [0.15 0.35 0.70 0.60]);
 if N_types > 1
-    udat.h.slide = uicontrol('style', 'slider', 'units', 'normalized', 'position', [0.30, 0.1, 0.40, 0.05],...
-        'Min', 1, 'Max', N_types, 'sliderstep', ones(1,2).*(1/(N_types-1)),...
-        'Value', 1, 'Interruptible', 'on', 'Callback', @updateImage, 'Enable', 'on',...
-        'ButtonDownFcn', @updateImage);
+    udat.h.slide = uicontrol('style', 'slider',...
+                             'units', 'normalized',...
+                             'position', [0.30, 0.2, 0.40, 0.05],...
+                             'Min', 1, 'Max', N_types,...
+                             'sliderstep', ones(1,2).*(1/(N_types-1)),...
+                             'Value', 1,...
+                             'Interruptible', 'on',...
+                             'Callback', @updateImage,...
+                             'Enable', 'on',...
+                             'ButtonDownFcn', @updateImage);
 end
-udat.h.artBox = uicontrol('style', 'edit', 'units', 'normalized', 'position', [0.25, 0.05, 0.1, 0.05],...
-                          'string', 5, 'Callback', @img_preProcess);
-uicontrol('style', 'text', 'units', 'normalized', 'position', [0.12, 0.014, 0.12, 0.05], ...
-          'string', 'Artifact', 'FontSize', 10)
-udat.h.smoothBox = uicontrol('style', 'edit', 'units', 'normalized', 'position', [0.75, 0.05, 0.1, 0.05],...
-                             'string', 1, 'Callback', @img_preProcess);
-uicontrol('style', 'text', 'units', 'normalized', 'position', [0.56, 0.014, 0.18, 0.05], ...
-          'string', 'Smoothing', 'FontSize', 10)
+udat.h.artBox = uicontrol('style', 'edit',...
+                          'units', 'normalized',...
+                          'position', [0.25, 0.11, 0.1, 0.05],...
+                          'string', 'off',...
+                          'Callback', @img_preProcess);
+uicontrol('style', 'text',...
+          'units', 'normalized',...
+          'position', [0.12, 0.1, 0.12, 0.05], ...
+          'string', 'Artifact',...
+          'FontSize', 10);
+udat.h.smoothBox = uicontrol('style', 'edit',...
+                             'units', 'normalized',...
+                             'position', [0.75, 0.11, 0.1, 0.05],...
+                             'string', 1,...
+                             'Callback', @img_preProcess);
+uicontrol('style', 'text',...
+          'units', 'normalized',...
+          'position', [0.56, 0.1, 0.18, 0.05], ...
+          'string', 'Smoothing',...
+          'FontSize', 10)
 udat.h.PushBtn = uicontrol('style', 'pushbutton',...
                            'units', 'Normalized',...
                            'String', 'Get R.O.I.',...
-                           'Position', [0.3786   0.15   0.25   0.05],...
+                           'Position', [[0.375   0.02   0.25   0.05]],...
                            'Callback', @get_ROI);
 udat.h.fig.UserData = udat;
 img_preProcess();
+
 end
 
 
 
-function updateImage(one, two)
+function updateImage(~,~)
     
     udat = get(gcf, 'UserData');
     
@@ -91,14 +112,14 @@ function updateImage(one, two)
     set(gcf, 'UserData', udat);
 end
 
-function img_preProcess(one, two) %AvgTrialON, AvgTrialOFF, filterSD, artifactMultiplier
+function img_preProcess(~,~)
     
     % grab the udat
     udat = get(gcf, 'UserData');
     
     % figure out the status of all the ui controls
     filterSD = round(str2double(udat.h.smoothBox.String));
-    artifactMultiplier = round(str2double(udat.h.artBox.String));
+    artifactMultiplier = str2double(udat.h.artBox.String);
     
     % look for oob errors on the inputs and fix
     if filterSD <= 0
@@ -142,10 +163,10 @@ function img_preProcess(one, two) %AvgTrialON, AvgTrialOFF, filterSD, artifactMu
         
         udat.final_img{i_type} = meanAcrossTime_on - meanAcrossTime_off;
     
-    % include the pre-processed data in the output of this function so that
-    % the user can analyze these data later
-    udat.preProcessed_ON{i_type} = tmpOn;
-    udat.preProcessed_OFF{i_type} = tmpOff;
+        % include the pre-processed data in the output of this function so that
+        % the user can analyze these data later
+        udat.preProcessed_ON{i_type} = tmpOn;
+        udat.preProcessed_OFF{i_type} = tmpOff;
     end
     
     udat.h.fig.UserData = udat;
@@ -153,31 +174,38 @@ function img_preProcess(one, two) %AvgTrialON, AvgTrialOFF, filterSD, artifactMu
 end
 
 function [names_mat, names_img, path] = ioGetFnames()
-
+    
+    global GL_DATPATH
+    
     % call uigetfile. with default directory. Save
     [names, path] = uigetfile({'*.mat;*.tif',...
                                'Related Files (*.mat;*.tif)'},...
                                'Select the Related MATLAB & TIFF files',...
                                'MultiSelect', 'on',...
-                               'S:\Data');
-    % Display choice
-    if isequal(names,0)
-        errordlg(sprintf(' File not found.\n User selected "Cancel".'), 'File Error')
-    end
+                               '\\crash.dhe.duke.edu\data\home\kyra\Data');
     
-    names_mat = names(strmatch('data', names));
-    names_img = names(strmatch('tiff', names));
+    % check to make sure the user selected a valid set of files
+    assert(iscell(names) || names~=0, 'ERROR: No files were selected.')
+    assert(numel(names)>=2 && rem(numel(names),2)==0, 'ERROR: Must select at least 2 files, and each .mat file must have associated .tiff file');
+    
+    
+    names_mat = names(strncmpi('data', names, 4));
+    names_img = names(strncmpi('tiff', names, 4));
+    assert(numel(names_mat) == numel(names_img), 'ERROR: each .mat file must have associated .tiff file')
 
-    % Attempt to check that the MATLAB files match up with the TIFF files
+    % make sure that the order of .mat files corresponds to the order of
+    % .tiff files: make sure each file comes from the same run.
     Nnames = numel(names_mat);
     for i_names = 1:Nnames
-        tag_mat{i_names} = regexpi(names_mat{i_names}, 'run[\d].', 'match');
-        tag_img{i_names} = regexpi(names_img{i_names}, 'run[\d].', 'match');
-        if strcmpi(tag_mat{i_names}, tag_img{i_names}) == 1;
-        else
-            errordlg ('Your MATLAB files may not match up with your TIFF files!')
-        end
+        
+        tag_mat = regexpi(names_mat{i_names}, 'run[\d].', 'match');
+        tag_img = regexpi(names_img{i_names}, 'run[\d].', 'match');
+        
+        assert(strcmpi(tag_mat, tag_img),...
+            'The MATLAB files do not match up with the TIFF files!')
     end
+    
+    
 end
 
 function relevantTrialTypes = trialTypeLibrary(experimentType)
@@ -193,11 +221,15 @@ function relevantTrialTypes = trialTypeLibrary(experimentType)
 
 end
 
+function get_ROI(~,~)
 
-function get_ROI (source, eventdata)
+    % grab the udat
+    udat = get(gcf, 'UserData');
 
-% grab the udat
-udat = get(gcf, 'UserData');
+    % strip out the udat gui handels, so that the new gui has a clean slate
+    udat.h = [];
 
-GetROI(udat);
+    % call the gui that selects ROIs
+    GetROI(udat);
+
 end
