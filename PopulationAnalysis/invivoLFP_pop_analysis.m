@@ -1,4 +1,7 @@
 %% designate an experiment to analyze, import the data
+
+error('need to review this code to make sure it is doing what I want')
+
 fin
 
 NSX = 'ns5'; % the version with the LFP continuous data
@@ -115,7 +118,7 @@ for i_ex = 4:Nexpts;
     % for the freq components of interest to be preserved and one that's evenly
     % divided into sampFreq_nsx. The LFP lowpass filter will be constrained
     % to be <= sampFreq_lfp / 5;
-    sampFreq_lfp = 1250;
+    sampFreq_lfp = 15000;
     
     pool = gcp('nocreate');
     if isempty(pool)

@@ -1,5 +1,8 @@
 function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp, NOISEMETHOD, STIMTYPE, NSX)
    
+
+error('need to review this code to make sure it is doing what I want. Filters may not be set correctly')
+
     lfp_data = blk.ras(:, lfp_ch_idx);
     sampFreq_nsx = blk.sum.(NSX).MetaTags.SamplingFreq;
 
@@ -12,29 +15,29 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp, NOISEMETHOD, STIMT
     
     
     % design and implement a band pass filter
-    bp_lp_cutoff = 250; % guards against alaising during downsampling
+    bp_lp_cutoff = floor(sampFreq_lfp./5); % guards against alaising during downsampling
     bp_hp_cutoff = 2;
-    order = 6;
+    order = 4;
     Wn = [bp_hp_cutoff, bp_lp_cutoff] ./ (sampFreq_nsx ./ 2);
     [B_bp, A_bp] = butter(ceil(order/2), Wn);
     assert(bp_lp_cutoff <= sampFreq_lfp./5, 'ERROR: LFP sampRate and filter are incompatable');
     
     parfor i_idx = 1: numel(lfp_data);
         
-        % band pass filter
-        lfp_data{i_idx} = filtfilt(B_bp, A_bp, lfp_data{i_idx})
-        
-        % remove 60Hz noise
-        switch NOISEMETHOD
-            case 'subtract'
-                N = numel(lfp_data{i_idx});
-                lfp_data{i_idx} = rmhum_2(lfp_data{i_idx}, sampFreq_nsx, 1, N, 60);
-            case 'filter'
-                lfp_data{i_idx} = filtfilt(B_notch, A_notch, lfp_data{i_idx})
-            case 'none'
-                % do nothing
-        end
-        
+%         % band pass filter
+%         lfp_data{i_idx} = filtfilt(B_bp, A_bp, lfp_data{i_idx})
+%         
+%         % remove 60Hz noise
+%         switch NOISEMETHOD
+%             case 'subtract'
+%                 N = numel(lfp_data{i_idx});
+%                 lfp_data{i_idx} = rmhum_2(lfp_data{i_idx}, sampFreq_nsx, 1, N, 60);
+%             case 'filter'
+%                 lfp_data{i_idx} = filtfilt(B_notch, A_notch, lfp_data{i_idx})
+%             case 'none'
+%                 % do nothing
+%         end
+%         
     end
     
     
@@ -54,19 +57,19 @@ function dat = extractLFPandMU(blk, lfp_ch_idx, sampFreq_lfp, NOISEMETHOD, STIMT
     % downsample
     for i_cond = 1:numel(ptypes);
         
-        tmp_data = lfpSnips.(ptypes{i_cond});
-        parfor i_ch = 1:numel(tmp_data);
-            
-            % downsample
-            NdownSample = sampFreq_nsx ./ sampFreq_lfp;
-            assert(rem(NdownSample,1)==0, 'ERROR: new sampFreq does not divide evenly into old rate')
-            tmp_data{i_ch} = downsample(tmp_data{i_ch}', NdownSample)'; % notice the transpose(s)
-            
-        end
-        
-        % put things back
-        lfpSnips.(ptypes{i_cond}) = tmp_data;
-        
+%         tmp_data = lfpSnips.(ptypes{i_cond});
+%         parfor i_ch = 1:numel(tmp_data);
+%             
+%             % downsample
+%             NdownSample = sampFreq_nsx ./ sampFreq_lfp;
+%             assert(rem(NdownSample,1)==0, 'ERROR: new sampFreq does not divide evenly into old rate')
+%             tmp_data{i_ch} = downsample(tmp_data{i_ch}', NdownSample)'; % notice the transpose(s)
+%             
+%         end
+%         
+%         % put things back
+%         lfpSnips.(ptypes{i_cond}) = tmp_data;
+%         
     end
     
     dat.lfpsnips = lfpSnips;
