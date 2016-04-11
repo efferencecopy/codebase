@@ -10,6 +10,13 @@ if ~exist('showplot', 'var')
     showplot = false;
 end
 
+if isrow(in)
+    in = in(:);
+    SETTOROW = true;
+else
+    SETTOROW = false;
+end
+
 
 if ischar(in) && strcmpi(in, 'unittest');
     UNITTEST = 1;
@@ -113,29 +120,30 @@ for a = 1:numel(lines)
     tt = tt-template_zero; 
     fit = sin(2 .* pi .* (tt+params(2)) .* params(3)) .* params(1);
     out = out - fit;
-
-
-
-
-% do some basic plotting if the unittest is turned on
-if UNITTEST || showplot
-    figure,
-    set(gcf, 'position', [745   123   183   636])
-    subplot(3,1,1), hold on,
-    plot(tt, in, 'b')
-    plot(tt, fit, 'k', 'linewidth', 2)
     
-    subplot(3,1,2), hold on,
-    plot(tt, out, 'r')
-    
-    subplot(3,1,3), hold on
-    plot(ff, fftshift(abs(fft(out)))./numel(fit), 'r');
-    plot(ff, fftshift(abs(fft(in)))./numel(fit), 'b');
-    xlim([omega-5 omega+5])
-end
+    % do some basic plotting if the unittest is turned on
+    if UNITTEST || showplot
+        figure,
+        set(gcf, 'position', [745   123   183   636])
+        subplot(3,1,1), hold on,
+        plot(tt, in, 'b')
+        plot(tt, fit, 'k', 'linewidth', 2)
+        
+        subplot(3,1,2), hold on,
+        plot(tt, out, 'r')
+        
+        subplot(3,1,3), hold on
+        plot(ff, fftshift(abs(fft(out)))./numel(fit), 'r');
+        plot(ff, fftshift(abs(fft(in)))./numel(fit), 'b');
+        xlim([omega-5 omega+5])
+    end
 
 end
 
+% condition the output argument
+if SETTOROW
+    out = out';
+end
 
 
 % nested numerical solver

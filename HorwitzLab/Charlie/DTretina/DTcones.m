@@ -110,8 +110,8 @@ end
 function [gab, params] = initGabor(params)
     
     % common to both methods:
-    nContrasts = 6;
-    gab.nTrials = 5000;
+    nContrasts = 23;
+    gab.nTrials = 0;
     
     switch lower(params.runType)
         
@@ -125,9 +125,7 @@ function [gab, params] = initGabor(params)
             gab.length = 0.666;   % in sec
             gab.rf_x = -50;        % in 1/10 dva
             gab.rf_y = -35;         % in 1/10 dva
-            gab.colorDirs = [1, 1, 1;...
-                             1, -1, 0;...
-                             0, 0, 1];
+            gab.colorDirs = [0, 0, 1];
             cntrsts = [0, logspace(log10(0.0001), log10(0.15), nContrasts)];
             gab.contrasts = repmat({cntrsts}, size(gab.colorDirs,1), 1);
             
@@ -794,7 +792,7 @@ function [cones, gab] = makeConeLinearFilter(params, cones, mon, gab)
     TauP = 0.5311; %Period
     Phi = 34.1814; %Phase
     Filter = ScFact .* (((TimeAxis./TauR).^3)./(1+((TimeAxis./TauR).^3))) .* exp(-((TimeAxis./TauD))).*cos(((2.*pi.*TimeAxis)./TauP)+(2*pi*Phi/360));
-
+  
     % estimate latency
     [~, idx] = max(Filter);
     cones.latency = TimeAxis(idx);
@@ -871,7 +869,7 @@ function cones = makeConePowerSpectrum(cones, gab, params)
     tmpFreqs = freqAxis(l_posFreq);
     PS_posFreq = abs(lorentzCoeffs(1)) ./ (1 + (tmpFreqs ./ abs(lorentzCoeffs(2))).^2).^lorentzCoeffs(3);
     PS_posFreq = PS_posFreq + abs(lorentzCoeffs(4)) ./ (1 + (tmpFreqs ./ abs(lorentzCoeffs(5))).^lorentzCoeffs(6));
-
+    
     % generate the negative portion of the PS by finding the PS at the
     % abs(negative freqs). This is b/c juan's model is only defined on the
     % positve interval
@@ -916,7 +914,7 @@ function cones = makeConePowerSpectrum(cones, gab, params)
         cones.modelNoise_ps = ones(size(cones.modelNoise_ps));
         newVar = N .* (1./(N*(N-1)));
         cones.modelNoise_ps = ones(size(cones.modelNoise_ps)) .* (oldVar./newVar);
-        sum(cones.modelNoise_ps) .* (1./(N*(N-1)))
+        sum(cones.modelNoise_ps) .* (1./(N*(N-1)));
         warning('using a flat noise PS')
     end
     
@@ -1221,7 +1219,6 @@ function [idlob, cones] = obsMethod_noClrEqSpace(command, idlob, gab, cones, mon
             [wt_spaceTime, ~] = upsampleAndBookend(wt_spaceTime, cones, [0 0 0]);
             tRange = (cones.nFrontPad+1) : (size(wt_spaceTime,3) - cones.nBackPad);
             wt_spaceTime = wt_spaceTime(:,:, tRange, :); %hack off the bookends.
-
             
             
             % (2) calculate the mean response of the ideal observer

@@ -76,6 +76,7 @@ function io_exportData(varargin)
     
     % grab the contents of the user data
     cellFillData = get(gcf, 'userdata');
+    cellFillData.h = [];
     
     % save the data interactively
     uisave('cellFillData', ['cellFillData_', cellFillData.raw.info.shortName, '.mat'])
@@ -128,7 +129,7 @@ function gui_initialize(raw)
     h.main = figure;
     set(h.main, 'name', sprintf('Optical Dissector'),...
                 'units', 'normalized',...
-                'position', [0.2660 0.0356 0.6 0.89],...
+                'position', [0.3628 0.0394 0.5998 0.8900],...
                 'windowkeypressfcn', {@gui_keypress})
             
     % useful constants    
@@ -145,7 +146,7 @@ function gui_initialize(raw)
     
                         
     % add an axis for a slice through the vertical dimension
-    h.ax_sliceVert = axes('position', [.30, 0.02, .2, .96]);
+    h.ax_sliceVert = axes('position', [.32, 0.02, .2, .96]);
     gl.Xplane = round(raw.info.Width/2); % default starting slice is in the middle
     gl.sliceExapandScalar = ceil(50./raw.info.Nframes);
     vertSlice = squeeze(raw.img(:, gl.Xplane, :));
@@ -443,8 +444,8 @@ y = y-udat.gl.Xplane;
 z = z-udat.gl.Zplane;
 ellipsoid = sqrt( (x.^2)/4 + (y.^2)/4 + z.^2 );
 
-cellsize = 4;
-surroundsize = 13;
+cellsize = 3; % default: 4
+surroundsize = 7; % default: 13
 cellmask = ellipsoid < cellsize;
 surroundmask =  (ellipsoid < surroundsize) & ~((ellipsoid < cellsize+1.5) | udat.mask.img); % making a shell around the cell mask
 
@@ -465,7 +466,7 @@ mean_inside = mean(tmpraw(cellmask));
 mean_surround = mean(tmpraw(surroundmask));
 SNR = mean_inside/mean_surround;
 
-% only accept SNR > 1.4
+% only accept SNR > 1.3
 if SNR < 1.5
     fprintf('SNR was too low: %.3f\n', SNR)
     return

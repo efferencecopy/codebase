@@ -266,7 +266,7 @@ end
 clc; close all;
 
 % Set the parameters of the analysis
-observer = 'sedna';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
+observer = 'kali';         % Kali_DTNT_0713.mat or Sedna_DTNT_0713.mat
 sfIdx = logical([1;0;0;0])  % which SF should be analyzed? [0.5 1 2 4] for kali, [0.5, 1, 2, 4] for sedna
 viewSetting = 'isolum';   % could also be 'lm plane', 's vs l+m', 'isolum'
 plottype = '3D';
@@ -1877,6 +1877,7 @@ fnames = fnamesFromTxt2([DTNT_txtfile, filename]);
 
 idx = 0;
 minTrials = inf;
+numTrials = nan(numel(fnames), 3);
 for a = 1:numel(fnames)
     if strncmp('sf:', fnames{a}, 3)
         continue %skip non-data file txt lines that zack uses for something unknown to me
@@ -1897,7 +1898,8 @@ for a = 1:numel(fnames)
     
     for clr = 1:size(tmpColor,1)
         tmp = sum(DT.trial(:, DT.idx.colorDir) == clr);
-        minTrials = min([minTrials, tmp])
+        minTrials = min([minTrials, tmp]);
+        numTrials(a, clr) = tmp;
     end
         
     

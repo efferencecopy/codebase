@@ -8,7 +8,7 @@ fin
 
 % define the experiment parameters
 params.runType = 'default';                      % 'DTVT', 'DTNT', 'absThresh' or 'default'
-params.obsMethod = 'obsMethod_filteredWtFxn';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
+params.obsMethod = 'obsMethod_noClrEqSpace';     % 'obsMethod_noClrEqSpace' or 'obsMethod_absThresh' or 'obsMethod_phaseInvariant' or 'obsMethod_filteredWtFxn'
 params.Ncones = nan;                             % set to NaN, except when using the absThresh functionality
 params.monCalFile = 'DTcals.mat';                % 'DTcals.mat', 'DTcals_100Hz_framerate.mat', 'DTcals_825Hz_framerate.mat' or 'DTcals_equal_bkgnd.mat'
 params.impulseResponse = 'rieke';                % params.impulseResponse    => 'rieke', or 'deltafxn'
@@ -26,7 +26,7 @@ params.parallelOperations = false;
 
 % enable some debugging options if necesary
 params.unitTest = false;             % true or false
-params.eqMosaic = true;            % for debugging. true or false
+params.eqMosaic = false;             % for debugging. true or false
 params.aperatureMosaic = false;      % only for DTV1 experiments
 
 % make some notes... 

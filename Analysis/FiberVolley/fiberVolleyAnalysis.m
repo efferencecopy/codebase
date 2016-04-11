@@ -1,4 +1,4 @@
-function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES)
+function [trace, info] = fiberVolleyAnalysis(exptList, exptWorkbook, PLOTFIGURES, RMLINENOISE, EXPTTYPE)
 
 
 if ~exist('PLOTFIGURES', 'var')
@@ -25,11 +25,12 @@ validConds = {'none',...
               'nbqx_apv_cd2_ttx',...
               'nbqx_apv_ttx',...
               'ttx',...
-              'cd2_ttx'};
+              'cd2_ttx',...
+              'ttx_cd2',...
+              'ttx_cd2_4ap'};
           
 exptConds = cellfun(@(x) regexprep(x, '\+', '_'), exptConds, 'uniformoutput', false);
-idx = cellfun(@(x,y) regexpi(x,y), exptConds, repmat({validConds}, size(exptConds)), 'uniformoutput', false);
-idx = cellfun(@(x) any([x{:}]), idx);
+idx = cellfun(@(x) any(strcmpi(x,validConds)), exptConds);
 assert(all(idx), 'ERROR: at least one experimental condition is not recognized');
 
 % ERROR CHECKING: make sure that the tmp.head.validChans is consistent
@@ -42,7 +43,7 @@ assert(size(channelConfigs,1)==1, 'ERROR: The recorded channels changes from fil
 
 
 % read in all the data
-clc
+fprintf('\n');
 fprintf('reading in the data for fiber volley analysis\n')
 for i_fid = 1:numel(fnames)
     fprintf('   reading <%s>\n', fnames{i_fid})
@@ -59,8 +60,28 @@ for i_fid = 1:numel(fnames)
     end
     
     % store the data, grouped by unique conditions. First, I need to figure
-    % out the appropriate field name for each condition
-    tdict = outerleave(tmp, tmp.idx.LED_470);
+    % out the appropriate field name for each condition, to do this, I need
+    % to figure out which channel has the optical stimulation, and then run
+    % 'outerleave.m'
+    led_present = isfield(tmp.idx, 'LED_470'); %ledidx = tmp.idx.LED_470;
+    laser_present = isfield(tmp.idx, 'Laser'); %laseridx = tmp.idx.Laser;
+    estim_present = isfield(tmp.idx, 'estim_in');
+
+    N_stimtypes = sum([led_present, laser_present, estim_present]);
+    assert(N_stimtypes==1, 'ERROR: Too many stimulus types are defined');
+    
+    if led_present
+        optostimidx = tmp.idx.LED_470;
+    elseif laser_present
+        optostimidx = tmp.idx.Laser;
+    elseif estim_present
+        optostimidx = tmp.idx.estim_in;
+    end
+    assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
+    
+    tmpWF = tmp.dat(:, optostimidx, :);
+    sampRate = tmp.head.sampRate;
+    tdict = outerleave(tmpWF, sampRate);
     nSweepTypes = size(tdict.conds,1);
     
     
@@ -102,9 +123,23 @@ for i_fid = 1:numel(fnames)
             swpType = ['tf', num2str(fileTFs(i_sweepType)), '_recov', num2str(fileRecovs(i_sweepType))];
         end
         
+        % add the stimulation type to the field name. this will prevent
+        % confusion if the LED and Laser were used with identical stimulus
+        % parameters
+        exceptions = {'2015_10_15_0016_rescued', '2015_10_15_0018_rescued', '2015_10_15_0020_rescued'};
+        exceptions = any(cellfun(@(x) ~isempty(x), regexpi(fnames{i_fid}, exceptions))); % files that had no LED WFs aquired so I recscued the files by copying idential cmd waveforms from a laser stim example.
+        if led_present || exceptions
+            swpType = [swpType, '_led'];
+        elseif laser_present
+            swpType = [swpType, '_laser'];
+        elseif estim_present
+            swpType = [swpType, '_estim'];
+        end
+        
         drugType = exptConds{i_fid};
         
         % make a franken-abf struct
+        ax.(swpType).(drugType).name = tmp.name;
         ax.(swpType).(drugType).head = tmp.head;
         ax.(swpType).(drugType).dat = tmp.dat(:,:,tdict.trlList == i_sweepType);
         ax.(swpType).(drugType).idx = tmp.idx;
@@ -112,6 +147,7 @@ for i_fid = 1:numel(fnames)
         ax.(swpType).(drugType).pWidth = tdict.conds(i_sweepType,2);
         ax.(swpType).(drugType).pTF = fileTFs(i_sweepType);
         ax.(swpType).(drugType).tRecov = fileRecovs(i_sweepType);
+        ax.(swpType).(drugType).realTrialNum = find(tdict.trlList == i_sweepType);
     end
 
 end
@@ -143,7 +179,12 @@ for i_sweepType = 1:numel(sweepTypeFields)
             % figure out the appropriate index to the data. It should have
             % the correct "HSx_" prefix, and have the correct units
             whichChan = validChans(i_ch);
-            correctUnits = strcmpi('mV', ax.(swpType).(drugType).head.recChUnits);
+            switch EXPTTYPE
+                case 'Intracellular'
+                    correctUnits = strcmpi('pA', ax.(swpType).(drugType).head.recChUnits);
+                otherwise
+                    correctUnits = strcmpi('mV', ax.(swpType).(drugType).head.recChUnits);
+            end
             correctHS = strncmpi(sprintf('HS%d_', whichChan), ax.(swpType).(drugType).head.recChNames, 3);
             chIdx = correctUnits & correctHS;
             assert(sum(chIdx)==1, 'ERROR: incorrect channel selection')
@@ -151,11 +192,29 @@ for i_sweepType = 1:numel(sweepTypeFields)
             tmp = ax.(swpType).(drugType).dat(:, chIdx,:);
             tmp = squeeze(tmp);
             
-            
             % baseline subtract, determine when the pulses came on...
             thresh = 0.05;
-            ledIdx = ax.(swpType).(drugType).idx.LED_470;
-            template = ax.(swpType).(drugType).dat(:,ledIdx,1);
+            led_present = isfield(ax.(swpType).(drugType).idx, 'LED_470');
+            laser_present = isfield(ax.(swpType).(drugType).idx, 'Laser');
+            estim_present = isfield(ax.(swpType).(drugType).idx, 'estim_in');
+            
+            N_stimtypes = sum([led_present, laser_present, estim_present]);
+            assert(N_stimtypes==1, 'ERROR: Too many stimulus types are defined');
+            
+            if led_present
+                optostimidx = ax.(swpType).(drugType).idx.LED_470;
+                stimtype = 'led';
+            elseif laser_present
+                optostimidx = ax.(swpType).(drugType).idx.Laser;
+                stimtype = 'laser';
+            elseif estim_present
+                optostimidx = ax.(swpType).(drugType).idx.estim_in;
+                stimtype = 'estim';
+            end
+            assert(numel(optostimidx) == 1, 'ERROR: too many optostim channels defined')
+            
+            
+            template = ax.(swpType).(drugType).dat(:,optostimidx,1);
             template = template > thresh;
             template = [0; diff(template)];
             storedCrossings_on{i_sweepType} = template == 1;
@@ -169,24 +228,33 @@ for i_sweepType = 1:numel(sweepTypeFields)
             
             
             % filter out the high frequency stuff. Filtering shouldn't go
-            % below 2500 b/c you'll start to carve out the fiber volley
+            % below 1500 b/c you'll start to carve out the fiber volley
             % (which is only a few ms wide)
-            lp_freq = 2500;
-            filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+            switch EXPTTYPE
+                case 'E-stim'
+                    filtered = tmp;
+                otherwise
+                    lp_freq = 1500;
+                    filtered = butterfilt(tmp, lp_freq, sampFreq, 'low', 1);
+            end
+            filtered = bsxfun(@minus, filtered, mean(filtered(pulseOnset-bkgndSamps:pulseOnset-1, :),1));
             
             % take the mean
             average = mean(filtered,2);
             trace.(swpType).(drugType)(:,i_ch) = average;
             
+            
         end % i_ch
         
         % store the pulse onset times for the population analysis
+        info.(swpType).(drugType).realTrialNum = ax.(swpType).(drugType).realTrialNum;
         info.(swpType).(drugType).pulseOn_idx = storedCrossings_on{i_sweepType};
         info.(swpType).(drugType).pulseOff_idx = storedCrossings_off{i_sweepType};
         info.(swpType).(drugType).sampRate = ax.(swpType).(drugType).head.sampRate;
         info.(swpType).(drugType).pWidth = ax.(swpType).(drugType).pWidth;
         info.(swpType).(drugType).pAmp = ax.(swpType).(drugType).pAmp;
         info.(swpType).(drugType).pTF = ax.(swpType).(drugType).pTF;
+        info.(swpType).(drugType).stimtype = stimtype;
         
     end % i_drug
 end % i_swpType
@@ -205,6 +273,8 @@ for i_sweepType = 1:numel(sweepTypeFields)
     % none - nbqx_apv                   =>   synapticTransmission
     % ttx - cd2_ttx                     =>   direct release from terminals?
     % none                              =>   control
+    % ttx conditions                    =>   opsin current
+    % ttx_cd2 - ttx_cd2_4ap             =>   Potissum currents
     
     
     % generate some field names
@@ -227,6 +297,8 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).synapticTransmission.pWidth = info.(swpType).none.pWidth;
         info.(swpType).synapticTransmission.pAmp = info.(swpType).none.pAmp;
         info.(swpType).synapticTransmission.pTF = info.(swpType).none.pTF;
+        info.(swpType).synapticTransmission.realTrialNum = info.(swpType).none.realTrialNum;
+        info.(swpType).synapticTransmission.stimtype = info.(swpType).none.stimtype;
     end
     
     % is there a ttx condition that can be used to define fiber volley with
@@ -248,21 +320,28 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
         info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
         info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
+        info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
+        info.(swpType).FV_Na_Ca2_mGluR.stimtype = info.(swpType).nbqx_apv.stimtype;
     
     elseif nbqx_apv_Present && nbqx_apv_cd2_ttx_Present
         
         pWidthMatch = info.(swpType).nbqx_apv.pWidth == info.(swpType).nbqx_apv_cd2_ttx.pWidth;
         pAmpMatch = info.(swpType).nbqx_apv.pAmp == info.(swpType).nbqx_apv_cd2_ttx.pAmp;
-        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
-        
-        trace.(swpType).FV_Na_Ca2_mGluR = trace.(swpType).nbqx_apv - trace.(swpType).nbqx_apv_cd2_ttx;
-        
-        info.(swpType).FV_Na_Ca2_mGluR.pulseOn_idx = info.(swpType).nbqx_apv.pulseOn_idx;
-        info.(swpType).FV_Na_Ca2_mGluR.pulseOff_idx = info.(swpType).nbqx_apv.pulseOff_idx;
-        info.(swpType).FV_Na_Ca2_mGluR.sampRate = info.(swpType).nbqx_apv.sampRate;
-        info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
-        info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
-        info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
+        if ~(pWidthMatch && pAmpMatch)
+            fprintf('>>>   Omiting FV_Na_Ca2_mGluR due to mismatch in pWidth or pAmp\n')
+        else
+            
+            trace.(swpType).FV_Na_Ca2_mGluR = trace.(swpType).nbqx_apv - trace.(swpType).nbqx_apv_cd2_ttx;
+            
+            info.(swpType).FV_Na_Ca2_mGluR.pulseOn_idx = info.(swpType).nbqx_apv.pulseOn_idx;
+            info.(swpType).FV_Na_Ca2_mGluR.pulseOff_idx = info.(swpType).nbqx_apv.pulseOff_idx;
+            info.(swpType).FV_Na_Ca2_mGluR.sampRate = info.(swpType).nbqx_apv.sampRate;
+            info.(swpType).FV_Na_Ca2_mGluR.pWidth = info.(swpType).nbqx_apv.pWidth;
+            info.(swpType).FV_Na_Ca2_mGluR.pAmp = info.(swpType).nbqx_apv.pAmp;
+            info.(swpType).FV_Na_Ca2_mGluR.pTF = info.(swpType).nbqx_apv.pTF;
+            info.(swpType).FV_Na_Ca2_mGluR.realTrialNum = info.(swpType).nbqx_apv.realTrialNum;
+            info.(swpType).FV_Na_Ca2_mGluR.stimtype = info.(swpType).nbqx_apv.stimtype;
+        end
     end
     
     % is there a ttx+cd condition that can be used to define the fiber
@@ -282,6 +361,8 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).FV_Na.pWidth = info.(swpType).nbqx_apv_cd2.pWidth;
         info.(swpType).FV_Na.pAmp = info.(swpType).nbqx_apv_cd2.pAmp;
         info.(swpType).FV_Na.pTF = info.(swpType).nbqx_apv_cd2.pTF;
+        info.(swpType).FV_Na.realTrialNum = info.(swpType).nbqx_apv_cd2.realTrialNum;
+        info.(swpType).FV_Na.stimtype = info.(swpType).nbqx_apv_cd2.stimtype;
     end
     
     
@@ -303,46 +384,77 @@ for i_sweepType = 1:numel(sweepTypeFields)
         info.(swpType).directRelease.pWidth = info.(swpType).ttx.pWidth;
         info.(swpType).directRelease.pAmp = info.(swpType).ttx.pAmp;
         info.(swpType).directRelease.pTF = info.(swpType).ttx.pTF;
+        info.(swpType).directRelease.realTrialNum = info.(swpType).ttx.realTrialNum;
+        info.(swpType).directRelease.stimtype = info.(swpType).ttx.stimtype;
+    end
+    
+    % are there conditions that can be used to determine potasium currents
+    ttx_cd2_present = isfield(trace.(swpType), 'ttx_cd2');
+    cd2_ttx_4ap_present = isfield(trace.(swpType), 'ttx_cd2_4AP');
+    if ttx_cd2_present && cd2_ttx_4ap_present
+        
+        pWidthMatch = info.(swpType).ttx_cd2.pWidth == info.(swpType).ttx_cd2_4AP.pWidth;
+        pAmpMatch = info.(swpType).ttx_cd2.pAmp == info.(swpType).ttx_cd2_4AP.pAmp;
+        assert(pWidthMatch && pAmpMatch, 'ERROR: pulse amp or width are not consistent');
+        
+        trace.(swpType).potassium = trace.(swpType).ttx_cd2 - trace.(swpType).ttx_cd2_4AP;
+        
+        info.(swpType).potassium.pulseOn_idx = info.(swpType).ttx_cd2.pulseOn_idx;
+        info.(swpType).potassium.pulseOff_idx = info.(swpType).ttx_cd2.pulseOff_idx;
+        info.(swpType).potassium.sampRate = info.(swpType).ttx_cd2.sampRate;
+        info.(swpType).potassium.pWidth = info.(swpType).ttx_cd2.pWidth;
+        info.(swpType).potassium.pAmp = info.(swpType).ttx_cd2.pAmp;
+        info.(swpType).potassium.pTF = info.(swpType).ttx_cd2.pTF;
+        info.(swpType).potassium.realTrialNum = info.(swpType).ttx_cd2.realTrialNum;
+        info.(swpType).potassium.stimtype = info.(swpType).ttx_cd2.stimtype;
     end
     
     
     
-    
-    % try to reduce line noise from a few of the traces
-    conds = {'FV_Na_Ca2_mGluR', 'FV_Na', 'ttx', 'cd2_ttx', 'directRelease'};
-    for i_cond = 1:numel(conds)
-        
-        if isfield(trace.(swpType), conds{i_cond})
+    if RMLINENOISE
+        % try to reduce line noise from a few of the traces
+        conds = {'FV_Na_Ca2_mGluR', 'FV_Na', 'ttx', 'cd2_ttx', 'directRelease', 'synapticTransmission'};
+        for i_cond = 1:numel(conds)
             
-            tmp_trace = trace.(swpType).(conds{i_cond});
-            
-            lines = [5.5, 60.*(1:4)];
-            winEnd_idx = size(tmp_trace,1);
-            if info.(swpType).(conds{i_cond}).pTF >= 40;
-                % just look at the data following the last pulse.
-                lastpulse = find(info.(swpType).(conds{i_cond}).pulseOff_idx==1, 1, 'last');
-                sampRate = info.(swpType).(conds{i_cond}).sampRate;
-                winStart_idx = lastpulse + ceil(0.100 ./ sampRate);
-            else
-                % this takes all the data (even the pulses) but is better
-                % then just taking the data after the last pulse b/c long
-                % trains have essentially no data after them.
-                winStart_idx = 1; 
+            if isfield(trace.(swpType), conds{i_cond})
+                
+                tmp_trace = trace.(swpType).(conds{i_cond});
+                
+                lines = 60;
+                winEnd_idx = size(tmp_trace,1);
+                if info.(swpType).(conds{i_cond}).pTF >= 40;
+                    % just look at the data following the last pulse.
+                    lastpulse = find(info.(swpType).(conds{i_cond}).pulseOff_idx==1, 1, 'last');
+                    sampRate = info.(swpType).(conds{i_cond}).sampRate;
+                    winStart_idx = lastpulse + ceil(0.15 .* sampRate);
+                else
+                    % this takes all the data (even the pulses) but is better
+                    % then just taking the data after the last pulse b/c long
+                    % trains have essentially no data after them.
+                    winStart_idx = 1;
+                end
+                
+                for i_ch = 1:size(tmp_trace,2)
+                    tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
+                end
+                
+                trace.(swpType).(conds{i_cond}) = tmp_trace;
+                
             end
-            
-            for i_ch = 1:size(tmp_trace,2)
-                tmp_trace(:,i_ch) = rmhum(tmp_trace(:,i_ch), sampFreq, winStart_idx, winEnd_idx, lines);
-            end
-            
-            trace.(swpType).(conds{i_cond}) = tmp_trace;
-            
         end
     end
-        
+    
+    % filter some of the traces more agressively
+    conds = {'synapticTransmission'};
+    for i_cond = 1:numel(conds)
+        if isfield(trace.(swpType), conds{i_cond})
+            tmp_trace = trace.(swpType).(conds{i_cond});
+            tmp_trace = butterfilt(tmp_trace, 1000, sampFreq, 'low', 1);
+            trace.(swpType).(conds{i_cond}) = tmp_trace;
+        end
+    end
     
 end
-
-
 
 
 
@@ -363,7 +475,7 @@ if PLOTFIGURES
             % create tabbed GUI
             hFig = figure;
             set(gcf, 'position', [40 48 972 711]);
-            set(gcf, 'name', sprintf('%s, site %d, %s, chan: %d', mouseNames{1}, siteNumber{1}, sweepTypeFields{i_sweepType}, channelList(i_ch)))
+            set(gcf, 'name', sprintf('%s, site %.1f, %s, chan: %d', mouseNames{1}, siteNumber{1}, sweepTypeFields{i_sweepType}, channelList(i_ch)))
             s = warning('off', 'MATLAB:uitabgroup:OldVersion');
             hTabGroup = uitabgroup('Parent',hFig);
             

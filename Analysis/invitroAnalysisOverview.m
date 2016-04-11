@@ -31,8 +31,13 @@ if ~isempty(params.photo)% don't plot the figure when the physiology_notes scrip
     for i_photo = 1:numel(d)
         if strncmpi(d(i_photo).name, params.photo, numel(params.photo))
             figure
-            img = imread(d(i_photo).name);
-            imshow(img);
+            img = double(imread(d(i_photo).name));
+            info = imfinfo(d(i_photo).name);
+            maxpixval = prctile(img(:), [99.9]);
+            normfact = min([maxpixval, 2^info.BitDepth-1]);
+            img = (img ./ normfact) .* (2^info.BitDepth-1); % auto adjust LUT
+            
+            imshow(uint8(img));
             set(gcf, 'name', sprintf('%s cell %d', params.mouse, params.cellNum))
             set(gcf, 'position', [582    17   847   598]);
             drawnow
@@ -48,6 +53,9 @@ if ~isempty(params.photo)% don't plot the figure when the physiology_notes scrip
             stimPoints = round(stimPoints .* pixperum); %now in pix
             stimPoints = bsxfun(@plus, stimPoints, centPos); % pix relative to neuron
             hold on,
+            if isempty(clrIdx)
+                clrIdx = round(linspace(1,size(map,1), size(stimPoints,1))); % colors for various plots
+            end
             for a = 1:size(stimPoints,1)
                 plot(stimPoints(a,1), stimPoints(a,2), 'o', 'markeredgecolor', map(clrIdx(a),:), 'markerfacecolor', map(clrIdx(a),:), 'markersize', 10)
             end
