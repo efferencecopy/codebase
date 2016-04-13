@@ -1,4 +1,4 @@
-function [dFoF, Fo] = dfof_from_tiffstack(img_raw, frameRate, NsampsPerTrial)
+function [dFoF, Fo] = dfof_from_tiffstack(img_raw, NsampsPerTrial)
 %
 % EXAMPLE: dFoF = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
 
@@ -20,7 +20,7 @@ B_box_Fo = cat(2, B_box_Fo, zeros(1, NsampsPerTrial)); % delay the filter by one
 % user turns on the light after hitting the go button. This fix assumes
 % that the problem is isolated to the first few seconds, if not, then there
 % will be additional problems later.
-bkgnd = img_raw(:,:,1:window_size_samps);
+bkgnd = img_raw(:,:,1:window_size_samps); %#ok<*BDSCI>
 normal_stderr = std(img_raw(:,:,window_size_samps+1:2*window_size_samps), [], 3);
 normal_raw = mean(img_raw(:,:,window_size_samps+1:2*window_size_samps), 3);
 critval = 3.* normal_stderr;
@@ -37,24 +37,29 @@ end
 % front-pad the image stack so that the filter kernal comes to steady state
 % before it hits the data
 bkgnd = mean(img_raw(:,:,1:window_size_samps),3);
-pad = repmat(bkgnd, [1,1,window_size_samps+5]);
+pad_length = 5;
+pad = repmat(bkgnd, [1,1,window_size_samps+pad_length]);
 tmp_img = cat(3, pad, img_raw);
 
 % run the filter for Fo
 Fo = filter(B_box_Fo, 1, tmp_img, [], 3);
-Fo(:,:,1:window_size_samps+5) = [];
+Fo(:,:,1:window_size_samps+pad_length) = [];
 
 % now just do the math
 dFoF =  (img_raw - Fo) ./ Fo;
 
 % crazy idea: subtract the mean across all pixels to eliminate image wide
-% noise that has nothing to do with IAF or hemodynamics
+% noise that has nothing to do with IAF or hemodynamics. Make sure that the
+% thing you subtract off has the same sigma as each pixel time series.
 xbar = mean(mean(dFoF,1),2);
-dFoF = bsxfun(@minus, dFoF, xbar);
+sigma = std(dFoF,[],3);
+scaleFactor = sigma ./ std(xbar(:)); % a scale factor to equate sigma on a pix by pix basis
+rsub = bsxfun(@times, xbar, scaleFactor);
+assert(all(all((sigma - std(rsub,[],3))<1e-10)), 'ERROR: sigmas are not the same')
+dFoF = dFoF - rsub;
 
-
+% some figures for de-bugging:
 tmp = permute(Fo(140:150,:,:), [3,1,2]);
 tmp = reshape(tmp, size(tmp, 1),[]);
 figure
-plot(tmp, 'k'); hold on,
-% plot(squeeze(xbar), 'r');
+plot(tmp); hold on,
