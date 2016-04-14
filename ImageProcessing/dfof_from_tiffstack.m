@@ -59,7 +59,8 @@ assert(all(all((sigma - std(rsub,[],3))<1e-10)), 'ERROR: sigmas are not the same
 dFoF = dFoF - rsub;
 
 % some figures for de-bugging:
-tmp = permute(Fo(140:150,:,:), [3,1,2]);
+tmp = permute(dFoF(140:150,:,:), [3,1,2]);
 tmp = reshape(tmp, size(tmp, 1),[]);
+r = corr(tmp);
 figure
-plot(tmp); hold on,
+imagesc(r); colorbar;

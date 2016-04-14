@@ -1,7 +1,7 @@
 %% LOAD THE DATA
 
 fin
-
+cd('C:\Users\charlie\Desktop')
 [filename, path] = uigetfile({'*.mat',...
                                'Related Files (*.mat)'},...
                                'Select the Related MATLAB file');
@@ -29,33 +29,50 @@ for i_va = 1:num_vas % for every Visual Area 'available' in AvgImage
         
     % convert R/C indicies to linear indicies. Note:
     % size(udat.final_img{1}) == size(udat.preProcessed_ON{1}(:,:,1))
-    linIdx = sub2ind(size(udat.final_img{1}), rows, columns); %Placement of 'important' pixels for the first frame
+    linIdx_roi = sub2ind(size(udat.final_img{1}), rows, columns); %Placement of 'important' pixels for the first frame
     
     % linIdx is the index of each ROI pixel on the 1'st frame. Now we need
-    % to slove for the linear index of all pixel across all frames.
-    Nframes = size(udat.preProcessed_ON{1}, 3);
-    linIdx = repmat(linIdx, Nframes, 1); % lists "placement" Nframes times (not taking into account change in frame); rows = # frames & columns = Npixels
-
-    Nelements = numel(udat.final_img{1}); % Determines the total number of elements in the matrix
-    frameAdjuster = repmat(Nelements, 1, Npixels);  % length of vector = Npixels
-    frameAdjuster = bsxfun(@times, repmat(frameAdjuster, Nframes, 1), [0:1:Nframes-1]');
-
-    newIdx = linIdx + frameAdjuster; % applies adjuster to the "placement"
-    newIdx = newIdx(:); % lists every idx# (in a column) SANITY CHECK: rows of newIdx should = Npixels*Nframes
-
+    % to slove for the linear index of all pixel across all frames. Do this
+    % separately for the ON and OFF movies
+    NframesON = size(udat.preProcessed_ON{1}, 3);
+    NframesOFF =  size(udat.preProcessed_OFF{1}, 3);
+    for i_movie = 1:2
+        
+        if i_movie == 1
+            Nframes = NframesON;
+        elseif i_movie == 2
+            Nframes = NframesOFF;
+        end
+        
+        linIdx_tmp = repmat(linIdx_roi, Nframes, 1); % lists "placement" Nframes times (not taking into account change in frame); rows = # frames & columns = Npixels
+        
+        Nelements = numel(udat.final_img{1}); % Determines the total number of elements in the matrix
+        frameAdjuster = repmat(Nelements, 1, Npixels);  % length of vector = Npixels
+        frameAdjuster = bsxfun(@times, repmat(frameAdjuster, Nframes, 1), [0:1:Nframes-1]');
+        
+        newIdx = linIdx_tmp + frameAdjuster; % applies adjuster to the "placement"
+        newIdx = newIdx(:); % lists every idx# (in a column) SANITY CHECK: rows of newIdx should = Npixels*Nframes
+    
+        if i_movie == 1
+            newIdx_on = newIdx;
+        elseif i_movie == 2
+            newIdx_off = newIdx;
+        end
+    end
+    
     % Use the linear index to extract the dfof data from the processed data
     Nttypes = size(udat.ttypes, 1); %Nttypes = Total # of Stimulus Types (Trial Types)
     for i_ttypes = 1 : Nttypes
         
         % first grab the dfof data for the ON period. Reshape the array to
         % [Nframes x NPixels]
-        roi_on = udat.preProcessed_ON{i_ttypes}(newIdx);
-        roi_on = reshape(roi_on, Nframes, []);
+        roi_on = udat.preProcessed_ON{i_ttypes}(newIdx_on);
+        roi_on = reshape(roi_on, NframesON, []);
         
         % now grab the dfof data for the OFF period. Reshape the array to
         % [Nframes x NPixels]
-        roi_off = udat.preProcessed_OFF{i_ttypes}(newIdx);
-        roi_off = reshape(roi_off, Nframes, []);
+        roi_off = udat.preProcessed_OFF{i_ttypes}(newIdx_off);
+        roi_off = reshape(roi_off, NframesOFF, []);
         
         % concatenate the on and off portions
         pixelMatrix{i_va}{i_ttypes} = cat(1, roi_on, roi_off);
@@ -87,10 +104,9 @@ h_img = imshow(plotimg);
 
 %% ANALYZE THE dFoF AND PLOT AVERAGE TIMESERIES
 
-MAKEPLOT = false;
+MAKEPLOT = true;
 
 Nttypes = size(udat.ttypes, 1);
-NframesON = size(udat.preProcessed_ON{1}, 3);
 
 popdat.on = {};
 popdat.off = {};
@@ -114,7 +130,7 @@ for i_va = 1:num_vas
         meanON = mean(meanON(:)); % identical to taking mean across time first, then mean across pix.
         popdat.on{i_va}(i_ttypes) = meanON;
         
-        meanOFF = pixelMatrix{i_va}{i_ttypes}(NframesON+1:end,:);
+        meanOFF = pixelMatrix{i_va}{i_ttypes}(NframesON+2:end-4,:);
         meanOFF = mean(meanOFF(:)); % identical to taking mean across time first, then mean across pix.
         popdat.off{i_va}(i_ttypes) = meanOFF;
         
@@ -157,10 +173,10 @@ if MAKEPLOT
             
             Nframes = size(pixelMatrix{i_va}{i_ttypes}, 1);
             tt = [0:Nframes-1] .* (1/udat.frameRate);
-            plot(tt, pixelMatrix{i_va}{i_ttypes})
+            plot(tt, mean(pixelMatrix{i_va}{i_ttypes},2))
             axis tight
             
-            ttON = (NframesON-1).* (1/udat.frameRate);
+            ttON = (NframesON).* (1/udat.frameRate);
             line([ttON  ttON], ylim, 'LineStyle', ':', 'Color', 'k') % Mark 'Stimulus Offset'
             
             % add a line for the mean across time
