@@ -10,19 +10,19 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 %
 % OUTPUTS:
 %
-% dat.qc.Rs: series resistance for HS1,2 [1xNtrials]
-% dat.qc.p1amp: amplitude for first pulse of each sweep for HS1,2 [1xNtrials]
-% dat.qc.vhold: measured holding potential for each sweep, HS1,2 [1xNtrials]
+% dat.qc.Rs         -> series resistance for HS1,2 [1xNtrials]
+% dat.qc.p1amp      -> amplitude for first pulse of each sweep for HS1,2 [1xNtrials]
+% dat.qc.vhold      -> measured holding potential for each sweep, HS1,2 [1xNtrials]
 % 
-% dat.dcsteps.Vm_raw: raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
-% dat.dcsteps.Icmd: magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
+% dat.dcsteps.Vm_raw     -> raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
+% dat.dcsteps.Icmd       -> magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
 % 
-% dat.expt.[stimType].raw.snips: pA trace surrounding the EPSC for HS1,2 [Npulses x Ntime x Nsweeps]
-% dat.expt.[stimType].stats.EPSCamp: EPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is inward
-% dat.expt.[stimType].stats.IPSCamp: IPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is outward
-% dat.expt.[stimType].stats.latency: time to peak of PSC in seconds [Npulses x 1 x Nsweeps]
-% dat.expt.[stimType].realTrialNum: the actual trial number for each of the sweeps
-% dat.expt.[stimType].tdict: the trialtype dictionary entry for this condition
+% dat.expt.[stimType].raw.snips           -> trace surrounding the EPSC for HS1,2 [Npulses x Ntime x Nsweeps]
+% dat.expt.[stimType].stats.EPSCamp       -> EPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is inward
+% dat.expt.[stimType].stats.IPSCamp       -> IPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is outward
+% dat.expt.[stimType].stats.latency       -> time to peak of PSC in seconds [Npulses x 1 x Nsweeps]
+% dat.expt.[stimType].realTrialNum        -> the actual trial number for each of the sweeps
+% dat.expt.[stimType].tdict               -> the trialtype dictionary entry for this condition
 % 
 % dat.info.opsin
 % dat.info.fid.dcsteps
@@ -35,6 +35,7 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 % dat.info.posttime.dcsteps
 % dat.info.sampRate.vclamp
 % dat.info.sampRate.iclamp
+% dat.info.sweepLength.vclamp   -> Total time of sweep. Useful for plotting 
 
 
 
@@ -49,7 +50,7 @@ dat = unpack_dc_injections(dat);
 
 
 % unpack the Vclamp trains data set(s)
-dat = unpack_vclamp_trains(dat);
+dat = unpack_vclamp_trains(dat, exinfo, hidx);
 
 end
 
@@ -73,11 +74,8 @@ function dat = unpack_dc_injections(dat)
     % dat.dcsteps.Vm_raw: raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
     % dat.dcsteps.Icmd: magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
 
-    global GL_DATPATH 
-    
-    fprintf('  Unpacking DC current injections. Mouse %s, file %s\n', dat.info.mouseName, dat.info.fid.dcsteps)
-    fpath = strcat(GL_DATPATH, dat.info.mouseName, filesep, 'Physiology', filesep, dat.info.fid.dcsteps, '.abf');
-    ax = abfobj(fpath);
+    fprintf('  Unpacking DC current injections\n')
+    ax = abfobj(dat.info.fid.dcsteps);
     
     % fill out the info struct
     dat.info.sampRate.iclamp = ax.head.sampRate;
@@ -139,7 +137,7 @@ function dat = unpack_dc_injections(dat)
 
 end
 
-function dat = unpack_vclamp_trains(dat)
+function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     %
     % NEED TO DEFINE THE FOLLOWING:
     %
@@ -154,14 +152,14 @@ function dat = unpack_vclamp_trains(dat)
     % dat.qc.p1amp: amplitude for first pulse of each sweep for HS1,2 [1xNtrials]
     % dat.qc.vhold: measured holding potential for each sweep, HS1,2 [1xNtrials]
     
-    global GL_DATPATH 
+     
 
-    fprintf('  Unpacking Vclamp trains. Mouse %s, file %s\n', dat.info.mouseName, dat.info.fid.vclamp)
-    fpath = strcat(GL_DATPATH, dat.info.mouseName, filesep, 'Physiology', filesep, dat.info.fid.vclamp, '.abf');
-    ax = abfobj(fpath);
+    fprintf('  Unpacking Vclamp trains\n')
+    ax = abfobj(dat.info.fid.vclamp);
     
     % fill out the info struct
     dat.info.sampRate.vclamp = ax.head.sampRate;
+    dat.info.sweepLength.vclamp = size(ax.dat, 1) ./ ax.head.sampRate;
     
     % figure out which channels were turned on, and set to Vclamp
     Vclamp_idx = strcmpi(ax.head.recChUnits, 'pA'); % units are telegraphed from Multiclamp and more accurate than "names"
@@ -242,6 +240,9 @@ function dat = unpack_vclamp_trains(dat)
                 dat.expt.(condname).raw.snips{i_ch}(i_pulse,:,:) = permute(tmp, [2,1,3]);
             end
             
+            % deal with deleted sweeps here
+            
+            
             % subtract off the background from all the pulses
             bkgnd = mean(dat.expt.(condname).raw.snips{i_ch}(:,1:preTime_samps,:), 2);
             dat.expt.(condname).raw.snips{i_ch} = bsxfun(@minus, dat.expt.(condname).raw.snips{i_ch}, bkgnd);
@@ -285,7 +286,7 @@ function dat = unpack_vclamp_trains(dat)
         HSname = Vclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
         idx = strcmpi(qc.chNames, HSname);
         dat.qc.Rs{i_ch} = permute(qc.dat(1,idx,:), [3,1,2]);
-        dat.qc.vhold{i_ch} = permute(qc.Verr(1,idx,:), [3,1,2]);
+        dat.qc.verr{i_ch} = permute(qc.Verr(1,idx,:), [3,1,2]);
         
         
         % Extract the p1 amp from the existing data in a for-loop

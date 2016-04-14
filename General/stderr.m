@@ -1,4 +1,10 @@
 function sem = stderr(data, dim)
+%
+%  STANDARD ERROR OF THE MEAN 
+%
+% EXAMPLE:    sem = stderr(data, [dim])
+%
+% C.Hass 2015
 
 if isempty(data)
     sem = NaN;

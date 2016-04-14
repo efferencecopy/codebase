@@ -26,6 +26,13 @@ end
 % now that the header is formed, delete the first row.
 wb_expt(1,:) = [];
 
+% convert the file names into fully qualified paths so that par-for can run
+% without calling a global
+iclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFDCsteps), 'uniformoutput', false);
+vclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFOptostim), 'uniformoutput', false);
+wb_expt(:,hidx.ABFDCsteps) = iclamp_fpath;
+wb_expt(:,hidx.ABFOptostim) = vclamp_fpath;                 
+                   
 % make each row it's own cell array so that it can be passed as a single
 % argument to the function that does the major unpacking
 attributes = {};
@@ -39,6 +46,7 @@ end
 %
 dat = {};
 Nexpts = numel(attributes);
+
 pool = gcp('nocreate');
 if isempty(pool)
     pool = parpool(min([32, Nexpts]));
@@ -71,7 +79,7 @@ for i_ex = 1:numel(dat)
             subplot(3,2,i_ch)
             tmp = dat{i_ex}.qc.Rs{i_ch};
             plot(tmp)
-            ylim([min([0,min(tmp(:))]), max(tmp(:))*2])
+            ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('R_{s} (MOhm)')
             xlabel('pulse number')
             title(sprintf('Channel %d', i_ch))
@@ -80,7 +88,7 @@ for i_ex = 1:numel(dat)
             subplot(3,2,2+i_ch)
             tmp = dat{i_ex}.qc.vhold{i_ch};
             plot(tmp)
-            ylim([min([0,min(tmp(:))]), max(tmp(:))*2])
+            ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('SS Verr (mV)')
             xlabel('pulse number')
             
@@ -88,7 +96,7 @@ for i_ex = 1:numel(dat)
             subplot(3,2,4+i_ch)
             tmp = dat{i_ex}.qc.p1amp{i_ch};
             plot(tmp)
-            ylim([min([0,min(tmp(:))]), max(tmp(:))*2])
+            ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('P1 amplitude')
             xlabel('pulse number')
             
@@ -98,10 +106,9 @@ for i_ex = 1:numel(dat)
     
 end
 
-%% 
 
 
-%% QULAITY CONTROL PLOTS
+%% STP SUMMARY FOR EACH RECORDING
 
 close all
 
@@ -126,11 +133,16 @@ for i_ex = 1:numel(dat)
             % stem plot
             subplot(Nconds,2, 2.*(i_cond-1) + i_ch)
             tmp = dat{i_ex}.expt.(conds{i_cond}).stats.EPSCamp{i_ch};
-            tmp = mean(tmp,3);
+            xbar = mean(tmp,3);
+            sem = stderr(tmp,3);
             tt = dat{i_ex}.expt.(conds{i_cond}).pOnTimes;
-            stem(tt, tmp)
-            ylabel('Pulse amp (pA)')
-            xlabel('pulse time')
+            my_errorbar(tt, xbar, sem, 'ok', 'markersize', 3, 'linewidth', 1)
+            xlim([0, dat{i_ex}.info.sweepLength.vclamp]);
+            set(gca, 'yticklabel', [])
+            if i_cond < Nconds
+                set(gca, 'xticklabel', [])
+            end
+
             
         end
     end
