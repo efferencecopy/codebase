@@ -21,6 +21,7 @@ ttypes = fieldnames(in.expt);
 for i_type = 1:numel(ttypes)
     pOnTimes{i_type} = in.expt.(ttypes{i_type}).pOnTimes;
     raw{i_type} = in.expt.(ttypes{i_type}).stats.(psctype){channel};
+    raw{i_type} = mean(raw{i_type},3); % mean across sweeps
 end
 
 
@@ -69,16 +70,15 @@ fTau = fitparams(6);
 
         pred = {};
         for i_cond = 1:numel(raw)
-            
-            A0 = mean(raw{i_cond}(1,1,:), 3);
+            A0 = raw{i_cond}(1);
             pred{i_cond} = predictPSCfromTau(pOnTimes{i_cond}, k_d, tau_d, k_f, tau_f, A0);
         end
 
         % pool the errors across pulse train types. Ingore the first pulse
         % (becuse the error is artifactually = zero). Do some error
         % checking along the way.
-        err = cellfun(@(x,y) bsxfun(@rdivide, x(2:end,:,:), y(2:end,:,:)), raw, pred, 'uniformoutput', false);
-        sizeMatch = cellfun(@(x,y) numel(x)==(numel(y)-size(y,3)), err, raw); % subtracting off size(y,3) to account for the fact that I'm ignoring the first pulse
+        err = cellfun(@(x,y) x(2:end)./y(2:end), raw, pred, 'uniformoutput', false);
+        sizeMatch = cellfun(@(x,y) numel(x)==(numel(y)-1), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
         assert(all(sizeMatch), 'ERROR: unexpected dimensions after step 1')
         
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);

@@ -340,9 +340,9 @@ function newDate = convertDate(oldDate)
         
         
     elseif numel(oldDate)<=5
-        error('I do not know if this part of the code is still relevant')
+        
         % excel on the PC specifies datenums from 12/30/1899. So add an
-        % offset to bring things into alignment with the mac.
+        % offset to bring things into alignment with the mac or linux.
         offset = datenum('12/30/1899');
         tmp = str2double(oldDate)+offset;
         newDate = datestr(tmp, 23); % for some reason, things seem to be better if I subtract one?!?!
