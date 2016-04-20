@@ -1,6 +1,6 @@
 %% LOAD THE DATA
 
-fin
+
 cd('C:\Users\charlie\Desktop')
 [filename, path] = uigetfile({'*.mat',...
                                'Related Files (*.mat)'},...
@@ -104,7 +104,7 @@ h_img = imshow(plotimg);
 
 %% ANALYZE THE dFoF AND PLOT AVERAGE TIMESERIES
 
-MAKEPLOT = true;
+MAKEPLOT = false;
 
 Nttypes = size(udat.ttypes, 1);
 
@@ -145,7 +145,8 @@ end
 if MAKEPLOT
     
     fig = figure;
-    fig.Position = [189    26   668   751];
+    fig.Units = 'normalized';
+    fig.Position = [0.0757    0.0422    0.8187    0.8344];
     figName = regexpi(filename, '(\w\d+)', 'match');
     figName = regexpi(figName{1}, '(\d)', 'match');
     figName = ['k', figName{end-1}, figName{end}];
@@ -200,6 +201,8 @@ if MAKEPLOT
         
     end
 end
+
+
 %% JOINT SF-TF TUNING AND 1D SPEED TUNING
 
 sf_cpd = udat.ttypes(:,strcmpi(udat.text, 'tGratingSpatialFreqCPD'));
@@ -243,8 +246,9 @@ end
 
 
 % plot the joint SF-TF tuning matricies
-figure
-set(gcf, 'position', [259    47   969   711])
+f = figure;
+f.Units = 'normalized';
+f.Position = [0.1507    0.0578    0.6729    0.8022];
 plotdims = ceil(sqrt(num_vas));
 for i_va = 1:num_vas
     
@@ -265,8 +269,9 @@ end
 
 
 % plot the 1D speed tuning function
-figure
-set(gcf, 'position', [259    47   969   711])
+f = figure;
+f.Units = 'normalized';
+f.Position = [0.1507    0.0578    0.6729    0.8022];
 plotdims = ceil(sqrt(num_vas));
 for i_va = 1:num_vas
     

@@ -5,9 +5,9 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 5;
-BRAINAREA = 'any';
-COMBINE_CHIEF = true;
+EXPTTYPE = 1;
+BRAINAREA = 'al';
+COMBINE_CHIEF = false;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -3792,10 +3792,10 @@ PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'n
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
 
 % load in data from each area
-load('pop_al_stimL5_recL23.mat');
+load('pop_al_stimL23_recL23.mat');
 al_pop = pop;
 
-load('pop_pm_stimL5_recL23.mat');
+load('pop_pm_stimL23_recL23.mat');
 pm_pop = pop;
 
 
