@@ -294,12 +294,10 @@ h.EdgeAlpha = 0.1;
 % number of trails
 %
 
+RITTRAINS = true;
 
 clc, close all
 
-% setup some pulse times for the simulation
-pOnTimes = dat{9}.expt.RITv8.pOnTimes;
-Npulses = numel(pOnTimes);
 
 % setup a bunch of different plasticity values
 % version with facilitation and depression
@@ -314,29 +312,46 @@ A0 = 700;
 % setup the noise and trial counts
 sigma = A0 .* 0.10;
 mu = 0;
-Ntrials = 500;
-sim_iters = 50;
+Ntrials = 2;
+sim_iters = 10;
 
 
-pscreal = predictPSCfromTau(pOnTimes, [d1_real, d2_real], [tau_d1_real, tau_d2_real], f1_real, tau_f1_real, A0);
 testdat = cell(sim_iters,1);
+ttypes = fieldnames(dat{9}.expt);
+
+l_rit = cellfun(@any, regexpi(ttypes, 'rit'));
+if RITTRAINS
+    ttypes(~l_rit) = [];
+else
+    ttypes(l_rit) = [];
+end
 
 for i_iter = 1:sim_iters
     
-    psc_iter = repmat(pscreal, [1,1,Ntrials]) + normrnd(mu, sigma, [Npulses, 1, Ntrials]);
-    if any(psc_iter(:)<0); error('less than zero'); end
-    testdat{i_iter}.expt.RITv1.stats.EPSCamp{1} = psc_iter;
-    testdat{i_iter}.expt.RITv1.pOnTimes = pOnTimes;
+    for i_cond = 1:numel(ttypes)
+        % setup some pulse times for the simulation
+        pOnTimes = dat{9}.expt.(ttypes{i_cond}).pOnTimes;
+        Npulses = numel(pOnTimes);
+        pscreal = predictPSCfromTau(pOnTimes, [d1_real, d2_real], [tau_d1_real, tau_d2_real], f1_real, tau_f1_real, A0);
+        
+        psc_iter = repmat(pscreal, [1,1,Ntrials]) + normrnd(mu, sigma, [Npulses, 1, Ntrials]);
+        
+        if any(psc_iter(:)<0); error('less than zero'); end
+        
+        testdat{i_iter}.expt.(ttypes{i_cond}).stats.EPSCamp{1} = psc_iter;
+        testdat{i_iter}.expt.(ttypes{i_cond}).pOnTimes = pOnTimes;
+    end
+    
 end
 
 
 params_out = cell(sim_iters,1);
-parfor i_iter = 1:sim_iters
+for i_iter = 1:sim_iters
     fprintf('fit: iter = %d\n', i_iter);
     channel = 1;
     psctype = 'EPSCamp';
     [d_test, f_test, dTau_test, fTau_test] = fitTau2STP(testdat{i_iter}, psctype, channel, 'global');
-    params_out{i_iter} = [d_test, dTau_test, f_test, fTau_test]
+    params_out{i_iter} = [d_test, dTau_test, f_test, fTau_test];
 end
 
 
@@ -350,6 +365,22 @@ for i_param = 1:6
     histogram(params_out(:,i_param) - params_real(i_param))
 end
     
-    
+
+% save a version of the RIT and non-RIT train fits, and compare the
+% outcomes
+figure
+for i_param = 1:6
+    subplot(2,3,i_param)
+    plot(params_norit(:, i_param), params_rit(:, i_param), 'ko')
+    axis tight
+    ylims = get(gca, 'ylim');
+    xlims = get(gca, 'xlim');
+    maxval = max(abs([ylims, xlims]));
+    hold on,
+    plot([-maxval maxval], [-maxval maxval], 'k-')
+    axis equal
+    xlabel('Reg Trains')
+    ylabel('RIT')
+end
     
 
