@@ -47,12 +47,12 @@ end
 dat = {};
 Nexpts = numel(attributes);
 
-pool = gcp('nocreate');
-if isempty(pool)
-    pool = parpool(16);
-end
+% pool = gcp('nocreate');
+% if isempty(pool)
+%     pool = parpool(16);
+% end
 
-parfor i_ex = 1:Nexpts
+for i_ex = 1:Nexpts
     dat{i_ex} = wcstp_compile_data(attributes{i_ex}, hidx, params);
 end
 
@@ -73,34 +73,39 @@ for i_ex = 1:numel(dat)
     
     for i_ch = 1:2
         
+        % series resistance
         if ~isempty(dat{i_ex}.qc.Rs{i_ch})
-            
-            % series resistance
             subplot(3,2,i_ch)
             tmp = dat{i_ex}.qc.Rs{i_ch};
             plot(tmp)
             ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('R_{s} (MOhm)')
-            xlabel('pulse number')
+            xlabel('trial number')
             title(sprintf('Channel %d', i_ch))
-            
-            % vhold
+        end
+        
+        % vhold
+        if ~isempty(dat{i_ex}.qc.vhold{i_ch})            
             subplot(3,2,2+i_ch)
             tmp = dat{i_ex}.qc.vhold{i_ch};
             plot(tmp)
             ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('SS Verr (mV)')
-            xlabel('pulse number')
+            xlabel('trial number')
             
-            % p1amps
+        end
+        
+        % p1amps
+        if ~isempty(dat{i_ex}.qc.p1amp{i_ch})
             subplot(3,2,4+i_ch)
             tmp = dat{i_ex}.qc.p1amp{i_ch};
             plot(tmp)
             ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('P1 amplitude')
-            xlabel('pulse number')
-            
+            xlabel('trial number')
         end
+            
+        
     end
     drawnow
     
@@ -120,6 +125,8 @@ for i_ex = 1:numel(dat)
     
     f = figure;
     f.Name = sprintf('Mouse %s, site %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum);
+    f.Units = 'normalized';
+    f.Position = [0.1363    0.0301    0.7535    0.8762];
     
     for i_ch = 1:2
         
@@ -131,16 +138,16 @@ for i_ex = 1:numel(dat)
             end
             
             % stem plot
-            subplot(Nconds,2, 2.*(i_cond-1) + i_ch)
+            subplot(Nconds,2, 2.*(i_cond-1) + i_ch);
             tmp = dat{i_ex}.expt.(conds{i_cond}).stats.EPSCamp{i_ch};
             xbar = mean(tmp,3);
             sem = stderr(tmp,3);
             tt = dat{i_ex}.expt.(conds{i_cond}).pOnTimes;
-            my_errorbar(tt, xbar, sem, 'ok', 'markersize', 3, 'linewidth', 1)
+            my_errorbar(tt, xbar, sem, 'ok', 'markersize', 3, 'linewidth', 1);
             xlim([0, dat{i_ex}.info.sweepLength.vclamp]);
-            set(gca, 'yticklabel', [])
+            set(gca, 'yticklabel', []);
             if i_cond < Nconds
-                set(gca, 'xticklabel', [])
+                set(gca, 'xticklabel', []);
             end
 
             
@@ -176,7 +183,11 @@ end
 
 
 
-%% TEST CODE FOR STP TIME CONSTANTS
+%% TEST CODE FOR STP TIME CONSTANTS (1)
+
+%
+% compare fitted and 'real' parameters (without noise added)
+%
 
 clc, close all
 
@@ -222,14 +233,28 @@ parfor i_iter = 1:numel(params)
 end
 toc
 
-%% Estimate the shape of the error function
+%% TEST CODE FOR STP TIME CONSTANTS (2)
 
-pscreal = dat{9}.expt.RITv8.stats.EPSCamp{1};
-[a,b] = ndgrid(1:0.005:3, 0:0.005:1);
+%
+% estimate the shape of the error function
+%
+
+d1_real = 0.4;
+d2_real = 1;
+tau_d1_real = 1;
+tau_d2_real = 1;
+f1_real = 2;
+tau_f1_real = 2;
+A0 = 700;
+
+pOnTimes = dat{9}.expt.RITv8.pOnTimes;
+pscreal = predictPSCfromTau(pOnTimes, [d1_real, d2_real], [tau_d1_real, tau_d2_real], f1_real, tau_f1_real, A0);
+
+[a,b] = ndgrid(0.001:0.005:1, 0:0.050:3);
 errvals = nan(size(a));
 for idx = 1:numel(a)
-        k_d = [d1_real, d2_real];
-        tau_d = [a(idx),tau_d2_real];
+        k_d = [a(idx), d2_real];
+        tau_d = [tau_d1_real, tau_d2_real];
         k_f = b(idx);
         tau_f = tau_f1_real;
 
@@ -238,12 +263,77 @@ for idx = 1:numel(a)
         % pool the errors across pulse train types. Ingore the first pulse
         % (becuse the error is artifactually = zero). Do some error
         % checking along the way.
-        err = psc_real(2:end) ./  pred(2:end);
+        err = pscreal(2:end) ./  pred(2:end);
         err = sum(abs(log10(err))); % big negative powers of ten are good 
         errvals(idx) = err;
 end
        
-h = surf(a, b, errvals);
+h = surf(b, a, errvals);
 h.EdgeAlpha = 0.1;
 
+%% TEST CODE FOR STP TIME CONSTANTS (3)
+
+%
+% compare fitted and 'real' parameters with added noise, as a function of
+% number of trails
+%
+
+
+clc, close all
+
+% setup some pulse times for the simulation
+pOnTimes = dat{9}.expt.RITv8.pOnTimes;
+Npulses = numel(pOnTimes);
+
+% setup a bunch of different plasticity values
+% version with facilitation and depression
+d1_real = 0.7;
+d2_real = 0.95;
+tau_d1_real = 0.4;
+tau_d2_real = 2;
+f1_real = 0.7;
+tau_f1_real = 0.4;
+A0 = 700;
+
+% setup the noise and trial counts
+sigma = A0 .* 0.10;
+mu = 0;
+Ntrials = 500;
+sim_iters = 50;
+
+
+pscreal = predictPSCfromTau(pOnTimes, [d1_real, d2_real], [tau_d1_real, tau_d2_real], f1_real, tau_f1_real, A0);
+testdat = cell(sim_iters,1);
+
+for i_iter = 1:sim_iters
+    
+    psc_iter = repmat(pscreal, [1,1,Ntrials]) + normrnd(mu, sigma, [Npulses, 1, Ntrials]);
+    if any(psc_iter(:)<0); error('less than zero'); end
+    testdat{i_iter}.expt.RITv1.stats.EPSCamp{1} = psc_iter;
+    testdat{i_iter}.expt.RITv1.pOnTimes = pOnTimes;
+end
+
+
+params_out = cell(sim_iters,1);
+parfor i_iter = 1:sim_iters
+    fprintf('fit: iter = %d\n', i_iter);
+    channel = 1;
+    psctype = 'EPSCamp';
+    [d_test, f_test, dTau_test, fTau_test] = fitTau2STP(testdat{i_iter}, psctype, channel, 'global');
+    params_out{i_iter} = [d_test, dTau_test, f_test, fTau_test]
+end
+
+
+
+params_out = cat(1,params_out{:});
+params_real = [d1_real, d2_real, tau_d1_real, tau_d2_real, f1_real, tau_f1_real];
+
+figure
+for i_param = 1:6
+    subplot(2,3,i_param)
+    histogram(params_out(:,i_param) - params_real(i_param))
+end
+    
+    
+    
 

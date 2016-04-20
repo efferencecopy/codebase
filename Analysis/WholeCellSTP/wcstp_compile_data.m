@@ -271,14 +271,15 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     qc = ax.getRa;
     for i_ch = 1:2
         
+        dat.qc.Rs{i_ch} = [];
+        dat.qc.p1amp{i_ch} = [];
+        dat.qc.vhold{i_ch} = [];
+        
         % make sure data are present for this recording channel and
         % initialize the outputs
         HSname = sprintf('HS%d_', i_ch);
         HSpresent = strncmp(Vclamp_names, HSname, numel(HSname));
         if ~any(HSpresent)
-            dat.qc.Rs{i_ch} = [];
-            dat.qc.p1amp{i_ch} = [];
-            dat.qc.vhold{i_ch} = [];
             continue
         end
         
