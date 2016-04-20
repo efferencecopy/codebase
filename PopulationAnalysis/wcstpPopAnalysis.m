@@ -206,21 +206,37 @@ clear a b c d e f g W
 for i_iter = 1:numel(params)
     fprintf('define: iter = %d\n', i_iter);
     psc_test = predictPSCfromTau(pOnTimes, params{i_iter}(1:2), params{i_iter}(3:4), params{i_iter}(5), params{i_iter}(6), params{i_iter}(7));
+    if any(psc_test<0); error('found one below zero'); end
     testdat{i_iter}.expt.RITv1.stats.EPSCamp{1} = psc_test;
     testdat{i_iter}.expt.RITv1.pOnTimes = pOnTimes;
 end
 
 
 params_out = cell(numel(params),1);
-tic
+
 parfor i_iter = 1:numel(params)
     fprintf('fit: iter = %d\n', i_iter);
     channel = 1;
     psctype = 'EPSCamp';
-    [d_test, f_test, dTau_test, fTau_test] = fitTau2STP(testdat{i_iter}, psctype, channel, 'global');
+    [d_test, f_test, dTau_test, fTau_test] = fitTau2STP(testdat{i_iter}, psctype, channel, 'multistart');
     params_out{i_iter} = [d_test, dTau_test, f_test, fTau_test]
 end
-toc
+
+
+params_out = cat(1, params_out{:});
+params = cat(1, params{:});
+
+
+for i_param = 1:size(params,2)-1
+    figure
+    histogram(params(:,i_param)-params_out(:,i_param))
+end
+
+
+
+
+
+
 
 %% Estimate the shape of the error function
 

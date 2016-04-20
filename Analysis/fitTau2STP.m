@@ -42,21 +42,21 @@ switch method
     case 'multistart'
         ms = MultiStart;
         ms.UseParallel = 'always';
-        [fitparams, fval] = run(ms, problem, 100);
+        [fitparams, ~, exitflag] = run(ms, problem, 100);
     case 'global'
         gs = GlobalSearch;
-        [fitparams, fval] = run(gs, problem);
+        [fitparams, ~, exitflag] = run(gs, problem);
 end
 
 
-        
-
 % assign the outputs
+if exitflag <= 0
+    fitparams = nan(size(fitparams));
+end
 d = fitparams(1:2);
 dTau = fitparams(3:4);
 f = fitparams(5);
 fTau = fitparams(6);
-
 
 
 
