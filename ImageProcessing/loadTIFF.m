@@ -21,7 +21,8 @@ warning('off', warnID);
 if ~exist('info', 'var') || ~isfield(info, 'Nframes')
     tmpinfo = imfinfo(fpath);
     info.height_pix = tmpinfo(1).Height;
-    info.width_pix = tmpinfo(2).Width;
+    info.width_pix = tmpinfo(1).Width;
+    info.bitdepth = tmpinfo(1).BitDepth;
     info.Nframes = numel(tmpinfo);
 end
 

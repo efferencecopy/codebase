@@ -1,4 +1,4 @@
-function out = iafExtractRuns(name_mat, name_img, relevantTrialAttributes)
+function out = iafExtractRuns_offPeriod(name_mat, name_img, relevantTrialAttributes)
 
 % 
 %
@@ -51,6 +51,12 @@ rows = rows(1);
 columns = columns(1);
 NframesON = NframesON(1);
 NframesOFF = NframesOFF(1);
+frameNumsON = 1 : NframesON;
+frameNumsOFF = (NframesON + 1) : (NframesON + NframesOFF);
+
+% other useful info for now and later analyses
+frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
+out.frameRate = frameRate;
 
 % Preallocate space...
 totalNtrials = sum(Ntrials);
@@ -58,43 +64,40 @@ allON = repmat({nan(rows, columns, NframesON)}, totalNtrials, 1);
 allOFF = repmat({nan(rows, columns, NframesOFF)}, totalNtrials, 1);
 invalidTrials = false(totalNtrials, 1);
 
-
 for i_run = 1:Nruns;
-    
-    % grab the trial frame counter
-    all_trial_starts = [0, info_run{i_run}.counter{:}];
     
     % call loadTIFF
     fprintf(' Extracting tiff file %d of %d. ', i_run, Nruns); tic;
-    run_dfof = loadTIFF(name_img{i_run}, info_img{i_run}); % not actually dfof but setting up for in-place operations
+    img_raw = loadTIFF(name_img{i_run}, info_img{i_run});
     fprintf('%.1f seconds \n', toc)
-    run_dfof = double(run_dfof);
+    img_raw = double(img_raw);
     
-    % convert to dfof
-    frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
-    out.frameRate = frameRate; % Push frameRate to outer function to be used in later analysis
-    NsampsPerTrial = NframesON + NframesOFF; 
-    fprintf('  Now computing dFoF. '); tic
-    run_dfof = dfof_from_tiffstack(run_dfof, NsampsPerTrial);
-    fprintf('%.0f seconds \n', toc)
-    
+    % grab the trial frame counter
+    all_trial_starts = double([0, info_run{i_run}.counter{:}]);
     
     % extract each trial (on and off response separately)
     for i_trial = 1: Ntrials(i_run);
         
         % Define a start and stop position
-        idx_start = all_trial_starts(i_trial)+1;
-        idx_stop = all_trial_starts(i_trial+1);
-        
+        idx_start = all_trial_starts(i_trial)+1+NframesOFF;
+        if i_trial < Ntrials(i_run)
+            idx_stop = all_trial_starts(i_trial+1)+NframesOFF;
+        else
+            idx_stop = all_trial_starts(i_trial+1);
+        end
+            
         % Make sure it's a valid trial
         INVALID = false;
-        if idx_stop <= idx_start;
+        if idx_start >= idx_stop;
             INVALID = true;
+            keyboard
         end
         
-        % the the trial data from the run
+        % grab the trial data from the run and convert to dfof units
         frameNums = idx_start : idx_stop;
-        Trial_dfof = run_dfof(:, :, frameNums);
+        Trial_dfof = dfof_from_trial(img_raw, frameNums, frameRate);
+        Trial_dfof = decor_mean_subtract(Trial_dfof);
+        
         
         % figure out what the trial number is (cumulative over runs)
         if i_run > 1
@@ -112,36 +115,29 @@ for i_run = 1:Nruns;
             trialAttributes(combined_trial_num, i_attrib) = double(info_run{i_run}.(fieldName){i_trial});
         end
         
-        
-        
         % so that you can cull invalid trials after importing all the data
         if INVALID
             invalidTrials(combined_trial_num) = true;
         end
         
-        
-        % Define a start and stop position for ON/OFF parts of trial
-        frameNumsOFF = 1 : NframesOFF;
-        frameNumsON = (NframesOFF + 1) : (NframesOFF + NframesON);
-        assert((NframesOFF + NframesON) == size(Trial_dfof, 3), 'ERROR: inconsistent number of frames');
-        
-        % Extracting OFF parts of trial
-        if i_trial == 1
-            % do nothing b/c the "off" response for the Nth stimulus comes
-            % from the N+1 trial. And the first "off" portion is not in
-            % response to any stimulus
+        % error checking:
+        if i_trial < Ntrials
+            assert((NframesOFF + NframesON) == size(Trial_dfof, 3), 'ERROR: inconsistent number of frames');
         else
-            % put the "off" data for the Nth trial in the slot for the N-1
-            % trial. This is b/c the "off" response is causally related to
-            % what came before it, but the "off" period is in the beginnign
-            % of each trial. A consequence is that the last trial has no
-            % "off" response.
-            allOFF{combined_trial_num-1} = Trial_dfof(:,:,frameNumsOFF);
+            assert(NframesON == size(Trial_dfof, 3), 'ERROR: inconsistent number of frames');
         end
         
         
+        
+        % Extracting OFF parts of trial
+        if i_trial < Ntrials(i_run)
+            % The last trial does not have a true off response, so just
+            % aggregate the off responses for trials 1 to Ntrials-1
+            allOFF{combined_trial_num} = Trial_dfof(:,:,frameNumsOFF);
+        end
+        
         % Extracting ON parts of trial
-        allON{combined_trial_num} = Trial_dfof(:,:,frameNumsON);
+        allON{combined_trial_num} = Trial_dfof(:,:,frameNumsON); 
     end
 end
 
@@ -163,3 +159,38 @@ for i_t_types = 1 : N_types;
 end
 
 fprintf('Done importing data\n');
+
+end
+
+
+function dfof = dfof_from_trial(img_raw, trialFrameNums, frameRate)
+    
+    % use the last few seconds of the preceeding OFF period to convert F
+    % into dfof
+    Nframes_bkgnd = ceil(frameRate .* 4); % 4 seconds worth of bkgnd time
+    bkgnd_idx = [(trialFrameNums(1)-Nframes_bkgnd) : (trialFrameNums(1)-1)];
+    zeroFrames = sum(sum(img_raw(:,:,bkgnd_idx),1),2) == 0;
+    assert(~any(zeroFrames), 'ERROR: found some background (Fo) frames that were zero')
+    img_bkgnd = mean(img_raw(:,:,bkgnd_idx), 3);
+    
+    dfof = bsxfun(@minus, img_raw(:,:,trialFrameNums(1):trialFrameNums(end)), img_bkgnd);
+    dfof = bsxfun(@rdivide, dfof, img_bkgnd);
+end
+
+function dfof = decor_mean_subtract(dfof)
+    % crazy idea: subtract the mean across all pixels to eliminate image wide
+    % noise that has nothing to do with IAF or hemodynamics. Make sure that the
+    % thing you subtract off has the same sigma as each pixel time series.
+    xbar = mean(mean(dfof,1),2);
+    sigma = std(dfof,[],3);
+    scaleFactor = sigma ./ std(xbar(:)); % a scale factor to equate sigma on a pix by pix basis
+    rsub = bsxfun(@times, xbar, scaleFactor);
+    assert(all(all((sigma - std(rsub,[],3))<1e-10)), 'ERROR: sigmas are not the same')
+    
+    dfof = dfof - rsub;
+    
+end
+
+
+
+
