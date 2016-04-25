@@ -194,9 +194,7 @@ figName = regexpi(figName{1}, '(\d)', 'match');
 figName = ['k', figName{end-1}, figName{end}];
 
 figure; hold on,
-set(gcf, 'Name', sprintf('%s Selected-ROIs', figName), 'NumberTitle', 'off',...
-    'Units', 'normalized', 'Position', [0.0094  0.3813  0.9813  0.3212]);
-
+set(gcf, 'Name', sprintf('%s Selected-ROIs', figName), 'numbertitle', 'off');
 for i_day = 1: Ndays
     
     plotimg = cat(3, data{i_day}.udat.final_img{:});

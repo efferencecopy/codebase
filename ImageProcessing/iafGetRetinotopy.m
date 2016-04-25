@@ -40,6 +40,11 @@ udat.h.fig = figure;
 udat.h.fig.Units = 'Normalized';
 udat.h.fig.Position = [0.1526    0.2450    0.3211    0.6188];
 udat.h.ax = axes('position', [0.15 0.35 0.70 0.60]);
+
+% Name the figure according to filename
+musID = regexpi((regexpi(udat.fid.names_mat{1}, 'data-(\w\d+)', 'match')), '(\d+)', 'match');
+set(udat.h.fig, 'Name', sprintf('%s %s', musID{1}{1}, experimentType), 'NumberTitle', 'off');
+
 if N_types > 1
     udat.h.slide = uicontrol('style', 'slider',...
                              'units', 'normalized',...
