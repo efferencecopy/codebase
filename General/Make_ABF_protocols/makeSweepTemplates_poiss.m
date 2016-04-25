@@ -2,14 +2,15 @@ function params = makeSweepTemplates_poiss(params, UNITTEST)
 
 % params should have
 %
-% params.si             =>  the sample INTERVAL (needs to be an iteger)
-% params.swpDur         =>  The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
-% params.tStart         =>  the time of the first pulse
-% params.pAmp           =>  A vector of amplitudes for the pulse height [interleaved variable]
-% params.pWidth         =>  A vector of pulse widths (in seconds)  [interleaved variable]
-% params.ritFreq        =>  The frequency of the poiss train (approx)
-% params.ritHiFreqCut   =>  Cut out the frequencies above this value (in Hz)
-% params.rit_Nversions  =>  Number of different verions of RITs with identical params
+% params.si              =>  the sample INTERVAL (needs to be an iteger)
+% params.swpDur          =>  The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
+% params.tStart          =>  the time of the first pulse
+% params.pAmp            =>  A vector of amplitudes for the pulse height [interleaved variable]
+% params.pWidth          =>  A vector of pulse widths (in seconds)  [interleaved variable]
+% params.ritFreq         =>  The frequency of the poiss train (approx)
+% params.ritHiFreqCut    =>  Cut out the frequencies above this value (in Hz)
+% params.rit_Nversions   =>  Number of different verions of RITs with identical params
+% params.ritEnvelopeFreq =>  The frequency of a firing rate envelope. Can also be a vector of frequencies
 
 
 if exist('UNITTEST', 'var') && strcmpi(UNITTEST, 'unittest')
@@ -25,12 +26,16 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 nAmps = numel(params.pAmp);
 nFreqs = numel(params.ritFreq);
+nEnvelopes = numel(params.ritEnvelopeFreq);
 nVersions = params.rit_Nversions;
 
 tStartIdx = ceil(params.tStart ./ params.si);
-conditions = fullfact([nAmps, nFreqs, nVersions]);
+conditions = fullfact([nAmps, nFreqs, nEnvelopes, nVersions]);
 
+% initalize the outputs
 params.templates_poiss = repmat({zeros(params.swpDur, 1)}, 1, size(conditions, 1));
+params.conditions_poiss = conditions; % needs to be updated on a cond by cond basis
+params.ttype_header_poiss = {'pAmp', 'pFreq', 'envFreq', 'versionNum'};
 
 % loop over the conditions and construct the waveform for each sweep
 for i_cond = 1:size(conditions, 1)
@@ -45,10 +50,20 @@ for i_cond = 1:size(conditions, 1)
     nSampsPerTrain = params.swpDur - tStartIdx - round(0.500 ./ params.si);
     tt = [0:nSampsPerTrain-1] .* params.si;
     
+    % make a firing rate envelope (if need be)
+    if ~isfield(params, 'ritEnvelopeFreq') || ~isempty(params.ritEnvelopeFreq)
+        tmp_envFreq = params.ritEnvelopeFreq(conditions(i_cond,3));
+        envelope = sin(2.*pi.*tt.*tmp_envFreq);
+        envelope(envelope<0) = 0;
+    else
+        tmp_envFreq = nan;
+    end
+    
+    
     % now figure out the times of the pulses according to a quasi-poisson
     % process (almost a renewal-process?)
     randNums = unifrnd(0,1, 1, nSampsPerTrain);
-    spkThresh = tmp_pFreq .* params.si;
+    spkThresh = (envelope .* tmp_pFreq) .* params.si;
     spikeTrain = randNums < spkThresh;
     spikeTimes = tt(spikeTrain);
     
@@ -66,6 +81,11 @@ for i_cond = 1:size(conditions, 1)
     spikeIdx = bsxfun(@plus, spikeIdx, [0:samplesPerPulse-1]);
     spikeIdx = spikeIdx'; % now each column is a pulse
     params.templates_poiss{i_cond}(spikeIdx) = tmp_pAmp;
+    
+    
+    % define the per-condition ttype array
+    params.conditions_poiss(i_cond,1:3) = [tmp_pAmp, tmp_pFreq, tmp_envFreq]; % the version number (4th column) is inherited from fullfact as defined above
+    
     
 end
 

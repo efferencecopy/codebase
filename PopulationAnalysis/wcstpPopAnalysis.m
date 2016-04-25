@@ -47,12 +47,12 @@ end
 dat = {};
 Nexpts = numel(attributes);
 
-% pool = gcp('nocreate');
-% if isempty(pool)
-%     pool = parpool(16);
-% end
+pool = gcp('nocreate');
+if isempty(pool)
+    pool = parpool(16);
+end
 
-for i_ex = 1:Nexpts
+parfor i_ex = 1:Nexpts
     dat{i_ex} = wcstp_compile_data(attributes{i_ex}, hidx, params);
 end
 
@@ -294,7 +294,7 @@ h.EdgeAlpha = 0.1;
 % number of trails
 %
 
-RITTRAINS = true;
+RITTRAINS = false;
 
 clc, close all
 
@@ -313,7 +313,7 @@ A0 = 700;
 sigma = A0 .* 0.10;
 mu = 0;
 Ntrials = 2;
-sim_iters = 10;
+sim_iters = 300;
 
 
 testdat = cell(sim_iters,1);
@@ -346,7 +346,7 @@ end
 
 
 params_out = cell(sim_iters,1);
-for i_iter = 1:sim_iters
+parfor i_iter = 1:sim_iters
     fprintf('fit: iter = %d\n', i_iter);
     channel = 1;
     psctype = 'EPSCamp';
@@ -355,23 +355,26 @@ for i_iter = 1:sim_iters
 end
 
 
-
-params_out = cat(1,params_out{:});
 params_real = [d1_real, d2_real, tau_d1_real, tau_d2_real, f1_real, tau_f1_real];
+params_out = cat(1,params_out{:});
+params_out = bsxfun(@minus, params_out, params_real);
 
 figure
 for i_param = 1:6
     subplot(2,3,i_param)
-    histogram(params_out(:,i_param) - params_real(i_param))
+    histogram(params_out(:,i_param))
 end
-    
+
+%% 
+load('params_RIT')
+load('params_regTrains')
 
 % save a version of the RIT and non-RIT train fits, and compare the
 % outcomes
 figure
 for i_param = 1:6
     subplot(2,3,i_param)
-    plot(params_norit(:, i_param), params_rit(:, i_param), 'ko')
+    plot(params_regTrains(:, i_param), params_RIT(:, i_param), 'ko')
     axis tight
     ylims = get(gca, 'ylim');
     xlims = get(gca, 'xlim');
