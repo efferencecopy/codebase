@@ -66,6 +66,8 @@ if (imageDepth > 1) && ~isTile
 end
 
 h = getTag(tifflink, 'ImageLength');
+rps = getTag(tifflink, 'RowsPerStrip');
+rps = min(rps,h);
 
 % preallocate space
 raw_img = zeros(info.height_pix, info.width_pix, Nframes, bitdepth);
@@ -77,8 +79,6 @@ for i_frame = startFrame:endFrame
     tifflib('setDirectory',tifflink.FileID,i_frame-1);
     
     % Go through each strip of data.
-    rps = getTag(tifflink, 'RowsPerStrip');
-    rps = min(rps,h);
     for r = 1:rps:h
         row_inds = r:min(h,r+rps-1);
         stripNum = tifflib('computeStrip',tifflink.FileID,r-1);
