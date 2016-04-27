@@ -10,9 +10,9 @@ fprintf('  found %d blank pixels.  ', sum(img_raw(:)==0));
 img_raw = img_raw+eps;
 
 % setup the box car filter coeffs
-window_size_samps = NsampsPerTrial .* 2; % Estimate Fo as the average F over the past two trials
+window_size_samps = NsampsPerTrial .* 3; % Estimate Fo as the average F over the past three trials
 B_box_Fo = (1/window_size_samps).*ones(1,window_size_samps);
-B_box_Fo = cat(2, B_box_Fo, zeros(1, NsampsPerTrial)); % delay the filter by one trial
+
 
 
 % make sure that the background period doesn't have any frames that are all
@@ -41,9 +41,17 @@ pad_length = 5;
 pad = repmat(bkgnd, [1,1,window_size_samps+pad_length]);
 tmp_img = cat(3, pad, img_raw);
 
+% back-pad the imagestack so that the filter can be non-causal (by shifting
+% the output)
+half_window = ceil( window_size_samps ./2 );
+endvals = mean(img_raw(:,:,end-(half_window-1):end),3);
+pad = repmat(endvals, [1, 1, half_window]);
+tmp_img = cat(3, tmp_img, pad);
+
 % run the filter for Fo
 Fo = filter(B_box_Fo, 1, tmp_img, [], 3);
-Fo(:,:,1:window_size_samps+pad_length) = [];
+startidx = pad_length + window_size_samps + half_window + 1;
+Fo = Fo(:,:,startidx:end);
 
 % now just do the math
 dFoF =  (img_raw - Fo) ./ Fo;
@@ -58,9 +66,17 @@ rsub = bsxfun(@times, xbar, scaleFactor);
 assert(all(all((sigma - std(rsub,[],3))<1e-10)), 'ERROR: sigmas are not the same')
 dFoF = dFoF - rsub;
 
-% % some figures for de-bugging:
-% tmp = permute(dFoF(140:150,:,:), [3,1,2]);
-% tmp = reshape(tmp, size(tmp, 1),[]);
-% r = corr(tmp);
+
+% pix = 150;
+% tmp_raw = permute(img_raw(pix:pix+10, pix:pix+10, :), [3,1,2]);
+% tmp_raw = reshape(tmp_raw, size(tmp_raw, 1), []);
+% tmp_raw = mean(tmp_raw, 2);
+% 
+% tmp_fo = permute(Fo(pix:pix+10, pix:pix+10, :), [3,1,2]);
+% tmp_fo = reshape(tmp_fo, size(tmp_fo, 1), []);
+% tmp_fo = mean(tmp_fo, 2);
+% 
 % figure
-% imagesc(r); colorbar;
+% hold on,
+% plot(tmp_raw, 'k')
+% plot(tmp_fo, 'r', 'linewidth', 2)

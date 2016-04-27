@@ -71,7 +71,7 @@ for i_run = 1:Nruns;
     run_dfof = double(run_dfof);
     
     % convert to dfof
-    frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
+    frameRate = 1000 ./ double(info_run{i_run}.frameImagingExposureMs);
     out.frameRate = frameRate; % Push frameRate to outer function to be used in later analysis
     NsampsPerTrial = NframesON + NframesOFF; 
     fprintf('  Now computing dFoF. '); tic

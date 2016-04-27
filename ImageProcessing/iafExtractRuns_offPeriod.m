@@ -71,7 +71,7 @@ for i_run = 1:Nruns;
     img_raw = loadTIFF(name_img{i_run}, info_img{i_run});
     fprintf('%.1f seconds \n', toc)
     img_raw = double(img_raw);
-    keyboard
+    
     % grab the trial frame counter
     all_trial_starts = double([0, info_run{i_run}.counter{:}]);
     

@@ -16,7 +16,7 @@ udat.fid.ttypes = trialTypeLibrary(experimentType);
 
 % extract the runs, separate the data by trial type
 cd(udat.fid.path)
-dat = iafExtractRuns_offPeriod(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes);
+dat = iafExtractRuns(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes);
 N_types = size(dat.uniqueTrlTypes,1);
 
 % save the ImagingRate in the output of this function so that the user can 
