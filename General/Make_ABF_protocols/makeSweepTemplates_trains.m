@@ -16,6 +16,13 @@ function params = makeSweepTemplates_trains(params)
 % params.nReps          =>  Number of repeates each stimulus should be presented
 
 
+if ~isfield(params, 'recovery')
+    params.recovery = false;
+end
+if ~isfield(params, 'recoveryTime') || isempty(params.recoveryTime)
+    params.recoveryTime = sqrt(-1); % pretty sure this should make things crash if it ends up getting used
+end
+
 
 %
 % Generate the stimulus waveforms (one for each unique stimulus type)

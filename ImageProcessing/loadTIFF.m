@@ -16,6 +16,7 @@ function raw_img = loadTIFF(fpath, info, frameNums)
 % preferable to use loadTIFF_info and then to get the Nframes some other
 % way
 if ~exist('info', 'var') || ~isfield(info, 'Nframes')
+    disp('using imfinfo to retrieve img info')
     tmpinfo = imfinfo(fpath);
     info.height_pix = tmpinfo(1).Height;
     info.width_pix = tmpinfo(1).Width;
@@ -47,26 +48,22 @@ switch info.bitdepth;
 end     
 
 
-
-
 % open the file
-tifflink.FileID = tifflib('open',fpath,'r');
-tifflink.FileName = fpath;
-tifflink.Mode = 'r';
+tiffID = tifflib('open',fpath,'r');
 
 % stuff to make sure the tifflib code runs smoothly
-assert(getTag(tifflink, 'Photometric') == 1, 'ERROR: min is not set to equal black')
-assert(getTag(tifflink, 'PlanarConfiguration') == Tiff.PlanarConfiguration.Chunky, 'ERROR: planar config must be set to Chunky')
-assert(getTag(tifflink, 'SamplesPerPixel') == 1, 'ERROR samps per pix must equal 1')
-assert(~tifflib('isTiled',tifflink.FileID), 'ERROR: tiled images not yet supported')
-imageDepth = getTag(tifflink, 'ImageDepth');
-isTile = tifflib('isTiled',tifflink.FileID);
+assert(getTag(tiffID, 'Photometric') == 1, 'ERROR: min is not set to equal black')
+assert(getTag(tiffID, 'PlanarConfiguration') == Tiff.PlanarConfiguration.Chunky, 'ERROR: planar config must be set to Chunky')
+assert(getTag(tiffID, 'SamplesPerPixel') == 1, 'ERROR samps per pix must equal 1')
+assert(~tifflib('isTiled',tiffID), 'ERROR: tiled images not yet supported')
+imageDepth = getTag(tiffID, 'ImageDepth');
+isTile = tifflib('isTiled',tiffID);
 if (imageDepth > 1) && ~isTile
     warning(message('MATLAB:imagesci:Tiff:strippedImageDepthRead', imageDepth));
 end
 
-h = getTag(tifflink, 'ImageLength');
-rps = getTag(tifflink, 'RowsPerStrip');
+h = getTag(tiffID, 'ImageLength');
+rps = getTag(tiffID, 'RowsPerStrip');
 rps = min(rps,h);
 
 % preallocate space
@@ -76,26 +73,27 @@ raw_img = zeros(info.height_pix, info.width_pix, Nframes, bitdepth);
 % pull out the frames
 for i_frame = startFrame:endFrame
     
-    tifflib('setDirectory',tifflink.FileID,i_frame-1);
+    % change to new directory
+    tifflib('setDirectory',tiffID,i_frame-1);
     
     % Go through each strip of data.
     for r = 1:rps:h
         row_inds = r:min(h,r+rps-1);
-        stripNum = tifflib('computeStrip',tifflink.FileID,r-1);
-        raw_img(row_inds,:, i_frame) = tifflib('readEncodedStrip',tifflink.FileID,stripNum-1);
+        stripNum = tifflib('computeStrip',tiffID,r-1);
+        raw_img(row_inds,:, i_frame) = tifflib('readEncodedStrip',tiffID,stripNum-1);
     end
 end
 
 % close the file
-tifflib('close',tifflink.FileID);
-tifflink.FileID = uint64(0);
+tifflib('close',tiffID);
+tiffID = uint64(0);
 
 
 end
 
 
-function tagValue = getTag(obj, tagId)
+function tagValue = getTag(tiffID, tagId)
     assert(ischar(tagId))
-    tagValue = tifflib('getField',obj.FileID,Tiff.TagID.(tagId));
+    tagValue = tifflib('getField',tiffID,Tiff.TagID.(tagId));
 end
 

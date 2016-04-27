@@ -16,20 +16,21 @@ params.pWidth = 350e-6;           % A vector of pulse widths (in seconds)  [inte
 % make the sweep templates for the pulse trains
 %
 params.type = 'trains';            % 'train', 'pulse'
-params.pFreq = [10, 20, 40];              % A vector of frequencies for the pulse train [interleaved variable]
+params.pFreq = [10];              % A vector of frequencies for the pulse train [interleaved variable]
 params.nPulses = 10;
 params.recovery = true;       %  true/false, should there be a recovery pulse?
-params.recoveryTime = [0.5, 2, 8];   %  A vector of numbers corresponding to the recovery time in seconds [interleaved variable]
+params.recoveryTime = [0.250, .500, 2, 8];   %  A vector of numbers corresponding to the recovery time in seconds [interleaved variable]
 params = makeSweepTemplates_trains(params); % templates are stored in params.templates_trains
 
 
 %
-% make the sweep template(s) for the Random impulse trains with an envelope
+% make the sweep template(s) for the Random impulse trains without an envelope
 %
-params.ritFreq = [4,10,20];
+params.ritFreq = [10, 20];
 params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
-params.rit_Nversions = 1;
-params.ritEnvelopeFreq = [1,2,4,8,16];
+params.rit_Nversions = 5;
+params.ritUseEnvelope = true;
+params.ritEnvelopeFreq = [1, 2, 4];
 params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
 
 
@@ -37,3 +38,26 @@ params = makeSweepTemplates_poiss(params); % templates are stored in params.temp
 % concatenate templates
 sweepTemplates = cat(2, params.templates_trains, params.templates_poiss);
 
+
+%% PLOT THE TEMPLATES AND INSTANTANEOUS FREQ
+tt = (0:numel(sweepTemplates{1})-1) .* params.si;
+for i_tr = 1:numel(sweepTemplates)
+    
+    crossing = sweepTemplates{i_tr} > 0.5;
+    crossing = [0; diff(crossing)] == 1;
+    
+    figure
+    subplot(2,1,1)
+    stem(tt, crossing)
+    box off
+    subplot(2,1,2)
+    isi = [0, diff(tt(crossing))];
+    ifreq = 1./isi;
+    plot(tt(crossing), ifreq, '.-')
+    xlim([tt(1), tt(end)])
+    box off
+    drawnow
+end
+    
+    
+    

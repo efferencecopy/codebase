@@ -9,6 +9,8 @@ cd('C:\Users\charlie\Desktop')
 loadpath = [path, filesep, filename];
 load(loadpath)
 
+udat.ROI = tmproi;
+
 % initialize the array that agregates data across VAs
 num_vas = numel(udat.ROI.VisArea);
 for i_va = 1:num_vas
@@ -24,8 +26,8 @@ for i_va = 1:num_vas % for every Visual Area 'available' in AvgImage
     
     % determine the row and column coordinates of the pixels within an ROI
     Npixels = size(udat.ROI.RCidx{i_va}, 1); % Determine # of pixels in one selected area
-    columns = udat.ROI.RCidx{i_va}(:,1)';
-    rows = udat.ROI.RCidx{i_va}(:,2)';
+    columns = udat.ROI.RCidx{i_va}(:,2)';
+    rows = udat.ROI.RCidx{i_va}(:,1)';
         
     % convert R/C indicies to linear indicies. Note:
     % size(udat.final_img{1}) == size(udat.preProcessed_ON{1}(:,:,1))

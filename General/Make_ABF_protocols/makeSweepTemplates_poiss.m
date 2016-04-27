@@ -10,13 +10,21 @@ function params = makeSweepTemplates_poiss(params, UNITTEST)
 % params.ritFreq         =>  The frequency of the poiss train (approx)
 % params.ritHiFreqCut    =>  Cut out the frequencies above this value (in Hz)
 % params.rit_Nversions   =>  Number of different verions of RITs with identical params
+% params.ritUseEnvelope  =>  True or false
 % params.ritEnvelopeFreq =>  The frequency of a firing rate envelope. Can also be a vector of frequencies
 
 
-if exist('UNITTEST', 'var') && strcmpi(UNITTEST, 'unittest')
+if exist('UNITTEST', 'var') && UNITTEST
     params.rit_Nversions = 100; % forces there to be 100 trains
 else
     UNITTEST = false;
+end
+
+if ~isfield(params, 'ritUseEnvelope')
+    params.ritUseEnvelope = false;
+end
+if ~isfield(params, 'ritEnvelopeFreq') || isempty(params.ritEnvelopeFreq)
+    params.ritEnvelopeFreq = sqrt(-1); % pretty sure this should make things crash if it ends up getting used
 end
 
 
@@ -51,11 +59,12 @@ for i_cond = 1:size(conditions, 1)
     tt = [0:nSampsPerTrain-1] .* params.si;
     
     % make a firing rate envelope (if need be)
-    if ~isfield(params, 'ritEnvelopeFreq') || ~isempty(params.ritEnvelopeFreq)
+    if params.ritUseEnvelope
         tmp_envFreq = params.ritEnvelopeFreq(conditions(i_cond,3));
         envelope = sin(2.*pi.*tt.*tmp_envFreq);
         envelope(envelope<0) = 0;
     else
+        envelope = 1;
         tmp_envFreq = nan;
     end
     
@@ -100,6 +109,8 @@ if UNITTEST
         isi_sec = isi_samps .* params.si;
         all_isi(i_cond,:) = histc(isi_sec, [0:0.001:2]);
         
+        autocorr(:, i_cond) = xcorr(aboveThresh(:));
+        
     end
     
     % plot the resulting (average) CDF
@@ -113,5 +124,10 @@ if UNITTEST
     figure
     hist(sum(all_isi,2))
     title('number of pulses per sweep')
+    
+    % plot the average auto corr
+    figure
+    plot(mean(autocorr, 2))
+    
 end
 
