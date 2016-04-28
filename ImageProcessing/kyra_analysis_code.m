@@ -1,11 +1,11 @@
 %% LOAD THE DATA
 fin
 
-[filename, path] = uigetfile({'*.mat',...
-                               'Related Files (*.mat)'},...
-                               'Select the Related MATLAB file',...
-                               'MultiSelect', 'on',...
-                               'S:\Data');
+% Open dialogue box for selecting the processed ROI file
+[filename, path] = uigetfile({'*.mat', 'Related Files (*.mat)'},...
+                              'Select the Processed ROI file',...
+                              'MultiSelect', 'on',...
+                              'S:\Data');
 loadpath = [path, filesep, filename];
     
 clc % Clear the command window so that the user can see the feedback. 
@@ -29,16 +29,15 @@ else numel(loadpath) >= 1;
     % Save the data of each file into a different 'data' cell array
     for i_files = 3: numel(loadpath)
         data{i_files-2} = load ([loadpath{1}, loadpath{i_files}]);
+      
+        fprintf('%s \n', filename{i_files-2})
         
-        fprintf('%s\n', filename{i_files-2})
     end
     fprintf('\n')
 end
 
-
 % Force the analysis to use a "standardized" set of ROIs
 % udat.ROI = standardROIs
-
     
 % Determine the # of Imaging Days (according to to the number of files selected)
 Ndays = numel(data); 
@@ -49,11 +48,10 @@ for i_day = 1:Ndays
     if numel(data) > 1
         Date = {};
         Date{i_day} = regexpi(filename{i_day}, '(\d\d\d\d\d\d)', 'match');
-        Date{i_day} = Date{i_day}{:};
-        if Date{i_day}(3) == '0'
-            Date{i_day} = [Date{i_day}(4), '/', Date{i_day}(5:6), '/', Date{i_day}(1:2)]; % Format the date
+        if Date{i_day}{:}(3) == '0'
+            Date{i_day} = [Date{i_day}{:}(4), '/', Date{i_day}{:}(5:6), '/', Date{i_day}{:}(1:2)]; % Format the date
         else
-            Date{i_day} = [Date{i_day}(3:4), '/', Date{i_day}(5:6), '/', Date{i_day}(1:2)]; % Format the date
+            Date{i_day} = [Date{i_day}{:}(3:4), '/', Date{i_day}{:}(5:6), '/', Date{i_day}{:}(1:2)]; % Format the date
         end
         
         data{i_day}.udat.imgDate = Date{i_day};
@@ -162,7 +160,7 @@ for i_day = 1: Ndays
         
         % HELPON: Only display once per session (as noted above)
         if Option;
-            fprintf('Loading from:')
+            fprintf('Loading from:\n(%d days total)\n', Ndays)
         end
         Option = false;
         
@@ -195,7 +193,7 @@ figName = ['k', figName{end-1}, figName{end}];
 
 figure; hold on,
 set(gcf, 'Name', sprintf('%s Selected-ROIs', figName), 'NumberTitle', 'off',...
-    'Units', 'normalized', 'Position', [0.0094  0.3813  0.9813  0.3212]);
+    'Units', 'normalized', 'Position', [0.0117  0.1388  0.9797  0.7087]);
 
 for i_day = 1: Ndays
     
@@ -214,11 +212,12 @@ for i_day = 1: Ndays
         end
     end
     
-    subplot(1, Ndays, i_day)
+    subplot(ceil(Ndays/5), 5, i_day)
     h_img = imshow(plotimg);
     
     title(data{i_day}.udat.imgDate, 'FontSize', 10);
 end
+
 %% PLOT: PIXELS VS. TIME
 
 % Initialize variables
@@ -425,7 +424,8 @@ uniqueSpeed = unique(Speed);
 ROI.Speed = {};
 ROI.meanSpeed = {};
 for i_day = 1:Ndays
-    ROI.Speed{i_day} = repmat({repmat({[]}, 1, numel(uniqueSpeed))}, 1, NVAs); % ordered according to uniqueSpeed
+    ROI.Speed{i_day} = repmat({repmat({[]}, 1, numel(uniqueSpeed))}, 1, NVAs); 
+    % Ordered according to uniqueSpeed
 end
 
 fig = figure;
@@ -443,55 +443,70 @@ for i_VAs = 1:NVAs
         continue
     end
    
+    % Determine ROI Speed/meanSpeed
     for i_day = 1: Ndays
         NStim = numel(ROI.meanON{i_VAs}); % Number of Stimulus types per Visual Area
         for i_Stim = 1: NStim
             SpeedIdx = uniqueSpeed == Speed(i_Stim);
+            
             ROI.Speed{i_day}{i_VAs}{SpeedIdx}(end+1) = ROI.day_meanON{i_day}{i_VAs}{i_Stim} - ROI.day_meanOFF{i_day}{i_VAs}{i_Stim};    
+            ROI.meanSpeed{i_VAs}{SpeedIdx} = ROI.meanON{i_VAs}{i_Stim};
         end
     end
     
     subplot(round(sqrt(NVAs)), round(sqrt(NVAs)), i_VAs);
-    
-    if Ndays > 1
+    bfline = {};
         hold on;
-        % Do not plot all the raw data points; only plot the 'best-fit' line
+        % Plot the 'best-fit' line
         for i_day = 1: Ndays
-            plot(uniqueSpeed, cellfun(@mean, ROI.Speed{i_day}{i_VAs}), 'LineWidth', 1.5) 
+            bfline{i_day} = plot(uniqueSpeed, cellfun(@mean, ROI.Speed{i_day}{i_VAs}), 'LineWidth', 1.5); 
         end
        
         hold on; 
-        % Include legend if there is more than one day of data
-        if repeat
-            Legend = cell(length(ROI.Speed),1);
-            for numdays = 1: length(ROI.Speed)
-                Legend{numdays} = strcat(data{numdays}.udat.imgDate);
+        % If there is more than one day of data
+        if Ndays >1
+            % Include a legend (if there is more than one day of data)
+            if repeat
+                Legend = cell(length(ROI.Speed),1);
+                for numdays = 1: length(ROI.Speed)
+                    Legend{numdays} = strcat(data{numdays}.udat.imgDate);
+                end
+                legend(Legend, 'Location', 'none', 'FontSize', 8,...
+                       'Units', 'normalized', 'Position', [0.02  0.90  0.07  0.07])
+                repeat = false;
             end
-            legend(Legend, 'Location', 'none', 'FontSize', 8,...
-                       'Units', 'normalized', 'Position', [0.02  0.91  0.07  0.07])
-            repeat = false;
-        end
+            
+            % Plot the mean across days (if there is more than one day of data)
+            for i_Speed = 1: numel(ROI.Speed{i_day}{i_VAs})
+                AvgSpeed(i_VAs, i_Speed) = ROI.meanSpeed{i_VAs}{i_Speed}{:};
+            end
+                plot(uniqueSpeed, AvgSpeed(i_VAs, :)', 'k-', 'LineWidth', 2)
 
-    else
-        % Plot all data (raw data-points & 'best-fit' line)
-        hold on;
-        for i_day = 1:Ndays
-            for i_Speed = 1: numel(ROI.Speed{i_VAs})
-                % Plot the Raw Data Points
-                plot(uniqueSpeed(i_Speed), ROI.Speed{i_day}{i_VAs}{i_Speed}, '.', 'MarkerSize', 17.5) % NOTE: # of points == # of stim-types
+            % Make each day's data a dotted line (if there is more than one day of data)
+            for i_day = 1:Ndays
+                set(bfline{i_day}, 'LineStyle', '-.', 'LineWidth', 1.3);
             end
-    
-            hold on;
-            % Plot a 'best-fit' line
-            plot(uniqueSpeed, cellfun(@mean, ROI.Speed{i_day}{i_VAs}), 'k-', 'LineWidth', 1.5)
         end
-        hold off;
-    end
+        
+        % Plot the Raw Data Points if there are not that many Stimulus Types
+        % NOTE: The # of data points is equal to the # of stim-type
+        if Nttypes <= 7      
+            hold on;
+            for i_day = 1:Ndays
+                for i_Speed = 1: numel(ROI.Speed{i_day}{i_VAs})
+                    raw_data = plot(uniqueSpeed(i_Speed), ROI.Speed{i_day}{i_VAs}{i_Speed}, '.', 'MarkerSize', 17.5); 
+                    
+                    % Match data-point colors to corresponding line
+                    raw_data.Color = bfline{i_day}.Color;
+                end
+            end
+            hold off;
+        end
     
     % Formatting Details
     title(sprintf('\n%s', data{i_day}.udat.ROI.VisArea{i_VAs}), 'FontSize', 11);
     xlabel(sprintf('Speed (%c/sec)', char(176)), 'FontSize', 9)
     ylabel('\DeltaF/F ON', 'FontSize', 9)
     
-    set(gca,'XScale', 'log')
+    set(gca,'XScale', 'log', 'Ylim', [-.004  .003])
 end
