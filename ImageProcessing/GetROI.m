@@ -202,11 +202,8 @@ end
     % Get coordinates of the boundary of the freehand drawn region
     % and place ROI Boundary (ROIb) in the index for the specified VisArea
     structBoundaries = bwboundaries(binaryImage);
-    xy = structBoundaries{1}; % Get n by 2 array of x,y coordinates.
-    x = xy(:, 2);	% Columns.
-    y = xy(:, 1);	% Rows.
-    
-    ROIb = [y, x];
+    ROIb = structBoundaries{1}; % Get n by 2 array of x,y coordinates.
+
     udat.ROI.boundaries{brainAreaIdx} = ROIb;
     
     

@@ -1,6 +1,13 @@
 %% LOAD THE DATA
 fin
 
+% Define some parameters for the analysis
+dataSource = 'AvgTrial';  % Can be: 'AvgTrial' or 'preProcessed_'
+
+
+dataSourceOn = [dataSource, 'ON'];
+dataSourceOff = [dataSource, 'OFF'];
+
 % Open dialogue box for selecting the processed ROI file
 [filename, path] = uigetfile({'*.mat', 'Related Files (*.mat)'},...
                               'Select the Processed ROI file',...
@@ -83,16 +90,16 @@ for i_day = 1: Ndays
         % Determine the # of pixels in a selected ROI
         Npixels = size(data{i_day}.udat.ROI.RCidx{i_VAs}, 1); 
         % Determine the 'row' and 'column' coordinates of each pixel (within a ROI)
-        columns = data{i_day}.udat.ROI.RCidx{i_VAs}(:,1)';
-        rows = data{i_day}.udat.ROI.RCidx{i_VAs}(:,2)';
+        columns = data{i_day}.udat.ROI.RCidx{i_VAs}(:,2)';
+        rows = data{i_day}.udat.ROI.RCidx{i_VAs}(:,1)';
         
         %%% Convert row/column index to a linear index:
         % Determine the linear index for pixels within the first frame ("placement")
         linIdx = sub2ind(size(data{i_day}.udat.final_img{1}), rows, columns); 
         
         % Take into account that Nframes may not be equal for ON and OFF periods.
-        NframesON{i_day} = size(data{i_day}.udat.preProcessed_ON{1}, 3);
-        NframesOFF{i_day} = size(data{i_day}.udat.preProcessed_OFF{1}, 3);
+        NframesON{i_day} = size(data{i_day}.udat.(dataSourceOn){1}, 3);
+        NframesOFF{i_day} = size(data{i_day}.udat.(dataSourceOff){1}, 3);
         
         % Calculate SF & TF for Tuning function
         SF{i_day} = data{i_day}.udat.ttypes(:,strcmpi(data{i_day}.udat.text, 'tGratingSpatialFreqCPD'));
@@ -142,11 +149,11 @@ for i_day = 1: Ndays
         for i_ttypes = 1 : Nttypes
             
             % Dfof data for the ON period. [NframesON x NPixels]
-            ROI.on = data{i_day}.udat.preProcessed_ON{i_ttypes}(newIdxON); % Lists the pixel value for each position specified by "placement" list
+            ROI.on = data{i_day}.udat.(dataSourceOn){i_ttypes}(newIdxON); % Lists the pixel value for each position specified by "placement" list
             ROI.on = reshape(ROI.on, NframesON{1}, []); % Reshapes the list (columnar) into a matrix of pixels across time [NframesON, Npixels]
             
             % Dfof data for the OFF period. [NframesOFF x NPixels]
-            ROI.off = data{i_day}.udat.preProcessed_OFF{i_ttypes}(newIdxOFF);
+            ROI.off = data{i_day}.udat.(dataSourceOff){i_ttypes}(newIdxOFF);
             ROI.off = reshape(ROI.off, NframesOFF{1}, []);
             
             % Concatenate the ON and OFF periods.
@@ -252,7 +259,7 @@ for i_VAs = 1:NVAs
     figName = ['k', figName{end-1}, figName{end}];
     set(gcf, 'Name', sprintf('%s (%s)', figName, data{i_day}.udat.ROI.VisArea{i_VAs}), 'numbertitle', 'off');
     
-    Nttypes = numel(data{i_day}.udat.preProcessed_ON);
+    Nttypes = numel(data{i_day}.udat.(dataSourceOn));
     for i_ttypes = 1: Nttypes
         
         % Change figure formatting if there are a lot of Stimulus Types to display
