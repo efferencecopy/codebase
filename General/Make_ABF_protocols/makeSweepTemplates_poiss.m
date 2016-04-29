@@ -61,8 +61,10 @@ for i_cond = 1:size(conditions, 1)
     % make a firing rate envelope (if need be)
     if params.ritUseEnvelope
         tmp_envFreq = params.ritEnvelopeFreq(conditions(i_cond,3));
-        envelope = sin(2.*pi.*tt.*tmp_envFreq);
-        envelope(envelope<0) = 0;
+        phase = unifrnd(0,pi);
+        envelope = sin(2.*pi.*tt.*tmp_envFreq+phase);
+        envelope(envelope>0) = 1;
+        envelope(envelope<0) = 0.20;
     else
         envelope = 1;
         tmp_envFreq = nan;

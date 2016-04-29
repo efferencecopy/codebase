@@ -71,16 +71,19 @@ raw_img = zeros(info.height_pix, info.width_pix, Nframes, bitdepth);
 
 
 % pull out the frames
+tifflib('setDirectory',tiffID,startFrame-1); % cd to first directory
 for i_frame = startFrame:endFrame
-    
-    % change to new directory
-    tifflib('setDirectory',tiffID,i_frame-1);
     
     % Go through each strip of data.
     for r = 1:rps:h
         row_inds = r:min(h,r+rps-1);
         stripNum = tifflib('computeStrip',tiffID,r-1);
         raw_img(row_inds,:, i_frame) = tifflib('readEncodedStrip',tiffID,stripNum-1);
+    end
+    
+    % advance to the next directory if possible
+    if i_frame < endFrame
+        tifflib('readDirectory', tiffID);
     end
 end
 
