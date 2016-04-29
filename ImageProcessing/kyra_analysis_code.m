@@ -2,7 +2,7 @@
 fin
 
 % Define some parameters for the analysis
-dataSource = 'AvgTrial';  % Can be: 'AvgTrial' or 'preProcessed_'
+dataSource = 'preProcessed_';  % Can be: 'AvgTrial' or 'preProcessed_'
 
 
 dataSourceOn = [dataSource, 'ON'];
@@ -107,19 +107,13 @@ for i_day = 1: Ndays
 
         % Number of Frames must be equal across selected files...
         if NframesON{1} ~= NframesON{i_day} || NframesOFF{1} ~= NframesOFF{i_day}
-            if err
-                errordlg(sprintf(' Number of frames do not match-up!\n Code cannot proceed.'),...
+                error(sprintf(' Number of frames do not match-up!\n Code cannot proceed.'),...
                          'File Mismatch')
-                err = false;
-            end
         end    
         % Stimulus Types (Number of Stim) must be equal across selected files...
-        if numel(SF{1}) ~= numel(SF{i_day}) | numel(TF{1}) ~= numel(TF{i_day});
-            if err
+        if numel(SF{1}) ~= numel(SF{i_day}) || numel(TF{1}) ~= numel(TF{i_day});
                 errordlg(sprintf('ERROR: Stimulus Types do not match-up! Code cannot proceed.'),...
                          'File Mismatch')
-                err = false;
-            end
         end
         
         % Lists "placement" Nframes times (Does not tkae into account change in frame)
@@ -128,7 +122,7 @@ for i_day = 1: Ndays
         linIdxOFF = repmat(linIdx, NframesOFF{1}, 1);
         
         % Determines the total number of elements in the matrix
-        Nelements = prod(size(data{i_day}.udat.final_img{1})); 
+        Nelements = numel(data{i_day}.udat.final_img{1}); 
         
         adjuster = repmat(Nelements, 1, Npixels);  % Length of vector = Npixels
         adjusterON = bsxfun(@times, repmat(adjuster, NframesON{1}, 1), [0 : 1 : NframesON{1}-1]');
@@ -179,18 +173,9 @@ for i_day = 1: Ndays
     end    
 end
 
-% If no data was selected...
-if isequal(filename, 0) % Display nothing
 
-% If data was selected, BUT there is a file mistmatch...
-% Let the User know the Data was loaded with errors.
-elseif ~err
-    fprintf('\nData has been loaded with ERRORS.\n\n')
+fprintf('\nData has been loaded.\n\n')
 
-% If data was selected, let the User know when the Data has been loaded.
-else
-    fprintf('\nData has been loaded.\n\n')
-end
 
 %% SANITY CHECK: DISPLAY SELECTED-ROIs
 
