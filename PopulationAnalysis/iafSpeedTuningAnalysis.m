@@ -9,7 +9,6 @@ cd('C:\Users\charlie\Desktop')
 loadpath = [path, filesep, filename];
 load(loadpath)
 
-udat.ROI = tmproi;
 
 % initialize the array that agregates data across VAs
 num_vas = numel(udat.ROI.VisArea);
@@ -38,43 +37,24 @@ for i_va = 1:num_vas % for every Visual Area 'available' in AvgImage
     % separately for the ON and OFF movies
     NframesON = size(udat.preProcessed_ON{1}, 3);
     NframesOFF =  size(udat.preProcessed_OFF{1}, 3);
-    for i_movie = 1:2
-        
-        if i_movie == 1
-            Nframes = NframesON;
-        elseif i_movie == 2
-            Nframes = NframesOFF;
-        end
-        
-        linIdx_tmp = repmat(linIdx_roi, Nframes, 1); % lists "placement" Nframes times (not taking into account change in frame); rows = # frames & columns = Npixels
-        
-        Nelements = numel(udat.final_img{1}); % Determines the total number of elements in the matrix
-        frameAdjuster = repmat(Nelements, 1, Npixels);  % length of vector = Npixels
-        frameAdjuster = bsxfun(@times, repmat(frameAdjuster, Nframes, 1), [0:1:Nframes-1]');
-        
-        newIdx = linIdx_tmp + frameAdjuster; % applies adjuster to the "placement"
-        newIdx = newIdx(:); % lists every idx# (in a column) SANITY CHECK: rows of newIdx should = Npixels*Nframes
-    
-        if i_movie == 1
-            newIdx_on = newIdx;
-        elseif i_movie == 2
-            newIdx_off = newIdx;
-        end
-    end
-    
+ 
     % Use the linear index to extract the dfof data from the processed data
     Nttypes = size(udat.ttypes, 1); %Nttypes = Total # of Stimulus Types (Trial Types)
     for i_ttypes = 1 : Nttypes
         
         % first grab the dfof data for the ON period. Reshape the array to
         % [Nframes x NPixels]
-        roi_on = udat.preProcessed_ON{i_ttypes}(newIdx_on);
-        roi_on = reshape(roi_on, NframesON, []);
+        roi_on = udat.preProcessed_ON{i_ttypes};
+        roi_on = reshape(roi_on, [], NframesON); % npix x nframes
+        roi_on = roi_on(linIdx_roi,:);
+        roi_on = roi_on'; % transpose to make dims = [nframes x npix]
         
         % now grab the dfof data for the OFF period. Reshape the array to
         % [Nframes x NPixels]
-        roi_off = udat.preProcessed_OFF{i_ttypes}(newIdx_off);
-        roi_off = reshape(roi_off, NframesOFF, []);
+        roi_off = udat.preProcessed_OFF{i_ttypes};
+        roi_off = reshape(roi_off, [], NframesOFF);
+        roi_off = roi_off(linIdx_roi,:);
+        roi_off = roi_off';
         
         % concatenate the on and off portions
         pixelMatrix{i_va}{i_ttypes} = cat(1, roi_on, roi_off);
