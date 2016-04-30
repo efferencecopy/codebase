@@ -324,16 +324,16 @@ for i_VAs = 1:NVAs
         
         %%%%% Find mean Dfof across time
         for i_day = 1: Ndays
-        % Select only the ON or OFF frames of ROI
-        day_meanON{i_day} = pixelMatrix{i_day}{i_VAs}{i_ttypes}(1:NframesON{i_day},:);
-        day_meanOFF{i_day} = pixelMatrix{i_day}{i_VAs}{i_ttypes}(NframesON{i_day}+1:Nframes,:);
-        
-        day_meanON{i_day} = mean(mean(day_meanON{i_day}, 2));
-        day_meanOFF{i_day} = mean(mean(day_meanOFF{i_day}, 2));
-        
-        % Save the mean dF\f  for future analysis/graphs
-        ROI.day_meanON{i_day}{i_VAs}{i_ttypes} = day_meanON{i_day};
-        ROI.day_meanOFF{i_day}{i_VAs}{i_ttypes} = day_meanOFF{i_day};
+            % Select only the ON or OFF frames of ROI
+            day_meanON{i_day} = pixelMatrix{i_day}{i_VAs}{i_ttypes}(1:NframesON{i_day},:);
+            day_meanOFF{i_day} = pixelMatrix{i_day}{i_VAs}{i_ttypes}(NframesON{i_day}+1:Nframes,:);
+            
+            day_meanON{i_day} = mean(mean(day_meanON{i_day}, 2));
+            day_meanOFF{i_day} = mean(mean(day_meanOFF{i_day}, 2));
+            
+            % Save the mean dF\f  for future analysis/graphs
+            ROI.day_meanON{i_day}{i_VAs}{i_ttypes} = day_meanON{i_day};
+            ROI.day_meanOFF{i_day}{i_VAs}{i_ttypes} = day_meanOFF{i_day};
         end
         
         meanON = {mean(cat(3, day_meanON{:}), 3)}; % Average across days
@@ -499,6 +499,5 @@ for i_VAs = 1:NVAs
     title(sprintf('\n%s', data{i_day}.udat.ROI.VisArea{i_VAs}), 'FontSize', 11);
     xlabel(sprintf('Speed (%c/sec)', char(176)), 'FontSize', 9)
     ylabel('\DeltaF/F ON', 'FontSize', 9)
-    
     set(gca,'XScale', 'log', 'Ylim', [-.004  .003])
 end
