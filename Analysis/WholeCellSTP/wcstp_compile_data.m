@@ -10,10 +10,12 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 %
 % OUTPUTS:
 %
-% dat.qc.Rs         -> series resistance for HS1,2 [1xNtrials]
-% dat.qc.p1amp      -> amplitude for first pulse of each sweep for HS1,2 [1xNtrials]
-% dat.qc.vhold      -> measured holding potential for each sweep, HS1,2 [1xNtrials]
-% 
+% dat.qc.Rs         -> series resistance for HS1,2 [1xx1xNsweeps]
+% dat.qc.p1amp      -> amplitude for first pulse of each sweep for HS1,2 [1xx1xNsweeps]
+% dat.qc.verr       -> measured holding potential for each sweep, HS1,2 [1xx1xNsweeps]
+% dat.qc.instNoise  -> the noise in the holding current which indicates changes in recording quality
+ 
+%
 % dat.dcsteps.Vm_raw     -> raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
 % dat.dcsteps.Icmd       -> magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
 % 
@@ -21,7 +23,7 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 % dat.expt.[stimType].stats.EPSCamp       -> EPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is inward
 % dat.expt.[stimType].stats.IPSCamp       -> IPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is outward
 % dat.expt.[stimType].stats.latency       -> time to peak of PSC in seconds [Npulses x 1 x Nsweeps]
-% dat.expt.[stimType].realTrialNum        -> the actual trial number for each of the sweeps
+% dat.expt.[stimType].realTrialNum        -> the actual trial number for each of the sweeps, this could change between HS b/c trials can get cut from one but not the other.
 % dat.expt.[stimType].tdict               -> the trialtype dictionary entry for this condition
 % 
 % dat.info.opsin
@@ -57,7 +59,7 @@ end
 
 function info = defineInfo(exinfo, hidx, params)
     info.fid.dcsteps = exinfo{hidx.ABFDCsteps};
-    info.fid.vclamp = exinfo{hidx.ABFOptostim};
+    info.fid.vclamp = exinfo{hidx.ABFOptostimVclamp};
 
     info.opsin = exinfo{hidx.opsin};
     info.mouseName = exinfo{hidx.MouseName};
@@ -150,7 +152,8 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     %
     % dat.qc.Rs: series resistance for HS1,2 [1xNtrials]
     % dat.qc.p1amp: amplitude for first pulse of each sweep for HS1,2 [1xNtrials]
-    % dat.qc.vhold: measured holding potential for each sweep, HS1,2 [1xNtrials]
+    % dat.qc.verr: measured holding potential for each sweep, HS1,2 [1xNtrials]
+    % dat.qc.instNoise:  the noise in the holding current which indicates changes in recording quality [1xNtrials]
     
      
 
@@ -186,12 +189,12 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
         condname = make_condition_name(tdict, i_cond);
         
         % store some stuff from the tdict struct
-        dat.expt.(condname).realTrialNum = find(tdict.trlList == i_cond);
+        dat.expt.(condname).realTrialNum = repmat({find(tdict.trlList == i_cond)}, 1,2);
         dat.expt.(condname).tdict = tdict.conds(i_cond,:);
         
         % determine the pulse on times
-        Nsweeps = numel(dat.expt.(condname).realTrialNum);
-        laser_cmd = ax.dat(:,ax.idx.Laser, dat.expt.(condname).realTrialNum);
+        Nsweeps = numel(dat.expt.(condname).realTrialNum{1});
+        laser_cmd = ax.dat(:,ax.idx.Laser, dat.expt.(condname).realTrialNum{1});
         laser_cmd = permute(laser_cmd, [3,1,2]);% [Nsweeps, Ntime]
         thresh = tdict.conds(i_cond, 1) .* 0.8;
         aboveThresh = laser_cmd > thresh;
@@ -207,10 +210,6 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
         % sweep as the template.
         crossing_on_idx = find(crossing_on_idx(1,:));
         dat.expt.(condname).pOnTimes = (crossing_on_idx-1) ./ dat.info.sampRate.vclamp; % seconds from sweep start
-        
-        preTime_samps = ceil(dat.info.pretime.vclamp .* dat.info.sampRate.vclamp);
-        postTime_samps = ceil(dat.info.posttime.vclamp .* dat.info.sampRate.vclamp);
-        
         
         % loop through channels
         for i_ch = 1:2
@@ -235,12 +234,26 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             for i_pulse = 1:Npulses
                 idx = crossing_on_idx(i_pulse);
                 idx = idx-preTime_samps : idx+postTime_samps;
-                sweep_idx = dat.expt.(condname).realTrialNum;
+                sweep_idx = dat.expt.(condname).realTrialNum{i_ch};
                 tmp = ax.dat(idx, ax.idx.(HSname), sweep_idx); % Nth pulse, all sweeps
                 dat.expt.(condname).raw.snips{i_ch}(i_pulse,:,:) = permute(tmp, [2,1,3]);
             end
             
-            % deal with deleted sweeps here
+            % deal with deleted sweeps here. things that need to get
+            % culled:
+            %  dat.expt.(condname).raw.snips{i_ch}
+            %  dat.expt.(condname).realTrialNum
+            rmSweep_string = exinfo{hidx.(sprintf('HS%drm_swp', i_ch))};
+            if ~any(isnan(rmSweep_string))
+                badSweeps = eval(['[',rmSweep_string,']']);
+                [~, l_badSweeps] = intersect(dat.expt.(condname).realTrialNum{i_ch}, badSweeps);
+                if ~isempty(l_badSweeps)
+                    fprintf('    Deleting %d sweeps from %s site %s ch %d\n',...
+                               numel(l_badSweeps), dat.info.mouseName, dat.info.siteNum, i_ch);
+                    dat.expt.(condname).realTrialNum{i_ch}(l_badSweeps) = [];
+                    dat.expt.(condname).raw.snips{i_ch}(:,:,l_badSweeps) = [];
+                end
+            end
             
             
             % subtract off the background from all the pulses
@@ -270,10 +283,11 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     %
     qc = ax.getRa;
     for i_ch = 1:2
-        
-        dat.qc.Rs{i_ch} = [];
-        dat.qc.p1amp{i_ch} = [];
-        dat.qc.vhold{i_ch} = [];
+        nTrialsExpt = size(ax.dat,3);
+        dat.qc.Rs{i_ch} = nan(1,1,nTrialsExpt);
+        dat.qc.verr{i_ch} = nan(1,1,nTrialsExpt);
+        dat.qc.p1amp{i_ch} = nan(1,1,nTrialsExpt);
+        dat.qc.instNoise{i_ch} = nan(1,1,nTrialsExpt);
         
         % make sure data are present for this recording channel and
         % initialize the outputs
@@ -286,26 +300,43 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
         % extract things from the Ra structure
         HSname = Vclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
         idx = strcmpi(qc.chNames, HSname);
-        dat.qc.Rs{i_ch} = permute(qc.dat(1,idx,:), [3,1,2]);
-        dat.qc.verr{i_ch} = permute(qc.Verr(1,idx,:), [3,1,2]);
+        dat.qc.Rs{i_ch} = qc.dat(1,idx,:);
+        dat.qc.verr{i_ch} = qc.Verr(1,idx,:);
         
+        % dat.qc.Rs and dat.qc.verr contain info for all sweeps. Delete the
+        % ones that are not analyzed.
+        rmSweep_string = exinfo{hidx.(sprintf('HS%drm_swp', i_ch))};
+        if ~any(isnan(rmSweep_string))
+            l_badSweeps = eval(['[',rmSweep_string,']']);
+            dat.qc.Rs{i_ch}(l_badSweeps) = nan;
+            dat.qc.verr{i_ch}(l_badSweeps) = nan;
+        end
         
-        % Extract the p1 amp from the existing data in a for-loop
-        dat.qc.p1amp{i_ch} = nan(1, size(ax.dat, 3));
+        % Extract the p1 amp and Instrument Noise from the existing data in
+        % a for-loop.
         conds = fieldnames(dat.expt);
         for i_cond = 1:Nconds
-            real_trl_nums = dat.expt.(conds{i_cond}).realTrialNum;
-            
-            epsc = dat.expt.(conds{i_cond}).stats.EPSCamp{i_ch};
-            ipsc = dat.expt.(conds{i_cond}).stats.IPSCamp{i_ch};
-            assert(sum([isempty(epsc), isempty(ipsc)])==1, 'ERROR: was not expecting ipsc and epsc to both be defined')
-            if ~isempty(epsc)
-                psc = epsc;
-            elseif ~isempty(ipsc)
-                psc = ipsc;
+            real_trl_nums = dat.expt.(conds{i_cond}).realTrialNum{i_ch};
+            if ~isempty(real_trl_nums)
+                % deal with the p1 amps
+                epsc = dat.expt.(conds{i_cond}).stats.EPSCamp{i_ch};
+                ipsc = dat.expt.(conds{i_cond}).stats.IPSCamp{i_ch};
+                assert(sum([isempty(epsc), isempty(ipsc)])==1, 'ERROR: was not expecting ipsc and epsc to both be defined')
+                if ~isempty(epsc)
+                    psc = epsc;
+                elseif ~isempty(ipsc)
+                    psc = ipsc;
+                end
+                dat.qc.p1amp{i_ch}(real_trl_nums) = psc(1,1,:);
+                
+                
+                % deal with the instrument noise
+                snips = dat.expt.(conds{i_cond}).raw.snips{i_ch};
+                snips = snips(:, 1:preTime_samps, :);
+                instNoise = std(snips, [], 2);
+                instNoise  = mean(instNoise, 1);
+                dat.qc.instNoise{i_ch}(real_trl_nums) = instNoise;
             end
-            
-            dat.qc.p1amp{i_ch}(real_trl_nums) = squeeze(psc(1,1,:));
         end
     end
 end

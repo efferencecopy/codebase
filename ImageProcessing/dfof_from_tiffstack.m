@@ -1,4 +1,4 @@
-function [dFoF, Fo] = dfof_from_tiffstack(img_raw, NsampsPerTrial)
+function [dFoF, Fo] = dfof_from_tiffstack(img_raw, NsampsON, NsampsOFF)
 %
 % EXAMPLE: dFoF = dfof_from_tiffstack(img_raw, frameRate, window_size_sec)
 
@@ -13,7 +13,9 @@ assert(sum(l_zero) == 0, 'ERROR: found frames that were blank') % consider using
 % which happen for black pixels.
 img_raw = img_raw+eps;
 
+
 % setup the box car filter coeffs
+NsampsPerTrial = NsampsON+NsampsOFF;
 window_size_samps = NsampsPerTrial .* 3; % Estimate Fo as the average F over three trials (1.5 trials pre and post)
 B_box_Fo = (1/window_size_samps).*ones(1,window_size_samps);
 

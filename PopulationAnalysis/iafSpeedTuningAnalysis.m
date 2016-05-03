@@ -86,7 +86,7 @@ h_img = imshow(plotimg);
 
 %% ANALYZE THE dFoF AND PLOT AVERAGE TIMESERIES
 
-MAKEPLOT = false;
+MAKEPLOT = true;
 
 Nttypes = size(udat.ttypes, 1);
 
@@ -160,7 +160,7 @@ if MAKEPLOT
             axis tight
             
             ttON = (NframesON).* (1/udat.frameRate);
-            line([ttON  ttON], ylim, 'LineStyle', ':', 'Color', 'k') % Mark 'Stimulus Offset'
+            plot([ttON  ttON], ylim, 'LineStyle', ':', 'Color', 'k') % Mark 'Stimulus Offset'
             
             % add a line for the mean across time
             meanON = popdat.on{i_va}(i_ttypes);

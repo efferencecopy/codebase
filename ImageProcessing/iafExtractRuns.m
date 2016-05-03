@@ -75,7 +75,7 @@ for i_run = 1:Nruns;
     out.frameRate = frameRate; % Push frameRate to outer function to be used in later analysis
     NsampsPerTrial = NframesON + NframesOFF; 
     fprintf('  Now computing dFoF. '); tic
-    run_dfof = dfof_from_tiffstack(run_dfof, NsampsPerTrial);
+    run_dfof = dfof_from_tiffstack(run_dfof, NframesON, NframesOFF);
     fprintf('%.0f seconds \n', toc)
     
     

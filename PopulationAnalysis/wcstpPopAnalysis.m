@@ -29,9 +29,9 @@ wb_expt(1,:) = [];
 % convert the file names into fully qualified paths so that par-for can run
 % without calling a global
 iclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFDCsteps), 'uniformoutput', false);
-vclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFOptostim), 'uniformoutput', false);
+vclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFOptostimVclamp), 'uniformoutput', false);
 wb_expt(:,hidx.ABFDCsteps) = iclamp_fpath;
-wb_expt(:,hidx.ABFOptostim) = vclamp_fpath;                 
+wb_expt(:,hidx.ABFOptostimVclamp) = vclamp_fpath;                 
                    
 % make each row it's own cell array so that it can be passed as a single
 % argument to the function that does the major unpacking
@@ -47,12 +47,12 @@ end
 dat = {};
 Nexpts = numel(attributes);
 
-pool = gcp('nocreate');
-if isempty(pool)
-    pool = parpool(16);
-end
+% pool = gcp('nocreate');
+% if isempty(pool)
+%     pool = parpool(8);
+% end
 
-parfor i_ex = 1:Nexpts
+for i_ex = 1:Nexpts
     dat{i_ex} = wcstp_compile_data(attributes{i_ex}, hidx, params);
 end
 
@@ -63,20 +63,22 @@ fprintf('All done importing data\n')
 close all
 
 for i_ex = 1:numel(dat)
-    
-    if all(cellfun(@isempty, dat{i_ex}.qc.Rs))
-        continue
-    end
-    
+
     f = figure;
     f.Name = sprintf('Mouse %s, site %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum);
     
     for i_ch = 1:2
         
+        fldname = sprintf('HS%dvalid', i_ch);
+        isvalid = str2double(wb_expt(i_ex, hidx.(fldname)));
+        if ~isvalid
+            continue
+        end
+        
         % series resistance
-        if ~isempty(dat{i_ex}.qc.Rs{i_ch})
+        if ~all(isnan(dat{i_ex}.qc.Rs{i_ch}))
             subplot(3,2,i_ch)
-            tmp = dat{i_ex}.qc.Rs{i_ch};
+            tmp = squeeze(dat{i_ex}.qc.Rs{i_ch});
             plot(tmp)
             ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('R_{s} (MOhm)')
@@ -84,10 +86,10 @@ for i_ex = 1:numel(dat)
             title(sprintf('Channel %d', i_ch))
         end
         
-        % vhold
-        if ~isempty(dat{i_ex}.qc.vhold{i_ch})            
+        % verr
+        if ~all(isnan(dat{i_ex}.qc.verr{i_ch}))            
             subplot(3,2,2+i_ch)
-            tmp = dat{i_ex}.qc.vhold{i_ch};
+            tmp = squeeze(dat{i_ex}.qc.verr{i_ch});
             plot(tmp)
             ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('SS Verr (mV)')
@@ -96,9 +98,9 @@ for i_ex = 1:numel(dat)
         end
         
         % p1amps
-        if ~isempty(dat{i_ex}.qc.p1amp{i_ch})
+        if ~all(isnan(dat{i_ex}.qc.p1amp{i_ch}))
             subplot(3,2,4+i_ch)
-            tmp = dat{i_ex}.qc.p1amp{i_ch};
+            tmp = squeeze(dat{i_ex}.qc.p1amp{i_ch});
             plot(tmp)
             ylim([min([0,min(tmp(:))]), max(tmp(:))*1.5])
             ylabel('P1 amplitude')
@@ -118,10 +120,6 @@ end
 close all
 
 for i_ex = 1:numel(dat)
-    
-    if all(cellfun(@isempty, dat{i_ex}.qc.Rs))
-        continue
-    end
     
     f = figure;
     f.Name = sprintf('Mouse %s, site %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum);
@@ -162,228 +160,50 @@ end
 
 %% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
 
-clc
-i_ex = 8;
-channel = 2;
-psctype = 'EPSCamp';
 
-[d, f, dTau, fTau] = fitTau2STP(dat{i_ex}, psctype, channel, 'multistart');
-
-ttypes = fieldnames(dat{i_ex}.expt);
-for i_type = 1:numel(ttypes)
-    pOnTimes = dat{i_ex}.expt.(ttypes{i_type}).pOnTimes;
-    raw = dat{i_ex}.expt.(ttypes{i_type}).stats.(psctype){channel};
+for i_ex = 1:numel(dat)
     
-    A0 = mean(raw(1,1,:), 3);
-    pred = predictPSCfromTau(pOnTimes, d, dTau, f, fTau, A0);
-
-    figure
-    plot(pred, '.b-'), hold on, stem(mean(raw(:,1,:),3), 'k');
-end
-
-
-
-%% TEST CODE FOR STP TIME CONSTANTS (1)
-
-%
-% compare fitted and 'real' parameters (without noise added)
-%
-
-clc, close all
-
-% assume that pOnTimes exists. A cell array of pulse on times. Define some
-% plasticity params, and then generate fake data. Add noise if desired
-
-% setup some pulse times for the simulation
-pOnTimes = dat{9}.expt.RITv8.pOnTimes;
-
-
-% setup a bunch of different plasticity values
-% version with facilitation and depression
-d1_sim = [0.020:0.50:1];
-d2_sim = [0.020:0.50:1];
-tau_d1_sim = logspace(log10(0.001), log10(15), 5);
-tau_d2_sim = logspace(log10(0.001), log10(15), 5);
-f1_sim = logspace(log10(0.020), log10(15), 5);
-tau_f1_sim = logspace(log10(0.001), log10(15), 5);
-A0_sim = logspace(log10(10), log10(1000), 5);
-
-[a,b,c,d,e,f,g] = ndgrid(d1_sim, d2_sim, tau_d1_sim, tau_d2_sim, f1_sim, tau_f1_sim, A0_sim);
-W = [a(:),b(:),c(:),d(:),e(:),f(:),g(:)];
-params = mat2cell(W, ones(size(W,1),1));
-clear a b c d e f g W
-
-
-for i_iter = 1:numel(params)
-    fprintf('define: iter = %d\n', i_iter);
-    psc_test = predictPSCfromTau(pOnTimes, params{i_iter}(1:2), params{i_iter}(3:4), params{i_iter}(5), params{i_iter}(6), params{i_iter}(7));
-    if any(psc_test<0); error('found one below zero'); end
-    testdat{i_iter}.expt.RITv1.stats.EPSCamp{1} = psc_test;
-    testdat{i_iter}.expt.RITv1.pOnTimes = pOnTimes;
-end
-
-
-params_out = cell(numel(params),1);
-
-parfor i_iter = 1:numel(params)
-    fprintf('fit: iter = %d\n', i_iter);
-    channel = 1;
-    psctype = 'EPSCamp';
-    [d_test, f_test, dTau_test, fTau_test] = fitTau2STP(testdat{i_iter}, psctype, channel, 'multistart');
-    params_out{i_iter} = [d_test, dTau_test, f_test, fTau_test]
-end
-
-
-params_out = cat(1, params_out{:});
-params = cat(1, params{:});
-
-
-for i_param = 1:size(params,2)-1
-    figure
-    histogram(params(:,i_param)-params_out(:,i_param))
-end
-
-
-
-
-
-
-
-%% TEST CODE FOR STP TIME CONSTANTS (2)
-
-%
-% estimate the shape of the error function
-%
-
-d1_real = 0.4;
-d2_real = 1;
-tau_d1_real = 1;
-tau_d2_real = 1;
-f1_real = 2;
-tau_f1_real = 2;
-A0 = 700;
-
-pOnTimes = dat{9}.expt.RITv8.pOnTimes;
-pscreal = predictPSCfromTau(pOnTimes, [d1_real, d2_real], [tau_d1_real, tau_d2_real], f1_real, tau_f1_real, A0);
-
-[a,b] = ndgrid(0.001:0.005:1, 0:0.050:3);
-errvals = nan(size(a));
-for idx = 1:numel(a)
-        k_d = [a(idx), d2_real];
-        tau_d = [tau_d1_real, tau_d2_real];
-        k_f = b(idx);
-        tau_f = tau_f1_real;
-
-        pred = predictPSCfromTau(pOnTimes, k_d, tau_d, k_f, tau_f, A0);
-
-        % pool the errors across pulse train types. Ingore the first pulse
-        % (becuse the error is artifactually = zero). Do some error
-        % checking along the way.
-        err = pscreal(2:end) ./  pred(2:end);
-        err = sum(abs(log10(err))); % big negative powers of ten are good 
-        errvals(idx) = err;
-end
-       
-h = surf(b, a, errvals);
-h.EdgeAlpha = 0.1;
-
-%% TEST CODE FOR STP TIME CONSTANTS (3)
-
-%
-% compare fitted and 'real' parameters with added noise, as a function of
-% number of trails
-%
-
-RITTRAINS = false;
-
-clc, close all
-
-
-% setup a bunch of different plasticity values
-% version with facilitation and depression
-d1_real = 0.7;
-d2_real = 0.95;
-tau_d1_real = 0.4;
-tau_d2_real = 2;
-f1_real = 0.7;
-tau_f1_real = 0.4;
-A0 = 700;
-
-% setup the noise and trial counts
-sigma = A0 .* 0.10;
-mu = 0;
-Ntrials = 2;
-sim_iters = 300;
-
-
-testdat = cell(sim_iters,1);
-ttypes = fieldnames(dat{9}.expt);
-
-l_rit = cellfun(@any, regexpi(ttypes, 'rit'));
-if RITTRAINS
-    ttypes(~l_rit) = [];
-else
-    ttypes(l_rit) = [];
-end
-
-for i_iter = 1:sim_iters
-    
-    for i_cond = 1:numel(ttypes)
-        % setup some pulse times for the simulation
-        pOnTimes = dat{9}.expt.(ttypes{i_cond}).pOnTimes;
-        Npulses = numel(pOnTimes);
-        pscreal = predictPSCfromTau(pOnTimes, [d1_real, d2_real], [tau_d1_real, tau_d2_real], f1_real, tau_f1_real, A0);
-        
-        psc_iter = repmat(pscreal, [1,1,Ntrials]) + normrnd(mu, sigma, [Npulses, 1, Ntrials]);
-        
-        if any(psc_iter(:)<0); error('less than zero'); end
-        
-        testdat{i_iter}.expt.(ttypes{i_cond}).stats.EPSCamp{1} = psc_iter;
-        testdat{i_iter}.expt.(ttypes{i_cond}).pOnTimes = pOnTimes;
+    % make a mini dataset that's composed of only the RIT data, then
+    % predict responses to recovery trains.
+    ritdata = [];
+    condnames = fieldnames(dat{i_ex}.expt);
+    for i_cond = 1:numel(condnames)
+        if strncmp(condnames{i_cond}, 'RITv', 4)
+            ritdata.expt.(condnames{i_cond}) = dat{i_ex}.expt.(condnames{i_cond});
+        end
     end
     
+   for i_ch = 1:2
+       
+       fldname = sprintf('HS%dvalid', i_ch);
+       isvalid = str2double(wb_expt(i_ex, hidx.(fldname)));
+       if isempty(ritdata) || ~isvalid
+           continue
+       end
+       
+       % fit the RIT data
+       [d, f, dTau, fTau] = fitTau2STP(ritdata, 'EPSCamp', i_ch, 'multistart');
+       
+       % predict all the data
+       A0 = mean(dat{i_ex}.qc.p1amp{i_ch});
+       ttypes = fieldnames(dat{i_ex}.expt);
+       [pred, raw_xbar, raw_sem] = deal({});
+       for i_type = 1:numel(ttypes)
+           pOnTimes = dat{i_ex}.expt.(ttypes{i_type}).pOnTimes;
+           raw = dat{i_ex}.expt.(ttypes{i_type}).stats.EPSCamp{i_ch};
+           raw_xbar{i_ch}{i_type} = mean(raw,3);
+           raw_sem{i_ch}{i_type} = stderr(raw,3);
+           
+           pred{i_ch}{i_type} = predictPSCfromTau(pOnTimes, d, dTau, f, fTau, A0);
+       end
+       
+   end
 end
 
 
-params_out = cell(sim_iters,1);
-parfor i_iter = 1:sim_iters
-    fprintf('fit: iter = %d\n', i_iter);
-    channel = 1;
-    psctype = 'EPSCamp';
-    [d_test, f_test, dTau_test, fTau_test] = fitTau2STP(testdat{i_iter}, psctype, channel, 'global');
-    params_out{i_iter} = [d_test, dTau_test, f_test, fTau_test];
-end
 
 
-params_real = [d1_real, d2_real, tau_d1_real, tau_d2_real, f1_real, tau_f1_real];
-params_out = cat(1,params_out{:});
-params_out = bsxfun(@minus, params_out, params_real);
 
-figure
-for i_param = 1:6
-    subplot(2,3,i_param)
-    histogram(params_out(:,i_param))
-end
 
-%% 
-load('params_RIT')
-load('params_regTrains')
 
-% save a version of the RIT and non-RIT train fits, and compare the
-% outcomes
-figure
-for i_param = 1:6
-    subplot(2,3,i_param)
-    plot(params_regTrains(:, i_param), params_RIT(:, i_param), 'ko')
-    axis tight
-    ylims = get(gca, 'ylim');
-    xlims = get(gca, 'xlim');
-    maxval = max(abs([ylims, xlims]));
-    hold on,
-    plot([-maxval maxval], [-maxval maxval], 'k-')
-    axis equal
-    xlabel('Reg Trains')
-    ylabel('RIT')
-end
-    
 

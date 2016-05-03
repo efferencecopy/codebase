@@ -18,10 +18,14 @@ function [d, f, dTau, fTau] = fitTau2STP(in, psctype, channel, method)
 pOnTimes = {};
 raw = {};
 ttypes = fieldnames(in.expt);
+counter = 0;
 for i_type = 1:numel(ttypes)
-    pOnTimes{i_type} = in.expt.(ttypes{i_type}).pOnTimes;
-    raw{i_type} = in.expt.(ttypes{i_type}).stats.(psctype){channel};
-    raw{i_type} = mean(raw{i_type},3); % mean across sweeps
+    if ~isempty(in.expt.(ttypes{i_type}).raw.snips{channel})
+        counter = counter+1;
+        pOnTimes{counter} = in.expt.(ttypes{i_type}).pOnTimes;
+        raw{counter} = in.expt.(ttypes{i_type}).stats.(psctype){channel};
+        %raw{counter} = mean(raw{i_type},3); % mean across sweeps
+    end
 end
 
 
@@ -43,7 +47,7 @@ switch method
     case 'multistart'
         ms = MultiStart;
         ms.UseParallel = 'always';
-        [fitparams, ~, exitflag] = run(ms, problem, 50);
+        [fitparams, ~, exitflag] = run(ms, problem, 20);
     case 'global'
         gs = GlobalSearch;
         [fitparams, ~, exitflag] = run(gs, problem);
@@ -68,27 +72,32 @@ fTau = fitparams(6);
         k_f = params(5);
         tau_f = params(6);
 
-        pred = {};
+        pred = cellfun(@(x) nan(size(x)), raw, 'uniformoutput', false);
         for i_cond = 1:numel(raw)
-            A0 = raw{i_cond}(1);
-            pred{i_cond} = predictPSCfromTau(pOnTimes{i_cond}, k_d, tau_d, k_f, tau_f, A0);
+            for i_trl = 1:size(raw{i_cond}, 3)
+                A0 = raw{i_cond}(1,1,i_trl);
+                pred{i_cond}(:,1,i_trl) = predictPSCfromTau(pOnTimes{i_cond}, k_d, tau_d, k_f, tau_f, A0);
+            end
         end
 
         % pool the errors across pulse train types. Ingore the first pulse
         % (becuse the error is artifactually = zero). Do some error
         % checking along the way.
-        err = cellfun(@(x,y) x(2:end)./y(2:end), raw, pred, 'uniformoutput', false);
-        sizeMatch = cellfun(@(x,y) numel(x)==(numel(y)-1), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
+        err = cellfun(@(x,y) x./y, raw, pred, 'uniformoutput', false);
+        err = cellfun(@(x) x(2:end,:,:), err, 'uniformoutput', false); % remove the first pulse, since it's constrained to have no error
+        sizeMatch = cellfun(@(x,y) numel(x)==(numel(y)-size(y,3)), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
         assert(all(sizeMatch), 'ERROR: unexpected dimensions after step 1')
         
+        
+        % compute the log of the fractional error. When the data match the
+        % prediction, the ratio will be 1 and the log(ratio) will be zero.
+        % This means we want the sum of the log(ratios) to be as close as
+        % possible to zero. Take the ABS(log(ratio)) to force the code to
+        % minimize the difference from zero b/c deviations on the low and
+        % high side are both bad.
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);
-        
         err = cat(1, err{:});
-        sizeMatch = sum(cellfun(@(y) (numel(y)-size(y,3)), raw)) == numel(err);
-        assert(sizeMatch, 'ERROR: unexpected dimensions after step 2')
-        
-        % compute the log of the fractional error
-        err = sum(abs(log10(err))); % big negative powers of ten are good
+        err = sum(abs(log10(err)));
 
     end
 

@@ -1,4 +1,4 @@
-function out = iafExtractRuns_offPeriod(name_mat, name_img, relevantTrialAttributes)
+function out = iafExtractRuns_offPeriod(name_mat, name_img, relevantTrialAttributes, DECORR)
 
 % 
 %
@@ -90,13 +90,15 @@ for i_run = 1:Nruns;
         INVALID = false;
         if idx_start >= idx_stop;
             INVALID = true;
-            keyboard
+            error('Need to deal with this case')
         end
         
         % grab the trial data from the run and convert to dfof units
         frameNums = idx_start : idx_stop;
         Trial_dfof = dfof_from_trial(img_raw, frameNums, frameRate);
-        Trial_dfof = decor_mean_subtract(Trial_dfof);
+        if DECORR
+            Trial_dfof = decor_mean_subtract(Trial_dfof);
+        end
         
         
         % figure out what the trial number is (cumulative over runs)
@@ -167,7 +169,7 @@ function dfof = dfof_from_trial(img_raw, trialFrameNums, frameRate)
     
     % use the last few seconds of the preceeding OFF period to convert F
     % into dfof
-    Nframes_bkgnd = ceil(frameRate .* 4); % 4 seconds worth of bkgnd time
+    Nframes_bkgnd = ceil(frameRate .* 5); % 5 seconds worth of bkgnd time
     bkgnd_idx = [(trialFrameNums(1)-Nframes_bkgnd) : (trialFrameNums(1)-1)];
     zeroFrames = sum(sum(img_raw(:,:,bkgnd_idx),1),2) == 0;
     assert(~any(zeroFrames), 'ERROR: found some background (Fo) frames that were zero')

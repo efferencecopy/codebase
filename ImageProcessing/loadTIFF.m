@@ -11,17 +11,29 @@ function raw_img = loadTIFF(fpath, info, frameNums)
 % C.Hass 3/2016
 
 
+warning('OFF', 'MATLAB:imagesci:tiffmexutils:libtiffWarning')
+
+% open the file
+tiffID = tifflib('open',fpath,'r');
+
+
+
 % if the total number of frames wasn't specified, or if the user didn't
 % supply an info structure, then load one in. This is slow, so it's
 % preferable to use loadTIFF_info and then to get the Nframes some other
 % way
 if ~exist('info', 'var') || ~isfield(info, 'Nframes')
-    disp('using imfinfo to retrieve img info')
-    tmpinfo = imfinfo(fpath);
-    info.height_pix = tmpinfo(1).Height;
-    info.width_pix = tmpinfo(1).Width;
-    info.bitdepth = tmpinfo(1).BitDepth;
-    info.Nframes = numel(tmpinfo);
+    
+    info.height_pix = getTag(tiffID, 'ImageLength');
+    info.width_pix = getTag(tiffID, 'ImageWidth');
+    info.bitdepth = getTag(tiffID, 'BitsPerSample');
+    
+    counter = 1;
+    while ~tifflib('lastDirectory', tiffID)
+        tifflib('readDirectory', tiffID);
+        counter = counter+1;
+    end
+    info.Nframes = counter;
 end
 
 % which frames should be extracted. Default is all of them...
@@ -48,8 +60,7 @@ switch info.bitdepth;
 end     
 
 
-% open the file
-tiffID = tifflib('open',fpath,'r');
+
 
 % stuff to make sure the tifflib code runs smoothly
 assert(getTag(tiffID, 'Photometric') == 1, 'ERROR: min is not set to equal black')
