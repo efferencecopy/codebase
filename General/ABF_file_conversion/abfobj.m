@@ -129,91 +129,84 @@ classdef abfobj
         
         function Ra = getRa(obj, method)
 
-            
-            % find the recorded channels that correspond to Vclamp expts
-            [idx_Im, idx_Vclamp] = deal([]);
-            for a = 1:numel(obj.head.recChNames);
-                
-                % only consider the primary channel (for example, the
-                % secondary channel will record pA when in Current Clamp)
-                secCh = regexp(obj.head.recChNames{a}, '_sec', 'match');
-                if ~isempty(secCh); continue; end
-                
-                
-                % bail if the channel is non-neural
-                validChName = regexp(obj.head.recChNames{a}, 'HS\d_', 'match');                
-                if isempty(validChName); continue; end
-                
-                % bail if the channel is not Vclamp
-                vclamp = regexpi(obj.head.recChUnits{a}, 'pA');
-                if isempty(vclamp); continue; end
-                
-                % the index to the recorded membrane current. The names of
-                % the recorded channels is unreliable, bc a "current clamp"
-                % protocol can be run in "voltage clamp". The recorded
-                % units are reliabe though
-                if isfield(obj.idx, [validChName{1}, 'Vclamp']);
-                    idx_pA = ~cellfun(@isempty, regexpi(obj.head.recChUnits, 'pA'));
-                    idx_HSx = ~cellfun(@isempty, regexpi(obj.head.recChNames, validChName));
-                    tmp = find(idx_pA & idx_HSx);
-                    idx_Im = [idx_Im, tmp];
-                    
-                    % the index to the comand waveform
-                    tmp = obj.idx.([validChName{1}, 'Vclamp']);
-                    idx_Vclamp = [idx_Vclamp, tmp];
-                end
-            end
-            
-            % figure out which fitting method to use. Once exponential fits
-            % are up and running, than I could institute exp fits for cases
-            % where the sampling rate was slow, or there was a filter that
-            % slows the kinetics. Until then, just make the most negative
-            % value the estimate. This likely overestimates Ra, but that's
-            % not such a bad thing...
+            % figure out which fitting method to use.
             if ~exist('method', 'var')
                     method = 'quick';
             end
             
-            % loop over the valid channels and sweeps. Calculate the Ra as
-            % you go. The return argument will have the same dimensionality
-            % convention as obj.dat (time x channels x sweeps);
+            % figure out which channels were turned on, and set to Vclamp
+            Vclamp_idx = strcmpi(obj.head.recChUnits, 'pA'); % units are telegraphed from Multiclamp and more accurate than "names"
+            secCh = cellfun(@any, regexpi(obj.head.recChNames, '_sec'));
+            Vclamp_idx = Vclamp_idx & ~secCh;
+            Vclamp_names = obj.head.recChNames(Vclamp_idx);
+            Vclamp_names_cmd = obj.head.DACchNames;
+            
+            % loop over channels and sweeps. Calculate the Ra and Vhold.
+            % The return arguments will have the same dimensionality
+            % convention as obj.dat (time x channels x sweeps). So the
+            % outputs will be [1 x 2 x Nsweeps]
             Nsweeps = size(obj.dat, 3);
-            Nchannels = numel(idx_Im);
-            Ra.chNames = obj.head.recChNames(idx_Im);
-            Ra.dat = nan(1, Nchannels, Nsweeps);
-            Ra.Verr = nan(1, Nchannels, Nsweeps);
-            for ch = 1:numel(idx_Im)
-                for swp = 1:Nsweeps;
+            Ra.dat = nan(1, 2, Nsweeps);
+            Ra.Verr = nan(1, 2, Nsweeps);
+            for i_ch = 1:2
+                
+                % make sure data are present for this recording channel and
+                % initialize the outputs
+                HSname = sprintf('HS%d_', i_ch);
+                HSpresent = strncmp(Vclamp_names, HSname, numel(HSname));
+                cmdname_idx = strncmp(Vclamp_names_cmd, HSname,  numel(HSname));
+                assert(sum(HSpresent)<=1, 'ERROR: too many matches');
+                if ~any(HSpresent)
+                    Ra.chNames{i_ch} = '';
+                    continue
+                else
+                    HSname = Vclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
+                    CMDname = Vclamp_names_cmd{cmdname_idx};
+                    Ra.chNames{i_ch} = HSname;
+                end
+                
+                
+                for i_swp = 1:Nsweeps;
                     
                     % find the relevant time points with respect to the
                     % command wf
-                    idxOnset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'd');
-                    idxOffset = obj.threshold(-0.1, [idx_Vclamp(ch), swp], 'u');
-                    idx_pulse = find(idxOnset) : find(idxOffset);
+                    cmdwf = obj.wf(:, obj.idx.(CMDname), i_swp);
+                    cmdwf = squeeze(cmdwf);
+                    thresh = max(abs(cmdwf)) .* 0.8;
+                    crossing_on = [false; diff(abs(cmdwf)>thresh)==1];
+                    assert(sum(crossing_on)==1, 'ERROR: too many crossings');
+                    idxOnset = find(crossing_on);
+                    crossing_off = [false; diff(abs(cmdwf)>thresh)==-1];
+                    assert(sum(crossing_off)==1, 'ERROR: too many crossings');
+                    idxOffset = find(crossing_off);
+                    
+                    idx_pulse = false(size(cmdwf));
+                    idx_pulse(idxOnset:idxOffset) = true;
                     
                     % the Im doesn't start until after the onset of the
                     % Vcmd pulse. Find the most negative point following the
                     % Vcmd pulse
-                    minVal = min(obj.dat(idx_pulse, idx_Im(ch), swp));
-                    respStart = find(obj.dat(:, idx_Im(ch), swp) == minVal, 1, 'first');
-                    t_idx = respStart:find(idxOffset);
-                    Im_pulse = obj.dat(t_idx, idx_Im(ch), swp);
+                    minVal = min(obj.dat(idx_pulse, obj.idx.(HSname), i_swp));
+                    eq2minval = squeeze(obj.dat(:, obj.idx.(HSname), i_swp)) == minVal;
+                    respStart = find([idx_pulse & eq2minval], 1, 'first');
+                    t_idx = respStart:idxOffset;
+                    Im_pulse = obj.dat(t_idx, obj.idx.(HSname), i_swp);
                     tt_pulse = obj.tt(t_idx);
                     
                     %calculate the baseline
-                    idx_baseline = find(idxOnset)-110 : find(idxOnset)-10;
-                    Im_baseline = mean(obj.dat(idx_baseline, idx_Im(ch), swp));
+                    idx_baseline = (idxOnset-110) : (idxOnset-10);
+                    Im_baseline = mean(obj.dat(idx_baseline, obj.idx.(HSname), i_swp));
                     
                     %caluclate the magnitude of the pulse
-                    Vm_baseline = mean(obj.wf(idx_baseline, idx_Vclamp(ch), swp));
-                    Vm_pulse = mean(obj.wf(idx_pulse, idx_Vclamp(ch), swp));
+                    Vm_baseline = mean(obj.wf(idx_baseline, obj.idx.(CMDname), i_swp));
+                    Vm_pulse = mean(obj.wf(idx_pulse, obj.idx.(CMDname), i_swp));
                     pulse_mv = Vm_pulse - Vm_baseline;
                     
                     switch method
                         case 'quick'
                             delta_pa = minVal - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
+                            Ra.dat(1, i_ch, i_swp) = pulse_mv ./ delta_na;
                             
                         case 'linear'
                             pred = [tt_pulse(1:20)', ones(20,1)];
@@ -223,7 +216,7 @@ classdef abfobj
                             Im_atOnset = betas(1) .* tt_On + betas(2);
                             delta_pa = Im_atOnset - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra.dat(1, ch, swp) = pulse_mv ./ delta_na;
+                            Ra.dat(1, i_ch, i_swp) = pulse_mv ./ delta_na;
                         case 'exp'
                             % currently doesn't do anything
                     end
@@ -232,24 +225,12 @@ classdef abfobj
                     % calculate the Vclamp error due to holding current as
                     % a percentage of the holding potential
                     %%%%%%%%%%%%%%%%%%%%%%%
-                    Verr_volts = (Ra.dat(1, ch, swp) .* 10^6) .* (Im_baseline .* 10^-12);
+                    Verr_volts = (Ra.dat(1, i_ch, i_swp) .* 10^6) .* (Im_baseline .* 10^-12);
                     Verr_mv = Verr_volts .* 1000;
-                    
-                    l_secCh = regexpi(obj.head.recChNames, '_sec', 'match');
-                    l_secCh = cellfun(@(x) ~isempty(x), l_secCh);
-                    l_unitsMV = regexpi(obj.head.recChUnits, 'mv', 'match');
-                    l_unitsMV = cellfun(@(x) ~isempty(x), l_unitsMV);
-                    l_ch = regexp(obj.head.recChNames, sprintf('HS%d', ch), 'match');
-                    l_ch = cellfun(@(x) ~isempty(x), l_ch);
-                    Vm_idx = l_secCh & l_unitsMV & l_ch;
-                    Vcmd = round(mean(obj.dat(idx_baseline, Vm_idx, swp)));
-                    
-                    Ra.Verr(1, ch, swp) = abs(Verr_mv);
+                    Ra.Verr(1, i_ch, i_swp) = abs(Verr_mv);
                     
                 end
             end
-            
-            
         end
         
         function quickPlot(obj)

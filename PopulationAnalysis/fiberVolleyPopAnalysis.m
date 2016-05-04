@@ -5,8 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 5;
-BRAINAREA = 'pm';
+EXPTTYPE = 1;
+BRAINAREA = 'al';
 COMBINE_CHIEF = false;
 switch EXPTTYPE
     case 1
@@ -3783,7 +3783,7 @@ end
 
 %% COMPARE PLASTICITY ACROSS BRAIN AREAS
 
-fin
+
 
 
 ERRBARS = true;
@@ -3792,10 +3792,10 @@ PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'n
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
 
 % load in data from each area
-load('pop_al_splitchief_L5stim.mat');
+load('pop_al_stimL23_recL23.mat');
 al_pop = pop;
 
-load('pop_pm_splitchief_L5stim.mat');
+load('pop_pm_stimL23_recL23.mat');
 pm_pop = pop;
 
 
@@ -3807,7 +3807,7 @@ pm_pop = pop;
 F = figure;
 set(F, 'position', [109    31   891   754])
 
-opsinTypes = {'chr2', 'chief_flx', 'chronos'};
+opsinTypes = {'chr2', 'chief_all', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
     
     % grab the data

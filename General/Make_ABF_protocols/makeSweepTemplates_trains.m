@@ -16,6 +16,13 @@ function params = makeSweepTemplates_trains(params)
 % params.nReps          =>  Number of repeates each stimulus should be presented
 
 
+if ~isfield(params, 'recovery')
+    params.recovery = false;
+end
+if ~isfield(params, 'recoveryTime') || isempty(params.recoveryTime)
+    params.recoveryTime = sqrt(-1); % pretty sure this should make things crash if it ends up getting used
+end
+
 
 %
 % Generate the stimulus waveforms (one for each unique stimulus type)
@@ -30,7 +37,10 @@ tt = [0:params.swpDur-1]' .* params.si;
 tStartIdx = ceil(params.tStart ./ params.si);
 conditions = fullfact([nAmps, nFreqs, nPulseWidths, nRecoveryTimes]);
 
+% initalize the outputs
 params.templates_trains = repmat({nan(numel(tt), 1)}, 1, size(conditions, 1));
+params.conditions_trains = conditions; % needs to be updated on a cond by cond basis
+params.ttype_header_trains = {'pAmp', 'pFreq', 'pWidth', 'tRecov'};
 
 % loop over the conditions and construct the waveform for each sweep
 for i_cond = 1:size(conditions, 1)
@@ -81,8 +91,13 @@ for i_cond = 1:size(conditions, 1)
             assert(idx + samplesPerPulse < numel(tt), 'ERROR: Train and recovery pulse can not fit in the sweep-time specified')
             
             params.templates_trains{i_cond}(idx:idx+samplesPerPulse-1) = tmp_pAmp;
+        else
+            recoveryTime = nan;
         end
         
+        
+        % define the per-condition ttype array
+        params.conditions_trains(i_cond,:) = [tmp_pAmp, tmp_pFreq, tmp_pWidth, recoveryTime];
     
     end
 

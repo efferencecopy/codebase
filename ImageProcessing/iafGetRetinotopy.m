@@ -1,4 +1,4 @@
-function iafGetRetinotopy(experimentType)
+function iafGetRetinotopy(experimentType, DECORR)
 
 
 % specify the actual trial types from the experiment type
@@ -16,7 +16,7 @@ udat.fid.ttypes = trialTypeLibrary(experimentType);
 
 % extract the runs, separate the data by trial type
 cd(udat.fid.path)
-dat = iafExtractRuns(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes);
+dat = iafExtractRuns_offPeriod(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes, DECORR);
 N_types = size(dat.uniqueTrlTypes,1);
 
 % save the ImagingRate in the output of this function so that the user can 
@@ -103,7 +103,7 @@ function updateImage(~,~)
     end
     
     axes(udat.h.ax)
-    imagesc(udat.final_img{imgNum}); colormap('gray')
+    imagesc(udat.final_img{imgNum}); colormap('gray');
     udat.h.ax.XTick = [];
     udat.h.ax.YTick = [];
     

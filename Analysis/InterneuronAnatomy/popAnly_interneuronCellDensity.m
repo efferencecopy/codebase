@@ -124,6 +124,15 @@ for i_mouse = 1:Nmice
                     idx(tmp_inds(1)+4+4:tmp_inds(end)) = false;
                 end
             end
+            
+            % A hack to only include 4 of the slices from CH_150612_A
+            if strcmpi(mice{i_mouse}, 'CH_150612_A')
+                tmp_inds = find(idx);
+                if strcmpi(areas(i_area), 'pm')
+                    idx(tmp_inds(2)) = false;
+                    idx(tmp_inds(7):tmp_inds(end)) = false;
+                end
+            end
                     
             
             

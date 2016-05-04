@@ -1,4 +1,12 @@
 function [h_line, h_errbar] = my_errorbar(xx, yy, errUp, varargin)
+%
+%  ERROR BAR WITH NO HATS
+%
+%  [h_line, h_errbar] = my_errorbar(xx, yy, err, lineseries)
+%
+%
+%  C.Hass 2015
+
 
 if ~exist('errDown', 'var')
     errDown = errUp;
@@ -7,8 +15,8 @@ end
 assert(isvector(errUp), 'ERROR, my_errbar only works with vector inputs')
 
 % deal with the optional lineseries inputs
+linespec = [];
 if ~isempty(varargin)
-    linespec = [];
     for i_spec = 1:numel(varargin)
         
         tmp = varargin{i_spec};
@@ -29,11 +37,7 @@ end
 % plot the line series
 hold on,
 plotstring = 'h_line = plot(xx, yy';
-if isempty(varargin)
-    plotstring = [plotstring, ')'];
-else
-    plotstring = [plotstring, linespec, ');'];
-end
+plotstring = [plotstring, linespec, ');'];
 eval(plotstring);
 
 
@@ -41,11 +45,9 @@ eval(plotstring);
 x_err = [xx(:)'; xx(:)'];
 y_err = [yy(:)' + errUp(:)' ; yy(:)' - errDown(:)'];
 plotstring = 'h_errbar = plot(x_err, y_err';
-if isempty(varargin)
-    plotstring = [plotstring, ',''marker'', ''none'');'];
-else
-    plotstring = [plotstring, linespec, ',''marker'', ''none'');'];
-end
+plotstring = [plotstring, linespec, ');'];
 eval(plotstring);
+set(h_errbar, 'Marker', 'none')
+set(h_errbar, 'LineStyle', '-')
 
 
