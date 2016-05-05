@@ -42,15 +42,15 @@ Fo = Fo(:,:,startidx:end);
 % now just do the math
 dFoF =  (img_raw - Fo) ./ Fo;
 
-% % crazy idea: subtract the mean across all pixels to eliminate image wide
-% % noise that has nothing to do with IAF or hemodynamics. Make sure that the
-% % thing you subtract off has the same sigma as each pixel time series.
-% xbar = mean(mean(dFoF,1),2);
-% sigma = std(dFoF,[],3);
-% scaleFactor = sigma ./ std(xbar(:)); % a scale factor to equate sigma on a pix by pix basis
-% rsub = bsxfun(@times, xbar, scaleFactor);
-% assert(all(all((sigma - std(rsub,[],3))<1e-10)), 'ERROR: sigmas are not the same')
-% dFoF = dFoF - rsub;
+% crazy idea: subtract the mean across all pixels to eliminate image wide
+% noise that has nothing to do with IAF or hemodynamics. Make sure that the
+% thing you subtract off has the same sigma as each pixel time series.
+xbar = mean(mean(dFoF,1),2);
+sigma = std(dFoF,[],3);
+scaleFactor = sigma ./ std(xbar(:)); % a scale factor to equate sigma on a pix by pix basis
+rsub = bsxfun(@times, xbar, scaleFactor);
+assert(all(all((sigma - std(rsub,[],3))<1e-10)), 'ERROR: sigmas are not the same')
+dFoF = dFoF - rsub;
 
 
 
