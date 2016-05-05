@@ -103,24 +103,6 @@ function updateImage(~,~)
             axes(udat.h.ax);
             
             pltimg = udat.final_img{imgNum};
-            
-            % figure out how to treat outlier values
-            artifactMultiplier = udat.h.artBox.value;
-            sigma = udat.final_img_sigma(imgNum);
-            sigma = sigma .* artifactMultiplier;
-            l_oob = abs(pltimg)>sigma;
-            replacementVal = nanmean(pltimg(~l_oob));
-            if artifactMultiplier > 0 && ~isnan(artifactMultiplier)
-                pltimg(abs(pltimg)>sigma) = replacementVal;
-            end
-            
-            % figure out how to deal with NaNs
-            l_nans = isnan(pltimg);
-            if any(l_nans(:))
-                pltimg(l_nans) = replacementVal;
-            end
-            
-            % now do the plotting
             pltimg = pltimg + (abs(min(pltimg(:))));
             pltimg = pltimg ./ (max(pltimg(:)).*1.1);
             pltimg = repmat(pltimg, [1,1,3]);
@@ -144,23 +126,6 @@ function updateImage(~,~)
             axes(udat.h.ax); % set the current axis
             
             pltimg = mean(cat(3, udat.final_img{:}),3);
-            
-            % figure out how to treat outlier values
-            artifactMultiplier = udat.h.artBox.value;
-            sigma = std(pltimg(:));
-            sigma = sigma .* artifactMultiplier;
-            l_oob = abs(pltimg)>sigma;
-            replacementVal = nanmean(pltimg(~l_oob));
-            if artifactMultiplier > 0 && ~isnan(artifactMultiplier)
-                pltimg(abs(pltimg)>sigma) = replacementVal;
-            end
-            
-            % figure out how to deal with NaNs
-            l_nans = isnan(pltimg);
-            if any(l_nans(:))
-                pltimg(l_nans) = replacementVal;
-            end
-            
             pltimg = pltimg + (abs(min(pltimg(:))));
             pltimg = pltimg ./ (max(pltimg(:)).*1.2);
             pltimg = repmat(pltimg, [1,1,3]);
