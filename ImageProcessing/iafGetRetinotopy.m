@@ -73,7 +73,7 @@ udat.h.artBox = uicontrol('style', 'edit',...
                           'units', 'normalized',...
                           'position', [0.25, 0.11, 0.1, 0.05],...
                           'string', artifactDefault,...
-                          'Callback', @updateImage);
+                          'Callback', @img_preProcess);
 uicontrol('style', 'text',...
           'units', 'normalized',...
           'position', [0.12, 0.1, 0.12, 0.05], ...
@@ -148,58 +148,54 @@ function img_preProcess(~,~)
         udat.h.smoothBox.String = '5';
     end
     
+    if artifactMultiplier <= 0
+        artifactMultiplier = 0;
+        udat.h.artBox.String = 'off';
+    end
     
-    % now do the pre-processing, start by filtering the raw data
-    Nttypes = numel(udat.raw_OnResponse);
-    if filterSD > 0 % could be different frame nums, so need sequential loops
-        udat.h.ax.Title.String = 'Filtering the raw data'; drawnow
-        for i_type = 1:Nttypes;
-            udat.filtData_ON{i_type} = cellfun(@(x) imgaussfilt(x, filterSD), udat.raw_OnResponse{i_type}, 'uniformoutput', false);
-            udat.filtData_OFF{i_type} = cellfun(@(x) imgaussfilt(x, filterSD), udat.raw_OffResponse{i_type}, 'uniformoutput', false);
-        end
-        udat.h.ax.Title.String = ''; drawnow
+    if strcmpi(udat.method, 'intrinsic')
+        preProcessed_ON = cellfun(@(x) iafRemoveOutliers(x, artifactMultiplier), udat.AvgTrialON, 'uniformoutput', false);
+        preProcessed_OFF = cellfun(@(x) iafRemoveOutliers(x, artifactMultiplier), udat.AvgTrialOFF, 'uniformoutput', false);
     else
-        % package the unfiltered data into filtData_ON and filtData_OFF.
-        % Use new variables so that the raw data doesn't get corrrupted
-        udat.filtData_ON = udat.raw_OnResponse;
-        udat.filtData_OFF =  udat.raw_OffResponse;
+        preProcessed_ON = udat.AvgTrialON;
+        preProcessed_OFF =  udat.AvgTrialOFF;
     end
     
     
-    % average across trials (within each trial type). Then compute an image
-    % to show in the GUI
-    udat.h.ax.Title.String = 'Averaging the raw data'; drawnow
+    % now do the pre-processing, start by filtering the average images
+    Nttypes = numel(udat.AvgTrialON);
+    if filterSD > 0
+        udat.h.ax.Title.String = 'Filtering the raw data'; drawnow
+        preProcessed_ON = cellfun(@(x) imgaussfilt(x, filterSD), preProcessed_ON, 'uniformoutput', false);
+        preProcessed_OFF = cellfun(@(x) imgaussfilt(x, filterSD), preProcessed_OFF, 'uniformoutput', false);
+        udat.h.ax.Title.String = ''; drawnow
+    end
+    
+    % Compute an image to show in the gui
     for i_type = 1 : Nttypes
 
-        meanAcrossTime_on = nanmean(udat.AvgTrialON{i_type}, 3);
-        meanAcrossTime_off = nanmean(udat.AvgTrialOFF{i_type}, 3);
-        
-        udat.final_img{i_type} = meanAcrossTime_on - meanAcrossTime_off;
-        
-        
-            % deal with outliers
-    sigma = udat.final_img_sigma(imgNum);
-    sigma = sigma .* artifactMultiplier;
-    l_oob = abs(final_img)>sigma;
-    replacementVal = nanmean(final_img(~l_oob));
-    if artifactMultiplier <= 0 || isnan(artifactMultiplier)
-        udat.h.artBox.String = 'off';
-    else
-        final_img(l_oob) = replacementVal;
-    end
-    
-    
-        % figure out how to deal with NaNs
-    l_nans = isnan(udat.final_img{imgNum});
-    if any(l_nans(:))
-        final_img(l_nans) = replacementVal;
-    end
-    
-    
+        meanAcrossTime_on = nanmean(preProcessed_ON{i_type}, 3);
+        meanAcrossTime_off = nanmean(preProcessed_OFF{i_type}, 3);
+        final_img = meanAcrossTime_on - meanAcrossTime_off;
         
         
-        % store the sigma value for fast 'artifact' correction later
-        udat.final_img_sigma(i_type) = nanstd(udat.final_img{i_type}(:));
+        % deal with outliers in the calcium imaging data
+        if strcmpi(udat.method, 'calcium')
+            l_oob = abs(final_img)>artifactMultiplier;
+            replacementVal = nanmean(final_img(~l_oob));
+            if artifactMultiplier > 0 && ~isnan(artifactMultiplier)
+                final_img(l_oob) = replacementVal;
+            end
+            
+            % figure out how to deal with NaNs
+            l_nans = isnan(final_img);
+            final_img(l_nans) = replacementVal;
+        end
+        
+        
+        % store the final image
+        udat.final_img{i_type} = final_img;
+        
     end
     
     udat.h.fig.UserData = udat;
@@ -207,8 +203,6 @@ function img_preProcess(~,~)
 end
 
 function [names_mat, names_img, path] = ioGetFnames()
-    
-    global GL_DATPATH
     
     % call uigetfile. with default directory. Save
     [names, path] = uigetfile({'*.mat;*.tif',...
@@ -262,15 +256,7 @@ function get_ROI(~,~)
     udat = get(gcf, 'UserData');
 
     % strip out the udat gui handels, so that the new gui has a clean slate
-    artifactMultiplier = str2double(udat.h.artBox.String);
     udat.h = [];
-    udat.h.artBox.value = artifactMultiplier;
-    
-    % strip out the raw data so that the saved data from getROI isn't huge
-    udat.raw_OnResponse = [];
-    udat.raw_OffResponse = [];
-    udat.filtData_ON = [];
-    udat.filtData_OFF = [];
 
     % call the gui that selects ROIs
     GetROI(udat);
