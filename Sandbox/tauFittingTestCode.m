@@ -52,12 +52,12 @@ for i_iter = 1:Niters;
     %
     params.ritFreq = [8];
     params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
-    params.rit_Nversions = numel(params.templates_trains) .* Ntrials;
+    params.rit_Nversions = 10; %numel(params.templates_trains) .* Ntrials;
     params.ritUseEnvelope = true;
     params.ritEnvelopeFreq = [0.20];
     params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
     
-    
+    warning('only using 10 RIT versions')
     
     % concatenate templates
     sweepTemplates = cat(2, params.templates_trains, params.templates_poiss);
@@ -181,7 +181,7 @@ for i_iter = 1:Niters;
     
     % construct a fake dataset from the RIT stimuli
     testdat = [];
-    for i_tr = 1:Ntrains;
+    for i_tr = 1:numel(params.psc_test_poiss);
         ttype = sprintf('RIT_%d', i_tr);
         testdat.expt.(ttype).stats.EPSCamp{CHANNEL} = params.psc_test_poiss{i_tr};
         testdat.expt.(ttype).pOnTimes = params.pOnTimes_poiss{i_tr};
@@ -196,7 +196,7 @@ for i_iter = 1:Niters;
     %
     
     % things in common for both stimulus types
-    Ntrials = numel(params.templates_poiss) ./ numel(params.templates_trains)
+    %Ntrials = numel(params.templates_poiss) ./ numel(params.templates_trains)
     
     
     % construct a fake dataset from the trains, adding noise and making the

@@ -52,7 +52,7 @@ udat.h.rButtons.SelectedObject = udat.h.rBtn2; % Set the Radio Button #2 as defa
                      
 % Pop-up Menu (for specifying the 'selected' Visual Area)
 udat.h.menu = uicontrol('style', 'popupmenu',... 
-                        'String',cat(1,udat.ROI.VisArea, '-Select One-'),...                        
+                        'String',cat(1, udat.ROI.VisArea, '-Select One-'),...                        
                         'units', 'Normalized',...
                         'position', [0.375   0.115   0.25   0.03],...
                         'Value', 8);
@@ -197,6 +197,15 @@ end
 
     % Place ROI Coordinates (ROIc) in the index for the specified VisArea
     udat.ROI.RCidx{brainAreaIdx} = ROIc;
+    
+    % For Injections:
+    % Get coordinates of the boundary of the freehand drawn region
+    % and place ROI Boundary (ROIb) in the index for the specified VisArea
+    structBoundaries = bwboundaries(binaryImage);
+    ROIb = structBoundaries{1}; % Get n by 2 array of x,y coordinates.
+
+    udat.ROI.boundaries{brainAreaIdx} = ROIb;
+    
     
     % set the user data field
     udat.h.fig.UserData = udat;

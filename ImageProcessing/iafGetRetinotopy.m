@@ -1,5 +1,8 @@
-function iafGetRetinotopy(experimentType, DECORR)
+function iafGetRetinotopy(experimentType, METHOD)
 
+% store the inputs for later
+udat.experimentType = experimentType;
+udat.method = METHOD;
 
 % specify the actual trial types from the experiment type
 udat.fid.ttypes = trialTypeLibrary(experimentType);
@@ -16,20 +19,29 @@ udat.fid.ttypes = trialTypeLibrary(experimentType);
 
 % extract the runs, separate the data by trial type
 cd(udat.fid.path)
-dat = iafExtractRuns_offPeriod(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes, DECORR);
+switch lower(METHOD)
+    case 'intrinsic'
+        dat = iafExtractRuns(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes);
+        artifactDefault = 4;
+        smoothingDefault = 2;
+    case 'calcium'
+        dat = iafExtractRuns_offPeriod(udat.fid.names_mat, udat.fid.names_img, udat.fid.ttypes);
+        artifactDefault = 'off';
+        smoothingDefault = 'off';
+end
 N_types = size(dat.uniqueTrlTypes,1);
 
 % save the ImagingRate in the output of this function so that the user can 
 % analyze this data later
 udat.frameRate = dat.frameRate;
 
-% compute the average movie for each trial type
-udat.AvgTrialON = {};
-udat.AvgTrialOFF = {};
-for i_t_types = 1 : N_types    
-    udat.AvgTrialON{i_t_types} = iafGetAvgMovie(dat.OnResponse{i_t_types});
-    udat.AvgTrialOFF{i_t_types} = iafGetAvgMovie(dat.OffResponse{i_t_types});
+% store only the average across trials (separated into ON trials OFF trials, and by stimulus
+% type)
+for i_type = 1 : N_types
+    udat.AvgTrialON{i_type} = iafGetAvgMovie(dat.OnResponse{i_type});
+    udat.AvgTrialOFF{i_type} = iafGetAvgMovie(dat.OffResponse{i_type});
 end
+
 
 %
 % Initialize the GUI window and display the final images
@@ -40,6 +52,11 @@ udat.h.fig = figure;
 udat.h.fig.Units = 'Normalized';
 udat.h.fig.Position = [0.1526    0.2450    0.3211    0.6188];
 udat.h.ax = axes('position', [0.15 0.35 0.70 0.60]);
+
+% Name the figure according to filename
+musID = regexpi((regexpi(udat.fid.names_mat{1}, 'data-(\w\d+)', 'match')), '(\d+)', 'match');
+set(udat.h.fig, 'Name', sprintf('%s %s', musID{1}{1}, experimentType), 'NumberTitle', 'off');
+
 if N_types > 1
     udat.h.slide = uicontrol('style', 'slider',...
                              'units', 'normalized',...
@@ -55,7 +72,7 @@ end
 udat.h.artBox = uicontrol('style', 'edit',...
                           'units', 'normalized',...
                           'position', [0.25, 0.11, 0.1, 0.05],...
-                          'string', 'off',...
+                          'string', artifactDefault,...
                           'Callback', @img_preProcess);
 uicontrol('style', 'text',...
           'units', 'normalized',...
@@ -65,7 +82,7 @@ uicontrol('style', 'text',...
 udat.h.smoothBox = uicontrol('style', 'edit',...
                              'units', 'normalized',...
                              'position', [0.75, 0.11, 0.1, 0.05],...
-                             'string', 1,...
+                             'string', smoothingDefault,...
                              'Callback', @img_preProcess);
 uicontrol('style', 'text',...
           'units', 'normalized',...
@@ -88,6 +105,7 @@ function updateImage(~,~)
     
     udat = get(gcf, 'UserData');
     
+    % pull out the correct 'final image'
     N_types = numel(udat.final_img);
     if N_types > 1
         imgNum = udat.h.slide.Value;
@@ -95,7 +113,7 @@ function updateImage(~,~)
         imgNum = round(imgNum);
     else
         imgNum = 1;
-    end
+    end    
     
     axes(udat.h.ax)
     imagesc(udat.final_img{imgNum}); colormap('gray');
@@ -135,38 +153,49 @@ function img_preProcess(~,~)
         udat.h.artBox.String = 'off';
     end
     
+    if strcmpi(udat.method, 'intrinsic')
+        preProcessed_ON = cellfun(@(x) iafRemoveOutliers(x, artifactMultiplier), udat.AvgTrialON, 'uniformoutput', false);
+        preProcessed_OFF = cellfun(@(x) iafRemoveOutliers(x, artifactMultiplier), udat.AvgTrialOFF, 'uniformoutput', false);
+    else
+        preProcessed_ON = udat.AvgTrialON;
+        preProcessed_OFF =  udat.AvgTrialOFF;
+    end
     
-    % now do the pre-processing
-    N_types = numel(udat.AvgTrialON);
-    udat.final_img = {};
-    for i_type = 1:N_types
+    
+    % now do the pre-processing, start by filtering the average images
+    Nttypes = numel(udat.AvgTrialON);
+    if filterSD > 0
+        udat.h.ax.Title.String = 'Filtering the raw data'; drawnow
+        preProcessed_ON = cellfun(@(x) imgaussfilt(x, filterSD), preProcessed_ON, 'uniformoutput', false);
+        preProcessed_OFF = cellfun(@(x) imgaussfilt(x, filterSD), preProcessed_OFF, 'uniformoutput', false);
+        udat.h.ax.Title.String = ''; drawnow
+    end
+    
+    % Compute an image to show in the gui
+    for i_type = 1 : Nttypes
+
+        meanAcrossTime_on = nanmean(preProcessed_ON{i_type}, 3);
+        meanAcrossTime_off = nanmean(preProcessed_OFF{i_type}, 3);
+        final_img = meanAcrossTime_on - meanAcrossTime_off;
         
-        tmpOn = udat.AvgTrialON{i_type};
-        tmpOff = udat.AvgTrialOFF{i_type};
         
-        if artifactMultiplier > 0
-            tmpOn = iafRemoveOutliers(tmpOn, artifactMultiplier);
-            tmpOff = iafRemoveOutliers(tmpOff, artifactMultiplier);
+        % deal with outliers in the calcium imaging data
+        if strcmpi(udat.method, 'calcium')
+            l_oob = abs(final_img)>artifactMultiplier;
+            replacementVal = nanmean(final_img(~l_oob));
+            if artifactMultiplier > 0 && ~isnan(artifactMultiplier)
+                final_img(l_oob) = replacementVal;
+            end
+            
+            % figure out how to deal with NaNs
+            l_nans = isnan(final_img);
+            final_img(l_nans) = replacementVal;
         end
         
-        if filterSD > 0 % could be different frame nums, so need sequential loops
-            for i_frame = 1:size(tmpOn,3);
-                tmpOn(:,:,i_frame) = imgaussfilt(tmpOn(:,:,i_frame), filterSD);
-            end
-            for i_frame = 1:size(tmpOff,3);
-                tmpOff(:,:,i_frame) = imgaussfilt(tmpOff(:,:,i_frame), filterSD);
-            end
-        end
         
-        meanAcrossTime_on = mean(tmpOn, 3);
-        meanAcrossTime_off = mean(tmpOff, 3);
+        % store the final image
+        udat.final_img{i_type} = final_img;
         
-        udat.final_img{i_type} = meanAcrossTime_on - meanAcrossTime_off;
-    
-        % include the pre-processed data in the output of this function so that
-        % the user can analyze these data later
-        udat.preProcessed_ON{i_type} = tmpOn;
-        udat.preProcessed_OFF{i_type} = tmpOff;
     end
     
     udat.h.fig.UserData = udat;
@@ -174,8 +203,6 @@ function img_preProcess(~,~)
 end
 
 function [names_mat, names_img, path] = ioGetFnames()
-    
-    global GL_DATPATH
     
     % call uigetfile. with default directory. Save
     [names, path] = uigetfile({'*.mat;*.tif',...
@@ -215,6 +242,8 @@ function relevantTrialTypes = trialTypeLibrary(experimentType)
          relevantTrialTypes = {'tGratingElevationDeg', 'tGratingAzimuthDeg'};
      case 'sfvstf'
          relevantTrialTypes = {'tGratingSpatialFreqCPD', 'tGratingTemporalFreqCPS'};
+     case 'size'
+         relevantTrialTypes = {'tGratingDiameterDeg'};
      otherwise
          error('experiment type not yet defined')
  end
