@@ -54,7 +54,7 @@ for i_day = 1:Ndays
     % Save the Date (when Imaging Data was collected)
     if numel(data) > 1
         Date = {};
-        Date{i_day} = regexpi(filename{i_day}, '(\d\d\d\d\d\d)', 'match');
+        Date{i_day} = regexpi(filename{i_day}, '(\d{6})', 'match');
         if Date{i_day}{:}(3) == '0'
             Date{i_day} = [Date{i_day}{:}(4), '/', Date{i_day}{:}(5:6), '/', Date{i_day}{:}(1:2)]; % Format the date
         else
@@ -309,13 +309,7 @@ for i_VAs = 1:NVAs
             end
         end
         
-        % Change figure formatting if there are alot of stim-types to display
-        if Nttypes > 5
-            title(sprintf('\n(SF: %0.2g,  TF: %0.2g)\n', data{i_day}.udat.ttypes(i_ttypes), data{i_day}.udat.ttypes(i_ttypes+Nttypes)), 'FontSize', 10);
-        else
-            title(sprintf('\n%s\n(SF: %0.2f,  TF: %d)\n', data{i_day}.udat.ROI.VisArea{i_VAs}, data{i_day}.udat.ttypes(i_ttypes), data{i_day}.udat.ttypes(i_ttypes+Nttypes)), 'FontSize', 10);
-        end
-        
+        title(sprintf('\n(SF: %0.2g,  TF: %0.2g)\n', data{i_day}.udat.ttypes(i_ttypes), data{i_day}.udat.ttypes(i_ttypes+Nttypes)), 'FontSize', 10);
         xlabel(sprintf('Time (sec)', data{i_day}.udat.frameRate), 'FontSize', 8)
         ylabel('\DeltaF/F', 'FontSize', 8)
         
