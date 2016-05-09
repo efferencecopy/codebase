@@ -29,14 +29,14 @@ for i_va = 1:num_vas % for every Visual Area 'available' in AvgImage
     rows = udat.ROI.RCidx{i_va}(:,1)';
         
     % convert R/C indicies to linear indicies. Note:
-    % size(udat.final_img{1}) == size(udat.preProcessed_ON{1}(:,:,1))
+    % size(udat.final_img{1}) == size(udat.AvgTrialON{1}(:,:,1))
     linIdx_roi = sub2ind(size(udat.final_img{1}), rows, columns); %Placement of 'important' pixels for the first frame
     
     % linIdx is the index of each ROI pixel on the 1'st frame. Now we need
     % to slove for the linear index of all pixel across all frames. Do this
     % separately for the ON and OFF movies
-    NframesON = size(udat.preProcessed_ON{1}, 3);
-    NframesOFF =  size(udat.preProcessed_OFF{1}, 3);
+    NframesON = size(udat.AvgTrialON{1}, 3);
+    NframesOFF =  size(udat.AvgTrialOFF{1}, 3);
  
     % Use the linear index to extract the dfof data from the processed data
     Nttypes = size(udat.ttypes, 1); %Nttypes = Total # of Stimulus Types (Trial Types)
@@ -44,14 +44,14 @@ for i_va = 1:num_vas % for every Visual Area 'available' in AvgImage
         
         % first grab the dfof data for the ON period. Reshape the array to
         % [Nframes x NPixels]
-        roi_on = udat.preProcessed_ON{i_ttypes};
+        roi_on = udat.AvgTrialON{i_ttypes};
         roi_on = reshape(roi_on, [], NframesON); % npix x nframes
         roi_on = roi_on(linIdx_roi,:);
         roi_on = roi_on'; % transpose to make dims = [nframes x npix]
         
         % now grab the dfof data for the OFF period. Reshape the array to
         % [Nframes x NPixels]
-        roi_off = udat.preProcessed_OFF{i_ttypes};
+        roi_off = udat.AvgTrialOFF{i_ttypes};
         roi_off = reshape(roi_off, [], NframesOFF);
         roi_off = roi_off(linIdx_roi,:);
         roi_off = roi_off';
@@ -68,7 +68,7 @@ end
 
 figure; hold on,
 plotimg = cat(3, udat.final_img{:});
-plotimg = mean(plotimg, 3);
+plotimg = nanmean(plotimg, 3);
 plotimg = plotimg + (abs(min(plotimg(:))));
 plotimg = plotimg ./ (max(plotimg(:)).*1.2);
 plotimg = repmat(plotimg, [1,1,3]);
@@ -90,14 +90,14 @@ MAKEPLOT = true;
 
 Nttypes = size(udat.ttypes, 1);
 
-popdat.on = {};
-popdat.off = {};
+popmean.on = {};
+popmean.off = {};
 
 % now the main plotting routines
 for i_va = 1:num_vas
     
-    popdat.on{i_va} = [];
-    popdat.off{i_va} = [];
+    popmean.on{i_va} = [];
+    popmean.off{i_va} = [];
     
     % Make sure that there was an ROI defined, and that there is data
     % avaliable
@@ -109,12 +109,12 @@ for i_va = 1:num_vas
         
         % calculate the average dFoF during the On and Off periods
         meanON = pixelMatrix{i_va}{i_ttypes}(1:NframesON,:);
-        meanON = mean(meanON(:)); % identical to taking mean across time first, then mean across pix.
-        popdat.on{i_va}(i_ttypes) = meanON;
+        meanON = nanmean(meanON(:)); % identical to taking nanmean across time first, then nanmean across pix.
+        popmean.on{i_va}(i_ttypes) = meanON;
         
-        meanOFF = pixelMatrix{i_va}{i_ttypes}(NframesON+2:end-4,:);
-        meanOFF = mean(meanOFF(:)); % identical to taking mean across time first, then mean across pix.
-        popdat.off{i_va}(i_ttypes) = meanOFF;
+        meanOFF = pixelMatrix{i_va}{i_ttypes}(NframesON+1:end,:);
+        meanOFF = nanmean(meanOFF(:)); % identical to taking nanmean across time first, then nanmean across pix.
+        popmean.off{i_va}(i_ttypes) = meanOFF;
         
     end
     
@@ -137,7 +137,12 @@ if MAKEPLOT
     % add the titles to the first row
     for i_ttypes = 1: Nttypes
         subplot(num_vas, Nttypes, i_ttypes)
-        title(sprintf('SF: %0.2f, TF: %d', udat.ttypes(i_ttypes, 1), udat.ttypes(i_ttypes, 2)), 'FontSize', 10);
+        switch udat.experimentType
+            case 'sfvstf'
+                title(sprintf('SF: %0.2f, TF: %d', udat.ttypes(i_ttypes, 1), udat.ttypes(i_ttypes, 2)), 'FontSize', 10);
+            case 'size'
+                title(sprintf('Size: %d dva', udat.ttypes(i_ttypes)))
+        end
     end
     
     % now the main plotting routines
@@ -156,17 +161,17 @@ if MAKEPLOT
             
             Nframes = size(pixelMatrix{i_va}{i_ttypes}, 1);
             tt = [0:Nframes-1] .* (1/udat.frameRate);
-            plot(tt, mean(pixelMatrix{i_va}{i_ttypes},2))
+            plot(tt, nanmean(pixelMatrix{i_va}{i_ttypes},2))
             axis tight
             
             ttON = (NframesON).* (1/udat.frameRate);
             plot([ttON  ttON], ylim, 'LineStyle', ':', 'Color', 'k') % Mark 'Stimulus Offset'
             
             % add a line for the mean across time
-            meanON = popdat.on{i_va}(i_ttypes);
+            meanON = popmean.on{i_va}(i_ttypes);
             plot([0, ttON], [meanON, meanON], 'k-', 'linewidth', 2)
             
-            meanOFF = popdat.off{i_va}(i_ttypes);
+            meanOFF = popmean.off{i_va}(i_ttypes);
             plot([ttON, tt(end)], [meanOFF, meanOFF], 'k-', 'linewidth', 2)
             
             if i_va == num_vas
@@ -187,6 +192,9 @@ end
 
 %% JOINT SF-TF TUNING AND 1D SPEED TUNING
 
+assert(strcmpi(udat.experimentType, 'sfvstf'), 'ERROR: not a speed tuning expt')
+
+
 sf_cpd = udat.ttypes(:,strcmpi(udat.text, 'tGratingSpatialFreqCPD'));
 tf_cps = udat.ttypes(:,strcmpi(udat.text, 'tGratingTemporalFreqCPS'));
 speed_dps = tf_cps ./ sf_cpd;
@@ -194,35 +202,35 @@ unique_tf = unique(tf_cps);
 unique_sf = unique(sf_cpd);
 unique_speed = unique(speed_dps);
 
-popdat.sftf = {};
-popdat.speed = repmat({repmat({[]}, 1, numel(unique_speed))}, 1, num_vas); %ordered according to unique_speed
+popmean.sftf = {};
+popmean.speed = repmat({repmat({[]}, 1, numel(unique_speed))}, 1, num_vas); %ordered according to unique_speed
 
 for i_va = 1:num_vas
-    if isempty(popdat.on{i_va})
-        popdat.sftf{i_va} = [];
+    if isempty(popmean.on{i_va})
+        popmean.sftf{i_va} = [];
         continue
     end
     
-    popdat.sftf{i_va} = nan(numel(unique_sf), numel(unique_tf));
-    for i_ttype = 1:numel(popdat.on{i_va})
+    popmean.sftf{i_va} = nan(numel(unique_sf), numel(unique_tf));
+    for i_ttype = 1:numel(popmean.on{i_va})
         
         % grab the data
-        tmpdat = popdat.on{i_va}(i_ttype) - popdat.off{i_va}(i_ttype);
+        tmpdat = popmean.on{i_va}(i_ttype);% - popmean.off{i_va}(i_ttype);
         
         % store the data for the SF/TF joint tuning matrix
         ridx = unique_sf == sf_cpd(i_ttype);
         cidx = unique_tf == tf_cps(i_ttype);
-        popdat.sftf{i_va}(ridx, cidx) = tmpdat;
+        popmean.sftf{i_va}(ridx, cidx) = tmpdat;
         
         % store data for the 1D speed tuning functions
         speed_idx = unique_speed == speed_dps(i_ttype);
-        popdat.speed{i_va}{speed_idx}(end+1) = tmpdat;
+        popmean.speed{i_va}{speed_idx}(end+1) = tmpdat;
         
     end
     
     % filp the matrix ud so that the SF values go from little to big from
     % the bottom left corner
-    popdat.sftf{i_va} = flipud(popdat.sftf{i_va});
+    popmean.sftf{i_va} = flipud(popmean.sftf{i_va});
     
 end
 
@@ -234,13 +242,13 @@ f.Position = [0.1507    0.0578    0.6729    0.8022];
 plotdims = ceil(sqrt(num_vas));
 for i_va = 1:num_vas
     
-    if isempty(popdat.on{i_va})
+    if isempty(popmean.on{i_va})
         continue
     end    
     
     % plot
     subplot(plotdims, plotdims, i_va)
-    imagesc(popdat.sftf{i_va});% ./ max(abs(popdat.sftf{i_va}(:))))
+    imagesc(popmean.sftf{i_va});% ./ max(abs(popdat.sftf{i_va}(:))))
     colormap gray; colorbar
     h = gca;
     h.YTick = [];
@@ -257,12 +265,12 @@ f.Position = [0.1507    0.0578    0.6729    0.8022];
 plotdims = ceil(sqrt(num_vas));
 for i_va = 1:num_vas
     
-    if isempty(popdat.on{i_va})
+    if isempty(popmean.on{i_va})
         continue
     end    
     
     % grab data
-    tmpdat = popdat.speed{i_va};
+    tmpdat = popmean.speed{i_va};
     
     % plot the raw data points
     subplot(plotdims, plotdims, i_va); hold on,
@@ -271,12 +279,40 @@ for i_va = 1:num_vas
     end
     
     % plot the average
-    avgdat = cellfun(@mean, tmpdat);
+    avgdat = cellfun(@nanmean, tmpdat);
     plot(unique_speed, avgdat, 'k', 'linewidth', 2);
     h = gca;
     h.XScale = 'log';
     title(udat.ROI.VisArea{i_va}, 'fontsize', 10)
     xlabel('Speed (dps)')
+    ylabel('Fon - Foff')
+    
+end
+
+
+%% SIZE TUNING
+
+assert(strcmpi(udat.text, 'tGratingDiameterDeg') && strcmpi(udat.experimentType, 'size'), 'ERROR: not a size tuning expt')
+
+f = figure;
+f.Units = 'normalized';
+f.Position = [0.0703    0.5204    0.8740    0.2222];
+for i_va = 1:num_vas
+    
+    if isempty(popmean.on{i_va})
+        continue
+    end    
+    
+    % grab data
+    tmpdat = popmean.on{i_va};
+    
+    % plot the raw data points
+    subplot(1, num_vas, i_va); hold on,
+    plot(udat.ttypes, tmpdat, '-ko')
+    
+    h = gca;
+    title(udat.ROI.VisArea{i_va}, 'fontsize', 10)
+    xlabel('Szie (dps)')
     ylabel('Fon - Foff')
     
 end

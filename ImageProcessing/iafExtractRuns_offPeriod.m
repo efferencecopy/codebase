@@ -1,9 +1,12 @@
-function out = iafExtractRuns_offPeriod(name_mat, name_img, relevantTrialAttributes, DECORR)
+function out = iafExtractRuns_offPeriod(name_mat, name_img, relevantTrialAttributes)
 
 % 
 %
 % 'relevantTrialAttributes' must be a cell array of strings denoting the 
 %          trial attributes that should be used to distinguish trial types.
+
+DECORR = false; % by default, do not remove the correlations. assume calcium imaging.
+
 
 % initalize the outputs
 out.uniqueTrlTypes = [];
@@ -173,6 +176,7 @@ function dfof = dfof_from_trial(img_raw, trialFrameNums, frameRate)
     bkgnd_idx = [(trialFrameNums(1)-Nframes_bkgnd) : (trialFrameNums(1)-1)];
     zeroFrames = sum(sum(img_raw(:,:,bkgnd_idx),1),2) == 0;
     assert(~any(zeroFrames), 'ERROR: found some background (Fo) frames that were zero')
+    
     img_bkgnd = mean(img_raw(:,:,bkgnd_idx), 3);
     
     dfof = bsxfun(@minus, img_raw(:,:,trialFrameNums(1):trialFrameNums(end)), img_bkgnd);
