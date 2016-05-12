@@ -4566,6 +4566,22 @@ l_gt20 = popRa > 20;
 in(l_gt20, :)
 
 
+%% JITTER ANALYSIS
+
+% load a data file with cell attached spikes (from Tim).
+[d, h, wf] = my_abfload('C:\Users\charlie\Desktop\14d17018.abf');
+
+% select a single spike, reverse the sign to make it look like an LFP
+template = -d(100600:101100,:,89);
+tt = [0:numel(template)-1] ./ h.sampRate;
+plot(tt, template)
+
+% jitter the start time
+jittered = nan(500, numel(template));
+jit_max = 1e-3 ./ (1./h.sampRate);  % max number of timesteps to shift
+for i_iter = 1:size(jittered,1)
+    jittertime = unidrnd
+
 
 
 %% GET TRIAL COUNTS AND SNR AND GENOTYPES

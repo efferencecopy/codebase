@@ -1,40 +1,21 @@
-function [d, f, dTau, fTau] = fitTau2STP(in, psctype, channel, method)
+function [d, f, dTau, fTau] = fitTau2STP(raw, pOnTimes, method)
 
 % inputs:
 %
-%  in     -> a structure of corresponding to a single whole cell recording.
-%            It should contain one or more 'expt' fields which has the data
-%            for a specific pulse train condition
-%
-%  in.epxt.(pType).pOnTimes        -> the time of pulses for this pulse-train stimulus
-%  in.expt.(pType).stats.EPSCamp   -> the amplitudes of the EPSC in response to eacn pulse
-%
-%  psctype  -> either 'EPSCamp' or 'IPSCamp'
-%
-%  channel  -> which headstage contains the data?
+%  raw: The PSC amplitudes {cell array}
+%  pOnTimes: Stimulus times in seconds,  {cell array, one for each stim type}
+%  method:  'MultiStart', or 'GlobalSearch'
 
-
-% aggregate data across pulse train types
-pOnTimes = {};
-raw = {};
-ttypes = fieldnames(in.expt);
-counter = 0;
-for i_type = 1:numel(ttypes)
-    if ~isempty(in.expt.(ttypes{i_type}).raw.snips{channel})
-        counter = counter+1;
-        pOnTimes{counter} = in.expt.(ttypes{i_type}).pOnTimes;
-        raw{counter} = in.expt.(ttypes{i_type}).stats.(psctype){channel};
-        %raw{counter} = mean(raw{i_type},3); % mean across sweeps
-    end
+if isempty(raw) || isempty(pOnTimes)
+    error('No data were provided')
 end
 
-
 %
-% now go about finding the best fitting STP parameters.
+% find the best fitting STP parameters.
 %
 %%%%%%%%%%%%%%%%%%%%
 guesses = [0.6 0.8 .5 5 1.5 2]; 
-upperbound = [1 1 5 15 5 15]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
+upperbound = [1 1 15 25 15 25]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 lowbound = [0 0 0 0 0 0]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point');
 problem = createOptimProblem('fmincon', 'objective', @fittau_rms,...

@@ -172,11 +172,14 @@ classdef abfobj
                     % command wf
                     cmdwf = obj.wf(:, obj.idx.(CMDname), i_swp);
                     cmdwf = squeeze(cmdwf);
-                    thresh = max(abs(cmdwf)) .* 0.8;
-                    crossing_on = [false; diff(abs(cmdwf)>thresh)==1];
+                    
+                    minval = min(cmdwf);
+                    assert(abs(minval+5)<1e-6, 'ERROR: may not have found test pulse')
+                    thresh = minval .* 0.9;
+                    crossing_on = [false; diff(cmdwf<thresh)==1];
                     assert(sum(crossing_on)==1, 'ERROR: too many crossings');
                     idxOnset = find(crossing_on);
-                    crossing_off = [false; diff(abs(cmdwf)>thresh)==-1];
+                    crossing_off = [false; diff(cmdwf<thresh)==-1];
                     assert(sum(crossing_off)==1, 'ERROR: too many crossings');
                     idxOffset = find(crossing_off);
                     

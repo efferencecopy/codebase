@@ -47,12 +47,12 @@ end
 dat = {};
 Nexpts = numel(attributes);
 
-% pool = gcp('nocreate');
-% if isempty(pool)
-%     pool = parpool(8);
-% end
+pool = gcp('nocreate');
+if isempty(pool)
+    pool = parpool(21);
+end
 
-for i_ex = 1:Nexpts
+parfor i_ex = 1:Nexpts
     dat{i_ex} = wcstp_compile_data(attributes{i_ex}, hidx, params);
 end
 
@@ -163,29 +163,54 @@ end
 
 for i_ex = 1:numel(dat)
     
-    % make a mini dataset that's composed of only the RIT data, then
-    % predict responses to recovery trains.
-    ritdata = [];
-    condnames = fieldnames(dat{i_ex}.expt);
-    for i_cond = 1:numel(condnames)
-        if strncmp(condnames{i_cond}, 'RITv', 4)
-            ritdata.expt.(condnames{i_cond}) = dat{i_ex}.expt.(condnames{i_cond});
-        end
-    end
-    
+   hf = figure;
+   hf.Position = [300 27 1325 957];
+   chempty = false(1,2);
    for i_ch = 1:2
        
+       % determine if there are data to fit
        fldname = sprintf('HS%dvalid', i_ch);
        isvalid = str2double(wb_expt(i_ex, hidx.(fldname)));
-       if isempty(ritdata) || ~isvalid
-           continue
+       if ~isvalid
+           chempty(i_ch) = true;
+           if i_ch == 1
+               continue
+           elseif all(chempty)
+               close(hf)
+               continue
+           end
        end
        
+       % make a mini dataset that's composed of only the RIT data. I need the
+       % pOnTimes, raw EPSC amps.
+       [pOnTimes, rawAmps] = deal({});
+       condnames = fieldnames(dat{i_ex}.expt);
+       counter = 1;
+       for i_cond = 1:numel(condnames)
+           if strncmp(condnames{i_cond}, 'RITv', 4)
+               pOnTimes{counter} = dat{i_ex}.expt.(condnames{i_cond}).pOnTimes;
+               rawAmps{counter} = dat{i_ex}.expt.(condnames{i_cond}).stats.EPSCamp{i_ch};
+               rawAmps{counter} = mean(rawAmps{counter},3); % mean across sweeps
+               counter = counter+1;
+           end
+       end
+       
+       % if there were no RIT data, then move along,
+       if isempty(rawAmps)
+           chempty(i_ch) = true;
+           if i_ch == 1
+               continue
+           elseif all(chempty)
+               close(hf)
+               continue
+           end
+       end
+           
+       
        % fit the RIT data
-       [d, f, dTau, fTau] = fitTau2STP(ritdata, 'EPSCamp', i_ch, 'multistart');
+       [d, f, dTau, fTau] = fitTau2STP(rawAmps, pOnTimes, 'multistart');
        
        % predict all the data
-       A0 = mean(dat{i_ex}.qc.p1amp{i_ch});
        ttypes = fieldnames(dat{i_ex}.expt);
        [pred, raw_xbar, raw_sem] = deal({});
        for i_type = 1:numel(ttypes)
@@ -193,11 +218,119 @@ for i_ex = 1:numel(dat)
            raw = dat{i_ex}.expt.(ttypes{i_type}).stats.EPSCamp{i_ch};
            raw_xbar{i_ch}{i_type} = mean(raw,3);
            raw_sem{i_ch}{i_type} = stderr(raw,3);
-           
+           A0 = raw_xbar{i_ch}{i_type}(1);
            pred{i_ch}{i_type} = predictPSCfromTau(pOnTimes, d, dTau, f, fTau, A0);
        end
        
+       
+       % plot the recovery trains (cross validation)
+       figure(hf)
+       trainNames = fieldnames(dat{i_ex}.expt);
+       l_recov = ~(strncmp(trainNames, 'RIT', 3));
+       recovIdx = find(l_recov);
+       xlims = [inf -inf];
+       ylims = [inf -inf];
+       hs = [];
+       for i_type = 1:numel(recovIdx)
+           
+           typeIdx = recovIdx(i_type);
+           pltIdx = sub2ind([4, numel(recovIdx)], i_ch+1, i_type);
+           hs(i_type) = subplot(numel(recovIdx), 4, pltIdx); hold on,
+           
+           xx = dat{i_ex}.expt.(trainNames{typeIdx}).pOnTimes;
+           my_errorbar(xx, raw_xbar{i_ch}{typeIdx}, raw_sem{i_ch}{typeIdx}, 'k');
+           plot(xx, pred{i_ch}{typeIdx}, 'r', 'linewidth', 2)
+           xlims(1) = min([min(xx), xlims(1)]);
+           xlims(2) = max([max(xx), xlims(2)]);
+           yvals = get(gca, 'ylim');
+           ylims(1) = min([yvals(1), ylims(1)]);
+           ylims(2) = max([yvals(2), ylims(2)]);
+       end
+       set(hs, 'XLim', xlims, 'YLim', ylims)
+       
+       
+       % make a scatter plot of all predicted and actual PSC amps
+       hs = [];
+       all_raw = [];
+       all_pred = [];
+       crossval_raw = [];
+       crossval_pred = [];
+       for i_type = 1:numel(trainNames)
+           if strncmpi(trainNames{i_type}, 'rit', 3); pltclr = 'k';else pltclr = 'r';end
+           if i_ch == 1; pltcol=1; else pltcol=4; end
+           
+           tmp_raw = dat{i_ex}.expt.(trainNames{i_type}).stats.EPSCamp{i_ch};
+           tmp_pred = pred{i_ch}{i_type};
+           tmp_pred = repmat(tmp_pred, size(tmp_raw,3), 1);
+           tmp_raw = tmp_raw(:);
+           assert(all(size(tmp_pred) == size(tmp_raw)))
+           
+           pltIdx = sub2ind([4, 3], pltcol, 1);
+           hs = subplot(3, 4, pltIdx); hold on,
+           plot(tmp_raw./tmp_raw(1), tmp_pred./tmp_pred(1), '.', 'color', pltclr)
+           axis tight
+           
+           % concatenate all the data
+           all_raw = cat(1, all_raw, tmp_raw(:));
+           all_pred = cat(1, all_pred, tmp_pred(:));
+           
+           % concatenate the cross-validation data
+           if ~strncmpi(trainNames{i_type}, 'rit', 3)
+               crossval_raw = cat(1, crossval_raw, tmp_raw(:));
+               crossval_pred = cat(1, crossval_pred, tmp_pred(:));
+           end
+       end
+       maxval = max([hs.XLim, hs.YLim]);
+       minval = min([hs.XLim, hs.YLim]);
+       plot([minval, maxval], [minval, maxval], 'k--')
+       hs.XScale = 'log';
+       hs.YScale = 'log';
+       xlabel('raw EPSC amp (norm)')
+       ylabel('pred amp (norm)')
+       
+       pltIdx = sub2ind([4, 3], pltcol, 2);
+       subplot(3,4,pltIdx), hold on,
+       resid = all_pred - all_raw;
+       histogram(resid)
+       plot(mean(resid), 10, 'rv', 'markerfacecolor', 'r')
+       R2 = 1 - (sum(resid.^2) ./ sum(all_raw.^2));
+       xlabel('pred-real')
+       
+       % calculate the suffle corrected R2.
+       N = numel(all_pred);
+       iters = 5000;
+       shuffle_inds = unidrnd(N, [N, iters]);
+       shuffle_pred = all_pred(shuffle_inds);
+       resid = bsxfun(@minus, shuffle_pred, all_raw);
+       SS_resid = sum(resid.^2, 2);
+       SS_raw = sum(all_raw.^2);
+       R2_shuffle = 1 - bsxfun(@rdivide, SS_resid, SS_raw);
+       title(sprintf('R2: %.3f, R2_shuff: %.3f', R2, mean(R2_shuffle)))
+       
+       
+       % plot cross validation stuff
+       pltIdx = sub2ind([4, 3], pltcol, 3);
+       subplot(3,4,pltIdx), hold on,
+       resid = crossval_pred - crossval_raw;
+       histogram(resid);
+       plot(mean(resid), 5, 'rv', 'markerfacecolor', 'r')
+       R2 = 1 - (sum(resid.^2) ./ sum(all_raw.^2));
+       xlabel('cross-valid (pred-real)')
+       
+       N = numel(crossval_pred);
+       iters = 5000;
+       shuffle_inds = unidrnd(N, [N, iters]);
+       shuffle_pred = crossval_pred(shuffle_inds);
+       resid = bsxfun(@minus, shuffle_pred, crossval_raw);
+       SS_resid = sum(resid.^2, 2);
+       SS_raw = sum(crossval_raw.^2);
+       R2_shuffle = 1 - bsxfun(@rdivide, SS_resid, SS_raw);
+       title(sprintf('R2: %.3f, R2_shuff: %.3f', R2, mean(R2_shuffle)))
+       
    end
+   drawnow
+   
+   
 end
 
 

@@ -215,7 +215,7 @@ for i_va = 1:num_vas
     for i_ttype = 1:numel(popmean.on{i_va})
         
         % grab the data
-        tmpdat = popmean.on{i_va}(i_ttype);% - popmean.off{i_va}(i_ttype);
+        tmpdat = popmean.on{i_va}(i_ttype) - popmean.off{i_va}(i_ttype);
         
         % store the data for the SF/TF joint tuning matrix
         ridx = unique_sf == sf_cpd(i_ttype);

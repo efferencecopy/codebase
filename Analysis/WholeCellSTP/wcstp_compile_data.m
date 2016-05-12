@@ -223,7 +223,8 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
                 dat.expt.(condname).raw.snips{i_ch} = [];
                 dat.expt.(condname).stats.EPSCamp{i_ch} = [];
                 dat.expt.(condname).stats.IPSCamp{i_ch} = [];
-                dat.expt.(condname).stats.latency{i_ch} = [];continue
+                dat.expt.(condname).stats.latency{i_ch} = [];
+                continue
             else
                 HSname = Vclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
                 dat.expt.(condname).raw.snips{i_ch} = nan(Npulses, preTime_samps+postTime_samps+1, Nsweeps);
@@ -265,13 +266,17 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             psc_sign = sign(sum(mean(dat.expt.(condname).raw.snips{i_ch}(1,:,:),3)));
             [peak_pA, peak_tt] = get_peak_psc(dat.expt.(condname).raw.snips{i_ch}, psc_sign, dat);
             dat.expt.(condname).stats.latency{i_ch} = peak_tt;
-            switch psc_sign
-                case 1  %IPSP
+            if psc_sign == 1  %IPSP
                     dat.expt.(condname).stats.EPSCamp{i_ch} = [];
                     dat.expt.(condname).stats.IPSCamp{i_ch} = peak_pA;
-                case -1 %EPSC
+            elseif psc_sign == -1 %EPSC
                     dat.expt.(condname).stats.EPSCamp{i_ch} = peak_pA;
                     dat.expt.(condname).stats.IPSCamp{i_ch} = [];
+            elseif isnan(psc_sign)
+                    dat.expt.(condname).stats.EPSCamp{i_ch} = [];
+                    dat.expt.(condname).stats.IPSCamp{i_ch} = [];
+            else
+                    error('unexpected psc_sign')
             end
                       
         end
