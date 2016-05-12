@@ -4569,20 +4569,41 @@ in(l_gt20, :)
 %% JITTER ANALYSIS
 
 % load a data file with cell attached spikes (from Tim).
-[d, h, wf] = my_abfload('C:\Users\charlie\Desktop\14d17018.abf');
+[d, h, wf] = my_abfload('/home/charlie/Crash/14d17018.abf');
 
 % select a single spike, reverse the sign to make it look like an LFP
 template = -d(100600:101100,:,89);
+template = template - mean(template(1:200));
 tt = [0:numel(template)-1] ./ h.sampRate;
-plot(tt, template)
-
-% jitter the start time
-jittered = nan(500, numel(template));
-jit_max = 1e-3 ./ (1./h.sampRate);  % max number of timesteps to shift
-for i_iter = 1:size(jittered,1)
-    jittertime = unidrnd
 
 
+% jitter the start time and plot the mean
+jit_max = 2e-3 ./ (1./h.sampRate);  % max number of timesteps to shift
+jit_max = round(linspace(4, jit_max, 10));
+jit_max = fliplr(jit_max);
+
+figure
+for i_j = 1:numel(jit_max)
+    jittered = nan(500, numel(template));
+    jval = round(jit_max(i_j)./2)*2; % make sure it's even
+    
+   
+    for i_iter = 1:size(jittered,1)
+        jittertime = unidrnd(jval);
+        jittered(i_iter, :) = circshift(template, jittertime, 1);
+    end
+    
+    
+    subplot(1,2,1), hold on,
+    shadedErrorBar(tt, mean(jittered, 1), stderr(jittered, 1), {'linewidth', 2});    
+    xlim([0.012, 0.018])
+    
+    subplot(1,2,2), hold on,
+    wf = mean(jittered, 1);
+    wf = wf ./ (max(wf)-min(wf));
+    plot(tt, wf)
+    xlim([0.012, 0.018])
+end
 
 %% GET TRIAL COUNTS AND SNR AND GENOTYPES
 
