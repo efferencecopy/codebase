@@ -3,24 +3,24 @@
 fin
 
 PLOTFIGS = false;
-CHANNEL = 1;
-PSCTYPE = 'EPSCamp';
+NONSTATIONARY = true;
 FITMETHOD = 'multistart';
 
-SIGMAFACTOR = 10;  % noise is 1/sigmaFactor of the PSC amplitude
-Niters = 100;
-Ntrials = 25;
+SIGMAFACTOR = 5;  % noise is 1/sigmaFactor of the PSC amplitude. This is also the Coeff. of Var
+Niters = 200;
+Ntrials = 2;
 
 % simulation params
-d1_sim = 0.80;
-d2_sim = 0.98;
-tau_d1_sim = 0.500;
-tau_d2_sim = 5;
-f1_sim = 0.4;
-tau_f1_sim = 0.200;
+d1_sim = 0.60;
+d2_sim = 0.90;
+tau_d1_sim = 0.100;
+tau_d2_sim = 2;
+f1_sim = 0.6;
+tau_f1_sim = 0.350;
 A0_sim = 600;
 
 [rit_fits, rit_fits_noiseless, train_fits, train_fits_noiseless] = deal(nan(Niters, 6));
+[R2_rit_pred_from_train_fits, R2_train_pred_from_rit_fits] = deal(nan(Niters, 1));
 
 for i_iter = 1:Niters;
     
@@ -52,12 +52,12 @@ for i_iter = 1:Niters;
     %
     params.ritFreq = [8];
     params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
-    params.rit_Nversions = 10; %numel(params.templates_trains) .* Ntrials;
+    params.rit_Nversions = numel(params.templates_trains) .* Ntrials;
     params.ritUseEnvelope = true;
     params.ritEnvelopeFreq = [0.20];
     params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
     
-    warning('only using 10 RIT versions')
+    %warning('only using 25 RIT versions')
     
     % concatenate templates
     sweepTemplates = cat(2, params.templates_trains, params.templates_poiss);
@@ -80,6 +80,10 @@ for i_iter = 1:Niters;
         params.pOnTimes_trains{i_tr} = tt(crossing);
         
         % simulate the EPSCs
+        if NONSTATIONARY
+            A0 = A0.*0.95;
+        end
+        
         params.psc_test_trains{i_tr} = predictPSCfromTau(params.pOnTimes_trains{i_tr}, d, dTau, f, fTau, A0);
         
         if PLOTFIGS
@@ -89,6 +93,8 @@ for i_iter = 1:Niters;
         end
         
     end
+    
+    A0 = A0_sim;
     for i_tr = 1:numel(params.templates_poiss)
         
         % define the pOnTimes
@@ -98,6 +104,10 @@ for i_iter = 1:Niters;
         params.pOnTimes_poiss{i_tr} = tt(crossing);
         
         %simulate the EPSCs
+        if NONSTATIONARY
+            A0 = A0.*0.95;
+        end
+        
         params.psc_test_poiss{i_tr} = predictPSCfromTau(params.pOnTimes_poiss{i_tr}, d, dTau, f, fTau, A0);
         
         if PLOTFIGS
@@ -109,7 +119,7 @@ for i_iter = 1:Niters;
     end
     
     %
-    % OPTIONAL PLOTS OFN THE TEMPLATES AND INSTANTANEOUS FREQ
+    % OPTIONAL PLOTS OF THE TEMPLATES AND INSTANTANEOUS FREQ
     %
     if PLOTFIGS
         % start with recovery trains
@@ -166,29 +176,25 @@ for i_iter = 1:Niters;
     % things in common for both stimulus types
     Ntrains = numel(params.templates_trains); % be fair and only compare the same number of trials
     
-    % construct a fake dataset from the trains
-    testdat = [];
+    % construct a fake dataset from the trains I need the pOnTimes, raw EPSC amps.
+    [pOnTimes, rawAmps] = deal({});
     for i_tr = 1:Ntrains
-        ttype = sprintf('train_%d', i_tr);
-        testdat.expt.(ttype).stats.EPSCamp{CHANNEL} = params.psc_test_trains{i_tr};
-        testdat.expt.(ttype).pOnTimes = params.pOnTimes_trains{i_tr};
-        testdat.expt.(ttype).raw.snips{CHANNEL} = [nan, nan]; % just needs to be defined inorder for fitTau2stp to run
+        pOnTimes{i_tr} =  params.pOnTimes_trains{i_tr};
+        rawAmps{i_tr} = params.psc_test_trains{i_tr};
     end
     
-    [d_trains, f_trains, dTau_trains, fTau_trains] = fitTau2STP(testdat, PSCTYPE, CHANNEL, FITMETHOD);
+    [d_trains, f_trains, dTau_trains, fTau_trains] = fitTau2STP(rawAmps, pOnTimes, FITMETHOD);
     train_fits_noiseless(i_iter,:) = [d_trains, f_trains, dTau_trains, fTau_trains];
     
     
     % construct a fake dataset from the RIT stimuli
-    testdat = [];
+    [pOnTimes, rawAmps] = deal({});
     for i_tr = 1:numel(params.psc_test_poiss);
-        ttype = sprintf('RIT_%d', i_tr);
-        testdat.expt.(ttype).stats.EPSCamp{CHANNEL} = params.psc_test_poiss{i_tr};
-        testdat.expt.(ttype).pOnTimes = params.pOnTimes_poiss{i_tr};
-        testdat.expt.(ttype).raw.snips{CHANNEL} = [nan, nan]; % just needs to be defined inorder for fitTau2stp to run
+        pOnTimes{i_tr} =  params.pOnTimes_poiss{i_tr};
+        rawAmps{i_tr} = params.psc_test_poiss{i_tr};
     end
     
-    [d_rit, f_rit, dTau_rit, fTau_rit] = fitTau2STP(testdat, PSCTYPE, CHANNEL, FITMETHOD);
+    [d_rit, f_rit, dTau_rit, fTau_rit] = fitTau2STP(rawAmps, pOnTimes, FITMETHOD);
     rit_fits_noiseless(i_iter,:) = [d_rit, f_rit, dTau_rit, fTau_rit];
     
     %
@@ -201,9 +207,8 @@ for i_iter = 1:Niters;
     
     % construct a fake dataset from the trains, adding noise and making the
     % appropriate number of trials per stimulus
-    testdat = [];
-    for i_tr = 1:numel(params.templates_trains)
-        ttype = sprintf('train_%d', i_tr);
+    [pOnTimes_trains, noisyAmps_trains] = deal({});
+    for i_tr = 1:numel(params.psc_test_trains)
         
         % pull out the noiseless pscs
         psc = params.psc_test_trains{i_tr};
@@ -211,39 +216,62 @@ for i_iter = 1:Niters;
         % make the noise have a fixed proportion of the (noiseless) versions
         sigma = psc ./ SIGMAFACTOR;
         psc = normrnd(repmat(psc, [1,1,Ntrials]), repmat(sigma, [1, 1, Ntrials]));
-        if any(psc<0)
-            psc(psc<0) = 0;
-            fprintf('######### found one #######\n')
-        end
+        assert(all(psc(:)>=0), '######### found one #######\n')
         
-        
-        testdat.expt.(ttype).stats.EPSCamp{CHANNEL} = psc;
-        testdat.expt.(ttype).pOnTimes = params.pOnTimes_trains{i_tr};
-        testdat.expt.(ttype).raw.snips{CHANNEL} = [nan, nan]; % just needs to be defined inorder for fitTau2stp to run
+        noisyAmps_trains{i_tr} = psc;
+        pOnTimes_trains{i_tr} = params.pOnTimes_trains{i_tr};
     end
     
-    [d_trains, f_trains, dTau_trains, fTau_trains] = fitTau2STP(testdat, PSCTYPE, CHANNEL, FITMETHOD);
+    [d_trains, f_trains, dTau_trains, fTau_trains] = fitTau2STP(noisyAmps_trains, pOnTimes_trains, FITMETHOD);
     train_fits(i_iter,:) = [d_trains, f_trains, dTau_trains, fTau_trains];
     
     
     % construct a fake dataset from the RIT stimuli
-    testdat = [];
+    [pOnTimes_RIT, noisyAmps_rit] = deal({});
     for i_tr = 1:numel(params.psc_test_poiss);
-        
-        ttype = sprintf('RIT_%d', i_tr);
         
         psc = params.psc_test_poiss{i_tr};
         sigma = psc ./ SIGMAFACTOR;
-        noise = normrnd(psc, sigma);
-        psc(psc<0) = 0;
+        psc = normrnd(psc, sigma);
+        assert(all(psc(:)>=0), '######### found one #######\n')
         
-        testdat.expt.(ttype).stats.EPSCamp{CHANNEL} = psc;
-        testdat.expt.(ttype).pOnTimes = params.pOnTimes_poiss{i_tr};
-        testdat.expt.(ttype).raw.snips{CHANNEL} = [nan, nan]; % just needs to be defined inorder for fitTau2stp to run
+        noisyAmps_rit{i_tr} = psc;
+        pOnTimes_RIT{i_tr} = params.pOnTimes_poiss{i_tr};
     end
     
-    [d_rit, f_rit, dTau_rit, fTau_rit] = fitTau2STP(testdat, PSCTYPE, CHANNEL, FITMETHOD);
+    [d_rit, f_rit, dTau_rit, fTau_rit] = fitTau2STP(noisyAmps_rit, pOnTimes_RIT, FITMETHOD);
     rit_fits(i_iter,:) = [d_rit, f_rit, dTau_rit, fTau_rit];
+    
+    %
+    % use the fits from one stimulus type to cross validate the other type.
+    % Start with using the train fits to cross validate the RIT
+    %
+    
+    % use train fits, but the RIT pOnTime
+    A0 = cellfun(@(x) x(1), noisyAmps_rit);
+    A0 = mean(A0);
+    rit_Pred_From_Train_Fits={};
+    for i_tr = 1:numel(pOnTimes_RIT)
+        rit_Pred_From_Train_Fits{i_tr} = predictPSCfromTau(pOnTimes_RIT{i_tr}, d_trains, dTau_trains, f_trains, fTau_trains, A0);
+    end
+    resid = cellfun(@(x,y) x-y, rit_Pred_From_Train_Fits, params.psc_test_poiss, 'uniformoutput', false);
+    resid = cat(1, resid{:});
+    SS_resid = sum(resid.^2);
+    SS_raw = sum(cat(1, params.psc_test_poiss{:}).^2);
+    R2_rit_pred_from_train_fits(i_iter) = 1 - (SS_resid ./ SS_raw);
+    
+    % use rit fits, but the Train pOnTime
+    A0 = cellfun(@(x) x(1), noisyAmps_trains);
+    A0 = mean(A0);
+    train_Pred_From_RIT_Fits={};
+    for i_tr = 1:numel(pOnTimes_trains)
+        train_Pred_From_RIT_Fits{i_tr} = predictPSCfromTau(pOnTimes_trains{i_tr}, d_rit, dTau_rit, f_rit, fTau_rit, A0);
+    end
+    resid = cellfun(@(x,y) x-y, train_Pred_From_RIT_Fits, params.psc_test_trains, 'uniformoutput', false);
+    resid = cat(1, resid{:});
+    SS_resid = sum(resid.^2);
+    SS_raw = sum(cat(1, params.psc_test_trains{:}).^2);
+    R2_train_pred_from_rit_fits(i_iter) = 1 - (SS_resid ./ SS_raw);
     
 end
 
@@ -414,21 +442,174 @@ pscreal = predictPSCfromTau(pOnTimes, [d1_sim, d2_sim], [tau_d1_sim, tau_d2_sim]
 [a,b] = ndgrid(0.001:0.005:1, 0:0.050:3);
 errvals = nan(size(a));
 for idx = 1:numel(a)
-        k_d = [a(idx), d2_sim];
-        tau_d = [tau_d1_sim, tau_d2_sim];
-        k_f = b(idx);
-        tau_f = tau_f1_sim;
-
-        pred = predictPSCfromTau(pOnTimes, k_d, tau_d, k_f, tau_f, A0);
-
-        % pool the errors across pulse train types. Ingore the first pulse
-        % (becuse the error is artifactually = zero). Do some error
-        % checking along the way.
-        err = pscreal(2:end) ./  pred(2:end);
-        err = sum(abs(log10(err))); % big negative powers of ten are good 
-        errvals(idx) = err;
+    k_d = [a(idx), d2_sim];
+    tau_d = [tau_d1_sim, tau_d2_sim];
+    k_f = b(idx);
+    tau_f = tau_f1_sim;
+    
+    pred = predictPSCfromTau(pOnTimes, k_d, tau_d, k_f, tau_f, A0);
+    
+    % pool the errors across pulse train types. Ingore the first pulse
+    % (becuse the error is artifactually = zero). Do some error
+    % checking along the way.
+    err = pscreal(2:end) ./  pred(2:end);
+    err = sum(abs(log10(err))); % big negative powers of ten are good
+    errvals(idx) = err;
 end
-       
+
 h = surf(b, a, errvals);
 h.EdgeAlpha = 0.1;
 
+%% LOOK AT PREDICTIONS AND CROSS VALIDATION
+
+% train the fits using the RIT data, then plot the fits to all the data,
+% and calculate Rsquared values.
+
+
+% construct a fake, noisy dataset from the RIT stimuli
+[pOnTimes, rawAmps_noisyRIT] = deal({});
+for i_tr = 1:numel(params.psc_test_poiss);
+    
+    psc = params.psc_test_poiss{i_tr};
+    sigma = psc ./ SIGMAFACTOR;
+    psc = normrnd(psc, sigma);
+    assert(all(psc>=0), 'found one')
+    
+    rawAmps_noisyRIT{i_tr} = psc;
+    pOnTimes{i_tr} = params.pOnTimes_poiss{i_tr};
+    A0_noisy(i_tr) = psc(1);
+end
+A0_noisy = mean(A0_noisy);
+
+[d_rit, f_rit, dTau_rit, fTau_rit] = fitTau2STP(rawAmps_noisyRIT, pOnTimes, FITMETHOD);
+
+
+% look to see how well the fitted params estimate the true, but noise data
+for i_type = 1:numel(params.pOnTimes_poiss)
+    
+    % use the fitted params to make predictions about the simulated noisy
+    % data
+    pOnTimes = params.pOnTimes_poiss{i_type};
+    rit_fitToNoisyData = predictPSCfromTau(pOnTimes, d_rit, dTau_rit, f_rit, fTau_rit, A0_noisy);
+    
+    % plot actual noisy data vs. predicted noisy data. 
+    rit_realNoisyData = rawAmps_noisyRIT{i_type};
+    
+    figure, hold on,
+    stem(1:numel(rit_fitToNoisyData), rit_realNoisyData, 'b')
+    plot(1:numel(rit_fitToNoisyData), rit_fitToNoisyData, 'k')
+    plot(1:numel(rit_fitToNoisyData), params.psc_test_poiss{i_type}, '--k')
+    legend('noisy ''real'' data', 'fit to noisy data', 'noise-free data')
+end
+
+
+% compare to the noiseless, but un-fit trains data
+[pred, raw_xbar] = deal({});
+for i_type = 1:numel(params.pOnTimes_trains)
+    pOnTimes = params.pOnTimes_trains{i_type};
+    raw_xbar{i_type} = predictPSCfromTau(pOnTimes, [d1_sim, d2_sim], [tau_d1_sim, tau_d2_sim], f1_sim, tau_f1_sim, A0_sim);
+    A0 = raw_xbar{i_type}(1);
+    pred{i_type} = predictPSCfromTau(pOnTimes, d_rit, dTau_rit, f_rit, fTau_rit, A0);
+end
+
+
+% plot the recovery trains (cross validation)
+hf = figure;
+xlims = [inf -inf];
+ylims = [inf -inf];
+hs = [];
+for i_type = 1:numel(params.pOnTimes_trains)
+    i_ch = 1;
+    pltIdx = sub2ind([2, numel(params.pOnTimes_trains)], i_ch+1, i_type);
+    hs(i_type) = subplot(numel(params.pOnTimes_trains), 2, pltIdx); hold on,
+    
+    xx = params.pOnTimes_trains{i_type};
+    plot(xx, raw_xbar{i_type}, 'ko');
+    plot(xx, pred{i_type}, 'r', 'linewidth', 2)
+    xlims(1) = min([min(xx), xlims(1)]);
+    xlims(2) = max([max(xx), xlims(2)]);
+    yvals = get(gca, 'ylim');
+    ylims(1) = min([yvals(1), ylims(1)]);
+    ylims(2) = max([yvals(2), ylims(2)]);
+    if i_type == 1; title('Train on noisy RIT, pred noiseless trains'); end
+end
+set(hs, 'XLim', xlims, 'YLim', ylims)
+
+
+
+% make a scatter plot of all predicted and actual PSC amps from the noisy
+% RITs
+hs = [];
+all_raw = [];
+all_pred = [];
+crossval_raw = [];
+crossval_pred = [];
+for i_type = 1:numel(params.pOnTimes_poiss)
+   
+    tmp_raw = dat{i_ex}.expt.(trainNames{i_type}).stats.EPSCamp{i_ch};
+    tmp_pred = pred{i_ch}{i_type};
+    tmp_pred = repmat(tmp_pred, size(tmp_raw,3), 1);
+    tmp_raw = tmp_raw(:);
+    assert(all(size(tmp_pred) == size(tmp_raw)))
+    
+    pltIdx = sub2ind([4, 3], pltcol, 1);
+    hs = subplot(3, 4, pltIdx); hold on,
+    plot(tmp_raw./tmp_raw(1), tmp_pred./tmp_pred(1), 'k.')
+    axis tight
+    
+    % concatenate all the data
+    all_raw = cat(1, all_raw, tmp_raw(:));
+    all_pred = cat(1, all_pred, tmp_pred(:));
+    
+    % concatenate the cross-validation data
+    if ~strncmpi(trainNames{i_type}, 'rit', 3)
+        crossval_raw = cat(1, crossval_raw, tmp_raw(:));
+        crossval_pred = cat(1, crossval_pred, tmp_pred(:));
+    end
+end
+maxval = max([hs.XLim, hs.YLim]);
+minval = min([hs.XLim, hs.YLim]);
+plot([minval, maxval], [minval, maxval], 'k--')
+hs.XScale = 'log';
+hs.YScale = 'log';
+xlabel('raw EPSC amp (norm)')
+ylabel('pred amp (norm)')
+
+pltIdx = sub2ind([4, 3], pltcol, 2);
+subplot(3,4,pltIdx), hold on,
+resid = all_pred - all_raw;
+histogram(resid)
+plot(mean(resid), 10, 'rv', 'markerfacecolor', 'r')
+R2 = 1 - (sum(resid.^2) ./ sum(all_raw.^2));
+xlabel('pred-real')
+
+% calculate the suffle corrected R2.
+N = numel(all_pred);
+iters = 5000;
+shuffle_inds = unidrnd(N, [N, iters]);
+shuffle_pred = all_pred(shuffle_inds);
+resid = bsxfun(@minus, shuffle_pred, all_raw);
+SS_resid = sum(resid.^2, 2);
+SS_raw = sum(all_raw.^2);
+R2_shuffle = 1 - bsxfun(@rdivide, SS_resid, SS_raw);
+title(sprintf('R2: %.3f, R2_shuff: %.3f', R2, mean(R2_shuffle)))
+
+
+% plot cross validation stuff
+pltIdx = sub2ind([4, 3], pltcol, 3);
+subplot(3,4,pltIdx), hold on,
+resid = crossval_pred - crossval_raw;
+histogram(resid);
+plot(mean(resid), 5, 'rv', 'markerfacecolor', 'r')
+R2 = 1 - (sum(resid.^2) ./ sum(all_raw.^2));
+xlabel('cross-valid (pred-real)')
+
+N = numel(crossval_pred);
+iters = 5000;
+shuffle_inds = unidrnd(N, [N, iters]);
+shuffle_pred = crossval_pred(shuffle_inds);
+resid = bsxfun(@minus, shuffle_pred, crossval_raw);
+SS_resid = sum(resid.^2, 2);
+SS_raw = sum(crossval_raw.^2);
+R2_shuffle = 1 - bsxfun(@rdivide, SS_resid, SS_raw);
+title(sprintf('R2: %.3f, R2_shuff: %.3f', R2, mean(R2_shuffle)))

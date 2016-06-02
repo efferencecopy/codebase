@@ -5,9 +5,9 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
-BRAINAREA = 'al';
-COMBINE_CHIEF = false;
+EXPTTYPE = 5;
+BRAINAREA = 'any';
+COMBINE_CHIEF = true;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'main expt';
@@ -38,7 +38,7 @@ fname = [GL_DOCUPATH, 'Other_workbooks', filesep, 'fiberVolleyCellList.xlsx'];
 wb_expt_nameidx = strcmpi(wb_expt(1,:), 'mouse name');
 wb_expt_siteidx = strcmpi(wb_expt(1,:), 'site');
 if strcmpi(EXPTTYPE, 'all manuscript')
-    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps');% | strcmpi(wb_expt(1,:), 'Intracellular') | strcmpi(wb_expt(1,:), 'E-stim');
+    exptlistidx = strcmpi(wb_expt(1,:), 'main expt') | strcmpi(wb_expt(1,:), 'interleaved amps') | strcmpi(wb_expt(1,:), 'Intracellular') | strcmpi(wb_expt(1,:), 'E-stim')  | strcmpi(wb_expt(1,:), 'L5 record')  ;
 else
     exptlistidx = strcmpi(wb_expt(1,:), EXPTTYPE);
 end
@@ -557,10 +557,12 @@ parfor i_ex = 1:Nexpts
                     % LED...
                     %%%%%%%%%%%%%%%%%%%%%%
                     pWidth = info{i_ex}.(pTypes{i_tf}).(conds{i_cond}).pWidth;
-                    pulse_window = (tt >= (pWidth+photoDelay)) & (tt < 0.008);
+                    line = linspace(mean(snippet(1:30)), mean(snippet(end-30:end)), numel(snippet));
+                    snippet = snippet - line;
+                    pulse_window = (tt >= (pWidth+photoDelay)) & (tt < 0.006);
                     snippet_pulse = snippet(pulse_window);
                     dt = 1./sampRate;
-                    area = sum(abs(snippet_pulse)) .* dt; % adjusts for differences in sample rate between experiments
+                    area = trapz((snippet_pulse)) .* dt; % adjusts for differences in sample rate between experiments
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     areaStartIdx = find(tt >= (pWidth+photoDelay), 1, 'first');
                     areaStopIdx = find(tt >= 0.008, 1, 'first');
@@ -583,7 +585,7 @@ parfor i_ex = 1:Nexpts
                 indexMtx = bsxfun(@plus, randStartIdx, indexMtx);
                 shuffleBaseline = fullsweep(indexMtx);
                 dt = 1./sampRate;
-                noiseIntegral = sum(abs(shuffleBaseline), 2) .* dt;
+                noiseIntegral = trapz((shuffleBaseline), 2) .* dt;
                 noiseIntegral = mean(noiseIntegral);
                 
                 % correct the integral from above, based on the shuffle
@@ -615,9 +617,9 @@ end % expts
 
 close all
 
-CHECK_TRIAL_STATS = true;
+CHECK_TRIAL_STATS = false;
 RESTRICT_TO_STIM_SITE = true;
-NORM_TO_PULSE1 = true;
+NORM_TO_PULSE1 = false;
 
 
 % define the conditions that will get plotted
@@ -644,6 +646,11 @@ end
 
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
+    
+    if ~strcmpi(info{i_ex}.opsin, 'chief_all')
+        continue
+    end
+    
     
     for i_ch = 1:2;
         
@@ -966,6 +973,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for i_ex = 1:numel(dat)
     
+    
     % figure out which (if any) channels should be analyzed
     CHANNEL = info{i_ex}.stimSite;
     if isnan(CHANNEL) % cases where neither recording sites were targeted
@@ -1079,6 +1087,7 @@ for i_ex = 1:numel(dat)
                 avgOverTF.tf = cat(1, avgOverTF.tf, tf);
             end
             
+            
             % average over TFs, and store the data
             l_10to40 = avgOverTF.tf <= 40;
             if any(l_10to40)
@@ -1101,6 +1110,7 @@ for i_ex = 1:numel(dat)
                     avgtf.(opsin).avg10to100.(conds{i_cond}).(statTypes{i_stat})(end+1,:) = tmpavg; % Nexpts x Npulses
                 end
             end
+            
             
         end
     end
@@ -1191,9 +1201,9 @@ for i_opsin = 1:numel(opsinTypes)
             
             if CALCPVALS
                 
-                whichOpsin = 'estim';    % 'chronos', 'chr2', 'chief_all', 'chief_cit', 'chief_flx'
-                whichCond =  'Fv_Na';   % 'Fv_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'
-                whichStat = 'latency';  % 'diffval', 'slope', 'latency'
+                whichOpsin = 'chief_all';    % 'chronos', 'chr2', 'chief_all', 'chief_cit', 'chief_flx'
+                whichCond =  'nbqx_apv_ttx';   % 'Fv_Na', 'nbqx_apv_cd2_ttx', 'synapticTransmission'
+                whichStat = 'diffval';  % 'diffval', 'slope', 'latency'
                 
                 opsinMatch = strcmpi(opsinTypes{i_opsin}, whichOpsin);
                 condMatch = strcmpi(conds{i_cond}, whichCond);
@@ -1916,7 +1926,7 @@ assert(any(strcmpi(EXPTTYPE, {'main expt', 'Intracellular', '4-AP'})), 'ERROR: t
 
 
 STIMSITE = true;
-PLOTERR = true;
+PLOTERR = false;
 
 switch EXPTTYPE
     case 'Intracellular'
@@ -2105,7 +2115,7 @@ end
 
 % choose a stimulation location:
 NORMVALS = false;
-PLOTERR = true;
+PLOTERR = false;
 STIMSITE = true;
 ENFORCETFS = true; % culls some expts from Chronos that are not interleaved
 Npulses = 7;
@@ -2446,6 +2456,23 @@ if ~NORMVALS
 end
 
 
+% compute halfwidths for ChR2
+chr2wfs = opsincurrent.chr2(3,:,2); % FVs, for all pulses at 40Hz
+tt = [0:size(chr2wfs{1},2)-1] ./ 20e3;
+halfwidth_ms = [];
+for i_pulse = 1:numel(chr2wfs)
+    avgwf = mean(chr2wfs{i_pulse}, 1);
+    thresh = min(avgwf)./2;
+    crossing = avgwf<thresh;
+    cross_idx = [false, diff(crossing)~=0];
+    assert(sum(cross_idx)==2, 'ERROR: found more than 2 crossings')
+    halfwidth_ms(i_pulse) = diff(tt(cross_idx)) .* 1000;
+end
+figure
+plot(1:numel(halfwidth_ms), halfwidth_ms)
+xlabel('pulse number')
+ylabel('full width at half height ms')
+
 %% AVERAGE RECORDING WAVEFORM OF OPSIN CURRENT FOR WHOLE SWEEP
 
 % choose a stimulation location:
@@ -2726,7 +2753,7 @@ for i_ex = 1:Nexpts
     poptau{i_ex}.snips = tmp_snippet;
     
     % grab the subset of the data to fit
-    [troughidx, peakidx]  = anlyMod_getWFepochs(tmp_snippet, tt, conds{i_cond}, 300e-6, 200e-6, 'inward');
+    [troughidx, peakidx]  = anlyMod_getWFepochs(tmp_snippet, tt, conds{i_cond}, 300e-6, 200e-6, 'inward', info{i_ex}.opsin);
     startVal = tmp_snippet(troughidx) .* 0.95;
     startIdx = find((tmp_snippet > startVal) & (tt > tt(troughidx)), 1, 'first');
     fit_tt = tt(startIdx : end);
@@ -3535,7 +3562,6 @@ for i_ex = 1:Nexpts
                 end
                 
                 
-                
                 % figure for L2/3 recording channel goes on top, figure for L5 recording channel goes on bottom
                 for i_pltrow = 1:2;
                     
@@ -3889,8 +3915,8 @@ end
 fin
 
 STIMSITE = true;
-NORMVALS = true;
-LOWPOWER = true;
+NORMVALS = false;
+LOWPOWER = false;
 COMBINE_CHIEF = true;
 
 % need to load the data
@@ -4562,48 +4588,439 @@ histogram(popRa, 10)
 
 average_Ra = mean(popRa)
 
-l_gt20 = popRa > 20;
-in(l_gt20, :)
+l_gt25 = popRa > 25;
+in(l_gt25, :)
 
 
-%% JITTER ANALYSIS
+%% REVIEWER FIGS: JITTER ANALYSIS
 
-% load a data file with cell attached spikes (from Tim).
-[d, h, wf] = my_abfload('/home/charlie/Crash/14d17018.abf');
+fin
 
-% select a single spike, reverse the sign to make it look like an LFP
-template = -d(100600:101100,:,89);
-template = template - mean(template(1:200));
-tt = [0:numel(template)-1] ./ h.sampRate;
+SOURCE = 'lfp_fv'; % either 'lfp_fv', or 'tim'
+LFP_delta_latency = 0.9; % ms shift in latency at end of train, for ChR2, avg across Freqs
+LFP_norm_amp = 0.3;   % the normalized FV amp at the end of a train, for ChR2, avg across Freqs.
+LFP_norm_halfwidth = 1.25;
+LFP_delta_halfwidth = 0.150; % in ms
+MAXJITTER_MEAN = 1.1e-3; % IN sec
+MAXJITTER_SIGMA= 0.6e-3; % IN sec
+
+figure;
+set(gcf, 'position', [179        -144        1195         951]);
+
+switch SOURCE
+    case 'tim'
+        % load a data file with cell attached spikes (from Tim).
+        [d, h, wf] = my_abfload('C:\Users\charlie\Desktop\14d17018.abf');
+        
+        % select a single spike, reverse the sign to make it look like an LFP
+        template = -d(100600:101600,:,89)';
+        template = template - mean(template);
+        
+        % smooth if need be
+        N = 30;
+        kernel = normpdf(round(-N/2:N/2), 0, N/6);
+        template = filter(kernel, 1, template);
+        
+    case 'lfp_fv'
+        
+        load('C:\Users\charlie\Desktop\chr2_fv_template.mat');
+        template = chr2_fv_template;
+        line = linspace(mean(template(1:27)), mean(template(end-27:end)), numel(template));
+        template = template-line;
+        h.sampRate = 20e3;
+        
+    case 'sin'
+        
+        load('C:\Users\charlie\Desktop\chr2_fv_template.mat');
+        template = zeros(size(chr2_fv_template));
+        line = linspace(mean(template(1:100)), mean(template(end-100:end)), numel(template));
+        template = template-line;
+        h.sampRate = 20e3;
+        xx = (0:(20e3/500)-1)./20e3;
+        yy = sin(2.*pi.*500.*xx+pi);
+        template(90:129) = yy;
+        
+        l_pos = template>0;
+        template(l_pos) = template(l_pos).*1.5;
+        
+
+end
 
 
-% jitter the start time and plot the mean
-jit_max = 2e-3 ./ (1./h.sampRate);  % max number of timesteps to shift
-jit_max = round(linspace(4, jit_max, 10));
-jit_max = fliplr(jit_max);
+% upsample the template so that very small adjustments to the latency can
+% be achieved.
+oldRate = h.sampRate;
+oldTT = ([0:numel(template)-1]) ./ h.sampRate;
+newRate = 100e3;
+Ntime = oldTT(end) .* newRate;
+tt = ([0:Ntime-1])./newRate;
 
-figure
-for i_j = 1:numel(jit_max)
-    jittered = nan(500, numel(template));
-    jval = round(jit_max(i_j)./2)*2; % make sure it's even
+% update to the new values
+template = spline(oldTT, template, tt);
+h.sampRate = newRate;
+switch SOURCE
+    case 'lfp_fv'
+        template = template - mean(template(1:150));
+    case 'tim'
+        template = template - mean(template(1:1000));
+    otherwise
+        error
+end
+
+
+[FVamp_orig, idx] = min(template);
+tt = ([1:numel(template)]-idx) ./ h.sampRate .* 1000;
+Ntime = numel(tt);
+
+subplot(2,3,1)
+plot(tt, template, 'linewidth', 2);
+axis tight
+xlabel('time (ms)')
+ylabel('mV')
+
+
+% specify the amount of jitter
+n_iters = 7;
+jit_mean = MAXJITTER_MEAN .* h.sampRate;  % max number of timesteps to shift
+jit_mean = round(linspace(0, jit_mean, n_iters));
+jit_mean = fliplr(jit_mean);
+
+jit_var = MAXJITTER_SIGMA .* h.sampRate;  % max number of timesteps to shift
+jit_var = round(linspace(0, jit_var, n_iters));
+jit_var = fliplr(jit_var);
+
+% specify the scalar for the size of the template
+scaleVals = linspace(1, 1, n_iters);
+
+
+FVamp = [];
+latency = [];
+halfwidth_ms = [];
+trough = [];
+peak = [];
+integral = [];
+for i_j = 1:numel(jit_mean)
     
-   
+    jittered = nan(20e3, numel(template));
+    
+    scaledTemplate = template .* scaleVals(i_j);
+    
     for i_iter = 1:size(jittered,1)
-        jittertime = unidrnd(jval);
-        jittered(i_iter, :) = circshift(template, jittertime, 1);
+        %jittertime = poissrnd(jit_mean(i_j));
+        jittertime = round(normrnd(jit_mean(i_j), jit_var(i_j)));
+        %jittertime = round(unidrnd(jit_mean(i_j)));
+        
+        assert(jittertime < Ntime, 'ERROR oob shift value')
+        jittered(i_iter, :) = circshift(scaledTemplate, jittertime, 2);
+    end
+
+    subplot(2,3,2), hold on,
+    wf = mean(jittered, 1);
+    plot(tt, wf, 'linewidth', 2)
+    axis tight
+    title(sprintf('mean: %.2f ms, sigma: %.2f ms', MAXJITTER_MEAN*1000, MAXJITTER_SIGMA*1000))
+    
+    subplot(2,3,3), hold on,
+    wf = wf ./ (max(wf)-min(wf));
+    plot(tt, wf, 'linewidth', 2)
+    axis tight
+    
+    % keep track of the FV negativity.
+    [FVamp(i_j), idx] = min(mean(jittered,1));
+    latency(i_j) = tt(idx);
+    
+    % keep track of the Full Width at Half Height
+    thresh = min(mean(jittered,1))./2;
+    crossing = mean(jittered,1)<thresh;
+    cross_idx = [false, diff(crossing)~=0];
+    assert(sum(cross_idx)==2, 'ERROR: found more than 2 crossings')
+    halfwidth_ms(i_j) = diff(find(cross_idx)) ./ h.sampRate .* 1000;
+    
+    % keep track of the peak, trough, integral
+    wf = mean(jittered,1);
+    trough(i_j) = min(wf);
+    peak(i_j) = max(wf);
+    integral(i_j) = trapz(wf) .* (1/h.sampRate);
+
+end
+
+subplot(2,3,4), hold on,
+yy = fliplr(FVamp); % backwards for other plots
+yy = yy./FVamp_orig;
+xx = 1:n_iters;
+plot(xx, yy, '-ko', 'markerfacecolor', 'k', 'linewidth', 2)
+plot(xx, ones(size(xx)).* LFP_norm_amp, 'k--')
+ylim([0 1])
+xlabel('Pulse Number')
+ylabel('Normalized FV Amplitude')
+legend('Simulated', 'observed')
+
+subplot(2,3,5), hold on,
+yy_trough = abs(fliplr(trough));
+yy_peak = abs(fliplr(peak));
+plot(xx, yy_trough, '-k', 'linewidth', 2);
+plot(xx, yy_peak, '-b', 'linewidth', 2);
+%plot(xx, ones(size(xx)).* LFP_delta_latency, 'k--')
+xlabel('Pulse Number')
+ylabel('Peak or Trough amplitude')
+legend('Trough', 'peak')
+
+subplot(2,3,6), hold on,
+yy = fliplr(integral);
+yy = yy./yy(1);
+plot(xx, yy, '-ko', 'markerfacecolor', 'k', 'linewidth', 2);
+% plot(xx, ones(size(xx)).*0.75, 'k--')
+% plot(xx, ones(size(xx)).*0.60, 'k--')
+% ylabel('Full Width at Half Height (ms)')
+ylabel('Integral')
+xlabel('Pulse Number')
+ylim([0 1.1])
+
+
+
+%% REVIEWER FIGS: LIGHT ARTIFACT
+fin
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% laser stimulation
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+ax = abfobj('2015_09_17_0000');
+dat = ax.dat(:,ax.idx.HS1_Im,:);
+dat = permute(dat, [3,1,2]); % Nsweeps x Ntime
+dat = butterfilt(dat, 30, ax.head.sampRate, 'high', 2); % get rid of very slow noise (pump and such)
+dat = butterfilt(dat, [59 61], ax.head.sampRate, 'stop', 2);
+dat = mean(dat, 1); 
+offsetInds = [false; diff(ax.dat(:, ax.idx.Laser,1) > 0.5)==-1];
+offsetInds = find(offsetInds);
+NpostSamps = 100;
+
+figure, hold on,
+
+% plot the 2nd laser power (more than what we use in the paper, but
+% probably a good proxy)
+i_cross = 2;
+l_pulse = offsetInds(i_cross):offsetInds(i_cross)+NpostSamps;
+tt = (0:NpostSamps) ./ ax.head.sampRate .* 1000;
+yy = dat(l_pulse);
+plot(tt, yy, 'b', 'linewidth', 2)
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% laser stimulation
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+ax = abfobj('2015_09_17_0006');
+dat = ax.dat(:,ax.idx.HS1_Im,:);
+dat = permute(dat, [3,1,2]); % Nsweeps x Ntime
+dat = butterfilt(dat, 30, ax.head.sampRate, 'high', 2); % get rid of very slow noise (pump and such)
+dat = butterfilt(dat, [59 61], ax.head.sampRate, 'stop', 2);
+dat = mean(dat, 1); 
+offsetInds = [false; diff(ax.dat(:, ax.idx.LED_470,1) > 0.5)==-1];
+offsetInds = find(offsetInds);
+
+
+% plot the 3rd LED power (probably a good proxy for what we use in
+% experiments)
+l_pulse = offsetInds(i_cross):offsetInds(i_cross)+NpostSamps;
+tt = (0:NpostSamps) ./ ax.head.sampRate .* 1000;
+yy = dat(l_pulse);
+plot(tt, yy, 'k', 'linewidth', 2)
+xlabel(' Time from light offset (ms)')
+ylabel('LFP (uV)')
+legend('Laser', 'LED')
+
+
+%% REVIEWER FIG: LASER STIM OPSIN POTENTIAL SIGN FLIP
+
+
+
+% figure out how many unique experiments there were
+mouseNames = in(:,1);
+sites = cellfun(@floor, in(:,2), 'uniformoutput', false); % use floor to eliminate the position information
+comboname = cellfun(@(x,y) [x,num2str(y)], mouseNames, sites, 'uniformoutput', false);
+[uniqueExpts, ~, exptID] = unique(comboname);
+
+% initalize the pop structure
+siteraw = {};
+
+% iterate over the unique experiments and overlay the PPR metrics for FV,
+% opsin current, and fEPSP slope
+Nexpts = size(uniqueExpts, 1);
+for i_ex = 1:Nexpts
+    
+    % order the files by proximal to distal (which should be hardcoded in
+    % the excel workbook
+    inds_mouse = find(exptID == i_ex);
+    sites = cat(1, in{inds_mouse,2});
+    opsinTag = structcat(info, 'opsin');
+    opsinTag = unique(opsinTag(inds_mouse));
+    opsinTag = opsinTag{1};
+    
+    [~, analysis_order] = sort(sites);
+    inds_mouse = inds_mouse(analysis_order); % now the list is ordered by proximal to distal
+    assert(numel(inds_mouse) == 2,'error: more than 2 stim sites')
+    
+    % assume that the primary channel is the one that's in L2/3
+    CH_L23 = structcat(info(inds_mouse), 'stimSite');
+    CH_L23 = unique(cell2mat(CH_L23));
+    assert(numel(CH_L23)==1, 'ERROR: too many ''L23'' sites');
+    if CH_L23 == 1
+        CH_L5 = 2;
+    else
+        CH_L5 = 1;
     end
     
+    % figure out the total number of tfconds, across stimulation locations
+    tfconds = {};
+    for i_stimsite = 1:numel(inds_mouse);
+        idx = inds_mouse(i_stimsite);
+        tfconds = cat(1, tfconds, fieldnames(dat{idx}));
+    end
+    assert(iscell(tfconds), 'ERROR: tfconds are unreliable')
+    tfconds = unique(tfconds);
     
-    subplot(1,2,1), hold on,
-    shadedErrorBar(tt, mean(jittered, 1), stderr(jittered, 1), {'linewidth', 2});    
-    xlim([0.012, 0.018])
+    for i_stimsite = 1:numel(inds_mouse);
+        
+        for i_recsite = 1:2;
+            
+            first_pulse_snip = [];
+            first_pulse_stat = [];
+            for i_tf = 1:numel(tfconds)
+                
+                idx = inds_mouse(i_stimsite);
+                % keep track of the stimulus coordinates
+                siteraw{i_ex}.stimXY(i_stimsite,:) = info{idx}.optStimCords;
+                
+                
+                % the tfconds could be laser or led, so skip a dat{idx} if
+                % this site doesn't contain the apropriate stimulation
+                % type. Also skip if the pharacology condition is not present
+                if ~isfield(dat{idx}, tfconds{i_tf}) || ~isfield(dat{idx}.(tfconds{i_tf}).stats, 'nbqx_apv_cd2_ttx')
+                    continue
+                end
+                
+                % make sure that all LED stim is in L2/3, all laser stim is in L5;
+                if i_stimsite == 1; % L2/3
+                    ledcheck = regexpi(tfconds{i_tf}, '_led');
+                    assert(~isempty(ledcheck), 'ERROR: led should be L2/3')
+                elseif i_stimsite == 2; % L5
+                    lasercheck = regexpi(tfconds{i_tf}, '_laser');
+                    assert(~isempty(lasercheck), 'ERROR: laser should be L5')
+                end
+                
+                if i_recsite == 1
+                    CHANNEL = CH_L23;
+                elseif i_recsite == 2;
+                    CHANNEL = CH_L5;
+                end
+                
+                if (CHANNEL == 2) && numel(dat{idx}.(tfconds{i_tf}).stats.nbqx_apv_cd2_ttx.diffval) == 1
+                    error('Could not find the data')
+                end
+                
+                tmp_stat = dat{idx}.(tfconds{i_tf}).stats.nbqx_apv_cd2_ttx.diffval{CHANNEL}(1);
+                tmp_snip = dat{idx}.(tfconds{i_tf}).snips.nbqx_apv_cd2_ttx{CHANNEL}(1,:);
+                
+                if ~isnan(tmp_stat)
+                    first_pulse_snip = cat(1,first_pulse_snip, tmp_snip);
+                    first_pulse_stat = cat(1,first_pulse_stat, tmp_stat);
+                    siteraw{i_ex}.sampRate = info{idx}.(tfconds{i_tf}).nbqx_apv_cd2_ttx.sampRate;
+                end
+                
+            end
+            
+            % store the data into a population structure for future
+            % analysis and plotting
+            if ~isempty(first_pulse_stat)
+                recLayer = {'recL23', 'recL5'};
+                stimSite = {'stimL23' 'stimL5'};
+                recLayer = recLayer{i_recsite};
+                stimSite = stimSite{i_stimsite};
+                siteraw{i_ex}.(stimSite).(recLayer).stat = mean(first_pulse_stat);
+                siteraw{i_ex}.(stimSite).(recLayer).snip = mean(first_pulse_snip,1);
+                siteraw{i_ex}.opsin = opsinTag;
+            end
+            
+        end
+        
+    end
     
-    subplot(1,2,2), hold on,
-    wf = mean(jittered, 1);
-    wf = wf ./ (max(wf)-min(wf));
-    plot(tt, wf)
-    xlim([0.012, 0.018])
 end
+
+
+
+% make a plot of only the times where there were dual recordings
+stimsite = 'stimL23';
+opsin = {'chronos', 'chief_all'};
+f = figure; hold on,
+avg_l23 = [];
+avg_l5 = [];
+for i_ex = 1:numel(siteraw)
+   
+   if ~isfield(siteraw{i_ex}, stimsite)
+       continue
+   elseif ~all(isfield(siteraw{i_ex}.(stimsite), {'recL23', 'recL5'}))
+       continue
+   end
+   
+   if ~strcmpi(siteraw{i_ex}.opsin, opsin)
+       continue
+   end
+   
+   if strcmpi(stimsite, 'stimL5') && i_ex == 3;
+       continue
+   end
+       
+   
+   nT = numel(siteraw{i_ex}.(stimsite).recL23.snip);
+   tt = ((0:nT-1)-prePulseSamps) ./ siteraw{i_ex}.sampRate .* 1000;
+   plot(tt, siteraw{i_ex}.(stimsite).recL23.snip, '--k')
+   plot(tt, siteraw{i_ex}.(stimsite).recL5.snip, '--b')
+   
+   % compile the average
+   avg_l23 = cat(1, avg_l23, siteraw{i_ex}.(stimsite).recL23.snip);
+   avg_l5 = cat(1, avg_l5, siteraw{i_ex}.(stimsite).recL5.snip);
+end
+p(1) = plot(tt, mean(avg_l23,1), 'k', 'linewidth', 3);
+p(2) = plot(tt, mean(avg_l5, 1), 'b', 'linewidth', 3);
+
+
+
+% make a plot of only the times where there were dual recordings
+stimsite = 'stimL23';
+f = figure; hold on,
+avg_stat = [];
+allDist = [];
+for i_ex = 1:numel(siteraw)
+   
+   if ~isfield(siteraw{i_ex}, stimsite)
+       continue
+   elseif ~all(isfield(siteraw{i_ex}.(stimsite), {'recL23', 'recL5'}))
+       continue
+   end
+   
+   if ~strcmpi(siteraw{i_ex}.opsin, opsin)
+       continue
+   end
+   
+   if strcmpi(stimsite, 'stimL5') && i_ex == 3;
+       continue
+   end
+       
+   yy(1) = siteraw{i_ex}.(stimsite).recL23.stat;
+   yy(2) = siteraw{i_ex}.(stimsite).recL5.stat;
+   xx = norm(diff(siteraw{i_ex}.stimXY, 1));
+   plot([0,xx], yy, '--k')
+   
+   % compile the average
+   avg_stat = cat(1, avg_stat, yy);
+   allDist = cat(1, allDist, xx);
+end
+my_errorbar([0, mean(allDist)], mean(avg_stat,1), stderr(avg_stat,1), 'k', 'linewidth', 3);
+x_sem = stderr(allDist);
+plot([mean(allDist)-x_sem, mean(allDist)+x_sem], [mean(avg_stat(:,2)), mean(avg_stat(:,2))], 'k', 'linewidth', 3);
 
 %% GET TRIAL COUNTS AND SNR AND GENOTYPES
 
