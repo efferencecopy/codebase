@@ -76,6 +76,12 @@ function dat = unpack_dc_injections(dat)
     % dat.dcsteps.Vm_raw: raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
     % dat.dcsteps.Icmd: magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
 
+    
+    % make sure there is a valid file.
+    if strncmpi(dat.info.fid.dcsteps(end-8:end), [filesep, 'none.abf'], 9)
+        warning('No DC current steps for %s, site %s', dat.info.mouseName, dat.info.siteNum)
+        return
+    end
     fprintf('  Unpacking DC current injections\n')
     ax = abfobj(dat.info.fid.dcsteps);
     
@@ -155,8 +161,11 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     % dat.qc.verr: measured holding potential for each sweep, HS1,2 [1xNtrials]
     % dat.qc.instNoise:  the noise in the holding current which indicates changes in recording quality [1xNtrials]
     
-     
-
+    
+    if strncmpi(dat.info.fid.vclamp(end-8:end), [filesep,'none.abf'], 9)
+        warning('No Vclamp file for %s, site %s', dat.info.mouseName, dat.info.siteNum)
+        return
+    end
     fprintf('  Unpacking Vclamp trains\n')
     ax = abfobj(dat.info.fid.vclamp);
     

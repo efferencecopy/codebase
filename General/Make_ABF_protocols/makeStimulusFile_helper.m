@@ -51,7 +51,7 @@ fin
 %
 % Define the params that influence the entire data file (trains and RITs)
 %
-params.name = 'WCSTP_SR20kHz_TT7s_PW350us_xbar8_recovery.atf';  % the name of the output .atf file
+params.name = 'WCSTP_SR20kHz_TT7s_PW350us_xbar8_recovery_.atf';  % the name of the output .atf file
 params.si   = 50e-6;              % the sample INTERVAL (needs to be an iteger)
 params.swpDur = 140e3;            % The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
 params.tStart = 0.500;            % the time of the first pulse
