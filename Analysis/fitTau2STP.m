@@ -1,4 +1,4 @@
-function [d, f, dTau, fTau] = fitTau2STP(raw, pOnTimes, method)
+function [d, f, dTau, fTau] = fitTau2STP(raw, pOnTimes, p1Amps, method)
 
 % inputs:
 %
@@ -15,7 +15,7 @@ end
 %
 %%%%%%%%%%%%%%%%%%%%
 guesses = [0.6 0.8 .5 5 1.5 2]; 
-upperbound = [1 1 15 25 15 25]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
+upperbound = [1 1 5 15 15 25]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 lowbound = [0 0 0 0 0 0]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point');
 problem = createOptimProblem('fmincon', 'objective', @fittau_rms,...
@@ -28,7 +28,7 @@ switch method
     case 'multistart'
         ms = MultiStart;
         ms.UseParallel = 'always';
-        [fitparams, ~, exitflag] = run(ms, problem, 20);
+        [fitparams, ~, exitflag] = run(ms, problem, 100);
     case 'global'
         gs = GlobalSearch;
         [fitparams, ~, exitflag] = run(gs, problem);
@@ -56,7 +56,7 @@ fTau = fitparams(6);
         pred = cellfun(@(x) nan(size(x)), raw, 'uniformoutput', false);
         for i_cond = 1:numel(raw)
             for i_trl = 1:size(raw{i_cond}, 3)
-                A0 = raw{i_cond}(1,1,i_trl);
+                A0 = p1Amps{i_cond}(i_trl);
                 pred{i_cond}(:,1,i_trl) = predictPSCfromTau(pOnTimes{i_cond}, k_d, tau_d, k_f, tau_f, A0);
             end
         end
@@ -64,7 +64,7 @@ fTau = fitparams(6);
         % pool the errors across pulse train types. Ingore the first pulse
         % (becuse the error is artifactually = zero). Do some error
         % checking along the way.
-        err = cellfun(@(x,y) x./y, raw, pred, 'uniformoutput', false);
+        err = cellfun(@(x,y) x./y, pred, raw, 'uniformoutput', false);
         err = cellfun(@(x) x(2:end,:,:), err, 'uniformoutput', false); % remove the first pulse, since it's constrained to have no error
         sizeMatch = cellfun(@(x,y) numel(x)==(numel(y)-size(y,3)), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
         assert(all(sizeMatch), 'ERROR: unexpected dimensions after step 1')
@@ -78,7 +78,7 @@ fTau = fitparams(6);
         % high side are both bad.
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);
         err = cat(1, err{:});
-        err = sum(abs(log10(err)));
+        err = sum(abs(log(err)));
 
     end
 
