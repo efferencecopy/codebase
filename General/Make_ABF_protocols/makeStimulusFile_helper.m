@@ -51,7 +51,7 @@ fin
 %
 % Define the params that influence the entire data file (trains and RITs)
 %
-params.name = 'WCSTP_SR20kHz_TT7s_PW350us_xbar8_recovery_.atf';  % the name of the output .atf file
+params.name = 'WCSTP_SR20kHz_TT7s_PW350us_xbar8_recovery12_.atf';  % the name of the output .atf file
 params.si   = 50e-6;              % the sample INTERVAL (needs to be an iteger)
 params.swpDur = 140e3;            % The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
 params.tStart = 0.500;            % the time of the first pulse
@@ -66,10 +66,10 @@ params.pWidth = 350e-6;           % A vector of pulse widths (in seconds)  [inte
 % make the sweep templates for the pulse trains
 %
 params.type = 'trains';            % 'train', 'pulse'
-params.pFreq = [15, 40];              % A vector of frequencies for the pulse train [interleaved variable]
+params.pFreq = [12, 25, 50];              % A vector of frequencies for the pulse train [interleaved variable]
 params.nPulses = 10;
 params.recovery = true;       %  true/false, should there be a recovery pulse?
-params.recoveryTime = [1];   %  A vector of numbers corresponding to the recovery time in seconds [interleaved variable]
+params.recoveryTime = [0.333 1 5.5];   %  A vector of numbers corresponding to the recovery time in seconds [interleaved variable]
 
 params = makeSweepTemplates_trains(params); % templates are stored in params.templates_trains
 
@@ -79,7 +79,7 @@ params = makeSweepTemplates_trains(params); % templates are stored in params.tem
 %
 params.ritFreq = 8;
 params.ritHiFreqCut = 58;  % ISIs faster than this will be cutout
-params.rit_Nversions = 3*10;
+params.rit_Nversions = 2;
 params.ritUseEnvelope = true;
 params.ritEnvelopeFreq = [0.20];
 params = makeSweepTemplates_poiss(params); % templates are stored in params.templates_poiss
@@ -94,11 +94,10 @@ allSweepTemplates = cat(2, params.templates_trains, params.templates_poiss);
 recoveryTrain_idx = 1:numel(params.templates_trains);
 poissTrain_idx = (1:numel(params.templates_poiss)) + max(recoveryTrain_idx);
 
-% reshape the poissTrain_idx into blocks of three
-poissTrain_idx = reshape(poissTrain_idx, 3, []);
 
 % add the train types to the block
-blockIdx = [poissTrain_idx; repmat(recoveryTrain_idx(:), 1, size(poissTrain_idx,2))];
+blockIdx = [recoveryTrain_idx(:); poissTrain_idx(:)];
+blockIdx = repmat(blockIdx, 1, 3);
 for i_block = 1:size(blockIdx,2);
     randIdx = randperm(size(blockIdx,1));
     blockIdx(:,i_block) = blockIdx(randIdx, i_block);
