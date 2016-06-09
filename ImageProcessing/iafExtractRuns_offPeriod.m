@@ -36,9 +36,8 @@ for i_run = 1:Nruns;
     columns(i_run) = info_img{i_run}.width_pix;
     
     % Important parameters...
-    Nimage(i_run) = double(info_run{i_run}.counter{end}); % Determining the total # of images (per run)
-    info_img{i_run}.Nframes = Nimage(i_run);
-    Ntrials(i_run) = numel([info_run{i_run}.counter{:}]); % Determine the number of trials according the MATLAB file
+    info_img{i_run}.Nframes = double(info_run{i_run}.counter{end}); % Determining the total # of images (per run)
+    Ntrials(i_run) = numel(info_run{i_run}.counter); % Determine the number of trials according the MATLAB file
     
     NframesON(i_run) = double(info_run{i_run}.nScansOn); % Determine the number of frames during stim on
     NframesOFF(i_run) = double(info_run{i_run}.nScansOff); % Determine the number of frames during the ISI
@@ -58,7 +57,7 @@ frameNumsON = 1 : NframesON;
 frameNumsOFF = (NframesON + 1) : (NframesON + NframesOFF);
 
 % other useful info for now and later analyses
-frameRate = 1000 ./ double(info_run{i_run}.frameImagingRateMs);
+frameRate = 1000 ./ double(info_run{i_run}.frameImagingExposureMs);
 out.frameRate = frameRate;
 
 % Preallocate space...
@@ -93,7 +92,6 @@ for i_run = 1:Nruns;
         INVALID = false;
         if idx_start >= idx_stop;
             INVALID = true;
-            error('Need to deal with this case')
         end
         
         % grab the trial data from the run and convert to dfof units
@@ -172,15 +170,16 @@ function dfof = dfof_from_trial(img_raw, trialFrameNums, frameRate)
     
     % use the last few seconds of the preceeding OFF period to convert F
     % into dfof
-    Nframes_bkgnd = ceil(frameRate .* 5); % 5 seconds worth of bkgnd time
+    Nframes_bkgnd = ceil(frameRate .* 3); % 5 seconds worth of bkgnd time
     bkgnd_idx = [(trialFrameNums(1)-Nframes_bkgnd) : (trialFrameNums(1)-1)];
     zeroFrames = sum(sum(img_raw(:,:,bkgnd_idx),1),2) == 0;
     assert(~any(zeroFrames), 'ERROR: found some background (Fo) frames that were zero')
     
     img_bkgnd = mean(img_raw(:,:,bkgnd_idx), 3);
     
-    dfof = bsxfun(@minus, img_raw(:,:,trialFrameNums(1):trialFrameNums(end)), img_bkgnd);
+    dfof = bsxfun(@minus, img_raw(:,:,trialFrameNums), img_bkgnd);
     dfof = bsxfun(@rdivide, dfof, img_bkgnd);
+    
 end
 
 function dfof = decor_mean_subtract(dfof)

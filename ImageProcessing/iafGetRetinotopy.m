@@ -176,7 +176,12 @@ function img_preProcess(~,~)
 
         meanAcrossTime_on = nanmean(preProcessed_ON{i_type}, 3);
         meanAcrossTime_off = nanmean(preProcessed_OFF{i_type}, 3);
-        final_img = meanAcrossTime_on - meanAcrossTime_off;
+        
+        if strcmpi(udat.method, 'calcium')
+            final_img = meanAcrossTime_on;
+        else
+            final_img = meanAcrossTime_on - meanAcrossTime_off;
+        end
         
         
         % deal with outliers in the calcium imaging data

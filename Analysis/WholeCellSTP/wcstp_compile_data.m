@@ -50,9 +50,12 @@ fprintf('Analyzing data from mouse %s, site %s\n', dat.info.mouseName, dat.info.
 % unpack the DC current injection data set
 dat = unpack_dc_injections(dat);
 
-
 % unpack the Vclamp trains data set(s)
 dat = unpack_vclamp_trains(dat, exinfo, hidx);
+
+% get an estimate of the P1 amp smoothed across time
+N = 6;
+dat = smoothP1amp(dat, N)
 
 end
 
@@ -352,6 +355,28 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
                 dat.qc.instNoise{i_ch}(real_trl_nums) = instNoise;
             end
         end
+    end
+end
+
+function dat = smoothP1amp(dat, N)
+    
+    for i_ch = 1:2
+        
+        p1 = squeeze(dat.qc.p1amp{i_ch});
+        
+        initmean = nanmean(p1(1:5));
+        endmean = nanmean(p1(end-4:end));
+        tmp = [ones(1,N).*initmean , p1', ones(1,N+2).*endmean];
+        normfact = nan(size(tmp));
+        for i_swp = 1:(numel(normfact)-N)
+            normfact(i_swp) = nanmean(tmp(i_swp:(i_swp+(N-1))));
+        end
+        normfact(1:N-3)=[];
+        normfact(numel(p1)+1:end) = [];
+        
+        dat.qc.p1amp_norm{i_ch} = normfact;
+        figure; plot(p1); hold on; plot(normfact, 'r'); drawnow
+        %if any(isnan(normfact)); keyboard; end
     end
 end
 
