@@ -31,6 +31,9 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 % dat.info.fid.vclamp
 % dat.info.mouseName
 % dat.info.siteNum
+% dat.info.cellType
+% dat.info.brainArea
+% dat.info.HS_is_valid
 % dat.info.pretime.vclamp
 % dat.info.pretime.dcsteps
 % dat.info.posttime.vclamp
@@ -55,7 +58,7 @@ dat = unpack_vclamp_trains(dat, exinfo, hidx);
 
 % get an estimate of the P1 amp smoothed across time
 N = 6;
-dat = smoothP1amp(dat, N)
+dat = smoothP1amp(dat, N);
 
 end
 
@@ -67,6 +70,9 @@ function info = defineInfo(exinfo, hidx, params)
     info.opsin = exinfo{hidx.opsin};
     info.mouseName = exinfo{hidx.MouseName};
     info.siteNum = exinfo{hidx.Site};
+    info.cellType = exinfo([hidx.Celltype1, hidx.Celltype2]); % one for each HS
+    info.brainArea = exinfo{hidx.brainarea};
+    info.HS_is_valid = [str2double(exinfo{hidx.HS1valid}), str2double(exinfo{hidx.HS2valid})];
     
     info.pretime.vclamp = params.pretime.vclamp;
     info.posttime.vclamp = params.posttime.vclamp;
@@ -375,8 +381,6 @@ function dat = smoothP1amp(dat, N)
         normfact(numel(p1)+1:end) = [];
         
         dat.qc.p1amp_norm{i_ch} = normfact;
-        figure; plot(p1); hold on; plot(normfact, 'r'); drawnow
-        %if any(isnan(normfact)); keyboard; end
     end
 end
 

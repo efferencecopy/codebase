@@ -31,6 +31,20 @@
 
 fin
 
+
+% decide what experiment to run
+EXPTTYPE = 2;
+switch EXPTTYPE
+    case 1
+        EXPTTYPE = 'all';
+    case 2
+        EXPTTYPE = 'Manifold';
+    case 3
+        EXPTTYPE = 'RIT_test';
+end
+
+
+
 %%%% DEFINE THE ANALYSIS PARAMS %%%%
 
 params.pretime.vclamp = 0.002;     % seconds before pulse onset
@@ -41,32 +55,44 @@ params.posttime.dcsteps = 0.300;   % seconds after current offset
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-% load in the workbook that contains all the experimental data
+% figure out which experiments should be analyzed
 wb_path = [GL_DOCUPATH, 'Other_workbooks', filesep, 'wholeCellSTPCellList.xlsx'];
-[~,~,wb_expt] = xlsread(wb_path, 1);
+[~, ~, wb_expt] = xlsread(wb_path, 2);
+if ~strcmpi(EXPTTYPE, 'all')
+    header_idx = strcmpi(EXPTTYPE, wb_expt(1,:));
+    assert(sum(header_idx) == 1)
+    l_to_analyze = cellfun(@(x) numel(x)==1 && x==1, wb_expt(:, header_idx));
+else
+    l_to_analyze = ones(size(wb_expt,1), 1);
+end
+l_to_analyze(1) = []; % delete the header row
+expt_idx = find(l_to_analyze);
+
+% load in the workbook that contains all the experimental information
+[~,~,wb_info] = xlsread(wb_path, 1);
 
 % generate the header index info
-for i_atrib = 1:size(wb_expt,2)
-    fldname = wb_expt{1,i_atrib};
+for i_atrib = 1:size(wb_info,2)
+    fldname = wb_info{1,i_atrib};
     fldname(isspace(fldname)) = [];
     hidx.(fldname) = i_atrib;
 end
     
 % now that the header is formed, delete the first row.
-wb_expt(1,:) = [];
+wb_info(1,:) = [];
 
 % convert the file names into fully qualified paths so that par-for can run
 % without calling a global
-iclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFDCsteps), 'uniformoutput', false);
-vclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_expt(:,hidx.MouseName), wb_expt(:, hidx.ABFOptostimVclamp), 'uniformoutput', false);
-wb_expt(:,hidx.ABFDCsteps) = iclamp_fpath;
-wb_expt(:,hidx.ABFOptostimVclamp) = vclamp_fpath;                 
+iclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_info(:,hidx.MouseName), wb_info(:, hidx.ABFDCsteps), 'uniformoutput', false);
+vclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_info(:,hidx.MouseName), wb_info(:, hidx.ABFOptostimVclamp), 'uniformoutput', false);
+wb_info(:,hidx.ABFDCsteps) = iclamp_fpath;
+wb_info(:,hidx.ABFOptostimVclamp) = vclamp_fpath;                 
                    
 % make each row it's own cell array so that it can be passed as a single
 % argument to the function that does the major unpacking
 attributes = {};
-for i_ex = 1:size(wb_expt,1)
-    attributes{i_ex,1} = wb_expt(i_ex,:);
+for i_ex = 1:numel(expt_idx)
+    attributes{i_ex,1} = wb_info(expt_idx(i_ex),:);
 end
 
 
@@ -99,8 +125,7 @@ for i_ex = 1:numel(dat)
     
     for i_ch = 1:2
         
-        fldname = sprintf('HS%dvalid', i_ch);
-        isvalid = str2double(wb_expt(i_ex, hidx.(fldname)));
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
         if ~isvalid
             continue
         end
@@ -260,10 +285,11 @@ end
 
 %% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
 
-TRAINSET = 'rit';  % could be 'rit', 'recovery'
+TRAINSET = 'recovery';  % could be 'rit', 'recovery', 'all'
 PLOTTRAININGDATA = true;
 NORMALIZEDATA = true;
 FITAVERAGEDATA = true;
+FITRECOVERYPULSE = true;
 
 
 % write an anyonomous helper function to find the training data
@@ -273,34 +299,31 @@ switch TRAINSET
         isTrainingSet = @(x) strncmp(x, 'RITv', 4);
     case 'recovery'
         isTrainingSet = @(x) ~strncmp(x, 'RITv', 4);
+    case 'all'
+        isTrainingSet = @(x) true(size(x));
 end
 
-% aggregate some things across experiments
-pop.R2_raw = {};
-pop.R2_crossval = {};
-pop.fitparams = {};
 
 for i_ex = 1:numel(dat)
    clc
    hf = figure;
-   hf.Position = [290 -66 1325 825];
+   hf.Units = 'Normalized';
+   hf.Position = [0.0385 0.1759 0.6630 0.7481];
    hf.Name = sprintf('Mouse %s, site %s, opsin: %s.  Train with: %s, Plot training set: %d',...
                       dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.opsin, TRAINSET, PLOTTRAININGDATA);
    chempty = false(1,2);
    for i_ch = 1:2
        
        % determine if there are data to fit
-       fldname = sprintf('HS%dvalid', i_ch);
-       isvalid = str2double(wb_expt(i_ex, hidx.(fldname)));
+       isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
        if ~isvalid
            chempty(i_ch) = true;
-           if i_ch == 1
-               continue
-           elseif all(chempty)
+           if  all(chempty)
                close(hf)
-               continue
            end
+           continue
        end
+       
        
        % make a mini dataset that's composed of only pOnTimes, EPSC amps,
        % and p1Amps
@@ -317,6 +340,17 @@ for i_ex = 1:numel(dat)
            trlNums = dat{i_ex}.expt.(condnames{i_cond}).realTrialNum{i_ch};
            normfacts = dat{i_ex}.qc.p1amp_norm{i_ch}(trlNums);
            normfacts = permute(normfacts, [1,3,2]);
+           
+           % delete the recovery pulse if need be
+           if ~FITRECOVERYPULSE
+               has_recov_pulse = dat{i_ex}.expt.(condnames{i_cond}).tdict(4) > 0;
+               if has_recov_pulse
+                   pOnTimes{i_cond}(end) = [];
+                   rawAmps{i_cond} = rawAmps{i_cond}(1:end-1,1,:);
+               end
+           end
+           
+           
            if NORMALIZEDATA
                
                rawAmps{i_cond} = bsxfun(@rdivide, rawAmps{i_cond}, normfacts);
@@ -340,6 +374,7 @@ for i_ex = 1:numel(dat)
                end
                
            end
+           
        end
        
        % allocate the training data
@@ -372,9 +407,34 @@ for i_ex = 1:numel(dat)
        training_pOnTimes(l_empty) = [];
        training_p1Amps(l_empty) = [];
        
-       % fit the RIT data
+       % fit the RIT data, but only if the fit params do not already exist
        [d, f, dTau, fTau] = deal([]); %#ok<*ASGLU>
-       [d, f, dTau, fTau] = fitTau2STP(training_amps, training_pOnTimes, training_p1Amps, 'multistart');
+       MAKENEWFITS = true;
+       if [isfield(dat{i_ex}, 'stpfits') ...
+               && isfield(dat{i_ex}.stpfits, 'modelParams') ...
+               && numel(dat{i_ex}.stpfits.modelParams)>= i_ch ...
+               && ~isempty(dat{i_ex}.stpfits.modelParams{i_ch})] % end of if conditional
+           
+           % if you've made it here, then the old params are potentially
+           % still appliciable, but I should check to make sure that they
+           % were fit using the same technique
+           matches = [strcmpi(dat{i_ex}.stpfits.trainingSet, TRAINSET); ...
+                      dat{i_ex}.stpfits.normalizeData == NORMALIZEDATA; ...
+                      dat{i_ex}.stpfits.fitWithAvg == FITAVERAGEDATA; ...
+                      dat{i_ex}.stpfits.fitRecovPulse == FITRECOVERYPULSE];
+           
+          if all(matches)
+              d = dat{i_ex}.stpfits.modelParams{i_ch}(1:2);
+              f = dat{i_ex}.stpfits.modelParams{i_ch}(3);
+              dTau = dat{i_ex}.stpfits.modelParams{i_ch}(4:5);
+              fTau = dat{i_ex}.stpfits.modelParams{i_ch}(6);
+
+              MAKENEWFITS = false;
+          end
+       end
+       if MAKENEWFITS
+           [d, f, dTau, fTau] = fitTau2STP(training_amps, training_pOnTimes, training_p1Amps, 'multistart');
+       end
        
        % predict all the data
        pred = {};
@@ -388,8 +448,7 @@ for i_ex = 1:numel(dat)
        end
        
        
-       % plot the cross validation data set, and the prediction to the
-       % corss validation
+       % plot the training or cross validation data set, and the prediction
        figure(hf)
        if PLOTTRAININGDATA
            l_condsToPlot = isTrainingSet(condnames);
@@ -417,7 +476,9 @@ for i_ex = 1:numel(dat)
            ylims(1) = min([yvals(1), ylims(1)]);
            ylims(2) = max([yvals(2), ylims(2)]);
        end
-       set(hs, 'XLim', xlims, 'YLim', ylims)
+       if ~isempty(hs) && sum(hs)>0
+           set(hs(hs~=0), 'XLim', xlims, 'YLim', ylims)
+       end
        
        
        
@@ -430,8 +491,6 @@ for i_ex = 1:numel(dat)
        for i_cond = 1:numel(condnames)
            if isTrainingSet(condnames{i_cond}); pltclr = 'k';else pltclr = 'r';end
            if i_ch == 1; pltcol=1; else pltcol=4; end
-           
-           
            
            if isempty(raw_xbar{i_cond}); continue; end
            
@@ -473,47 +532,35 @@ for i_ex = 1:numel(dat)
        resid = training_pred - training_raw;
        histogram(resid)
        plot(mean(resid), 10, 'rv', 'markerfacecolor', 'r')
-       R2 = 1 - (sum(resid.^2) ./ sum((training_raw - mean(training_raw)).^2));
+       R2_train = 1 - (sum(resid.^2) ./ sum((training_raw - mean(training_raw)).^2));
        xlabel('pred-real')
+       title(sprintf('R2 = %.2f', R2_train));
        
-       % calculate the suffle corrected R2.
-       N = numel(training_pred);
-       iters = 5000;
-       shuffle_inds = nan(N, iters);
-       for i_itr = 1:iters
-           shuffle_inds(:,i_itr) = randperm(N)';
-       end
-       shuffle_pred = training_pred(shuffle_inds);
-       resid = bsxfun(@minus, shuffle_pred, training_raw);
-       SS_resid = sum(resid.^2, 1);
-       SS_raw = sum((training_raw-mean(training_raw)).^2);
-       R2_shuffle = 1 - (SS_resid ./ SS_raw);
-       title(sprintf('R2: %.3f, R2_shuff: %.3f', R2, mean(R2_shuffle)))
        
        
        % plot cross validation stuff
+       R2_crossvalid = [];
        if ~isempty(crossval_raw)
            pltIdx = sub2ind([4, 3], pltcol, 3);
            subplot(3,4,pltIdx), hold on,
            resid = crossval_pred - crossval_raw;
            histogram(resid);
            plot(mean(resid), 5, 'rv', 'markerfacecolor', 'r')
-           R2 = 1 - (sum(resid.^2) ./ sum((crossval_raw-mean(crossval_raw)).^2));
+           R2_crossvalid = 1 - (sum(resid.^2) ./ sum((crossval_raw-mean(crossval_raw)).^2));
            xlabel('cross-valid (pred-real)')
-           
-           N = numel(crossval_pred);
-           shuffle_inds = nan(N, iters);
-           for i_itr = 1:iters
-               shuffle_inds(:,i_itr) = randperm(N)';
-           end
-           shuffle_pred = crossval_pred(shuffle_inds);
-           resid = bsxfun(@minus, shuffle_pred, crossval_raw);
-           SS_resid = sum(resid.^2, 1);
-           SS_raw = sum((crossval_raw-mean(crossval_raw)).^2);
-           R2_shuffle = 1 - (SS_resid ./ SS_raw);
-           title(sprintf('R2: %.3f, R2_shuff: %.3f', R2, mean(R2_shuffle)))
+           title(sprintf('R2 = %.2f', R2_crossvalid));
        end
        
+       
+       % store some parameters in the dat array
+       dat{i_ex}.stpfits.trainingSet = TRAINSET;
+       dat{i_ex}.stpfits.normalizeData = NORMALIZEDATA;
+       dat{i_ex}.stpfits.fitWithAvg = FITAVERAGEDATA;
+       dat{i_ex}.stpfits.fitRecovPulse = FITRECOVERYPULSE;
+       dat{i_ex}.stpfits.modelParams{i_ch} = [d, f, dTau, fTau];
+       dat{i_ex}.stpfits.R2.training{i_ch} = R2_train;
+       dat{i_ex}.stpfits.R2.crossvalid{i_ch} = R2_crossvalid;
+
    end
    drawnow
    
@@ -552,8 +599,11 @@ for i_ex = 1:numel(dat)
     allStimParams = cellfun(@(x) dat{i_ex}.expt.(condnames{x}).tdict, mat2cell((1:numel(l_trains))', ones(numel(l_trains),1), 1), 'uniformoutput', false);
     allStimParams = cat(1, allStimParams{:});
     
+    % store some metadata
+    pprpop.info{i_ex} = dat{i_ex}.info;
     
-    % aggregate data across within TF conditons (Separately for each
+    
+    % aggregate data within TF conditons (Separately for each
     % recording channel
     for i_tf = 1:numel(uniqueTFs);
         
@@ -562,12 +612,10 @@ for i_ex = 1:numel(dat)
         for i_ch = 1:2
             
             % check to make sure this neuron was defined
-            fldname = sprintf('HS%dvalid', i_ch);
-            isvalid = str2double(wb_expt(i_ex, hidx.(fldname)));
+            isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
             if ~isvalid
                 pprpop.dat{i_ex}.xbar{i_tf}{i_ch} = [];
                 pprpop.tfs{i_ex}{i_ch} = [];
-                pprpop.recoverypulse{i_ex}{i_tf}{i_ch} = [];
                 continue
             end
             
@@ -577,18 +625,19 @@ for i_ex = 1:numel(dat)
                 
                 % pull out the data
                 condIdx = ismember(allStimParams, trainParams(tfidx(i_cond),:), 'rows');
+                assert(sum(condIdx)==1, 'ERROR, found zero or more than 1 instance of the trial type')
                 tmpdat = dat{i_ex}.expt.(condnames{condIdx}).stats.EPSCamp{i_ch}; % [Npulses, 1, Nsweeps]
-           
-                % normalize by the p1Amp_norm
-                realTrlNums = dat{i_ex}.expt.(condnames{condIdx}).realTrialNum{i_ch};
-                p1Amp_norm = dat{i_ex}.qc.p1amp_norm{i_ch}(realTrlNums);
-                assert(~any(isnan(p1Amp_norm)), 'ERROR: scale factor is a nan');
-                p1Amp_norm = permute(p1Amp_norm, [1,3,2]);
-                %tmpdat = bsxfun(@rdivide, tmpdat, p1Amp_norm); % [Npulses, 1, Nsweeps]
-                
-                % store in a matrix for averaging later
-                catdat = cat(3, catdat, tmpdat);
-                
+                if ~isempty(tmpdat)
+                    % normalize by the p1Amp_norm
+                    realTrlNums = dat{i_ex}.expt.(condnames{condIdx}).realTrialNum{i_ch};
+                    p1Amp_norm = dat{i_ex}.qc.p1amp_norm{i_ch}(realTrlNums);
+                    assert(~any(isnan(p1Amp_norm)), 'ERROR: scale factor is a nan');
+                    p1Amp_norm = permute(p1Amp_norm, [1,3,2]);
+                    tmpdat = bsxfun(@rdivide, tmpdat, p1Amp_norm); % [Npulses, 1, Nsweeps]
+                    
+                    % store in a matrix for averaging later
+                    catdat = cat(3, catdat, tmpdat);
+                end
             end
             
             % check to make sure there are data for these conditions. Even
@@ -598,7 +647,6 @@ for i_ex = 1:numel(dat)
             if isempty(catdat)
                 pprpop.dat{i_ex}.xbar{i_tf}{i_ch} = [];
                 pprpop.tfs{i_ex}{i_ch} = [];
-                pprpop.recoverypulse{i_ex}{i_tf}{i_ch} = [];
             else
                 
                 % now average across trails, and re-normalize to the first
@@ -611,7 +659,6 @@ for i_ex = 1:numel(dat)
                 % population structure
                 isrecovery = trainParams(tfidx(i_cond),4) > 0;
                 if isrecovery
-                    pprpop.recoverypulse{i_ex}{i_tf}{i_ch} = ppr(end);
                     ppr(end) = [];
                 end
                 
@@ -619,8 +666,28 @@ for i_ex = 1:numel(dat)
                 pprpop.tfs{i_ex}{i_ch} = uniqueTFs;
                 pprpop.MaxNPulses = max([pprpop.MaxNPulses, numel(ppr)]);
                 
+                
+                
+                % make a smooth manifold for this neuron.
+                % Assume TF = 10 : 50;
+                if isfield(dat{i_ex}, 'stpfits')
+                    params = dat{i_ex}.stpfits.modelParams{i_ch};
+                    isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+                    NumPulses = 10;
+                    
+                    
+                    smoothManifold = nan(NumPulses, numel(isi_ms));
+                    for i_isi = 1:numel(isi_ms)
+                        A0 = 1;
+                        tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*NumPulses)-1;
+                        tmp_pOntimes_sec = tmp_pOntimes_ms ./ 1000;
+                        smoothManifold(:,i_isi) = predictPSCfromTau(tmp_pOntimes_sec, params(1:2), params(4:5), params(3), params(6), A0);
+                    end
+                    pprpop.smoothManifold{i_ex}{i_ch} = smoothManifold;
+                    pprpop.smoothManifold_isi{i_ex}{i_ch} = isi_ms;
+                end
+                
             end
-            
         end
         
     end
@@ -629,40 +696,60 @@ end
 
 
 %% PAIRED PULSE PLASTICITY MANIFOLDS (PLOTS)
+clc; close all
+
+PLOT_SMOOTH_MANIFOLD = true;
+PLOT_RAW_DATA = true;
+PLOT_INTERP_RAW_DATA = false;
+PLOT_INDIVIDUAL_DATASETS = false;
 
 % define a set of attributes for each lineseries (or manifold) in the plot
 % {CellType,  BrainArea,  OpsinType}
+% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-              'PY',    'al', 'chronos';...
-              'PY',    'al', 'chief';...
-              };
+    'PY',    'LM', 'chronos';...
+    'PY',    'AM', 'chronos';...
+    };
 
-groupdata = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
+groupdata_raw = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
+groupdata_smooth =  repmat({[]}, 1, size(plotgroups, 1));
+groupexpinds =  repmat({[]}, 1, size(plotgroups, 1));
+groupchinds = repmat({[]}, 1, size(plotgroups, 1));
 canonicalGrid = nan(pprpop.MaxNPulses, numel(pprpop.TFsAllExpts)); % need to get the maxNpulses into the pprpop struct
 allTFs = pprpop.TFsAllExpts;
 
 % iterate over the experiments. For each recording channel, determine what
 % the attributes are, and place the data in the correct ploting group.
 for i_ex = 1:numel(dat)
+    
     for i_ch = 1:2
+        
         % check to make sure this neuron was defined
-        HSname = sprintf('HS%dvalid', i_ch);
-        isvalid = str2double(wb_expt(i_ex, hidx.(HSname)));
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
         if ~isvalid
             continue
         end
         
         % check the attributes
-        wbcol_CellType = hidx.(sprintf('Celltype%d', i_ch));
-        wbcol_BrainArea = hidx.brainarea;
-        wbcol_OpsinType = hidx.opsin;
-        ch_attribs = wb_expt(i_ex, [wbcol_CellType, wbcol_BrainArea, wbcol_OpsinType]);
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, upper(dat{i_ex}.info.brainArea), dat{i_ex}.info.opsin}; % force the brain area to be uppercase
         l_nan = cellfun(@(x) all(isnan(x)), ch_attribs);
         ch_attribs(l_nan) = cellfun(@num2str, ch_attribs(l_nan), 'uniformoutput', false);
         
+        % is this expt and channel cooresponds to one of the plot_groups in
+        % terms of cellType and opsin
         l_cellType_match = cellfun(@(x) ~isempty(regexpi(ch_attribs{1}, x)), plotgroups(:,1)) | strcmpi(plotgroups(:,1), 'any');
-        l_brainArea_match = cellfun(@(x) ~isempty(regexpi(ch_attribs{2}, x)), plotgroups(:,2)) | strcmpi(plotgroups(:,2), 'any');
         l_opsinMatch = cellfun(@(x) ~isempty(regexpi(ch_attribs{3}, x)), plotgroups(:,3)) | strcmpi(plotgroups(:,3), 'any');
+        
+        % determine if this experiment has a brain area that corresponds to
+        % one of the plot_groups. Start by adding a 'medial', 'lateral'
+        % assignment to the brain area
+        expt_area = ch_attribs{2};
+        if ~isempty(regexp(expt_area, 'AM', 'once')) || ~isempty(regexp(expt_area, 'PM', 'once'))
+            expt_area = [expt_area, ' med'];
+        elseif ~isempty(regexp(expt_area, 'AL', 'once')) || ~isempty(regexp(expt_area, 'LM', 'once'))
+            expt_area = [expt_area, ' lat'];
+        end
+        l_brainArea_match = cellfun(@(x) ~isempty(regexp(expt_area, x, 'once')), plotgroups(:,2)) | strcmpi(plotgroups(:,2), 'any');
         
         group_idx = sum([l_cellType_match, l_brainArea_match, l_opsinMatch], 2) == 3;
         assert(sum(group_idx)<=1, 'ERROR: found too many group indicies')
@@ -681,8 +768,13 @@ for i_ex = 1:numel(dat)
         if all(isnan(tmpgrid(:))); continue; end
         
         % aggregate the data
-        groupdata{group_idx} = cat(3, groupdata{group_idx}, tmpgrid);
+        groupdata_raw{group_idx} = cat(3, groupdata_raw{group_idx}, tmpgrid);
+        groupexpinds{group_idx} = cat(1, groupexpinds{group_idx}, i_ex);
+        groupchinds{group_idx} = cat(1, groupchinds{group_idx}, i_ch);
         
+        if PLOT_SMOOTH_MANIFOLD
+            groupdata_smooth{group_idx} = cat(3, groupdata_smooth{group_idx}, pprpop.smoothManifold{i_ex}{i_ch});
+        end
     end
 end
 
@@ -691,39 +783,311 @@ end
 % be ploted against eachother, but the other globals will be held constant.
 hf = figure;
 hold on,
-plotcolors = {'r', 'b', 'g'}
-for i_group = 1:numel(groupdata)
+plotcolors = {'r', 'b', 'g'};
+for i_group = 1:numel(groupdata_raw)
     
+    if PLOT_RAW_DATA
+        grid_average = nanmean(groupdata_raw{i_group},3);
+        grid_N = sum(~isnan(groupdata_raw{i_group}),3)
+        
+        Y = 1:size(groupdata_raw{i_group},1);
+        X = allTFs';
+        
+        l_nan_tfs = all(isnan(grid_average), 1);
+        
+        hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
+        hs.EdgeColor = plotcolors{i_group};
+        hs.EdgeAlpha = 1;
+        hs.LineWidth = 1.5;
+        hs.FaceColor = plotcolors{i_group};
+        hs.FaceAlpha = 0;
+    end
     
-    grid_average = nanmean(groupdata{i_group},3);
-    grid_N = sum(~isnan(groupdata{i_group}),3)
-    
-    Y = 1:size(groupdata{i_group},1);
-    X = 1:numel(allTFs);
-    
-    l_nan_tfs = all(isnan(grid_average), 1);
-    
-    hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
-    hs.EdgeColor = 'k';
-    hs.EdgeAlpha = 0.5;
-    hs.FaceColor = plotcolors{i_group};
-    hs.FaceAlpha = 1;
+    % plot the average smoothManifold
+    if PLOT_SMOOTH_MANIFOLD
+        grid_average = mean(groupdata_smooth{i_group}, 3);
+        isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+        X = 1000./isi_ms;
+        Y = 1:size(smoothManifold,1);
+        hmod = surf(X,Y, flipud(grid_average));
+        hmod.EdgeAlpha = 0;
+        hmod.FaceColor = plotcolors{i_group};
+        hmod.FaceAlpha = 0.5;
+    end
     
 end
 set(gca, 'zscale', 'log', 'view', [-43    16])
-set(gca, 'ytick', Y, 'yticklabel', cellfun(@(x) num2str(x), num2cell(rot90(Y,2)), 'uniformoutput', false))
-set(gca, 'xtick', X, 'xticklabel', cellfun(@(x) num2str(x), num2cell(allTFs), 'uniformoutput', false))
+set(gca, 'YTick', 1:10, 'YTickLabel', {'10','9','8','7','6','5','4','3','2','1'})
+zmax = get(gca, 'zlim');
 xlabel('Temporal Frequency')
 ylabel('Pulse Number')
 zlabel('norm amp')
 
 
+% plot manifolds for each dataset individually
+if PLOT_INDIVIDUAL_DATASETS
+    for i_group = 1:numel(groupdata_raw)
+        
+        for i_examp = 1:size(groupdata_raw{i_group},3)
+            f = figure;
+            
+            grid_average = groupdata_raw{i_group}(:,:,i_examp);
+            
+            Y = 1:size(groupdata_raw{i_group},1);
+            X = allTFs';
+            
+            l_nan_tfs = all(isnan(grid_average), 1);
+            
+            hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
+            hs.EdgeColor = plotcolors{i_group};
+            hs.EdgeAlpha = 1;
+            hs.FaceColor = plotcolors{i_group};
+            hs.FaceAlpha = 0;
+            hs.LineWidth = 1.5;
+            
+            set(gca, 'zscale', 'log', 'view', [-43    16])
+            set(gca, 'ytick', Y, 'yticklabel', cellfun(@(x) num2str(x), num2cell(rot90(Y,2)), 'uniformoutput', false))
+            set(gca, 'xtick', X, 'xticklabel', cellfun(@(x) num2str(x), num2cell(allTFs), 'uniformoutput', false))
+            xlabel('Temporal Frequency')
+            ylabel('Pulse Number')
+            zlabel('norm amp')
+            
+            i_ex = groupexpinds{i_group}(i_examp);
+            i_ch = groupchinds{i_group}(i_examp);
+            f.Name = sprintf('Mouse %s, site %s, HS%d', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, i_ch);
+            
+            % display the smooth manifold
+            smoothManifold = pprpop.smoothManifold{i_ex}{i_ch};
+            isi_ms = pprpop.smoothManifold_isi{i_ex}{i_ch};
+            X = 1000./isi_ms;
+            Y = 1:size(smoothManifold,1);
+            hold on,
+            hmod = surf(X,Y, flipud(smoothManifold));
+            hmod.EdgeAlpha = 0;
+            hmod.FaceAlpha = 0.5;
+            
+            
+            
+        end
+        
+    end
+end
 
 
-%% POST-TETANIC POTENTIATION
+%% POST-TETANIC POTENTIATION (DATA COLLECTION)
+
+% loop through the experiments. Pull out the trains data. Ignore the
+% recovery train (if present) and aggregate across recovery conditions.
+recovpop = [];
+recovpop.TFsAllExpts = [];
+recovpop.recoveryTimesAllExpts = [];
+for i_ex = 1:numel(dat)
+    
+    % find the normal trains. Assume the field name is NOT 'ritv'
+    condnames = fieldnames(dat{i_ex}.expt);
+    l_trains = ~strncmp(condnames, 'RITv', 4);
+    if sum(l_trains)==0; continue; end % no trains data
+    trainParams = cellfun(@(x) dat{i_ex}.expt.(condnames{x}).tdict, num2cell(find(l_trains)), 'uniformoutput', false);
+    trainParams = cat(1, trainParams{:});
+    recovpop.trainParams{i_ex} = trainParams;
+    
+    % make sure the pulse amplitude and width were identical across ttypes
+    assert(numel(unique(trainParams(:,1)))==1, 'ERROR: more than one pulse amplitude')
+    assert(numel(unique(trainParams(:,2)))==1, 'ERROR: more than one pulse width');
+    
+    % store the stim params for all stim types, which will be useful for
+    % indexing later.
+    allStimParams = cellfun(@(x) dat{i_ex}.expt.(condnames{x}).tdict, num2cell((1:numel(l_trains))'), 'uniformoutput', false);
+    allStimParams = cat(1, allStimParams{:});
+    
+    
+    % aggregate data across TF conditons and recovery times (Separately for each
+    % recording channel)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        
+        for i_cond = 1:sum(l_trains)
+            
+            condIdx = ismember(allStimParams, trainParams(i_cond,:), 'rows');
+            
+            % check to make sure this is a recovery train
+            isrecovery = allStimParams(condIdx,4) > 0;
+            if ~isvalid || ~isrecovery
+                recovpop.dat{i_ex}.recovAmp{i_ch}(i_cond,1) = NaN;
+                continue
+            end
+            
+            % pull out the data
+            tmpdat = dat{i_ex}.expt.(condnames{condIdx}).stats.EPSCamp{i_ch}; % [Npulses, 1, Nsweeps]
+            
+
+            % check to make sure there are data for these conditions. Even
+            % though this recording channel should be defined (See above),
+            % it's possible there are no data due to deletion of single
+            % sweeps
+            if isempty(tmpdat)
+                recovpop.dat{i_ex}.recovAmp{i_ch}(i_cond,1) = NaN;
+                continue
+            else
+                
+                % normalize by the p1Amp_norm
+                realTrlNums = dat{i_ex}.expt.(condnames{condIdx}).realTrialNum{i_ch};
+                p1Amp_norm = dat{i_ex}.qc.p1amp_norm{i_ch}(realTrlNums);
+                assert(~any(isnan(p1Amp_norm)), 'ERROR: scale factor is a nan');
+                p1Amp_norm = permute(p1Amp_norm, [1,3,2]);
+                tmpdat = bsxfun(@rdivide, tmpdat, p1Amp_norm); % [Npulses, 1, Nsweeps]
+                
+                
+                % now average across trails, and re-normalize to the first
+                % pulse. Store in the population data structure.
+                avg = mean(tmpdat,3);
+                ppr = avg./avg(1);
+                
+                recovpop.dat{i_ex}.recovAmp{i_ch}(i_cond,1) = ppr(end);
+                
+            end
+            
+        end
+        
+    end
+    
+    %
+    % update these things, but only if there were recovery data aggregated
+    % for this experiment
+    %
+    dataPresent = cellfun(@(x) any(~isnan(x)), recovpop.dat{i_ex}.recovAmp);
+    if any(dataPresent)
+        
+        % identify the unique TF conditions for this experiment, and update the
+        % running log of TFs used across all experiments. This will be used by
+        % the plotting routines to figure out the "canonical grid"
+        uniqueTFs = unique(trainParams(:,3));
+        tmp = cat(1, recovpop.TFsAllExpts, uniqueTFs);
+        recovpop.TFsAllExpts = unique(tmp);
+        
+        % identify the unique recovery times for this experiment, and update the
+        % running log of recov times used across all experiments. This will be used by
+        % the plotting routines to figure out the "canonical grid"
+        uniqueRecoveryTimes = unique(trainParams(:,4));
+        tmp = cat(1, recovpop.recoveryTimesAllExpts, uniqueRecoveryTimes);
+        recovpop.recoveryTimesAllExpts = unique(tmp);
+        
+    end
+    
+end
+
+
+
+%% POST-TETANIC POTENTIATION (PLOTS)
 
 % plot recovery pulse amplitude (normalized) vs. train frequency. Do this
 % separately for cell types, brain areas, opsins, etc...
+clc
+
+
+% define a set of attributes for each lineseries (or manifold) in the plot
+% {CellType,  BrainArea,  OpsinType}
+plotgroups = {
+              'PY',    'AL', 'chronos';...
+              'PY',    'PM', 'chronos';...
+              };
+
+groupdata_raw = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
+canonicalGrid = nan(numel(recovpop.TFsAllExpts), numel(recovpop.recoveryTimesAllExpts)); % need to get the maxNpulses into the recovpop struct
+allTFs = recovpop.TFsAllExpts;
+allRecoveryTimes = recovpop.recoveryTimesAllExpts';
+
+% iterate over the experiments. For each recording channel, determine what
+% the attributes are, and place the data in the correct ploting group.
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
+        l_nan = cellfun(@(x) all(isnan(x)), ch_attribs);
+        ch_attribs(l_nan) = cellfun(@num2str, ch_attribs(l_nan), 'uniformoutput', false);
+        
+        % is this expt and channel cooresponds to one of the plot_groups in
+        % terms of cellType and opsin
+        l_cellType_match = cellfun(@(x) ~isempty(regexpi(ch_attribs{1}, x)), plotgroups(:,1)) | strcmpi(plotgroups(:,1), 'any');
+        l_opsinMatch = cellfun(@(x) ~isempty(regexpi(ch_attribs{3}, x)), plotgroups(:,3)) | strcmpi(plotgroups(:,3), 'any');
+        
+        
+        % determine if this experiment has a brain area that corresponds to
+        % one of the plot_groups. Start by adding a 'medial', 'lateral'
+        % assignment to the brain area
+        expt_area = ch_attribs{2};
+        if ~isempty(regexp(expt_area, 'AM', 'once')) || ~isempty(regexp(expt_area, 'PM', 'once'))
+            expt_area = [expt_area, ' med'];
+        elseif ~isempty(regexp(expt_area, 'AL', 'once')) || ~isempty(regexp(expt_area, 'LM', 'once'))
+            expt_area = [expt_area, ' lat'];
+        end
+        l_brainArea_match = cellfun(@(x) ~isempty(regexp(expt_area, x, 'once')), plotgroups(:,2)) | strcmpi(plotgroups(:,2), 'any');
+        
+        group_idx = sum([l_cellType_match, l_brainArea_match, l_opsinMatch], 2) == 3;
+        assert(sum(group_idx)<=1, 'ERROR: found too many group indicies')
+        if sum(group_idx) == 0; continue; end
+
+        
+        % add data to the appropriate group data array
+        tmpgrid = canonicalGrid;
+        for i_cond = 1:size(recovpop.trainParams{i_ex}, 1);
+            grid_row_idx = allTFs == recovpop.trainParams{i_ex}(i_cond, 3);
+            grid_col_idx = allRecoveryTimes == recovpop.trainParams{i_ex}(i_cond, 4);
+            tmpgrid(grid_row_idx, grid_col_idx) = recovpop.dat{i_ex}.recovAmp{i_ch}(i_cond);
+        end
+        
+        if all(isnan(tmpgrid(:))); continue; end
+        
+        % aggregate the data
+        groupdata_raw{group_idx} = cat(3, groupdata_raw{group_idx}, tmpgrid);
+        
+    end
+end
+
+
+
+
+% Plot average lineseries.
+hf = figure;
+hold on,
+plotcolors = [1,0,0;...
+              0,1,0;...
+              0,0,1];
+          
+for i_group = 1:numel(groupdata_raw)
+    
+    grid_average = nanmean(groupdata_raw{i_group},3);
+    if isempty(grid_average); continue; end
+    
+    N = sum(~isnan(groupdata_raw{i_group}),3)
+    grid_sem = nanstd(groupdata_raw{i_group},[],3) ./ sqrt(N);
+    
+    groupcolors = repmat(plotcolors(i_group,:), size(grid_average,1), 1);
+    ramp = linspace(0,0.8, size(grid_average,1))';
+    l_off = sum(groupcolors, 1)==0;
+    groupcolors(:, l_off) = [ramp, ramp];
+    
+    % loop over TF conds
+    for i_tf = 1:size(grid_average, 1)
+        l_nan = isnan(grid_average(i_tf,:));
+        tmp_amps = grid_average(i_tf, ~l_nan);
+        tmp_sem = grid_sem(i_tf, ~l_nan);
+        tmp_recovTimes = allRecoveryTimes(~l_nan);
+        my_errorbar(tmp_recovTimes, tmp_amps, tmp_sem, '-', 'color', groupcolors(i_tf,:), 'linewidth', 3);
+    end
+    
+end
+
 
 
 
