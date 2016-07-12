@@ -36,7 +36,7 @@ function out = pixPerMicron(nrows, ncols)
             
             % for the slice rig using the UDPCAD, (after 8/10/2015) and the
             % cannon tube lens, 257 pix is 300 um;
-            warning(' #### USING NEW CALIBRATION INFORMATION #### ')
+            %warning(' #### USING NEW CALIBRATION INFORMATION #### ')
             out = 257 ./ 300;
             
         otherwise

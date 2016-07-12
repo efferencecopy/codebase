@@ -237,7 +237,13 @@ function phys = getPhysInfo(fName)
     % import the data from excel and chuck the unused cells
     [~, ~, raw] = xlsread(fName, 'Physiology', 'A1:H100');
     l_nan = cellfun(@(x) any(isnan(x)), raw(:,1));
-    raw(l_nan,:) = [];
+    raw(l_nan,:) = []; % cut the empty rows
+    
+    % occasionally the number of columns is outrageous. Cut them all.
+    if size(raw,2)>12
+        raw(:,13:end) = [];
+    end
+    
     
     % convert everyting to text.
     raw = cellfun(@num2str, raw, 'uniformoutput', false); % force everything to be strings

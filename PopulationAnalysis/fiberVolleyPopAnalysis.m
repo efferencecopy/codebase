@@ -5,8 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 5;
-BRAINAREA = 'any';
+EXPTTYPE = 1;
+BRAINAREA = 'pm';
 COMBINE_CHIEF = true;
 switch EXPTTYPE
     case 1
@@ -562,7 +562,7 @@ parfor i_ex = 1:Nexpts
                     pulse_window = (tt >= (pWidth+photoDelay)) & (tt < 0.006);
                     snippet_pulse = snippet(pulse_window);
                     dt = 1./sampRate;
-                    area = trapz((snippet_pulse)) .* dt; % adjusts for differences in sample rate between experiments
+                    area = trapz(abs(snippet_pulse)) .* dt; % adjusts for differences in sample rate between experiments
                     dat{i_ex}.(pTypes{i_tf}).stats.(conds{i_cond}).area{i_ch}(i_pulse) = area;
                     areaStartIdx = find(tt >= (pWidth+photoDelay), 1, 'first');
                     areaStopIdx = find(tt >= 0.008, 1, 'first');
@@ -1106,7 +1106,7 @@ for i_ex = 1:numel(dat)
             if any(avgOverTF.tf <= 100);
                 l_10to100 = avgOverTF.tf <= 100;
                 if any(l_10to100)
-                    tmpavg = nanmean(avgOverTF.vals(l_10to60,:), 1);
+                    tmpavg = nanmean(avgOverTF.vals(l_10to100,:), 1);
                     avgtf.(opsin).avg10to100.(conds{i_cond}).(statTypes{i_stat})(end+1,:) = tmpavg; % Nexpts x Npulses
                 end
             end
@@ -1293,7 +1293,7 @@ PULSENUM = 1;
 PLOTPPR = false; % if true, PPR = P(PULSENUM) ./ P(1), else the stat is raw P(PULSENUM)
 NORM_TO_LED10 = false; % norm data to LED=10V
 STATTYPE = 'diffval';
-CONDITION = 'FV_Na'; % 'FV_Na', or 'nbqx_apv_cd2_ttx'
+CONDITION = 'nbqx_apv_cd2_ttx'; % 'FV_Na', or 'nbqx_apv_cd2_ttx'
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
@@ -1918,6 +1918,7 @@ for i_opsin = 1:numel(opsinTypes)
 end
 [P,ANOVATAB,STATS] = anova1(groupData, groupName, 'on');
 multcompare(STATS)
+
 
 %%  SHAPE OF THE FIRST PULSE RESPONSE
 
@@ -3064,7 +3065,7 @@ for i_ex = 1:Nexpts;
                 
                 % cacluate the peak and trough idx
                 tt = ([0:numel(tmp)-1] - prePulseSamps) ./ sampRate; % time=0 is when the LED comes on
-                [troughidx, peakidx]  = anlyMod_getWFepochs(tmp, tt, conds{i_cond}, pwidth, photoDelay, 'inward');
+                [troughidx, peakidx]  = anlyMod_getWFepochs(tmp, tt, conds{i_cond}, pwidth, photoDelay, 'inward', smoothStats{i_ex}.opsin);
                 
                 % add a few points on either side of the true trough/peak
                 trough_window = troughidx-4: min([troughidx+4, numel(tmp)]);
@@ -3814,14 +3815,14 @@ end
 
 ERRBARS = true;
 NPULSES = 7;
-PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'nbqx_apv_cd2_ttx' or 'FV_Na'
+PHARMCONDITION = 'FV_Na'; % could be 'synapticTransmission' or 'nbqx_apv_cd2_ttx' or 'FV_Na'
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
 
 % load in data from each area
-load('pop_al_stimL23_recL23.mat');
+load('pop_al_stimL23_recL23_mainExpt_combineChief.mat');
 al_pop = pop;
 
-load('pop_pm_stimL23_recL23.mat');
+load('pop_pm_stimL23_recL23_mainExpt_combineChief.mat');
 pm_pop = pop;
 
 
@@ -3835,6 +3836,8 @@ set(F, 'position', [109    31   891   754])
 
 opsinTypes = {'chr2', 'chief_all', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
+    
+    
     
     % grab the data
     pm_tmp_dat = pm_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).diffval;
@@ -3898,7 +3901,7 @@ for i_opsin = 1:numel(opsinTypes)
         axis tight
         xlabel('Pulse number')
         if i_tf==1
-            ylabel(sprintf('fEPSP slope \n Pn:P1 ratio'))
+            ylabel(sprintf('Normalized Fiber Volley \n Pn:P1 ratio'))
         end
         yvals = get(gca, 'ylim');
         yvals(1) = min([0, yvals(1)]);
@@ -5021,6 +5024,188 @@ end
 my_errorbar([0, mean(allDist)], mean(avg_stat,1), stderr(avg_stat,1), 'k', 'linewidth', 3);
 x_sem = stderr(allDist);
 plot([mean(allDist)-x_sem, mean(allDist)+x_sem], [mean(avg_stat(:,2)), mean(avg_stat(:,2))], 'k', 'linewidth', 3);
+
+
+%% REVIEWER FIG: RELIABILITY OF FV BASED OFF ABSOLUTE AMPLITUDE OF P1 OPSIN POTENTIAL
+
+% only do this for the main experiment (TF and FV)
+assert(strcmpi(EXPTTYPE, 'main expt'), 'ERROR: this anaysis is only for the TF and FV experiments');
+close all; clc
+
+FV_STAT = 'diffval';
+OPSIN_STAT = 'diffval';
+STIMSITE = true;
+
+OPSINTYPE = 'chr2';
+PULSE_NUMBER = 7;
+
+figure
+set(gcf, 'position', [416         235        1218         727])
+
+[pop_opsin_p1, pop_fv_pnp1, pop_opsin_pnp1, pop_incubation_time] = deal([]);
+mdb = initMouseDB('update');
+
+for i_ex = 1:numel(dat)
+    
+    if ~strcmpi(info{i_ex}.opsin, OPSINTYPE);
+        continue
+    end
+
+    % figure out which (if any) channels should be analyzed
+    CHANNEL = info{i_ex}.stimSite;
+    if isnan(CHANNEL) % cases where neither recording sites were targeted
+        continue
+    end
+    Nchannels = sum(info{i_ex}.ignoreChans);
+    if Nchannels == 1
+        if ~STIMSITE
+            continue % no other stim site to show...
+        elseif CHANNEL == 2 % cases where CH = 2, but only one channel recorded
+            CHANNEL = 1;
+        end
+    else
+        if STIMSITE
+            CHANNEL = info{i_ex}.stimSite;
+        else
+            if info{i_ex}.stimSite == 1
+                CHANNEL = 2;
+            elseif info{i_ex}.stimSite == 2
+                CHANNEL = 1;
+            end
+        end
+    end
+    
+    
+    
+    % average the P1 stats across TF conds
+    fldnames = fieldnames(dat{i_ex});
+    tf_rows = [10; 20; 40; 60; 100];
+    Npulses = 7;
+    clrmap = copper(numel(tf_rows));
+    [opsin_raw, fv_raw] = deal(nan(numel(tf_rows), Npulses));
+    for i_fld = 1:numel(fldnames)
+        
+        if ~isfield(dat{i_ex}.(fldnames{i_fld}).stats, 'FV_Na')
+            continue
+        end
+        
+        idx_tf = tf_rows == info{i_ex}.(fldnames{i_fld}).FV_Na.pTF;
+        
+        % get the FV_Na stats
+        tmp = dat{i_ex}.(fldnames{i_fld}).stats.FV_Na.(FV_STAT){CHANNEL};
+        if numel(tmp)<7; tmp(end+1:7) = nan; end
+        fv_raw(idx_tf,:) = tmp(1:7);
+        
+        % get the opsin stat
+        tmp = dat{i_ex}.(fldnames{i_fld}).stats.nbqx_apv_cd2_ttx.(OPSIN_STAT){CHANNEL};
+        if numel(tmp)<7; tmp(end+1:7) = nan; end
+        opsin_raw(idx_tf,:) = tmp(1:7);
+    end
+    
+    
+    % define the statistics
+    p1_opsin_amp = abs(nanmean(opsin_raw(:,1)));
+    pnp1_stats_opsin = opsin_raw(:,PULSE_NUMBER) ./ nanmean(opsin_raw(:,1));
+    pnp1_stats_fv = fv_raw(:,PULSE_NUMBER) ./ nanmean(fv_raw(:,1));
+    
+    % aggregate across expts for correlations
+    pop_opsin_p1 = cat(2, pop_opsin_p1, p1_opsin_amp);
+    pop_fv_pnp1 = cat(2, pop_fv_pnp1, pnp1_stats_fv(:));
+    pop_opsin_pnp1 = cat(2, pop_opsin_pnp1, pnp1_stats_opsin(:));
+    
+    % plot reliability vs. P1 opsin potential
+    subplot(2,2,1), hold on,
+    l_valid = ~isnan(opsin_raw(:,1));
+    plot(ones(sum(l_valid),1).*p1_opsin_amp, pnp1_stats_opsin(l_valid), 'k');
+    for i_tf = 1:numel(tf_rows)
+        plot(p1_opsin_amp, pnp1_stats_opsin(i_tf), 'o', 'color', clrmap(i_tf,:), 'markerfacecolor', clrmap(i_tf,:), 'markersize', 6);
+    end
+    title('Opsin Current reliability vs. p1 amp')
+    xlabel('P1 opsin potential (mV)')
+    ylabel(sprintf('normalized opsin potential (P%d:P1 ratio)', PULSE_NUMBER))
+    ylim([0, 1.2])
+    
+    subplot(2,2,2), hold on,
+    l_valid = ~isnan(opsin_raw(:,1));
+    plot(ones(sum(l_valid),1).*p1_opsin_amp, pnp1_stats_fv(l_valid), 'k');
+    for i_tf = 1:numel(tf_rows)
+        plot(p1_opsin_amp, pnp1_stats_fv(i_tf), 'o', 'color', clrmap(i_tf,:), 'markerfacecolor', clrmap(i_tf,:), 'markersize', 6);
+    end
+    title('FV reliability vs p1 opsin potential')
+    xlabel('P1 opsin potential (mV)')
+    ylabel(sprintf('normalized FV (P%d:P1 ratio)', PULSE_NUMBER))
+    ylim([0, 1.2])
+    
+    
+    % now plot by incubation time
+    % get injection date
+    tmpDate = regexpi(info{i_ex}.mouse, '_\w*_', 'match');
+    tmpDate = tmpDate{1}(2:end-1);
+    if str2double(tmpDate(1:2)) <= 12
+        % assume mmddyy
+        date_inj = datenum(tmpDate, 'mmddyy');
+    else
+        %assume yymmdd
+        date_inj = datenum(tmpDate, 'yymmdd');
+    end
+    
+    % get the date of recording, grab the name of the first file from the
+    % first cell
+    [~, idx] = mdb.search(info{i_ex}.mouse);
+    tmpDate = mdb.mice{idx}.phys.cell(1).file(1).FileName;
+    tmpDate = regexpi(tmpDate, '\d{4}_\d{2}_\d{2}', 'match'); % remove the file number
+    tmpDate = regexprep(tmpDate{1}, '_', '');
+    date_record = datenum(tmpDate, 'yyyymmdd');
+    
+    incubation_days = date_record - date_inj;
+    pop_incubation_time = cat(2, pop_incubation_time, incubation_days);
+    
+    
+    
+    subplot(2,2,3), hold on,
+    l_valid = ~isnan(opsin_raw(:,1));
+    plot(ones(sum(l_valid),1).*incubation_days, pnp1_stats_opsin(l_valid), 'k');
+    for i_tf = 1:numel(tf_rows)
+        plot(incubation_days, pnp1_stats_opsin(i_tf), 'o', 'color', clrmap(i_tf,:), 'markerfacecolor', clrmap(i_tf,:), 'markersize', 6);
+    end
+    title('Opsin Current reliability vs. incubation time')
+    xlabel('incubation time (days)')
+    ylabel(sprintf('normalized opsin potential (P%d:P1 ratio)', PULSE_NUMBER))
+    ylim([0, 1.2])
+    
+    subplot(2,2,4), hold on,
+    l_valid = ~isnan(opsin_raw(:,1));
+    plot(ones(sum(l_valid),1).*incubation_days, pnp1_stats_fv(l_valid), 'k');
+    for i_tf = 1:numel(tf_rows)
+        plot(incubation_days, pnp1_stats_fv(i_tf), 'o', 'color', clrmap(i_tf,:), 'markerfacecolor', clrmap(i_tf,:), 'markersize', 6);
+    end
+    title('FV reliability vs incubation time')
+    xlabel('incubation time (days)')
+    ylabel(sprintf('normalized FV (P%d:P1 ratio)', PULSE_NUMBER))
+    ylim([0, 1.2])
+    
+end
+
+% run some correlations to see if anything is correlated with FV
+% reliability
+[rp_incubation, rp_p1amp] = deal(nan(numel(tf_rows),2));
+for i_tf = 1:numel(tf_rows);
+   l_expts = ~isnan(pop_fv_pnp1(i_tf,:));
+   if ~any(l_expts); continue; end
+   
+   [r, p] = corr(pop_incubation_time(l_expts)', pop_fv_pnp1(i_tf, l_expts)', 'type', 'spearman');
+   rp_incubation(i_tf,1) = r;
+   rp_incubation(i_tf,2) = p;
+   
+   [r, p] = corr(pop_opsin_p1(l_expts)', pop_fv_pnp1(i_tf, l_expts)', 'type', 'spearman');
+   rp_p1amp(i_tf,1) = r;
+   rp_p1amp(i_tf,2) = p;
+
+end
+
+rp_incubation
+rp_p1amp
+
 
 %% GET TRIAL COUNTS AND SNR AND GENOTYPES
 

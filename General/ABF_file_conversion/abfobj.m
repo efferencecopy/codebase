@@ -127,7 +127,7 @@ classdef abfobj
             end
         end
         
-        function Ra = getRa(obj, method)
+        function out = getRa(obj, method)
 
             % figure out which fitting method to use.
             if ~exist('method', 'var')
@@ -146,8 +146,9 @@ classdef abfobj
             % convention as obj.dat (time x channels x sweeps). So the
             % outputs will be [1 x 2 x Nsweeps]
             Nsweeps = size(obj.dat, 3);
-            Ra.dat = nan(1, 2, Nsweeps);
-            Ra.Verr = nan(1, 2, Nsweeps);
+            out.Ra = nan(1, 2, Nsweeps);
+            out.Verr = nan(1, 2, Nsweeps);
+            out.Rinput = nan(1, 2, Nsweeps);
             for i_ch = 1:2
                 
                 % make sure data are present for this recording channel and
@@ -157,12 +158,12 @@ classdef abfobj
                 cmdname_idx = strncmp(Vclamp_names_cmd, HSname,  numel(HSname));
                 assert(sum(HSpresent)<=1, 'ERROR: too many matches');
                 if ~any(HSpresent)
-                    Ra.chNames{i_ch} = '';
+                    out.chNames{i_ch} = '';
                     continue
                 else
                     HSname = Vclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
                     CMDname = Vclamp_names_cmd{cmdname_idx};
-                    Ra.chNames{i_ch} = HSname;
+                    out.chNames{i_ch} = HSname;
                 end
                 
                 
@@ -197,7 +198,8 @@ classdef abfobj
                     tt_pulse = obj.tt(t_idx);
                     
                     %calculate the baseline
-                    idx_baseline = (idxOnset-110) : (idxOnset-10);
+                    N_10ms = round(0.010 .* obj.head.sampRate);
+                    idx_baseline = (idxOnset-N_10ms) : (idxOnset-10);
                     Im_baseline = mean(obj.dat(idx_baseline, obj.idx.(HSname), i_swp));
                     
                     %caluclate the magnitude of the pulse
@@ -209,7 +211,7 @@ classdef abfobj
                         case 'quick'
                             delta_pa = minVal - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra.dat(1, i_ch, i_swp) = pulse_mv ./ delta_na;
+                            out.Ra(1, i_ch, i_swp) = pulse_mv ./ delta_na;
                             
                         case 'linear'
                             pred = [tt_pulse(1:20)', ones(20,1)];
@@ -219,7 +221,7 @@ classdef abfobj
                             Im_atOnset = betas(1) .* tt_On + betas(2);
                             delta_pa = Im_atOnset - Im_baseline;
                             delta_na = delta_pa ./ 1000;
-                            Ra.dat(1, i_ch, i_swp) = pulse_mv ./ delta_na;
+                            out.Ra(1, i_ch, i_swp) = pulse_mv ./ delta_na;
                         case 'exp'
                             % currently doesn't do anything
                     end
@@ -228,9 +230,26 @@ classdef abfobj
                     % calculate the Vclamp error due to holding current as
                     % a percentage of the holding potential
                     %%%%%%%%%%%%%%%%%%%%%%%
-                    Verr_volts = (Ra.dat(1, i_ch, i_swp) .* 10^6) .* (Im_baseline .* 10^-12);
+                    Verr_volts = (out.Ra(1, i_ch, i_swp) .* 10^6) .* (Im_baseline .* 10^-12);
                     Verr_mv = Verr_volts .* 1000;
-                    Ra.Verr(1, i_ch, i_swp) = abs(Verr_mv);
+                    out.Verr(1, i_ch, i_swp) = abs(Verr_mv);
+                    
+                    
+                    %
+                    % calculate the input resistance. Assume a perfect
+                    % seal, and understand that the Rin will depend on the
+                    % holding potential (which can recruit voltage
+                    % dependent currents)
+                    %
+                    %%%%%%%%%%%%%%%%%%%%%%%
+                    Im_pulse = obj.dat(idx_pulse, obj.idx.(HSname), i_swp);
+                    Im_pulse(end-5:end) = []; % in case a few samples of the offset made it this far
+                    Im_steadyState = mean(Im_pulse(end-N_10ms : end));
+                    delta_pa = Im_steadyState - Im_baseline;
+                    delta_na = delta_pa ./ 1000;
+                    out.Rinput(1, i_ch, i_swp) = pulse_mv ./ delta_na;
+                        
+                    
                     
                 end
             end

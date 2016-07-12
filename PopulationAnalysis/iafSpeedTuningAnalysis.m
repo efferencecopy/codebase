@@ -133,6 +133,9 @@ if MAKEPLOT
     figName = regexpi(figName{1}, '(\d)', 'match');
     figName = ['k', figName{end-1}, figName{end}];
     set(gcf, 'name', sprintf('%s', figName), 'numbertitle', 'off')
+    ymax = -inf;
+    ymin = inf;
+    hs = [];
     
     % add the titles to the first row
     for i_ttypes = 1: Nttypes
@@ -157,7 +160,7 @@ if MAKEPLOT
             
             % Plot the ROI pixels according to stimulus types
             pltIdx = (i_va-1)*Nttypes + i_ttypes;
-            subplot(num_vas, Nttypes, pltIdx); hold on
+            hs(end+1) = subplot(num_vas, Nttypes, pltIdx); hold on
             
             Nframes = size(pixelMatrix{i_va}{i_ttypes}, 1);
             tt = [0:Nframes-1] .* (1/udat.frameRate);
@@ -184,10 +187,16 @@ if MAKEPLOT
             else
                 %set(gca, 'yticklabel', [])
             end
+            
+            % update the ymin/max
+            ylims = get(gca, 'ylim');
+            ymin = min([ymin, ylims(1)]);
+            ymax = max([ymax, ylims(2)]);
         end
         
     end
 end
+set(hs, 'ylim', [ymin, ymax]) % standardize the axes
 
 
 %% JOINT SF-TF TUNING AND 1D SPEED TUNING
@@ -215,7 +224,7 @@ for i_va = 1:num_vas
     for i_ttype = 1:numel(popmean.on{i_va})
         
         % grab the data
-        tmpdat = popmean.on{i_va}(i_ttype) - popmean.off{i_va}(i_ttype);
+        tmpdat = popmean.on{i_va}(i_ttype);
         
         % store the data for the SF/TF joint tuning matrix
         ridx = unique_sf == sf_cpd(i_ttype);
@@ -285,10 +294,34 @@ for i_va = 1:num_vas
     h.XScale = 'log';
     title(udat.ROI.VisArea{i_va}, 'fontsize', 10)
     xlabel('Speed (dps)')
-    ylabel('Fon - Foff')
+    ylabel('dFoF ON')
     
 end
 
+% now plot them all on the same axis
+f = figure; hold on,
+hva_color = lines(num_vas);
+legtext = {};
+for i_hva = 1:num_vas
+    
+    if isempty(popmean.on{i_hva})
+        continue
+    end    
+    
+    % grab data
+    tmpdat = popmean.speed{i_hva};
+    
+    % plot the average
+    avgdat = cellfun(@nanmean, tmpdat);
+    plot(unique_speed, avgdat, '-', 'color', hva_color(i_hva, :), 'linewidth', 2);
+    
+    legtext{end+1} = udat.ROI.VisArea{i_hva};
+end
+h = gca;
+h.XScale = 'log';
+xlabel('Speed (dps)')
+ylabel('dFoF ON')
+legend(legtext)
 
 %% SIZE TUNING
 
@@ -312,11 +345,38 @@ for i_va = 1:num_vas
     
     h = gca;
     title(udat.ROI.VisArea{i_va}, 'fontsize', 10)
-    xlabel('Szie (dps)')
-    ylabel('Fon - Foff')
+    xlabel('Size (dva)')
+    ylabel('Fon')
     
 end
 
+
+%% Surround Suppression
+
+assert(strcmpi(udat.text{1}, 'tAnnulusGratingDiameterDeg') && strcmpi(udat.experimentType, 'annulus'), 'ERROR: not a size tuning expt')
+
+f = figure;
+f.Units = 'normalized';
+f.Position = [0.0703    0.5204    0.8740    0.2222];
+for i_va = 1:num_vas
+    
+    if isempty(popmean.on{i_va})
+        continue
+    end    
+    
+    % grab data
+    tmpdat = popmean.on{i_va};
+    
+    % plot the raw data points
+    subplot(1, num_vas, i_va); hold on,
+    plot(udat.ttypes(:,1), tmpdat, '-ko')
+    
+    h = gca;
+    title(udat.ROI.VisArea{i_va}, 'fontsize', 10)
+    xlabel('Annulus Size (dva)')
+    ylabel('Fon')
+    
+end
 
 
 

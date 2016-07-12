@@ -9,23 +9,6 @@
 
 % Do the oChIEF fits improve if I add an extra facilitation term?
 
-% Do the cross validation trials work better if I use the recovery trains
-% to train the model and then predict the RITs
-
-% Should I use only a few RITs (maybe three) but present them multiple
-% times?
-
-
-% Try to look a the data in terms of cell type. Add DC current steps to the
-% QC plots
-
-% Are the poor fits associated with noisy Rs or 1st pulse amp? Delete the
-% bad pulses and try again... make sure to save the original workbook in
-% case it's not useful.
-
-% read over code to make sure fitting and cross validation is working.
-
-
 
 %% SPECIFY WHICH EXPERIMENTS SHOULD CONTRIBUTE, LOAD THE DATA
 
@@ -41,6 +24,8 @@ switch EXPTTYPE
         EXPTTYPE = 'Manifold';
     case 3
         EXPTTYPE = 'RIT_test';
+    case 4
+        EXPTTYPE = 'Passive_Props';
 end
 
 
@@ -107,6 +92,7 @@ if isempty(pool)
     pool = parpool(21);
 end
 
+
 parfor i_ex = 1:Nexpts
     dat{i_ex} = wcstp_compile_data(attributes{i_ex}, hidx, params);
 end
@@ -149,22 +135,22 @@ for i_ex = 1:numel(dat)
                 ylabel('mV')
             end
             
-            vmidx = find(Icmd>0, 1, 'first');
+            vmidx = (Icmd>0) & (Icmd<350);
             if any(vmidx);
-                stopidx = min([vmidx+3, size(Vm,1)]);
                 pltidx = sub2ind([4,3], col, 2);
                 ha = subplot(3,4,pltidx);
-                plot(tt, Vm(vmidx:stopidx,:)');
+                plot(tt, Vm(vmidx,:)');
                 axis tight
                 ha.Box = 'off';
                 ha.TickDir = 'out';
                 ylabel('mV')
             end
             
-            if stopidx < size(Vm,1)
+            vmidx = (Icmd >= 350);
+            if any(vmidx);
                 pltidx = sub2ind([4,3], col, 1);
                 ha = subplot(3,4,pltidx);
-                plot(tt, Vm(stopidx+1:end,:)');
+                plot(tt, Vm(vmidx,:)');
                 axis tight
                 ha.Box = 'off';
                 ha.TickDir = 'out';
@@ -176,7 +162,7 @@ for i_ex = 1:numel(dat)
         if i_ch == 1; col = 2; else col = 4; end
         
         % series resistance
-        if ~all(isnan(dat{i_ex}.qc.Rs{i_ch}))
+        if isfield(dat{i_ex}.qc, 'Rs') && ~all(isnan(dat{i_ex}.qc.Rs{i_ch}))
             pltidx = sub2ind([4,3], col, 1);
             subplot(3,4,pltidx)
             tmp = squeeze(dat{i_ex}.qc.Rs{i_ch});
@@ -188,7 +174,7 @@ for i_ex = 1:numel(dat)
         end
         
         % verr
-        if ~all(isnan(dat{i_ex}.qc.verr{i_ch}))            
+        if isfield(dat{i_ex}.qc, 'Verr') && ~all(isnan(dat{i_ex}.qc.verr{i_ch}))            
             pltidx = sub2ind([4,3],col,2);
             subplot(3,4,pltidx)
             tmp = squeeze(dat{i_ex}.qc.verr{i_ch});
@@ -200,7 +186,7 @@ for i_ex = 1:numel(dat)
         end
         
         % p1amps
-        if ~all(isnan(dat{i_ex}.qc.p1amp{i_ch}))
+        if isfield(dat{i_ex}.qc, 'p1amp') && ~all(isnan(dat{i_ex}.qc.p1amp{i_ch}))
             pltidx = sub2ind([4,3], col, 3);
             subplot(3,4,pltidx), hold on,
             tmp = squeeze(dat{i_ex}.qc.p1amp{i_ch});
@@ -220,21 +206,473 @@ for i_ex = 1:numel(dat)
 end
 
 
+%% SUMMARY OF PASSIVE PROPERTIES
+
+close all; clc
+
+% define a set of attributes for each lineseries (or manifold) in the plot
+% {CellType,  BrainArea,  OpsinType}
+% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
+plotgroups = {
+    'PY_L23',    'med', 'any';...
+    'PY_L23',    'lat', 'any';...
+    };
+
+groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
+groupdata.Rin_asym = repmat({[]}, 1, size(plotgroups, 1));
+% groupdata.Rin_vclamp = repmat({[]}, 1, size(plotgroups, 1)); % a place  holder for when this analysis is up and running
+groupdata.Vrest = repmat({[]}, 1, size(plotgroups, 1));
+groupdata.Depth = repmat({[]}, 1, size(plotgroups, 1));
+groupdata.IVcurve_peak = repmat({{}}, 1, size(plotgroups,1));
+groupdata.IVcurve_asym = repmat({{}}, 1, size(plotgroups,1));
+groupdata.Ih_sag = repmat({[]}, 1, size(plotgroups,1));
+groupdata.starttime = repmat({[]}, 1, size(plotgroups,1));
+
+
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
+        l_nan = cellfun(@(x) all(isnan(x)), ch_attribs);
+        ch_attribs(l_nan) = cellfun(@num2str, ch_attribs(l_nan), 'uniformoutput', false);
+        
+        % is this expt and channel cooresponds to one of the plot_groups in
+        % terms of cellType and opsin
+        l_cellType_match = cellfun(@(x) ~isempty(regexpi(ch_attribs{1}, x)), plotgroups(:,1)) | strcmpi(plotgroups(:,1), 'any');
+        l_opsinMatch = cellfun(@(x) ~isempty(regexpi(ch_attribs{3}, x)), plotgroups(:,3)) | strcmpi(plotgroups(:,3), 'any');
+        
+        
+        % determine if this experiment has a brain area that corresponds to
+        % one of the plot_groups. Start by adding a 'medial', 'lateral'
+        % assignment to the brain area
+        expt_area = ch_attribs{2};
+        if ~isempty(regexp(expt_area, 'AM', 'once')) || ~isempty(regexp(expt_area, 'PM', 'once'))
+            expt_area = [expt_area, ' med'];
+        elseif ~isempty(regexp(expt_area, 'AL', 'once')) || ~isempty(regexp(expt_area, 'LM', 'once'))
+            expt_area = [expt_area, ' lat'];
+        end
+        l_brainArea_match = cellfun(@(x) ~isempty(regexp(expt_area, x, 'once')), plotgroups(:,2)) | strcmpi(plotgroups(:,2), 'any');
+        
+        group_idx = sum([l_cellType_match, l_brainArea_match, l_opsinMatch], 2) == 3;
+        assert(sum(group_idx)<=1, 'ERROR: found too many group indicies')
+        if sum(group_idx) == 0; continue; end
+        
+        % add the statistics to the appropriate cell array
+        groupdata.Rin_peak{group_idx} = cat(1, groupdata.Rin_peak{group_idx}, dat{i_ex}.dcsteps.IVpeak.Rin{i_ch});
+        groupdata.Rin_asym{group_idx} = cat(1, groupdata.Rin_asym{group_idx}, dat{i_ex}.dcsteps.IVasym.Rin{i_ch});
+        groupdata.Vrest{group_idx} = cat(1, groupdata.Vrest{group_idx}, dat{i_ex}.dcsteps.Vrest{i_ch});
+        groupdata.Depth{group_idx} = cat(1, groupdata.Depth{group_idx}, dat{i_ex}.info.cellDepth_um(i_ch));
+        groupdata.IVcurve_peak{group_idx} = cat(1, groupdata.IVcurve_peak{group_idx}, {dat{i_ex}.dcsteps.IVpeak.raw{i_ch}});
+        groupdata.IVcurve_asym{group_idx} = cat(1, groupdata.IVcurve_asym{group_idx}, {dat{i_ex}.dcsteps.IVasym.raw{i_ch}});
+        groupdata.Ih_sag{group_idx} = cat(1, groupdata.Ih_sag{group_idx}, dat{i_ex}.dcsteps.Ih_sag{i_ch}(2));
+        groupdata.starttime{group_idx} = cat(1, groupdata.starttime{group_idx}, dat{i_ex}.info.fileStartTime_24hrs);
+    end
+end
+
+
+%
+% plot histograms of Input resistance measured three different ways
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+f=figure;
+Ngroups = (numel(groupdata.Rin_peak));
+groupcolors = lines(Ngroups);
+f.Position = [276         333        1276         478];
+allNums = cat(1, groupdata.Rin_peak{:},  groupdata.Rin_asym{:});
+edges = linspace(min(allNums)-10, max(allNums)+10, 30);
+for i_group = 1:numel(groupdata.Rin_asym)
+    % current clamp, peak vals
+    pltidx = sub2ind([3, Ngroups], 1, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    h = histogram(groupdata.Rin_peak{i_group}, edges);
+    h.FaceColor = groupcolors(i_group,:);
+    xbar = nanmean(groupdata.Rin_peak{i_group});
+    hold on,
+    plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
+    legtext = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    legend(legtext, 'Location', 'northeast')
+    legend boxoff
+    xlabel('Input R (MOhm)')
+    ylabel('counts')
+    if i_group == 1
+        title('Rin (iClamp, peak)')
+    end
+    
+    % current clamp asym vals
+    pltidx = sub2ind([3, Ngroups], 2, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    h = histogram(groupdata.Rin_asym{i_group}, edges);
+    h.FaceColor = groupcolors(i_group,:);
+    xbar = nanmean(groupdata.Rin_asym{i_group});
+    hold on,
+    plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
+    xlabel('Input R (MOhm)')
+    ylabel('counts')
+    if i_group == 1
+        title('Rin (iClamp, asym)')
+    end
+    
+    % voltage clamp
+end
+
+
+%
+% plot a histograms of Vrest and depth for each group
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+f=figure;
+Ngroups = (numel(groupdata.Rin_peak));
+groupcolors = lines(Ngroups);
+f.Position = [276         333        1276         478];
+for i_group = 1:numel(groupdata.Vrest)
+    
+    % Vrest
+    allNums = cat(1, groupdata.Vrest{:});
+    edges = linspace(min(allNums)-10, max(allNums)+10, 30);
+    
+    pltidx = sub2ind([3, Ngroups], 1, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    h = histogram(groupdata.Vrest{i_group}, edges);
+    h.FaceColor = groupcolors(i_group,:);
+    xbar = nanmean(groupdata.Vrest{i_group});
+    hold on,
+    plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
+    legtext = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    legend(legtext, 'Location', 'northeast')
+    legend boxoff
+    xlabel('Vrest(mV)')
+    ylabel('counts')
+    if i_group == 1
+        title('Vrest')
+    end
+    
+    % Cell depth
+    allNums = cat(1, groupdata.Depth{:});
+    edges = linspace(min(allNums)-10, max(allNums)+10, 30);
+    
+    pltidx = sub2ind([3, Ngroups], 2, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    h = histogram(groupdata.Depth{i_group}, edges);
+    h.FaceColor = groupcolors(i_group,:);
+    xbar = nanmean(groupdata.Depth{i_group});
+    hold on,
+    plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
+    xlabel('Cell Depth (um))')
+    ylabel('counts')
+    if i_group == 1
+        title('Cell Depth')
+    end
+    
+    
+    
+end
+
+
+%
+% NEED TO ADD histogram MEMBRANE TAU TO FIGURE WITH Vrest AND Rm
+% 
+
+
+
+
+%
+% scatter plots of cell depth vs. Rin, Vrest, tau
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+f=figure;
+Ngroups = (numel(groupdata.Rin_asym));
+groupcolors = lines(Ngroups);
+f.Position = [49         305        1333         602];
+for i_group = 1:numel(groupdata.Rin_asym)
+    
+    % cell depth vs. Rin
+    allRin = cat(1, groupdata.Rin_asym{:});
+    allDepth = cat(1, groupdata.Depth{:});
+    pltidx = sub2ind([3, Ngroups], 1, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    X = groupdata.Depth{i_group};
+    Y = groupdata.Rin_asym{i_group};
+    plot(X, Y, 'o', 'color', groupcolors(i_group,:), 'markerfacecolor', groupcolors(i_group,:), 'markersize', 5)
+    legtext = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    legend(legtext, 'Location', 'best')
+    legend boxoff
+    xlabel('Cell Depth (um)')
+    ylabel('Input Resistance')
+    if i_group == 1
+        title('Rin vs. Depth')
+    end
+    xlim([min(allDepth).*.95, max(allDepth).*1.05])
+    ylim([min(allRin).*.95, max(allRin).*1.05])
+    
+    % incubation period vs. Rin
+    allRin = cat(1, groupdata.Rin_asym{:});
+    allTimes = cat(1, groupdata.starttime{:});
+    pltidx = sub2ind([3, Ngroups], 2, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    X = groupdata.starttime{i_group};
+    Y = groupdata.Rin_asym{i_group};
+    plot(X, Y, 'o', 'color', groupcolors(i_group,:), 'markerfacecolor', groupcolors(i_group,:), 'markersize', 5)
+    xlabel('start time (24hrs)')
+    ylabel('Input Resistance')
+    if i_group == 1
+        title('Rin vs. Incubation Time')
+    end
+    xlim([min(allTimes).*.95, max(allTimes).*1.05])
+    ylim([min(allRin).*.95, max(allRin).*1.05])
+    
+    % scatter plot of Vrest vs depth
+    allVrest = cat(1, groupdata.Vrest{:});
+    pltidx = sub2ind([3, Ngroups], 3, i_group);
+    subplot(Ngroups, 3, pltidx)
+    
+    X = groupdata.Depth{i_group};
+    Y = groupdata.Vrest{i_group};
+    plot(X, Y, 'o', 'color', groupcolors(i_group,:), 'markerfacecolor', groupcolors(i_group,:), 'markersize', 5)
+    xlabel('Cell Depth (um)')
+    ylabel('Resting Potential (mV)')
+    if i_group == 1
+        title('Vrest vs. Cell Depth')
+    end
+    xlim([min(allDepth).*.95, max(allDepth).*1.05])
+    ylim([min(allVrest).*.95, max(allVrest).*1.05])
+    
+end
+
+
+
+%
+% Line plots of I-V curves, and peak vs. steady state
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+f=figure;
+Ngroups = (numel(groupdata.IVcurve_peak));
+groupcolors = lines(Ngroups);
+f.Position = [114 426 1667 456];
+legtext = {};
+
+% I-V curves for peak values
+subplot(1,3,1), hold on,
+%allX = % for linear interpolation
+for i_group = 1:numel(groupdata.IVcurve_peak)
+    for i_cell = 1:numel(groupdata.IVcurve_peak{i_group})
+        X = groupdata.IVcurve_peak{i_group}{i_cell}(:,1);
+        Y = groupdata.IVcurve_peak{i_group}{i_cell}(:,2);
+        plot(X, Y, '-', 'color', groupcolors(i_group,:))
+    end
+    %legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+end
+title('IV curve, peak vals')
+xlabel('current injection (pA)')
+ylabel('voltage response (mV)')
+% legend(legtext, 'Location', 'best')
+% legend boxoff
+
+% I-V curves for asym values
+subplot(1,3,2), hold on,
+for i_group = 1:numel(groupdata.IVcurve_asym)
+    for i_cell = 1:numel(groupdata.IVcurve_asym{i_group})
+        X = groupdata.IVcurve_asym{i_group}{i_cell}(:,1);
+        Y = groupdata.IVcurve_asym{i_group}{i_cell}(:,2);
+        plot(X, Y, '-', 'color', groupcolors(i_group,:))
+    end
+    %legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+end
+title('IV curve, asym vals')
+xlabel('current injection (pA)')
+ylabel('voltage response (mV)')
+% legend(legtext, 'Location', 'best')
+% legend boxoff
+
+% directly compare peak vs. steady state DC response 
+subplot(1,3,3), hold on,
+for i_group = 1:numel(groupdata.IVcurve_peak)
+    for i_cell = 1:numel(groupdata.IVcurve_peak{i_group})
+        X = groupdata.IVcurve_peak{i_group}{i_cell}(:,1);
+        Y_peak = groupdata.IVcurve_peak{i_group}{i_cell}(:,2);
+        Y_asym = groupdata.IVcurve_asym{i_group}{i_cell}(:,2);
+        plot(X, Y_peak-Y_asym, '-', 'color', groupcolors(i_group,:))
+    end
+end
+axis tight
+title('Peak - Steady State')
+xlabel('DC injection (pA)')
+ylabel('Difference (mV)')
+
+
+% compare distributions of Ih sag
+f = figure;
+f.Position = [524   406   493   550];
+allNums = cat(1, groupdata.Ih_sag{:});
+edges = linspace(min(allNums)*0.90, max(allNums)*0.11, 30);
+for i_group = 1:numel(groupdata.Vrest)
+    
+    pltidx = sub2ind([1, Ngroups], 1, i_group);
+    subplot(Ngroups, 1, pltidx)
+    
+    h = histogram(groupdata.Ih_sag{i_group}, edges);
+    h.FaceColor = groupcolors(i_group,:);
+    xbar = nanmean(groupdata.Ih_sag{i_group});
+    hold on,
+    plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
+    legtext = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    legend(legtext, 'Location', 'northeast')
+    legend boxoff
+    xlabel('Ih sag (mV)')
+    ylabel('counts')
+    if i_group == 1
+        title('Ih Sag')
+    end
+
+end
+
+%% PLOT THE RAW WAVEFORMS FOLLOWING EACH PULSE
+
+close all
+
+
+PLOT_ALL_TRIALS = true;
+DEBUG_MEAN = false;
+DEBUG_ALL = false;
+NORM_TO_SMOOTH_P1 = false;
+PLOT_RIT = false;
+
+
+% goal: to plot the snipets, one after another, on a separate subplot for
+% each stimulus type. All data will be plotted (if all trials are present),
+% along with the mean
+
+for i_ex = 1:numel(dat)
+    
+    % skip experiments with no WCSTP data
+    if ~isfield(dat{i_ex}, 'expt')
+        continue
+    end
+    
+    for i_ch = 1:2
+        
+        % skip past recording channels that have no data
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        f = figure;
+        f.Position = [589  -135   644   931];
+        f.Name = sprintf('%s, site: %s, ch: %d, opsin: %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, i_ch, dat{i_ex}.info.opsin);
+        
+        conds = fieldnames(dat{i_ex}.expt);
+        if PLOT_RIT
+           plotList = 1:numel(conds); 
+        else
+           plotList = find(~strncmpi(conds, 'ritv', 4));
+        end
+        
+        N_subplots = numel(plotList);
+        for i_cond = 1:N_subplots
+            idx = plotList(i_cond);
+            
+            snips = dat{i_ex}.expt.(conds{idx}).raw.snips{i_ch};
+            if isempty(snips)
+                continue
+            end
+            
+            % transform the array for easy plotting. Add some nans to
+            % separate the pulses.
+            samps_per_pulse = size(snips, 2);
+            Ntrials = size(snips, 3);
+            Npulses = size(snips, 1);
+            Nnans = round(samps_per_pulse./12);
+            snips = cat(2, snips, nan(Npulses, Nnans, Ntrials));
+            new_snip_length = size(snips, 2);
+            snips = permute(snips, [2,1,3]);
+            snips = reshape(snips, [], Ntrials);
+            
+            if NORM_TO_SMOOTH_P1
+                trl_nums = dat{i_ex}.expt.(conds{idx}).realTrialNum{i_ch};
+                p1amps = dat{i_ex}.qc.p1amp_norm{i_ch}(trl_nums);
+                snips = bsxfun(@rdivide, snips, p1amps);
+            end
+            
+            
+            % plot the raw wave forms and the average waveform
+            hs = subplot(N_subplots, 1, i_cond); hold on,
+            if PLOT_ALL_TRIALS
+                plot(snips, '-', 'linewidth', 0.25)
+            end
+            plot(nanmean(snips,2), 'k-', 'linewidth', 2)
+            hs.XTick = [];
+            axis tight
+            
+            % add a point for the peak value
+            peakVals = -1 .* dat{i_ex}.expt.(conds{idx}).stats.EPSCamp{i_ch};
+            peakVals = permute(peakVals, [1,3,2]); % Npulses x Nsweeps
+            
+            if NORM_TO_SMOOTH_P1
+                peakVals = bsxfun(@rdivide, peakVals, p1amps);
+            end
+            
+            peakTimes = dat{i_ex}.expt.(conds{idx}).stats.latency{i_ch};
+            peakTimes = permute(peakTimes, [1,3,2]); % Npulses x Nsweeps
+            peakTimes_idx = round(peakTimes .* dat{i_ex}.info.sampRate.vclamp);
+            presamps = round(dat{i_ex}.info.pretime.vclamp .* dat{i_ex}.info.sampRate.vclamp);
+            offset = presamps + (((1:Npulses)-1) .* new_snip_length);
+            peakTimes_idx = bsxfun(@plus, peakTimes_idx, offset(:));
+            if DEBUG_ALL
+                plot(peakTimes_idx, peakVals, 'co', 'markerfacecolor', 'c')
+            end
+            if DEBUG_MEAN
+                plot(mean(peakTimes_idx, 2), mean(peakVals, 2), 'ro', 'markerfacecolor', 'r')
+            end
+            
+            
+        end
+        
+        drawnow
+        
+    end
+    
+end
+    
+
+
 
 %% STP SUMMARY FOR EACH RECORDING
 
-close all
-NORMAMPS = true;
-PLOTRAW = true;
+
+NORMAMPS = false;
+PLOTRAW = false;
 
 for i_ex = 1:numel(dat)
+    
+    if ~isfield(dat{i_ex}, 'expt')
+        continue
+    end
     
     f = figure;
     f.Name = sprintf('Mouse %s, site %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum);
     f.Units = 'normalized';
-    f.Position = [0.1363    0.0301    0.7535    0.8762];
+    f.Position = [0.2931   -0.0378    0.7542    0.8767];
     
     for i_ch = 1:2
+        
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        if ~isvalid
+            continue
+        end
         
         conds = fieldnames(dat{i_ex}.expt);
         Nconds = numel(conds);
@@ -287,7 +725,7 @@ end
 
 TRAINSET = 'recovery';  % could be 'rit', 'recovery', 'all'
 PLOTTRAININGDATA = true;
-NORMALIZEDATA = true;
+NORMALIZEDATA = false;
 FITAVERAGEDATA = true;
 FITRECOVERYPULSE = true;
 
@@ -308,7 +746,7 @@ for i_ex = 1:numel(dat)
    clc
    hf = figure;
    hf.Units = 'Normalized';
-   hf.Position = [0.0385 0.1759 0.6630 0.7481];
+   hf.Position = [0.3347    0.0422    0.6639    0.7489];
    hf.Name = sprintf('Mouse %s, site %s, opsin: %s.  Train with: %s, Plot training set: %d',...
                       dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.opsin, TRAINSET, PLOTTRAININGDATA);
    chempty = false(1,2);
@@ -331,6 +769,16 @@ for i_ex = 1:numel(dat)
        condnames = fieldnames(dat{i_ex}.expt);
        l_trainingSet = isTrainingSet(condnames);
        for i_cond = 1:numel(condnames)
+           
+           % check to make sure there are data for this condition
+           if isempty(dat{i_ex}.expt.(condnames{i_cond}).stats.EPSCamp{i_ch})
+               pOnTimes{i_cond} = [];
+               rawAmps{i_cond} = [];
+               raw_sem{i_cond} = [];
+               raw_xbar{i_cond} = [];
+               p1Amps{i_cond} = [];
+               continue
+           end
            
            % grab pOnTimes
            pOnTimes{i_cond} = dat{i_ex}.expt.(condnames{i_cond}).pOnTimes;
@@ -698,17 +1146,16 @@ end
 %% PAIRED PULSE PLASTICITY MANIFOLDS (PLOTS)
 clc; close all
 
-PLOT_SMOOTH_MANIFOLD = true;
+PLOT_SMOOTH_MANIFOLD = false;
 PLOT_RAW_DATA = true;
-PLOT_INTERP_RAW_DATA = false;
 PLOT_INDIVIDUAL_DATASETS = false;
 
 % define a set of attributes for each lineseries (or manifold) in the plot
 % {CellType,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY',    'LM', 'chronos';...
-    'PY',    'AM', 'chronos';...
+    'PY',    'med', 'chronos';...
+    'PY',    'lat', 'chronos';...
     };
 
 groupdata_raw = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -991,8 +1438,8 @@ clc
 % define a set of attributes for each lineseries (or manifold) in the plot
 % {CellType,  BrainArea,  OpsinType}
 plotgroups = {
-              'PY',    'AL', 'chronos';...
-              'PY',    'PM', 'chronos';...
+              'PY',    'med', 'chronos';...
+              'PY',    'lat', 'chronos';...
               };
 
 groupdata_raw = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -1061,8 +1508,8 @@ end
 hf = figure;
 hold on,
 plotcolors = [1,0,0;...
-              0,1,0;...
-              0,0,1];
+              0,0,1;...
+              0,1,0];
           
 for i_group = 1:numel(groupdata_raw)
     
@@ -1087,6 +1534,131 @@ for i_group = 1:numel(groupdata_raw)
     end
     
 end
+
+
+
+%% CONTROLS: VARIABILITY BY OPSIN FOR 1'ST PULSE
+
+figure, hold on,
+chronos_std = [];
+chief_std = [];
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        tmp = dat{i_ex}.qc.p1amp{i_ch}(:) - dat{i_ex}.qc.p1amp_norm{i_ch}(:);
+        tmp = tmp ./ dat{i_ex}.qc.p1amp_norm{i_ch}(:);
+        if all(isnan(tmp))
+            continue
+        end
+        
+        if strcmpi(dat{i_ex}.info.opsin, 'chronos') || strcmpi(dat{i_ex}.info.opsin, 'chronos_flx')
+            plot(tmp, 'g')
+            chronos_std = cat(1, chronos_std, nanstd(tmp));
+        else
+            plot(tmp, 'r')
+            chief_std = cat(1, chief_std, nanstd(tmp));
+        end
+    end
+end
+title('Fractional Error of P1 Amp')
+xlabel('Trial Number')
+ylabel('Fractional Error')
+
+
+allvals = cat(1, chief_std, chronos_std);
+edges = linspace(min(allvals).*0.95, max(allvals).*1.05, 20);
+f = figure;
+f.Position = [440   135   508   663];
+subplot(2,1,1)
+hh = histogram(chief_std, edges);
+hh.FaceColor = 'r';
+xlabel('standard dev of fractional error, p1 amps')
+ylabel('counts')
+title('oChIEF')
+subplot(2,1,2)
+hh = histogram(chronos_std, edges);
+hh.FaceColor = 'g';
+xlabel('standard dev of fractional error, p1 amps')
+ylabel('counts')
+title('Chronos')
+
+%% CONTROLS: POSITION OF LASER STIMULUS
+
+for i_ex = 1:numel(dat)
+   
+    % add a picture of the slice, only once per figure
+    f = figure;    
+    mousename = dat{i_ex}.info.mouseName;
+    sitenum = dat{i_ex}.info.siteNum;
+    cd([GL_DATPATH, mousename, filesep, 'Other'])
+    d = dir;
+    d.name;
+    
+    photoprefix = [mousename, '_site', sitenum];
+    FOUND_PHOTO = false;
+    for i_photo = 1:numel(d)
+        if strncmpi(d(i_photo).name, photoprefix, numel(photoprefix))
+            img = double(imread(d(i_photo).name));
+            iminfo = imfinfo(d(i_photo).name);
+            maxpixval = prctile(img(:), [99.9]);
+            normfact = min([maxpixval, 2^iminfo.BitDepth-1]);
+            img = (img ./ normfact) .* (2^iminfo.BitDepth-1); % auto adjust LUT
+            
+            imshow(uint8(img));
+            FOUND_PHOTO = true;
+        end
+    end
+    f.Position = [600   118   741   532];
+    hold on
+    
+    if ~FOUND_PHOTO
+        close(f)
+        continue
+    end
+    
+    % add an icon for the stimulus locations
+    uinput_xy = round(ginput(2));
+    i_ch = 1;
+    DONE = false;
+    while ~DONE && i_ch<=2
+        
+        % look for a valid recording channel and define the coordinate
+        % based off that.
+        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        if isvalid
+            hs_xy = dat{i_ex}.info.HS_xy_pos{i_ch};
+            pixperum = pixPerMicron(size(img,1), size(img,2));
+            hs_xy_correction = round(hs_xy .* pixperum); %now in pix
+            
+            % plot the HS point
+            plot(uinput_xy(i_ch, 1), uinput_xy(i_ch, 2), 'ko', 'markerfacecolor', 'k', 'markersize', 8)
+            
+            % define the position of the new stim site and pia site based
+            % off the uinput coordinates
+            if isfield(dat{i_ex}.info, 'pia_xy_pos')
+                pia_xy = round(dat{i_ex}.info.pia_xy_pos.*.9 .* pixperum) +  uinput_xy(i_ch,:);
+                plot(pia_xy(1), pia_xy(2), 'o', 'markeredgecolor', 'r', 'markerfacecolor', 'r', 'markersize', 8)
+            end
+            stim_xy = round(dat{i_ex}.info.stim_xy_pos.*.9 .* pixperum) +  uinput_xy(i_ch,:);
+            plot(stim_xy(1), stim_xy(2), 'o', 'markeredgecolor', 'y', 'markerfacecolor', 'y', 'markersize', 8)
+            drawnow
+        end
+        
+        i_ch = i_ch + 1;
+        
+    end
+end
+
+
+
+
 
 
 

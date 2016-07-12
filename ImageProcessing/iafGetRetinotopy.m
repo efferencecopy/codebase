@@ -249,6 +249,8 @@ function relevantTrialTypes = trialTypeLibrary(experimentType)
          relevantTrialTypes = {'tGratingSpatialFreqCPD', 'tGratingTemporalFreqCPS'};
      case 'size'
          relevantTrialTypes = {'tGratingDiameterDeg'};
+     case 'annulus'
+         relevantTrialTypes = {'tAnnulusGratingDiameterDeg', 'tGratingDiameterDeg'};
      otherwise
          error('experiment type not yet defined')
  end

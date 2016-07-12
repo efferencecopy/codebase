@@ -494,8 +494,8 @@ function out=define_header
         %'fFileVersionNumber',4,'bit8=>int',[-1 -1 -1 -1];
         %'uFileInfoSize',8,'uint32',-1;
         'lActualEpisodes',12,'uint32',-1;
-        %'uFileStartDate',16','uint32',-1;
-        %'uFileStartTimeMS',20,'uint32',-1;
+        'uFileStartDate',16','uint32',-1;
+        'uFileStartTimeMS',20,'uint32',-1;
         %'uStopwatchTime',24,'uint32',-1;
         %'nFileType',28,'int16',-1;
         'nDataFormat',30,'int16',-1;

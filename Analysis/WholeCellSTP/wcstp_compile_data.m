@@ -14,11 +14,18 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 % dat.qc.p1amp      -> amplitude for first pulse of each sweep for HS1,2 [1xx1xNsweeps]
 % dat.qc.verr       -> measured holding potential for each sweep, HS1,2 [1xx1xNsweeps]
 % dat.qc.instNoise  -> the noise in the holding current which indicates changes in recording quality
- 
 %
-% dat.dcsteps.Vm_raw     -> raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
-% dat.dcsteps.Icmd       -> magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
+%
+% dat.dcsteps.Vm_raw       -> raw voltage traces during stimulus on period for HS1,2 {N_pA_Cmd}[Nsweeps x Ntime]
+% dat.dcsteps.Icmd         -> magnitude of current injection on a sweep by sweep basis. [N_pA_Cmd x 1]
+% dat.dcsteps.Vrest        -> the resting potential across sweeps.
+% dat.dcsteps.IVpeak.raw   -> the pA_cmd and peak Vm change [pA_Cmd, Vm_change]
+% dat.dcsteps.IVasym.raw   -> the pA_cmd and the steady-state Vm change [pA_Cmd, Vm_change]
+% dat.dcsteps.IVpeak.Rin   -> the input resistance, estimated from small current injections
+% dat.dcsteps.pA_holding   -> Holding current (to keep a crappy cell ~ -65 mV)
+% dat.dcsteps.Ih_sag       -> Difference b/w peak and steady state Vm for fairly large DC hyperpolarizations
 % 
+%
 % dat.expt.[stimType].raw.snips           -> trace surrounding the EPSC for HS1,2 [Npulses x Ntime x Nsweeps]
 % dat.expt.[stimType].stats.EPSCamp       -> EPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is inward
 % dat.expt.[stimType].stats.IPSCamp       -> IPSC amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is outward
@@ -78,6 +85,28 @@ function info = defineInfo(exinfo, hidx, params)
     info.posttime.vclamp = params.posttime.vclamp;
     info.pretime.dcsteps = params.pretime.dcsteps;
     info.posttime.dcsteps = params.posttime.dcsteps;
+    
+    info.stim_xy_pos = str2num(exinfo{hidx.xystim});
+    
+    % determine the depth of each recording channel w/r/t the pia
+    info.cellDepth_um = [nan, nan];
+    info.HS_xy_pos = {[nan,nan],[nan,nan]};
+    for i_hs = 1:2
+        if ~info.HS_is_valid(i_hs); continue; end
+        
+        hsname = sprintf('xyHS%d', i_hs);
+        
+        if any(isnan(exinfo{hidx.(hsname)})) || isempty(exinfo{hidx.(hsname)}); continue; end
+        xy_hs = str2num(exinfo{hidx.(hsname)});
+        
+        if any(isnan(exinfo{hidx.xypia})) || isempty(exinfo{hidx.xypia}); continue; end
+        xy_pia = str2num(exinfo{hidx.xypia});
+        
+        info.cellDepth_um(i_hs) = norm(xy_hs - xy_pia);
+        info.HS_xy_pos{i_hs} = xy_hs;
+        info.pia_xy_pos = xy_pia;
+    end
+    
 end
 
 function dat = unpack_dc_injections(dat)
@@ -94,8 +123,10 @@ function dat = unpack_dc_injections(dat)
     fprintf('  Unpacking DC current injections\n')
     ax = abfobj(dat.info.fid.dcsteps);
     
+
     % fill out the info struct
     dat.info.sampRate.iclamp = ax.head.sampRate;
+    dat.info.fileStartTime_24hrs = ax.head.uFileStartTimeMS ./ (60*60*1000);
     
     % figure out which channels were turned on, and set to Iclamp
     Iclamp_idx = strcmpi(ax.head.recChUnits, 'mV');
@@ -113,42 +144,152 @@ function dat = unpack_dc_injections(dat)
         % store the data as an empty matrix.
         HSname = sprintf('HS%d_Vm', i_ch);
         HSpresent = strcmp(Iclamp_names, HSname);
-        if ~any(HSpresent)
+        if ~any(HSpresent) || ~dat.info.HS_is_valid(i_ch)
             dat.dcsteps.Vm_raw{i_ch} = [];
             dat.dcsteps.Icmd{i_ch} = [];
             continue
         end
         
-        % figure out when the DC injection started and stoped
-        Iclamp_name = sprintf('HS%d_Iclamp', i_ch);
-        wf = permute(ax.wf(:,ax.idx.(Iclamp_name),:), [1,3,2]); %[Ntime x Nsweeps]
-        minval = min(abs(wf), [], 1); % do the thresholding on the abs of the wf
-        maxval = max(abs(wf), [], 1);
+        % determine the magnitude of each sweep's current injection and
+        % make a trial type dictionary
+        Iclamp_cmd_name = sprintf('HS%d_secIm', i_ch);
+        stimWF = ax.dat(:,ax.idx.(Iclamp_cmd_name),:);
+        stimWF = permute(stimWF, [1,3,2]);
+        stimWF = bsxfun(@minus, stimWF, mean(stimWF(1:preTime_samps, :),1));
         
-        thresh = (maxval - minval) .* 0.8;
-        aboveThresh = bsxfun(@gt, abs(wf), thresh);
-        crossing_on = cat(1, false(size(thresh)), diff(aboveThresh, 1, 1) == 1);
-        crossing_off = cat(1, false(size(thresh)), diff(aboveThresh, 1, 1) == -1);
+        diff_stim_wf = diff(stimWF,1,1);
+        threshold = 9;
+        l_aboveThreshold = sum((diff_stim_wf > threshold) | (diff_stim_wf < -threshold), 1) > 0;
+        diff_stim_wf = diff_stim_wf(:,l_aboveThreshold);
+        diff_stim_wf = bsxfun(@rdivide, diff_stim_wf, max(diff_stim_wf,[],1));
+        diff_stim_wf = mean(abs(diff_stim_wf),2);
+        aboveThreshold = diff_stim_wf > 0.8;
+        crossing_on = [false(1, size(aboveThreshold,2)); diff(aboveThreshold, 1, 1) == 1];
+        crossing_on = find(crossing_on == 1);
+        assert(numel(crossing_on) == 2, 'ERROR: may not have correctly identified the start stop of Iclamp pulse')
+
+        idx_on = crossing_on(1);
+        idx_off = crossing_on(2);
         
-        % convert the onset/offset indicies to R/C notation
-        [ridx_on,~] = find(crossing_on);
-        ridx_on = unique(ridx_on);
-        [ridx_off,~] = find(crossing_off);
-        ridx_off = unique(ridx_off);
-        assert(numel([ridx_on, ridx_off])==2, 'ERROR: did not identify the correct number of threshold crossings')
+        stimWF = bsxfun(@minus, stimWF, mean(stimWF([idx_on-preTime_samps : idx_on-1], :),1)); % re-baseline now that you know when the stimulus came on
+                
+        quarter_time = round((idx_off - idx_on) .* 0.20);
+        idx_Icmd_middle_on = idx_on + quarter_time;
+        idx_Icmd_middle_off = idx_off - quarter_time;
+        trl_Iclamp_cmd_pA = mean(stimWF([idx_Icmd_middle_on:idx_Icmd_middle_off], :), 1);
+        
+        % deal with small amounts of noise that make idential Icmd pulses
+        % seem different
+        for i_cmd = 1:numel(trl_Iclamp_cmd_pA)
+            diffvals = trl_Iclamp_cmd_pA - trl_Iclamp_cmd_pA(i_cmd);
+            l_same = abs(diffvals) < 2.5;
+            trl_Iclamp_cmd_pA(l_same) = round(mean(trl_Iclamp_cmd_pA(l_same)));
+        end
+        unique_cmd_pA = unique(trl_Iclamp_cmd_pA);
+        assert(~any(diff(unique_cmd_pA)<5), 'ERROR: possible duplicate Iclamp command pA due to noise?')
+        
+        % store the Iclamp command injection magnitudes
+        dat.dcsteps.Icmd{i_ch} = trl_Iclamp_cmd_pA;
         
         % now make a list of indicies that correspond to stim on +/-
         % pre/post time
-        stim_idx = (ridx_on - preTime_samps) : (ridx_off + postTime_samps);
+        stim_idx = (idx_on - preTime_samps) : (idx_off + postTime_samps);
         
-        % pull out the data, store it in the output structure
+        % pull out the Vm data, store it in the output structure along with
+        % the resting membrane potential
         raw_Vm = permute(ax.dat(stim_idx, ax.idx.(HSname), :), [3,1,2]);
-        dat.dcsteps.Vm_raw{i_ch} = raw_Vm; % [Nsweeps x Ntime]
+        baseline = mean(raw_Vm(:,1:preTime_samps), 2);
+        delta_baseline = baseline - mean(baseline);
+        assert(~any(delta_baseline>5), 'ERROR: found a resting Vm that changed from sweep to sweep')
+        raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline); % adjust for small differences in resting Vm from sweep to sweep
         
-        % pull out the Iclamp command data (current injection)
-        stim_idx = (ridx_on+10) : (ridx_off-10); % make sure to only include the current injection portion and not the pre/post time
-        raw_pA = permute(ax.wf(stim_idx, ax.idx.(Iclamp_name), :), [3, 1, 2]);
-        dat.dcsteps.Icmd{i_ch} = mean(raw_pA,2);
+        dat.dcsteps.Vm_raw{i_ch} = raw_Vm; % [Nsweeps x Ntime]
+        dat.dcsteps.Vrest{i_ch} = mean(baseline);
+        
+        %
+        % estimate the input resistance as the slope of the I-V curve
+        %%%%%%%%%%%%%%%%
+        raw_Vm = permute(ax.dat([idx_on:(idx_off-1)], ax.idx.(HSname), :), [3,1,2]); % subtracting off 1 samps to avoid issues with obo errors with turning off currents
+        raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline);
+        N_20ms = round(20e-3 .* dat.info.sampRate.iclamp);
+        steady_state_mV = mean(raw_Vm(:, [end-N_20ms : end]), 2);
+        
+        % store the I-V data, but only for sub threshold responses
+        l_no_spikes = max(raw_Vm,[],2) < 0; % when the neuron overshoots zero
+        subthresh_cmd_pA = trl_Iclamp_cmd_pA(l_no_spikes);
+        subthresh_resp_mV =  steady_state_mV(l_no_spikes);
+        unique_subthresh_cmd = unique(subthresh_cmd_pA);
+        asym_vals = [];
+        for i_cmd = 1:numel(unique_subthresh_cmd)
+            t_list = subthresh_cmd_pA == unique_subthresh_cmd(i_cmd);
+            asym_vals(i_cmd,:) = [unique_subthresh_cmd(i_cmd),  mean(subthresh_resp_mV(t_list)), stderr(subthresh_resp_mV(t_list))];
+        end
+        dat.dcsteps.IVasym.raw{i_ch} = asym_vals;
+        
+        % now find the maximal slope of the I-V curve in a small neighborhood around Vrest
+        pA_cmd = asym_vals(:,1);
+        mV_asym = asym_vals(:,2);
+        l_valid_pA = (pA_cmd ~= 0) & (pA_cmd <= 40) & (pA_cmd >= -65);
+        if any(l_valid_pA)
+            MOhm = (mV_asym(l_valid_pA) - dat.dcsteps.Vrest{i_ch}) ./ (pA_cmd(l_valid_pA)/1000);
+            MOhm = max(abs(MOhm));
+            assert(~isinf(MOhm), 'ERROR: Rinput is Inf')
+        else
+            MOhm = NaN;
+        end
+        dat.dcsteps.IVasym.Rin{i_ch} = MOhm;
+        
+        % compute the Vm response right after the DC injection starts (as a
+        % proxy for the 'peak' response). Average a window 12 to 16 ms
+        % after the injection starts. 
+        tt = [0:size(raw_Vm,2)-1] ./ dat.info.sampRate.iclamp;
+        l_window = (tt >= 0.012)&(tt < 0.016);
+        peak_mV = mean(raw_Vm(:, l_window),2);
+        subthresh_cmd_pA = trl_Iclamp_cmd_pA(l_no_spikes);
+        subthresh_resp_mV =  peak_mV(l_no_spikes);
+        unique_subthresh_cmd = unique(subthresh_cmd_pA);
+        peak_vals = [];
+        for i_cmd = 1:numel(unique_subthresh_cmd)
+            t_list = subthresh_cmd_pA == unique_subthresh_cmd(i_cmd);
+            peak_vals(i_cmd,:) = [unique_subthresh_cmd(i_cmd),  mean(subthresh_resp_mV(t_list)), stderr(subthresh_resp_mV(t_list))];
+        end
+        dat.dcsteps.IVpeak.raw{i_ch} = peak_vals;
+        
+        % Re-estimate input resistance according to the "peak" values
+        pA_cmd = peak_vals(:,1);
+        mV_peak = peak_vals(:,2);
+        l_valid_pA = (pA_cmd ~= 0) & (pA_cmd <= 40) & (pA_cmd >= -65);
+        if any(l_valid_pA)
+            MOhm = (mV_peak(l_valid_pA) - dat.dcsteps.Vrest{i_ch}) ./ (pA_cmd(l_valid_pA)/1000);
+            MOhm = max(abs(MOhm));
+            assert(~isinf(MOhm), 'ERROR: Rinput is Inf')
+        else
+            MOhm = NaN;
+        end
+        dat.dcsteps.IVpeak.Rin{i_ch} = MOhm;
+        
+        % estimate the amount of Ih at the onset of the negative current
+        % injection
+        min_inj_cmd = min(unique_cmd_pA);
+        if min_inj_cmd <= -400
+            idx_asym = dat.dcsteps.IVasym.raw{i_ch}(:,1) == min_inj_cmd;
+            idx_peak = dat.dcsteps.IVpeak.raw{i_ch}(:,1) == min_inj_cmd;
+            Ih_sag = dat.dcsteps.IVpeak.raw{i_ch}(idx_peak,2) - dat.dcsteps.IVasym.raw{i_ch}(idx_asym,2);
+            dat.dcsteps.Ih_sag{i_ch} = [min_inj_cmd, Ih_sag];
+        else
+            dat.dcsteps.Ih_sag{i_ch} = [nan, nan];
+        end
+     
+        % flag instances with holding current
+        idx_secCh = ax.idx.(sprintf('HS%d_secIm', i_ch));
+        sec_raw_pA = permute(ax.dat(:, idx_secCh, :), [3, 1, 2]);
+        sec_raw_pA = sec_raw_pA(:,[idx_on-preTime_samps : idx_on-1]);
+        sec_raw_pA = mean(sec_raw_pA, 2);
+        dat.dcsteps.pA_holding{i_ch} = [min(sec_raw_pA), max(sec_raw_pA)];
+        
+        % estiamate the spike threshold
+        
+        % estimate spike frequency accomodation
         
     end
 
@@ -308,9 +449,11 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     for i_ch = 1:2
         nTrialsExpt = size(ax.dat,3);
         dat.qc.Rs{i_ch} = nan(1,1,nTrialsExpt);
+        dat.qc.Rinput{i_ch} = nan(1,1,nTrialsExpt);
         dat.qc.verr{i_ch} = nan(1,1,nTrialsExpt);
         dat.qc.p1amp{i_ch} = nan(1,1,nTrialsExpt);
         dat.qc.instNoise{i_ch} = nan(1,1,nTrialsExpt);
+        
         
         % make sure data are present for this recording channel and
         % initialize the outputs
@@ -323,15 +466,17 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
         % extract things from the Ra structure
         HSname = Vclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
         idx = strcmpi(qc.chNames, HSname);
-        dat.qc.Rs{i_ch} = qc.dat(1,idx,:);
+        dat.qc.Rs{i_ch} = qc.Ra(1,idx,:);
         dat.qc.verr{i_ch} = qc.Verr(1,idx,:);
+        dat.qc.Rinput{i_ch} = qc.Rinput(1,idx,:);
         
-        % dat.qc.Rs and dat.qc.verr contain info for all sweeps. Delete the
+        % dat.qc.Rs, Rinput, and dat.qc.verr contain info for all sweeps. Delete the
         % ones that are not analyzed.
         rmSweep_string = exinfo{hidx.(sprintf('HS%drm_swp', i_ch))};
         if ~any(isnan(rmSweep_string))
             l_badSweeps = eval(['[',rmSweep_string,']']);
             dat.qc.Rs{i_ch}(l_badSweeps) = nan;
+            dat.qc.Rinput{i_ch}(l_badSweeps) = nan;
             dat.qc.verr{i_ch}(l_badSweeps) = nan;
         end
         
@@ -365,6 +510,11 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
 end
 
 function dat = smoothP1amp(dat, N)
+    
+    if ~(isfield(dat, 'qc') && isfield(dat.qc, 'p1amp'))
+        dat.qc.p1amp_norm = [];
+        return
+    end
     
     for i_ch = 1:2
         
