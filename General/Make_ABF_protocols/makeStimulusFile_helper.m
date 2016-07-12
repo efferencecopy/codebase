@@ -135,6 +135,35 @@ params.trlTypes = 1:params.nSweeps; % I could randomize order, but each RIT is d
 makeAxonTextFile(params, params.templates_poiss);
 
 
+%% DC CURRENT INJECTIONS
+
+fin
+
+%
+% Define the params that influence the entire data file (trains and RITs)
+%
+params.name = 'DCinj_SR50kHz_TT1500ms_PW700ms.atf';  % the name of the output .atf file
+params.si   = 20e-6;              % the sample INTERVAL (needs to be an iteger)
+params.swpDur = 75e3;            % The total duration of the sweep IN NUMBERS OF SAMPLES!!!!
+params.tStart = 0.300;            % the time of the first pulse
+params.pAmp = [-800, -600, -250, -60, -30, 30, 150, 300, 600, 850];                  % A vector of amplitudes for the pulse height [interleaved variable]
+params.pWidth = 700e-3;           % A vector of pulse widths (in seconds)  [interleaved variable]
+params.pFreq = 0;              % A vector of frequencies for the pulse train [interleaved variable]
+params.nPulses = 1;
+
+
+params = makeSweepTemplates_trains(params); % templates are stored in params.templates_poiss
+Nrepeats = 3;
+randorder = cellfun(@(x) randperm(x), repmat({numel(params.templates_trains)}, Nrepeats, 1), 'uniformoutput', false);
+params.trlTypes = cat(2, randorder{:})';
+params.nSweeps = numel(params.templates_trains) * Nrepeats; % update for the full expt
+
+% make the .stf file
+makeAxonTextFile(params, params.templates_trains);
+
+
+
+
 
 
 
