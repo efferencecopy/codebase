@@ -26,11 +26,11 @@ end
 loadpath = [pathname, filesep, filename];
 
 % Present an error message (Code cannot proceed without data)
-if isequal(fname, 0)
+if isequal(filename, 0)
     errordlg(sprintf(' File not found.\n User selected "Cancel", a file MUST\n be selected for code to progress'),...
                      'File Error')                
 % If a file is selected, load the data, etc...
-else
+else  
     % Info is a structure array with one element for each image in the file
     data = imfinfo(loadpath);
     num_images = numel(data); % Total # of Images
@@ -68,28 +68,31 @@ end
 
 
 %%%%% SANITY CHECK: Display Selected-ROIs
+
 % Determine Elevation according to selected file
 El = regexpi(regexpi(fname, 'el[(.*?)\]', 'match'), '[(.*?)\]', 'match');
 El = El{:};
 El = regexpi(El, '.*?\d+', 'match');
-El = El{:}{:}(2:end);
+El = str2num(El{:}{:}(2:end));
 
 % Determine Azimuth according to selected file
 Az = regexpi(regexpi(fname, 'az[(.*?)\]', 'match'), '[(.*?)\]', 'match');
 Az = Az{:};
 Az = regexpi(Az, '.*?\d+', 'match');
-Az = Az{:}{:}(2:end);
+Az = str2num(Az{:}{:}(2:end));
 
 % Find the final_img according to Stim-position (specified by fname)
 NStim = size(udat.ttypes, 1);
 for i_Stim = 1: NStim
-    if udat.ttypes(i_Stim) == str2num(El) & udat.ttypes(i_Stim + NStim) == str2num(Az)
+    if udat.ttypes(i_Stim) == El & udat.ttypes(i_Stim + NStim) == Az
         Img_ttypes = i_Stim;
     end
 end
 
 % Plot the final_img with 'colored' ROIs
 figure
+set(gcf, 'Name', sprintf('Circled ROIs (Az: %.0f,  El: %.0f)', Az, El), 'NumberTitle', 'off');
+
 plotimg = udat.final_img{Img_ttypes};
 plotimg = plotimg + (abs(min(plotimg(:))));
 plotimg = plotimg ./ (max(plotimg(:)).*1.2);
