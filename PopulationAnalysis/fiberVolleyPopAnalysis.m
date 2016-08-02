@@ -5,8 +5,8 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 1;
-BRAINAREA = 'pm';
+EXPTTYPE = 2;
+BRAINAREA = 'any';
 COMBINE_CHIEF = true;
 switch EXPTTYPE
     case 1
@@ -619,7 +619,7 @@ close all
 
 CHECK_TRIAL_STATS = false;
 RESTRICT_TO_STIM_SITE = true;
-NORM_TO_PULSE1 = false;
+NORM_TO_PULSE1 = true;
 
 
 % define the conditions that will get plotted
@@ -646,11 +646,6 @@ end
 
 Nexpts = size(in,1);
 for i_ex = 1:Nexpts
-    
-    if ~strcmpi(info{i_ex}.opsin, 'chief_all')
-        continue
-    end
-    
     
     for i_ch = 1:2;
         
@@ -809,7 +804,7 @@ for i_ex = 1:Nexpts
         hTabs(i_cond) = uitab('Parent', hTabGroup, 'Title', 'Summary Stats');
         hAx(i_cond) = axes('Parent', hTabs(i_cond));
         hold on,
-        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'tau_invtc'}; % could be 'tau_invtc', or 'latency'
+        statTypes = {'diffval', 'area', 'pk2tr', 'slope', 'latency'}; % could be 'tau_invtc', or 'latency'
         Nstats = numel(statTypes);
         cmap = copper(Ntfs);
         for i_cond = 1:Nconds
@@ -1292,8 +1287,8 @@ STIMSITE = true;  % true => stimsite,  false => distal site
 PULSENUM = 1;
 PLOTPPR = false; % if true, PPR = P(PULSENUM) ./ P(1), else the stat is raw P(PULSENUM)
 NORM_TO_LED10 = false; % norm data to LED=10V
-STATTYPE = 'diffval';
-CONDITION = 'nbqx_apv_cd2_ttx'; % 'FV_Na', or 'nbqx_apv_cd2_ttx'
+STATTYPE = 'pk2tr';
+CONDITION = 'FV_Na'; % 'FV_Na', or 'nbqx_apv_cd2_ttx'
 
 % only do this for the main experiment (TF and FV)
 assert(strcmpi(EXPTTYPE, 'interleaved amps'), 'ERROR: this anaysis is only for experiments with interleaved amplitudes');
@@ -1475,42 +1470,42 @@ for i_opsin = 1:numel(opsins)
         ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
     end
     
-    % line series plot of stats
-    plt_pow = [];
-    plt_xbar = [];
-    plt_sem = [];
-    for i_amp = 1:numel(unique_amps)
-        pamp = unique_amps(i_amp);
-        l_wfs = opsin_amps == pamp;
-        
-        plt_pow(i_amp) = pamp;
-        plt_xbar(i_amp) = mean(opsin_stats(l_wfs));
-        plt_sem(i_amp) = stderr(opsin_stats(l_wfs));
-    end
-    
-    f = figure;
-    my_errorbar(plt_pow, plt_xbar, plt_sem, '-ks', 'markersize', 8, 'markerfacecolor', 'k', 'linewidth', 2);
-    f.Name = opsins{i_opsin};
-    f.Position = [660   172   464   620];
-    axis tight
-    xlabel('Power (mW per mm2)')
-    xlim([min(plt_pow)-1, max(plt_pow)+1])
-    box off
-    set(gca, 'xscale', 'log')
-    if NORM_TO_LED10
-        ylabel('amplitude (norm to LED=10V)')
-    elseif PLOTPPR
-        ylabel(sprintf('paired pulse ratio: P%d:P1', PULSENUM))
-        ylim([0 1])
-    else
-        ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
-        set(gca, 'XAxisLocation', 'top', 'xtick', [10, 100])
-        ymin = min(get(gca, 'ylim'));
-        ylim([ymin*1.05, 0])
-    end
-    
-    
-    
+%     % line series plot of stats
+%     plt_pow = [];
+%     plt_xbar = [];
+%     plt_sem = [];
+%     for i_amp = 1:numel(unique_amps)
+%         pamp = unique_amps(i_amp);
+%         l_wfs = opsin_amps == pamp;
+%         
+%         plt_pow(i_amp) = pamp;
+%         plt_xbar(i_amp) = mean(opsin_stats(l_wfs));
+%         plt_sem(i_amp) = stderr(opsin_stats(l_wfs));
+%     end
+%     
+%     f = figure;
+%     my_errorbar(plt_pow, plt_xbar, plt_sem, '-ks', 'markersize', 8, 'markerfacecolor', 'k', 'linewidth', 2);
+%     f.Name = opsins{i_opsin};
+%     f.Position = [660   172   464   620];
+%     axis tight
+%     xlabel('Power (mW per mm2)')
+%     xlim([min(plt_pow)-1, max(plt_pow)+1])
+%     box off
+%     set(gca, 'xscale', 'log')
+%     if NORM_TO_LED10
+%         ylabel('amplitude (norm to LED=10V)')
+%     elseif PLOTPPR
+%         ylabel(sprintf('paired pulse ratio: P%d:P1', PULSENUM))
+%         ylim([0 1])
+%     else
+%         ylabel(sprintf('raw amplitudes, pulse=%d', PULSENUM))
+%         set(gca, 'XAxisLocation', 'top', 'xtick', [10, 100])
+%         ymin = min(get(gca, 'ylim'));
+%         ylim([ymin*1.05, 0])
+%     end
+%     
+%     
+%     
     
     
 end
@@ -1551,30 +1546,30 @@ hy.Interpreter = 'none';
 legtext = cellfun(@(x) [num2str(x, '%3.1f\n')  ' mW/mm2'], num2cell(unique_pAmps), 'uniformoutput', false);
 legend(hvec, legtext, 'location', 'southwest')
 legend boxoff
-
-% do some inferential tests on the PPRs
-P2_vals = permute(all_normstats(:,2,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
-[P2_rho_on_means, Pval] = corr(mean(P2_vals, 1)', unique_pAmps(:), 'type', 'spearman')
-
-
-% is there a differences in the P2:P1 vals across light powers
-P2_vals = permute(all_normstats(:,2,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
-groups = repmat([1:size(P2_vals, 2)], size(P2_vals, 1), 1);
-P2_vals = P2_vals(:);
-groups = groups(:);
-[pval, ~, stattab] = anova1(log(P2_vals), groups)
-
-
-P7_vals = permute(all_normstats(:,7,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
-[P7_rho_on_means, Pval] = corr(mean(P7_vals, 1)', unique_pAmps(:), 'type', 'spearman')
-
-
-% is there a differences in the P7:P1 vals across light powers
-P7_vals = permute(all_normstats(:,7,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
-groups = repmat([1:size(P7_vals, 2)], size(P7_vals, 1), 1);
-P7_vals = P7_vals(:);
-groups = groups(:);
-[pval, ~, stattab] = anova1(log(P7_vals), groups)
+% 
+% % do some inferential tests on the PPRs
+% P2_vals = permute(all_normstats(:,2,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+% [P2_rho_on_means, Pval] = corr(mean(P2_vals, 1)', unique_pAmps(:), 'type', 'spearman')
+% 
+% 
+% % is there a differences in the P2:P1 vals across light powers
+% P2_vals = permute(all_normstats(:,2,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+% groups = repmat([1:size(P2_vals, 2)], size(P2_vals, 1), 1);
+% P2_vals = P2_vals(:);
+% groups = groups(:);
+% [pval, ~, stattab] = anova1(log(P2_vals), groups)
+% 
+% 
+% P7_vals = permute(all_normstats(:,7,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+% [P7_rho_on_means, Pval] = corr(mean(P7_vals, 1)', unique_pAmps(:), 'type', 'spearman')
+% 
+% 
+% % is there a differences in the P7:P1 vals across light powers
+% P7_vals = permute(all_normstats(:,7,:), [3, 1, 2]) % dimensionality is [Nexp x Npowers];
+% groups = repmat([1:size(P7_vals, 2)], size(P7_vals, 1), 1);
+% P7_vals = P7_vals(:);
+% groups = groups(:);
+% [pval, ~, stattab] = anova1(log(P7_vals), groups)
 
 %% OPSIN CURRENT VS. FIBER VOLLEY [SPIDER PLOT]
 
@@ -3817,6 +3812,8 @@ ERRBARS = true;
 NPULSES = 7;
 PHARMCONDITION = 'FV_Na'; % could be 'synapticTransmission' or 'nbqx_apv_cd2_ttx' or 'FV_Na'
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
+METRIC = 'diffval';
+
 
 % load in data from each area
 load('pop_al_stimL23_recL23_mainExpt_combineChief.mat');
@@ -3833,6 +3830,8 @@ pm_pop = pop;
 
 F = figure;
 set(F, 'position', [109    31   891   754])
+Y = []; % for the ANOVAn. Log transform prior to the analysis aggregate Pn:P1 vals for all pulses, then only do the test on one of the pulses
+group = []; % grouping variables for the ANOVA [brain area, opsin, TF]
 
 opsinTypes = {'chr2', 'chief_all', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
@@ -3840,8 +3839,8 @@ for i_opsin = 1:numel(opsinTypes)
     
     
     % grab the data
-    pm_tmp_dat = pm_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).diffval;
-    al_tmp_dat = al_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).diffval;
+    pm_tmp_dat = pm_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).(METRIC);
+    al_tmp_dat = al_pop.(opsinTypes{i_opsin}).(STATTYPE).(PHARMCONDITION).(METRIC);
     
     pm_tfs = pm_tmp_dat{1};
     pm_tfs = unique(pm_tfs);
@@ -3867,8 +3866,15 @@ for i_opsin = 1:numel(opsinTypes)
         pm_N = size(cat_dat, 1);
         pm_leg = sprintf('PM N=%d', pm_N);
         
+        % calculate descriptive stats
         xbar = nanmean(cat_dat, 1);
         sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+        
+        % add to the anova matricies
+        Y = cat(1, Y, cat_dat);
+        %tmp_group_dat = [repmat({'PM'}, pm_N, 1), repmat({opsinTypes{i_opsin}}, pm_N, 1), repmat({i_tf}, pm_N, 1)];
+        tmp_group_dat = repmat([1, i_opsin, i_tf], pm_N, 1);
+        group = cat(1, group, tmp_group_dat);
         
         [~, pltclr] = hvaPlotColor('pm');
         if ERRBARS
@@ -3887,8 +3893,17 @@ for i_opsin = 1:numel(opsinTypes)
         al_N = size(cat_dat, 1);
         al_leg = sprintf('AL N=%d', al_N);
         
+        % calculate descriptive stats
         xbar = nanmean(cat_dat, 1);
         sem = nanstd(cat_dat, [], 1) ./ sqrt(sum(~isnan(cat_dat), 1));
+        
+        
+        % add to the anova matricies
+        Y = cat(1, Y, cat_dat);
+        %tmp_group_dat = [repmat({'AL'}, al_N, 1), repmat({opsinTypes{i_opsin}}, al_N, 1), repmat({i_tf}, al_N, 1)];
+        tmp_group_dat = repmat([2, i_opsin, i_tf], al_N, 1);
+        group = cat(1, group, tmp_group_dat);
+        
         
         [~, pltclr] = hvaPlotColor('al');
         if ERRBARS
@@ -3908,9 +3923,18 @@ for i_opsin = 1:numel(opsinTypes)
         set(gca, 'ylim', yvals);
         legend([h_pm, h_al], {pm_leg, al_leg}, 'location', 'best')
         legend boxoff
+        
     end
 end
 
+
+% run an anova looking at main effects of BRAIN AREA, TF, OPSIN
+pulse_num = 7;
+anova_Y = Y(:, pulse_num);
+l_neg = anova_Y < 0;
+anova_Y(l_neg) = [];
+anova_groups = group(~l_neg,:);
+[P,T,STATS,TERMS]=anovan(anova_Y, anova_groups);
 
 
 %% COMPARE OPSIN CURRENTS (INTRA VS LFP)
@@ -4137,6 +4161,19 @@ end
 %     
 % end
 % 
+
+% looking at absolute values of photocurrents
+for i_opsin = 1:numel(opsins)
+    rawdat = catdat.intra.(opsins{i_opsin}).raw;
+    pool_across_tf = nanmean(rawdat, 1);
+    
+    figure
+    histogram(squeeze(pool_across_tf(:,1,:)), 15)
+    disp(opsins{i_opsin})
+    p1_xbar = nanmean(pool_across_tf(:,1,:), 3)
+    p1_sem = nanstd(pool_across_tf(:,1,:),[],3) ./ sqrt(sum(~isnan(pool_across_tf(:,1,:)),3))
+    
+end
 
 
 %% COMPARE FIBER VOLLEYS (OPTICAL VS. ELECTRICAL)

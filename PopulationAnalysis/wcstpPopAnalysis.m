@@ -36,6 +36,8 @@ params.pretime.vclamp = 0.002;     % seconds before pulse onset
 params.posttime.vclamp = 0.015;    % seconds after pulse onset
 params.pretime.dcsteps = 0.100;    % seconds before current onset
 params.posttime.dcsteps = 0.300;   % seconds after current offset 
+params.pretime.iclamp = 0.005;
+params.posttime.iclamp = 0.015;    % actually a minimum value, real value stored in the dat structure, and depends on ISI
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -68,10 +70,12 @@ wb_info(1,:) = [];
 
 % convert the file names into fully qualified paths so that par-for can run
 % without calling a global
-iclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_info(:,hidx.MouseName), wb_info(:, hidx.ABFDCsteps), 'uniformoutput', false);
+dcsteps_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_info(:,hidx.MouseName), wb_info(:, hidx.ABFDCsteps), 'uniformoutput', false);
 vclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_info(:,hidx.MouseName), wb_info(:, hidx.ABFOptostimVclamp), 'uniformoutput', false);
-wb_info(:,hidx.ABFDCsteps) = iclamp_fpath;
-wb_info(:,hidx.ABFOptostimVclamp) = vclamp_fpath;                 
+iclamp_fpath = cellfun(@(x,y) strcat(GL_DATPATH, x, filesep, 'Physiology', filesep, y, '.abf'), wb_info(:,hidx.MouseName), wb_info(:, hidx.ABFOptostimIclamp), 'uniformoutput', false);
+wb_info(:,hidx.ABFDCsteps) = dcsteps_fpath;
+wb_info(:,hidx.ABFOptostimVclamp) = vclamp_fpath;
+wb_info(:,hidx.ABFOptostimIclamp) = iclamp_fpath;
                    
 % make each row it's own cell array so that it can be passed as a single
 % argument to the function that does the major unpacking
@@ -111,7 +115,7 @@ for i_ex = 1:numel(dat)
     
     for i_ch = 1:2
         
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
         if ~isvalid
             continue
         end
@@ -121,7 +125,7 @@ for i_ex = 1:numel(dat)
             Vm = dat{i_ex}.dcsteps.Vm_raw{i_ch};
             Icmd = dat{i_ex}.dcsteps.Icmd{i_ch};
             N = size(Vm,2);
-            tt = [0:N-1] ./ dat{i_ex}.info.sampRate.iclamp;
+            tt = [0:N-1] ./ dat{i_ex}.info.sampRate.dcsteps;
             if i_ch == 1; col = 1; else col = 3; end
             
             if any(Icmd<0)
@@ -214,8 +218,8 @@ close all; clc
 % {CellType,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY_L23',    'med', 'any';...
-    'PY_L23',    'lat', 'any';...
+    'PY_L23',    'any', 'any';...
+    'NPVIN',    'any', 'any';...
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -234,7 +238,7 @@ for i_ex = 1:numel(dat)
     for i_ch = 1:2
         
         % check to make sure this neuron was defined
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
         if ~isvalid
             continue
         end
@@ -539,7 +543,7 @@ for i_group = 1:numel(groupdata.Vrest)
 
 end
 
-%% PLOT THE RAW WAVEFORMS FOLLOWING EACH PULSE
+%% PLOT THE RAW VCLAMP WAVEFORMS FOLLOWING EACH PULSE
 
 close all
 
@@ -557,22 +561,19 @@ PLOT_RIT = false;
 
 for i_ex = 1:numel(dat)
     
-    % skip experiments with no WCSTP data
-    if ~isfield(dat{i_ex}, 'expt')
-        continue
-    end
+    f = figure;
+    f.Units = 'Normalized';
+    f.Position = [0.1 0.01 0.8 0.9];
+    f.Name = sprintf('%s, site: %s, opsin: %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.opsin);
     
     for i_ch = 1:2
         
         % skip past recording channels that have no data
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Iclamp(i_ch);
         if ~isvalid
             continue
         end
         
-        f = figure;
-        f.Position = [589  -135   644   931];
-        f.Name = sprintf('%s, site: %s, ch: %d, opsin: %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, i_ch, dat{i_ex}.info.opsin);
         
         conds = fieldnames(dat{i_ex}.expt);
         if PLOT_RIT
@@ -609,7 +610,8 @@ for i_ex = 1:numel(dat)
             
             
             % plot the raw wave forms and the average waveform
-            hs = subplot(N_subplots, 1, i_cond); hold on,
+            pltNum = sub2ind([2, N_subplots], i_ch, i_cond);
+            hs = subplot(N_subplots, 2, pltNum); hold on,
             if PLOT_ALL_TRIALS
                 plot(snips, '-', 'linewidth', 0.25)
             end
@@ -645,15 +647,126 @@ for i_ex = 1:numel(dat)
         
     end
     
+    % close figures that are blank
+    if isempty(f.Children); close(f); end
+    
 end
     
 
+%% PLOT THE RAW ICLAMP WAVEFORMS FOLLOWING EACH PULSE
+
+close all
+
+
+PLOT_ALL_TRIALS = true;
+DEBUG_MEAN = false;
+DEBUG_ALL = false;
+PLOT_RIT = false;
+
+
+% goal: to plot the snipets, one after another, on a separate subplot for
+% each stimulus type. All data will be plotted (if all trials are present),
+% along with the mean
+
+for i_ex = 1:numel(dat)
+    
+    % skip experiments with no WCSTP data
+    if ~isfield(dat{i_ex}, 'iclamp')
+        continue
+    end
+    
+    f = figure;
+    f.Units = 'Normalized';
+    f.Position = [0.1 0.01 0.8 0.9];
+    f.Name = sprintf('%s, site: %s, opsin: %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.opsin);
+    
+    for i_ch = 1:2
+        
+        % skip past recording channels that have no data
+        isvalid = dat{i_ex}.info.HS_is_valid_Iclamp(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        
+        conds = fieldnames(dat{i_ex}.iclamp);
+        if PLOT_RIT
+           plotList = 1:numel(conds); 
+        else
+           plotList = find(~strncmpi(conds, 'ritv', 4));
+        end
+        
+        N_subplots = numel(plotList);
+        for i_cond = 1:N_subplots
+            idx = plotList(i_cond);
+            
+            % pull out the snips and add back the baseline
+            snips = dat{i_ex}.iclamp.(conds{idx}).raw.snips{i_ch};
+            baselines = dat{i_ex}.iclamp.(conds{idx}).raw.bkgndVm{i_ch};
+            snips = bsxfun(@plus, snips, baselines);
+            
+            if isempty(snips)
+                continue
+            end
+            
+            % transform the array for easy plotting. Add some nans to
+            % separate the pulses.
+            samps_per_pulse = size(snips, 2);
+            Ntrials = size(snips, 3);
+            Npulses = size(snips, 1);
+            Nnans = round(samps_per_pulse./12);
+            snips = cat(2, snips, nan(Npulses, Nnans, Ntrials));
+            new_snip_length = size(snips, 2);
+            snips = permute(snips, [2,1,3]);
+            snips = reshape(snips, [], Ntrials);
+            
+
+            % plot the raw wave forms and the average waveform
+            pltNum = sub2ind([2, N_subplots], i_ch, i_cond);
+            hs = subplot(N_subplots, 2, pltNum); hold on,
+            if PLOT_ALL_TRIALS
+                plot(snips, '-', 'linewidth', 0.25)
+            end
+            plot(nanmean(snips,2), 'k-', 'linewidth', 2)
+            hs.XTick = [];
+            axis tight
+            
+            % add a point for the peak value
+            peakVals = -1 .* dat{i_ex}.iclamp.(conds{idx}).stats.EPSPamp{i_ch};
+            peakVals = permute(peakVals, [1,3,2]); % Npulses x Nsweeps
+            
+            
+            peakTimes = dat{i_ex}.iclamp.(conds{idx}).stats.latency{i_ch};
+            peakTimes = permute(peakTimes, [1,3,2]); % Npulses x Nsweeps
+            peakTimes_idx = round(peakTimes .* dat{i_ex}.info.sampRate.iclamp);
+            presamps = round(dat{i_ex}.info.pretime.iclamp .* dat{i_ex}.info.sampRate.iclamp);
+            offset = presamps + (((1:Npulses)-1) .* new_snip_length);
+            peakTimes_idx = bsxfun(@plus, peakTimes_idx, offset(:));
+            if DEBUG_ALL
+                plot(peakTimes_idx, peakVals, 'co', 'markerfacecolor', 'c')
+            end
+            if DEBUG_MEAN
+                plot(mean(peakTimes_idx, 2), mean(peakVals, 2), 'ro', 'markerfacecolor', 'r')
+            end
+            
+            
+        end
+        
+        drawnow
+        
+    end
+    
+    % close figures that are blank
+    if isempty(f.Children); close(f); end
+    
+end
+    
 
 
 %% STP SUMMARY FOR EACH RECORDING
 
 
-NORMAMPS = false;
+NORMAMPS = true;
 PLOTRAW = false;
 
 for i_ex = 1:numel(dat)
@@ -663,13 +776,13 @@ for i_ex = 1:numel(dat)
     end
     
     f = figure;
-    f.Name = sprintf('Mouse %s, site %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum);
+    f.Name = sprintf('Mouse %s, site %s, opsin %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.opsin);
     f.Units = 'normalized';
-    f.Position = [0.2931   -0.0378    0.7542    0.8767];
+    f.Position = [0 0    1    1];
     
     for i_ch = 1:2
         
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
         if ~isvalid
             continue
         end
@@ -700,7 +813,7 @@ for i_ex = 1:numel(dat)
             else
                 xbar = mean(tmp,3);
                 sem = stderr(tmp,3);
-                my_errorbar(tt, xbar, sem, 'ok', 'markersize', 2, 'linewidth', 1);
+                my_errorbar(tt(1:end-1), xbar(1:end-1), sem(1:end-1), '-ok', 'markersize', 2, 'linewidth', 2);
             end
             
             xlim([0, dat{i_ex}.info.sweepLength.vclamp]);
@@ -725,9 +838,9 @@ end
 
 TRAINSET = 'recovery';  % could be 'rit', 'recovery', 'all'
 PLOTTRAININGDATA = true;
-NORMALIZEDATA = false;
+NORMALIZEDATA = true;
 FITAVERAGEDATA = true;
-FITRECOVERYPULSE = true;
+FITRECOVERYPULSE = false;
 
 
 % write an anyonomous helper function to find the training data
@@ -753,7 +866,7 @@ for i_ex = 1:numel(dat)
    for i_ch = 1:2
        
        % determine if there are data to fit
-       isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+       isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
        if ~isvalid
            chempty(i_ch) = true;
            if  all(chempty)
@@ -877,10 +990,11 @@ for i_ex = 1:numel(dat)
               dTau = dat{i_ex}.stpfits.modelParams{i_ch}(4:5);
               fTau = dat{i_ex}.stpfits.modelParams{i_ch}(6);
 
-              MAKENEWFITS = false;
+              MAKENEWFITS = ralse;
           end
        end
        if MAKENEWFITS
+           keyboard
            [d, f, dTau, fTau] = fitTau2STP(training_amps, training_pOnTimes, training_p1Amps, 'multistart');
        end
        
@@ -1015,6 +1129,218 @@ for i_ex = 1:numel(dat)
    
 end
 
+%% iCLAMP POPULATION ANALYSIS (DATA COLLECTION)
+
+% loop through the experiments. Pull out the trains data. Ignore the
+% recovery train (if present) and aggregate across recovery conditions.
+iclamp_pop = [];
+iclamp_pop.TFsAllExpts = [];
+iclamp_pop.MaxNPulses = 0;
+for i_ex = 1:numel(dat)
+    
+    if ~isfield(dat{i_ex}, 'iclamp');
+        continue
+    end
+    
+    % find the normal trains. Assume the field name is NOT 'ritv'
+    condnames = fieldnames(dat{i_ex}.iclamp);
+    l_trains = ~strncmp(condnames, 'RITv', 4);
+    if sum(l_trains)==0; continue; end % no trains data
+    trainParams = cellfun(@(x) dat{i_ex}.iclamp.(condnames{x}).tdict, mat2cell(find(l_trains), ones(sum(l_trains),1), 1), 'uniformoutput', false);
+    trainParams = cat(1, trainParams{:});
+    
+    % make sure the pulse amplitude and width were identical across ttypes
+    assert(numel(unique(trainParams(:,1)))==1, 'ERROR: more than one pulse amplitude')
+    assert(numel(unique(trainParams(:,2)))==1, 'ERROR: more than one pulse width');
+    
+    % identify the unique TF conditions for this experiment, and update the
+    % running log of TFs used across all experiments
+    uniqueTFs = unique(trainParams(:,3));
+    tmp = cat(1, iclamp_pop.TFsAllExpts, uniqueTFs);
+    iclamp_pop.TFsAllExpts = unique(tmp);
+    
+    % store the stim params for all stim types, which will be useful for
+    % indexing later.
+    allStimParams = cellfun(@(x) dat{i_ex}.iclamp.(condnames{x}).tdict, mat2cell((1:numel(l_trains))', ones(numel(l_trains),1), 1), 'uniformoutput', false);
+    allStimParams = cat(1, allStimParams{:});
+    
+    % store some metadata
+    iclamp_pop.info{i_ex} = dat{i_ex}.info;
+    
+    
+    % aggregate data within TF conditons (Separately for each
+    % recording channel
+    for i_tf = 1:numel(uniqueTFs);
+        
+        tfidx = find(trainParams(:,3) == uniqueTFs(i_tf)); % condnames that contain the train with a particular TF
+        
+        for i_ch = 1:2
+            
+            % check to make sure this neuron was defined
+            isvalid = dat{i_ex}.info.HS_is_valid_Iclamp(i_ch);
+            if ~isvalid
+                iclamp_pop.dat{i_ex}.xbar{i_tf}{i_ch} = [];
+                iclamp_pop.tfs{i_ex}{i_ch} = [];
+                continue
+            end
+            
+            % iterate over the trains with the same freq. 
+            catdat = [];
+            for i_cond = 1:numel(tfidx)
+                
+                % pull out the data
+                condIdx = ismember(allStimParams, trainParams(tfidx(i_cond),:), 'rows');
+                assert(sum(condIdx)==1, 'ERROR, found zero or more than 1 instance of the trial type')
+                tmpdat = dat{i_ex}.iclamp.(condnames{condIdx}).raw.snips{i_ch}; %[Npulses x Ntime x Nsweeps]
+                tmpdat = mean(tmpdat,3); % mean across sweeps
+                if ~isempty(tmpdat)
+                    % normalize by the p1Amp
+                    p1_amps = squeeze(dat{i_ex}.iclamp.(condnames{condIdx}).stats.EPSPamp{i_ch}(1,:,:));
+                    normfact = mean(p1_amps);
+                    tmpdat = tmpdat ./ normfact;
+                    
+                    % store in a matrix for averaging later
+                    catdat = cat(3, catdat, tmpdat);
+                end
+            end
+            
+            % check to make sure there are data for these conditions. Even
+            % though this recording channel should be defined (See above),
+            % it's possible there are no data due to deletion of single
+            % sweeps
+            if isempty(catdat)
+                iclamp_pop.dat{i_ex}.xbar{i_tf}{i_ch} = [];
+                iclamp_pop.tfs{i_ex}{i_ch} = [];
+            else
+                
+                % now average across trails, and re-normalize to the first
+                % pulse. Store in the population data structure.
+                avg = mean(catdat,3); % now [Npulses, Ntime]
+                
+                % delete the last pulse (if it's a recovery pulse, but
+                % store the recovery pulse in a different field of the
+                % population structure
+                isrecovery = trainParams(tfidx(i_cond),4) > 0;
+                if isrecovery
+                    avg(end,:) = [];
+                end
+                
+                iclamp_pop.dat{i_ex}.xbar{i_tf}{i_ch} = avg;
+                iclamp_pop.tfs{i_ex}{i_ch} = uniqueTFs;
+                iclamp_pop.MaxNPulses = max([iclamp_pop.MaxNPulses, size(avg,1)]);
+
+            end
+        end
+    end
+end
+
+
+%% iCLAMP POPULATION ANALYSIS (PLOTTING)
+
+clc; close all
+
+PLOTERRBAR = true;
+
+% define a set of attributes for each lineseries (or manifold) in the plot
+% {CellType,  BrainArea,  OpsinType}
+% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
+plotgroups = {
+    'PY',    'PM', 'any';...
+    'PY',    'AL', 'any';...
+    };
+
+% initalize the population structure
+allTFs = iclamp_pop.TFsAllExpts;
+for i_grp = 1:size(plotgroups, 1)
+   groupdata_raw{i_grp} =  repmat({[]}, numel(allTFs), 1);
+end
+
+% iterate over the experiments. For each recording channel, determine what
+% the attributes are, and place the data in the correct ploting group.
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid_Iclamp(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        % check to make sure this neuron has iClamp population data, which
+        % it might not if it was only RITs or something like that.
+        if isempty(iclamp_pop.dat{i_ex})
+            continue
+        end
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, upper(dat{i_ex}.info.brainArea), dat{i_ex}.info.opsin}; % force the brain area to be uppercase
+        l_nan = cellfun(@(x) all(isnan(x)), ch_attribs);
+        ch_attribs(l_nan) = cellfun(@num2str, ch_attribs(l_nan), 'uniformoutput', false);
+        
+        % is this expt and channel cooresponds to one of the plot_groups in
+        % terms of cellType and opsin
+        l_cellType_match = cellfun(@(x) ~isempty(regexpi(ch_attribs{1}, x)), plotgroups(:,1)) | strcmpi(plotgroups(:,1), 'any');
+        l_opsinMatch = cellfun(@(x) ~isempty(regexpi(ch_attribs{3}, x)), plotgroups(:,3)) | strcmpi(plotgroups(:,3), 'any');
+        
+        % determine if this experiment has a brain area that corresponds to
+        % one of the plot_groups. Start by adding a 'medial', 'lateral'
+        % assignment to the brain area
+        expt_area = ch_attribs{2};
+        if ~isempty(regexp(expt_area, 'AM', 'once')) || ~isempty(regexp(expt_area, 'PM', 'once'))
+            expt_area = [expt_area, ' med'];
+        elseif ~isempty(regexp(expt_area, 'AL', 'once')) || ~isempty(regexp(expt_area, 'LM', 'once'))
+            expt_area = [expt_area, ' lat'];
+        end
+        l_brainArea_match = cellfun(@(x) ~isempty(regexp(expt_area, x, 'once')), plotgroups(:,2)) | strcmpi(plotgroups(:,2), 'any');
+        
+        group_idx = sum([l_cellType_match, l_brainArea_match, l_opsinMatch], 2) == 3;
+        assert(sum(group_idx)<=1, 'ERROR: found too many group indicies')
+        if sum(group_idx) == 0; continue; end
+        
+        % add data to the appropriate group data array. This will probably
+        % bonk if the sampling rate or number of pulses is different across experiments
+        ch_tfs = iclamp_pop.tfs{i_ex}{i_ch};
+        for i_tf = 1:numel(ch_tfs)
+            tf_idx = allTFs == ch_tfs(i_tf);
+            tmpdat = iclamp_pop.dat{i_ex}.xbar{i_tf}{i_ch}; % [Npulses x Ntime]
+            
+            % add some nans for separating the pulses during plotting.
+            whitesamps = round(size(tmpdat,2) ./ 17);
+            tmpdat = cat(2, tmpdat, nan(size(tmpdat,1), whitesamps));
+            tmpdat = reshape(tmpdat', [], 1)'; % notice the extra transpose to make this a row vector
+            
+            % add to the population structure
+            groupdata_raw{group_idx}{tf_idx} = cat(1, groupdata_raw{group_idx}{tf_idx}, tmpdat);
+        end
+
+    end
+end
+
+
+% plot the data, all line series
+f = figure;
+f.Units = 'normalized';
+f.Position = [0.1, 0.01, 0.3, 0.9];
+Ntfs = numel(allTFs);
+groupcolors = {'r', 'b', 'g'};
+for i_tf = 1:Ntfs
+    subplot(Ntfs, 1, i_tf), hold on,
+    for i_grp = 1:numel(groupdata_raw)
+        tmp = groupdata_raw{i_grp}{i_tf};
+        xbar = nanmean(tmp, 1);
+        sem = nanstd(tmp, [], 1) ./ sqrt(sum(~isnan(tmp),1));
+        if PLOTERRBAR
+            shadedErrorBar(1:size(tmp,2), xbar, sem, {'color', groupcolors{i_grp}, 'linewidth', 2});
+        else
+            plot(tmp', '-', 'color', groupcolors{i_grp})
+            %plot(mean(tmp,1), '-', 'color', groupcolors{i_grp}, 'linewidth', 3)
+        end
+        
+    end
+end
+
+
 
 %% PAIRED PULSE PLASTICITY MANIFOLDS (DATA COLLECTION)
 
@@ -1060,7 +1386,7 @@ for i_ex = 1:numel(dat)
         for i_ch = 1:2
             
             % check to make sure this neuron was defined
-            isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+            isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
             if ~isvalid
                 pprpop.dat{i_ex}.xbar{i_tf}{i_ch} = [];
                 pprpop.tfs{i_ex}{i_ch} = [];
@@ -1154,8 +1480,9 @@ PLOT_INDIVIDUAL_DATASETS = false;
 % {CellType,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY',    'med', 'chronos';...
-    'PY',    'lat', 'chronos';...
+    'PY',    'any', 'any';...
+    'FS',    'any', 'any';...
+    'NPVIN',    'any', 'any';...
     };
 
 groupdata_raw = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -1172,7 +1499,7 @@ for i_ex = 1:numel(dat)
     for i_ch = 1:2
         
         % check to make sure this neuron was defined
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
         if ~isvalid
             continue
         end
@@ -1257,7 +1584,7 @@ for i_group = 1:numel(groupdata_raw)
         X = 1000./isi_ms;
         Y = 1:size(smoothManifold,1);
         hmod = surf(X,Y, flipud(grid_average));
-        hmod.EdgeAlpha = 0;
+        hmod.EdgeAlpha = .2;
         hmod.FaceColor = plotcolors{i_group};
         hmod.FaceAlpha = 0.5;
     end
@@ -1266,6 +1593,8 @@ end
 set(gca, 'zscale', 'log', 'view', [-43    16])
 set(gca, 'YTick', 1:10, 'YTickLabel', {'10','9','8','7','6','5','4','3','2','1'})
 zmax = get(gca, 'zlim');
+set(gca, 'XGrid', 'on', 'Ygrid', 'on', 'Zgrid', 'on')
+set(gca, 'XMinorGrid', 'off', 'YMinorGrid', 'off', 'ZMinorGrid', 'off')
 xlabel('Temporal Frequency')
 ylabel('Pulse Number')
 zlabel('norm amp')
@@ -1354,7 +1683,7 @@ for i_ex = 1:numel(dat)
     for i_ch = 1:2
         
         % check to make sure this neuron was defined
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
         
         for i_cond = 1:sum(l_trains)
             
@@ -1391,7 +1720,7 @@ for i_ex = 1:numel(dat)
                 % now average across trails, and re-normalize to the first
                 % pulse. Store in the population data structure.
                 avg = mean(tmpdat,3);
-                ppr = avg./avg(1);
+                ppr = avg./avg(end-1);
                 
                 recovpop.dat{i_ex}.recovAmp{i_ch}(i_cond,1) = ppr(end);
                 
@@ -1453,7 +1782,7 @@ for i_ex = 1:numel(dat)
     
     for i_ch = 1:2
         % check to make sure this neuron was defined
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
         if ~isvalid
             continue
         end
@@ -1539,6 +1868,13 @@ end
 
 %% CONTROLS: VARIABILITY BY OPSIN FOR 1'ST PULSE
 
+close all
+ENFORCE_ABOVE_100PA = true;
+
+%
+% Plot the trial to trial P1 amplitude expressed as a fractional change
+% from the smooth running average
+%
 figure, hold on,
 chronos_std = [];
 chief_std = [];
@@ -1547,14 +1883,19 @@ for i_ex = 1:numel(dat)
     for i_ch = 1:2
         
         % check to make sure this neuron was defined
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
-        if ~isvalid
+        has_Vclamp_data = ~strcmpi(dat{i_ex}.info.fid.vclamp(end-7:end), 'none.abf');
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+        if ~isvalid || ~has_Vclamp_data 
             continue
         end
         
         tmp = dat{i_ex}.qc.p1amp{i_ch}(:) - dat{i_ex}.qc.p1amp_norm{i_ch}(:);
         tmp = tmp ./ dat{i_ex}.qc.p1amp_norm{i_ch}(:);
         if all(isnan(tmp))
+            continue
+        end
+        
+        if ENFORCE_ABOVE_100PA && (dat{i_ex}.qc.p1amp{i_ch}(1) < 100)
             continue
         end
         
@@ -1576,18 +1917,81 @@ allvals = cat(1, chief_std, chronos_std);
 edges = linspace(min(allvals).*0.95, max(allvals).*1.05, 20);
 f = figure;
 f.Position = [440   135   508   663];
-subplot(2,1,1)
+subplot(2,1,1), hold on,
 hh = histogram(chief_std, edges);
+plot(mean(chief_std), max(get(gca, 'ylim'))*.95, 'rv', 'markerfacecolor', 'w', 'linewidth', 2, 'markersize', 10)
 hh.FaceColor = 'r';
 xlabel('standard dev of fractional error, p1 amps')
 ylabel('counts')
 title('oChIEF')
-subplot(2,1,2)
+subplot(2,1,2), hold on,
 hh = histogram(chronos_std, edges);
 hh.FaceColor = 'g';
+plot(mean(chronos_std), max(get(gca, 'ylim'))*.95, 'gv', 'markerfacecolor', 'w', 'linewidth', 2, 'markersize', 10)
 xlabel('standard dev of fractional error, p1 amps')
 ylabel('counts')
 title('Chronos')
+
+
+% 
+% Plot the raw values of the P1 amplitude to look for differences in
+% stability b/w chronos and ChIEF
+%
+figure, hold on,
+all_chronos = {};
+all_chief = {};
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        has_Vclamp_data = ~strcmpi(dat{i_ex}.info.fid.vclamp(end-7:end), 'none.abf');
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+        if ~isvalid || ~has_Vclamp_data 
+            continue
+        end
+        
+        tmp = dat{i_ex}.qc.p1amp{i_ch}(:);
+        if all(isnan(tmp))
+            continue
+        end
+        if ENFORCE_ABOVE_100PA && (tmp(1) < 100)
+            continue
+        end
+        
+        tmp = (tmp-tmp(1)) ./ tmp(1) .* 100;
+        
+            
+            
+        if strcmpi(dat{i_ex}.info.opsin, 'chronos') || strcmpi(dat{i_ex}.info.opsin, 'chronos_flx')
+            %plot(tmp, 'g')
+            all_chronos = cat(1, all_chronos, tmp);
+        else
+            %plot(tmp, 'r')
+            all_chief = cat(1, all_chief, tmp);
+        end
+        
+    end
+end
+
+% add the averages across expts
+maxlength = max([cellfun(@numel, all_chronos) ; cellfun(@numel, all_chief)]);
+all_chronos = cellfun(@(x) cat(1, x, nan(maxlength-numel(x), 1)), all_chronos, 'uniformoutput', false);
+all_chronos = cat(2, all_chronos{:})';
+all_chief = cellfun(@(x) cat(1, x, nan(maxlength-numel(x), 1)), all_chief, 'uniformoutput', false);
+all_chief = cat(2, all_chief{:})';
+
+xbar_chronos = nanmean(all_chronos, 1);
+sem_chronos = nanstd(all_chronos, [], 1) ./ sqrt(sum(~isnan(all_chronos), 1));
+shadedErrorBar(1:maxlength, xbar_chronos, sem_chronos, {'g', 'linewidth', 3});
+
+xbar_chief = nanmean(all_chief, 1);
+sem_chief = nanstd(all_chief, [], 1) ./ sqrt(sum(~isnan(all_chief), 1));
+shadedErrorBar(1:maxlength, xbar_chief, sem_chief, {'r', 'linewidth', 3});
+
+title('Percent change in P1 amplitude')
+xlabel('Trial Number')
+ylabel('Percent change from sweep 1')
 
 %% CONTROLS: POSITION OF LASER STIMULUS
 
@@ -1631,7 +2035,7 @@ for i_ex = 1:numel(dat)
         
         % look for a valid recording channel and define the coordinate
         % based off that.
-        isvalid = dat{i_ex}.info.HS_is_valid(i_ch);
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch) || dat{i_ex}.info.HS_is_valid_Iclamp(i_ch);
         if isvalid
             hs_xy = dat{i_ex}.info.HS_xy_pos{i_ch};
             pixperum = pixPerMicron(size(img,1), size(img,2));
@@ -1643,10 +2047,10 @@ for i_ex = 1:numel(dat)
             % define the position of the new stim site and pia site based
             % off the uinput coordinates
             if isfield(dat{i_ex}.info, 'pia_xy_pos')
-                pia_xy = round(dat{i_ex}.info.pia_xy_pos.*.9 .* pixperum) +  uinput_xy(i_ch,:);
+                pia_xy = round(dat{i_ex}.info.pia_xy_pos.*.80 .* pixperum) +  uinput_xy(i_ch,:);
                 plot(pia_xy(1), pia_xy(2), 'o', 'markeredgecolor', 'r', 'markerfacecolor', 'r', 'markersize', 8)
             end
-            stim_xy = round(dat{i_ex}.info.stim_xy_pos.*.9 .* pixperum) +  uinput_xy(i_ch,:);
+            stim_xy = round(dat{i_ex}.info.stim_xy_pos.*.80 .* pixperum) +  uinput_xy(i_ch,:);
             plot(stim_xy(1), stim_xy(2), 'o', 'markeredgecolor', 'y', 'markerfacecolor', 'y', 'markersize', 8)
             drawnow
         end
@@ -1655,11 +2059,5 @@ for i_ex = 1:numel(dat)
         
     end
 end
-
-
-
-
-
-
 
 

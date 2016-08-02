@@ -28,7 +28,7 @@ switch method
     case 'multistart'
         ms = MultiStart;
         ms.UseParallel = 'always';
-        [fitparams, ~, exitflag] = run(ms, problem, 100);
+        [fitparams, ~, exitflag] = run(ms, problem, 20);
     case 'global'
         gs = GlobalSearch;
         [fitparams, ~, exitflag] = run(gs, problem);

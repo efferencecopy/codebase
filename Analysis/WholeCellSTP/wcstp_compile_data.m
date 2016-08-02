@@ -40,13 +40,14 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 % dat.info.siteNum
 % dat.info.cellType
 % dat.info.brainArea
-% dat.info.HS_is_valid
+% dat.info.HS_is_valid_Vclamp
+% dat.info.HS_is_valid_Iclamp
 % dat.info.pretime.vclamp
 % dat.info.pretime.dcsteps
 % dat.info.posttime.vclamp
 % dat.info.posttime.dcsteps
 % dat.info.sampRate.vclamp
-% dat.info.sampRate.iclamp
+% dat.info.sampRate.dcsteps
 % dat.info.sweepLength.vclamp   -> Total time of sweep. Useful for plotting 
 
 
@@ -63,6 +64,9 @@ dat = unpack_dc_injections(dat);
 % unpack the Vclamp trains data set(s)
 dat = unpack_vclamp_trains(dat, exinfo, hidx);
 
+% unpack the Iclamp trains data set
+dat = unpack_iclamp_trains(dat, exinfo, hidx);
+
 % get an estimate of the P1 amp smoothed across time
 N = 6;
 dat = smoothP1amp(dat, N);
@@ -73,26 +77,35 @@ end
 function info = defineInfo(exinfo, hidx, params)
     info.fid.dcsteps = exinfo{hidx.ABFDCsteps};
     info.fid.vclamp = exinfo{hidx.ABFOptostimVclamp};
+    info.fid.iclamp = exinfo{hidx.ABFOptostimIclamp};
 
     info.opsin = exinfo{hidx.opsin};
     info.mouseName = exinfo{hidx.MouseName};
     info.siteNum = exinfo{hidx.Site};
     info.cellType = exinfo([hidx.Celltype1, hidx.Celltype2]); % one for each HS
     info.brainArea = exinfo{hidx.brainarea};
-    info.HS_is_valid = [str2double(exinfo{hidx.HS1valid}), str2double(exinfo{hidx.HS2valid})];
+    info.HS_is_valid_Vclamp = [str2double(exinfo{hidx.VC_HS1_valid}), str2double(exinfo{hidx.VC_HS2_valid})];
+    info.HS_is_valid_Iclamp = [str2double(exinfo{hidx.IC_HS1_valid}), str2double(exinfo{hidx.IC_HS2_valid})];
     
     info.pretime.vclamp = params.pretime.vclamp;
     info.posttime.vclamp = params.posttime.vclamp;
     info.pretime.dcsteps = params.pretime.dcsteps;
     info.posttime.dcsteps = params.posttime.dcsteps;
+    info.pretime.iclamp = params.pretime.iclamp;
+    info.posttime.iclamp = params.posttime.iclamp;
     
-    info.stim_xy_pos = str2num(exinfo{hidx.xystim});
+    % stuff that is only available when there was a Vclamp experiment
+    if any(info.HS_is_valid_Vclamp)
+        if ~isnan(exinfo{hidx.xystim}) % sometime the field is blank (i.e., I forgot to measure this...)
+            info.stim_xy_pos = str2num(exinfo{hidx.xystim});
+        end
+    end
     
     % determine the depth of each recording channel w/r/t the pia
     info.cellDepth_um = [nan, nan];
     info.HS_xy_pos = {[nan,nan],[nan,nan]};
     for i_hs = 1:2
-        if ~info.HS_is_valid(i_hs); continue; end
+        if ~(info.HS_is_valid_Vclamp(i_hs) || info.HS_is_valid_Iclamp(i_hs)); continue; end
         
         hsname = sprintf('xyHS%d', i_hs);
         
@@ -125,7 +138,7 @@ function dat = unpack_dc_injections(dat)
     
 
     % fill out the info struct
-    dat.info.sampRate.iclamp = ax.head.sampRate;
+    dat.info.sampRate.dcsteps = ax.head.sampRate;
     dat.info.fileStartTime_24hrs = ax.head.uFileStartTimeMS ./ (60*60*1000);
     
     % figure out which channels were turned on, and set to Iclamp
@@ -136,15 +149,15 @@ function dat = unpack_dc_injections(dat)
     
     
     % extract raw voltage traces and spike times.
-    preTime_samps = ceil(dat.info.pretime.dcsteps .* dat.info.sampRate.iclamp);
-    postTime_samps = ceil(dat.info.posttime.dcsteps .* dat.info.sampRate.iclamp);
+    preTime_samps = ceil(dat.info.pretime.dcsteps .* dat.info.sampRate.dcsteps);
+    postTime_samps = ceil(dat.info.posttime.dcsteps .* dat.info.sampRate.dcsteps);
     for i_ch = 1:2
         
         % make sure data are present for this recording channel. If not,
         % store the data as an empty matrix.
         HSname = sprintf('HS%d_Vm', i_ch);
         HSpresent = strcmp(Iclamp_names, HSname);
-        if ~any(HSpresent) || ~dat.info.HS_is_valid(i_ch)
+        if ~any(HSpresent) || ~(dat.info.HS_is_valid_Vclamp(i_ch) || dat.info.HS_is_valid_Iclamp(i_ch))
             dat.dcsteps.Vm_raw{i_ch} = [];
             dat.dcsteps.Icmd{i_ch} = [];
             continue
@@ -211,7 +224,7 @@ function dat = unpack_dc_injections(dat)
         %%%%%%%%%%%%%%%%
         raw_Vm = permute(ax.dat([idx_on:(idx_off-1)], ax.idx.(HSname), :), [3,1,2]); % subtracting off 1 samps to avoid issues with obo errors with turning off currents
         raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline);
-        N_20ms = round(20e-3 .* dat.info.sampRate.iclamp);
+        N_20ms = round(20e-3 .* dat.info.sampRate.dcsteps);
         steady_state_mV = mean(raw_Vm(:, [end-N_20ms : end]), 2);
         
         % store the I-V data, but only for sub threshold responses
@@ -242,7 +255,7 @@ function dat = unpack_dc_injections(dat)
         % compute the Vm response right after the DC injection starts (as a
         % proxy for the 'peak' response). Average a window 12 to 16 ms
         % after the injection starts. 
-        tt = [0:size(raw_Vm,2)-1] ./ dat.info.sampRate.iclamp;
+        tt = [0:size(raw_Vm,2)-1] ./ dat.info.sampRate.dcsteps;
         l_window = (tt >= 0.012)&(tt < 0.016);
         peak_mV = mean(raw_Vm(:, l_window),2);
         subthresh_cmd_pA = trl_Iclamp_cmd_pA(l_no_spikes);
@@ -330,7 +343,7 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     Vclamp_names = ax.head.recChNames(Vclamp_idx);
     
     
-    % extract raw voltage traces and spike times.
+    % extract raw current traces.
     preTime_samps = ceil(dat.info.pretime.vclamp .* dat.info.sampRate.vclamp);
     postTime_samps = ceil(dat.info.posttime.vclamp .* dat.info.sampRate.vclamp);
     
@@ -403,7 +416,7 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             % culled:
             %  dat.expt.(condname).raw.snips{i_ch}
             %  dat.expt.(condname).realTrialNum
-            rmSweep_string = exinfo{hidx.(sprintf('HS%drm_swp', i_ch))};
+            rmSweep_string = exinfo{hidx.(sprintf('VC_rm_swp_HS%d', i_ch))};
             if ~any(isnan(rmSweep_string))
                 badSweeps = eval(['[',rmSweep_string,']']);
                 [~, l_badSweeps] = intersect(dat.expt.(condname).realTrialNum{i_ch}, badSweeps);
@@ -423,7 +436,7 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             
             % analyze the snippets and determine the peak current (EPSC or IPSC)
             psc_sign = sign(sum(mean(dat.expt.(condname).raw.snips{i_ch}(1,:,:),3)));
-            [peak_pA, peak_tt] = get_peak_psc(dat.expt.(condname).raw.snips{i_ch}, psc_sign, dat);
+            [peak_pA, peak_tt] = get_peak_psc(dat.expt.(condname).raw.snips{i_ch}, psc_sign, dat, 'vclamp');
             dat.expt.(condname).stats.latency{i_ch} = peak_tt;
             if psc_sign == 1  %IPSP
                     dat.expt.(condname).stats.EPSCamp{i_ch} = [];
@@ -472,7 +485,7 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
         
         % dat.qc.Rs, Rinput, and dat.qc.verr contain info for all sweeps. Delete the
         % ones that are not analyzed.
-        rmSweep_string = exinfo{hidx.(sprintf('HS%drm_swp', i_ch))};
+        rmSweep_string = exinfo{hidx.(sprintf('VC_rm_swp_HS%d', i_ch))};
         if ~any(isnan(rmSweep_string))
             l_badSweeps = eval(['[',rmSweep_string,']']);
             dat.qc.Rs{i_ch}(l_badSweeps) = nan;
@@ -509,6 +522,170 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     end
 end
 
+
+function dat = unpack_iclamp_trains(dat, exinfo, hidx) % added args are for sweep deletion.
+    %
+    % NEED TO DEFINE THE FOLLOWING:
+    %
+    % dat.iclamp.[stimType].raw.snips: mV trace surrounding the EPSP for HS1,2 [Npulses x Ntime x Nsweeps]
+    % dat.iclamp.[stimType].stats.EPSPamp: EPSP amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is inward
+    % dat.iclamp.[stimType].stats.IPSPamp: IPSP amplitude for HS1,2 [Npulses x 1 x Nsweeps], when raw current is outward
+    % dat.iclamp.[stimType].realTrialNum: the actual trial number for each of the sweeps
+    % dat.iclamp.[stimType].tdict: the trialtype dictionary entry for this condition
+    % dat.iclamp.[stimType].pOnTimes: the time of each pulse (in seconds). Includes the recovery pulse
+    
+    if strncmpi(dat.info.fid.iclamp(end-8:end), [filesep,'none.abf'], 9)
+        warning('No Iclamp file for %s, site %s', dat.info.mouseName, dat.info.siteNum)
+        return
+    end
+    fprintf('  Unpacking Iclamp trains\n')
+    ax = abfobj(dat.info.fid.iclamp);
+    
+    % fill out the info struct
+    dat.info.sampRate.iclamp = ax.head.sampRate;
+    dat.info.sweepLength.iclamp = size(ax.dat, 1) ./ ax.head.sampRate;
+    
+    % figure out which channels were turned on, and set to Iclamp
+    Iclamp_idx = strcmpi(ax.head.recChUnits, 'mV'); % units are telegraphed from Multiclamp and more accurate than "names"
+    secCh = cellfun(@any, regexpi(ax.head.recChNames, '_sec'));
+    Iclamp_idx = Iclamp_idx & ~secCh;
+    Iclamp_names = ax.head.recChNames(Iclamp_idx);
+    
+    
+    % figure out what kind of stimuli were presented (e.g., simple trains,
+    % recovery trains, RITs). Make a tdict
+    tdict = outerleave(ax.dat(:,ax.idx.Laser,:), dat.info.sampRate.iclamp, false);
+    Nconds = size(tdict.conds,1);
+
+    % iterate over stimulus types aggregating data.
+    for i_cond = 1:Nconds
+        
+        % determine the name of the condition, which will be used as the
+        % name of a field in the output structure
+        condname = make_condition_name(tdict, i_cond);
+        
+        % store some stuff from the tdict struct
+        dat.iclamp.(condname).realTrialNum = repmat({find(tdict.trlList == i_cond)}, 1,2);
+        dat.iclamp.(condname).tdict = tdict.conds(i_cond,:);
+        
+        % determine the pulse on times
+        Nsweeps = numel(dat.iclamp.(condname).realTrialNum{1});
+        laser_cmd = ax.dat(:,ax.idx.Laser, dat.iclamp.(condname).realTrialNum{1});
+        laser_cmd = permute(laser_cmd, [3,1,2]);% [Nsweeps, Ntime]
+        thresh = tdict.conds(i_cond, 1) .* 0.8;
+        aboveThresh = laser_cmd > thresh;
+        crossing_on_idx = [false(Nsweeps,1), diff(aboveThresh,1,2)] == 1;
+        
+        % make sure pulse on times are identical from sweep to sweep
+        Npulses = unique(sum(crossing_on_idx, 2));
+        assert(numel(Npulses) == 1, 'ERROR: Npulses changes from sweep to sweep for the same Ttype')
+        tmp = sum(crossing_on_idx, 1);
+        assert(sum(tmp==Nsweeps) == Npulses, 'ERROR: pON idicies are not consistent from sweep to sweep')
+        
+        % since we now know the stimuli are all the same, use the first
+        % sweep as the template.
+        crossing_on_idx = find(crossing_on_idx(1,:));
+        dat.iclamp.(condname).pOnTimes = (crossing_on_idx-1) ./ dat.info.sampRate.iclamp; % seconds from sweep start
+        
+        % determine the pre/post time in samples. Allow the post time to
+        % float depending on the ISI
+        preTime_samps = ceil(dat.info.pretime.iclamp .* dat.info.sampRate.iclamp);
+        if dat.iclamp.(condname).tdict(5)==0; % RIT and normal trains get postTimes assigned differently
+            ISI_sec = 1 ./ dat.iclamp.(condname).tdict(3);
+            postTime_sec = max([dat.info.posttime.iclamp, ISI_sec-0.005]);
+        else
+            postTime_sec = dat.info.posttime.iclamp;
+        end
+        dat.iclamp.(condname).posttime_sec = postTime_sec; % store for later analysis functions
+        postTime_samps = ceil(postTime_sec .* dat.info.sampRate.iclamp);
+        
+        % loop through channels
+        for i_ch = 1:2
+            
+            % make sure data are present for this recording channel and
+            % initialize the outputs
+            HSname = sprintf('HS%d_', i_ch);
+            HSpresent = strncmp(Iclamp_names, HSname, numel(HSname));
+            assert(sum(HSpresent)<=1, 'ERROR: too many matches');
+            if ~any(HSpresent)
+                dat.iclamp.(condname).raw.snips{i_ch} = [];
+                dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
+                dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
+                continue
+            else
+                HSname = Iclamp_names{HSpresent};  % need to modify in cases where Clampex thinks Iclamp but multiclamp set to Vclamp
+                dat.iclamp.(condname).raw.snips{i_ch} = nan(Npulses, preTime_samps+postTime_samps+1, Nsweeps);
+           end
+            
+            
+            % iterate through the pulses and store the snippets
+            for i_pulse = 1:Npulses
+                idx = crossing_on_idx(i_pulse);
+                idx = idx-preTime_samps : idx+postTime_samps;
+                sweep_idx = dat.iclamp.(condname).realTrialNum{i_ch};
+                tmp = ax.dat(idx, ax.idx.(HSname), sweep_idx); % Nth pulse, all sweeps
+                dat.iclamp.(condname).raw.snips{i_ch}(i_pulse,:,:) = permute(tmp, [2,1,3]);
+            end
+            
+            
+            % DELETED SWEEPS NOT YET FUNCTIONAL FOR ICLAMP RECORDINGS
+% %             % deal with deleted sweeps here. things that need to get
+% %             % culled:
+% %             %  dat.iclamp.(condname).raw.snips{i_ch}
+% %             %  dat.iclamp.(condname).realTrialNum
+% %             rmSweep_string = exinfo{hidx.(sprintf('VC_rm_swp_HS%d', i_ch))};
+% %             if ~any(isnan(rmSweep_string))
+% %                 badSweeps = eval(['[',rmSweep_string,']']);
+% %                 [~, l_badSweeps] = intersect(dat.iclamp.(condname).realTrialNum{i_ch}, badSweeps);
+% %                 if ~isempty(l_badSweeps)
+% %                     fprintf('    Deleting %d sweeps from %s site %s ch %d\n',...
+% %                                numel(l_badSweeps), dat.info.mouseName, dat.info.siteNum, i_ch);
+% %                     dat.iclamp.(condname).realTrialNum{i_ch}(l_badSweeps) = [];
+% %                     dat.iclamp.(condname).raw.snips{i_ch}(:,:,l_badSweeps) = [];
+% %                 end
+% %             end
+            
+            
+            % subtract off the background from all the pulses. DEFINE THE
+            % BACKROUND AS THE TIME BEFORE ONLY THE FIRST PULSE. This
+            % differes from the Vclamp experiment, in which each pulse gets
+            % baselined.
+            baseline_samps = ceil(0.150 .* dat.info.sampRate.iclamp);
+            idx = crossing_on_idx(1);
+            idx = idx-baseline_samps : idx-1;
+            sweep_idx = dat.iclamp.(condname).realTrialNum{i_ch};
+            tmp = ax.dat(idx, ax.idx.(HSname), sweep_idx); % baseline data, all sweeps
+            bkgnd = mean(tmp, 1);
+            dat.iclamp.(condname).raw.snips{i_ch} = bsxfun(@minus, dat.iclamp.(condname).raw.snips{i_ch}, bkgnd);
+            
+            % store the background Vm for debugging and such.
+            dat.iclamp.(condname).raw.bkgndVm{i_ch} = bkgnd;
+            
+            
+            % analyze the snippets and determine the peak current (EPSP or IPSP)
+            psp_sign = sign(sum(mean(dat.iclamp.(condname).raw.snips{i_ch}(1,:,:),3)));
+            [peak_pA, peak_tt] = get_peak_psc(dat.iclamp.(condname).raw.snips{i_ch}, psp_sign, dat, 'iclamp');
+            dat.iclamp.(condname).stats.latency{i_ch} = peak_tt;
+            if psp_sign == -1  %IPSP
+                    dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
+                    dat.iclamp.(condname).stats.IPSPamp{i_ch} = peak_pA;
+            elseif psp_sign == 1 %EPSP
+                    dat.iclamp.(condname).stats.EPSPamp{i_ch} = peak_pA;
+                    dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
+            elseif isnan(psp_sign)
+                    dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
+                    dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
+            else
+                    error('unexpected psc_sign')
+            end
+                      
+        end
+
+    end
+    
+end
+
+
 function dat = smoothP1amp(dat, N)
     
     if ~(isfield(dat, 'qc') && isfield(dat.qc, 'p1amp'))
@@ -534,12 +711,17 @@ function dat = smoothP1amp(dat, N)
     end
 end
 
-function [peak_pA, peak_tt] = get_peak_psc(snips, psc_sign, dat)
+function [peak_pA, peak_tt] = get_peak_psc(snips, psc_sign, dat, METHOD)
     
     % make a time vector
     tt = [0:size(snips,2)-1] ./ dat.info.sampRate.vclamp;
     tt = tt - dat.info.pretime.vclamp;
-    peak_window = (tt > 500e-6) & (tt < 6e-3);
+    switch METHOD
+        case 'vclamp'
+            peak_window = (tt > 500e-6) & (tt < 6e-3);
+        case 'iclamp'
+            peak_window = (tt > 500e-6) & (tt < 15e-3);
+    end
     
     % define a window around the peak to average the data
     fullwindow = 300e-6 .* dat.info.sampRate.vclamp;
