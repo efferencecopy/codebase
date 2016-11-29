@@ -58,13 +58,13 @@ dat.info = defineInfo(exinfo, hidx, params);
 % the function is verbose. Tell the user what's going on
 fprintf('Analyzing data from mouse %s, site %s\n', dat.info.mouseName, dat.info.siteNum)
 
-% unpack the DC current injection data set
+% unpack the DC current injection dataset
 dat = unpack_dc_injections(dat);
 
-% unpack the Vclamp trains data set(s)
+% unpack the Vclamp trains dataset(s)
 dat = unpack_vclamp_trains(dat, exinfo, hidx);
 
-% unpack the Iclamp trains data set
+% unpack the Iclamp trains dataset
 dat = unpack_iclamp_trains(dat, exinfo, hidx);
 
 % get an estimate of the P1 amp smoothed across time
@@ -75,7 +75,8 @@ end
 
 
 function info = defineInfo(exinfo, hidx, params)
-    info.fid.dcsteps = exinfo{hidx.ABFDCsteps};
+    info.fid.dcsteps_hs1 = exinfo{hidx.ABFDCstepsHS1};
+    info.fid.dcsteps_hs2 = exinfo{hidx.ABFDCstepsHS2};
     info.fid.vclamp = exinfo{hidx.ABFOptostimVclamp};
     info.fid.iclamp = exinfo{hidx.ABFOptostimIclamp};
 
@@ -126,42 +127,51 @@ function dat = unpack_dc_injections(dat)
 
     % dat.dcsteps.Vm_raw: raw voltage traces during stimulus on period for HS1,2 [Nsweeps x Ntime]
     % dat.dcsteps.Icmd: magnitude of current injection on a sweep by sweep basis. [Nsweeps x 1]
-
     
-    % make sure there is a valid file.
-    if strncmpi(dat.info.fid.dcsteps(end-8:end), [filesep, 'none.abf'], 9)
-        warning('No DC current steps for %s, site %s', dat.info.mouseName, dat.info.siteNum)
-        return
-    end
     fprintf('  Unpacking DC current injections\n')
-    ax = abfobj(dat.info.fid.dcsteps);
     
-
-    % fill out the info struct
-    dat.info.sampRate.dcsteps = ax.head.sampRate;
-    dat.info.fileStartTime_24hrs = ax.head.uFileStartTimeMS ./ (60*60*1000);
-    
-    % figure out which channels were turned on, and set to Iclamp
-    Iclamp_idx = strcmpi(ax.head.recChUnits, 'mV');
-    secCh = cellfun(@any, regexpi(ax.head.recChNames, '_sec'));
-    Iclamp_idx = Iclamp_idx & ~secCh;
-    Iclamp_names = ax.head.recChNames(Iclamp_idx);
-    
-    
-    % extract raw voltage traces and spike times.
-    preTime_samps = ceil(dat.info.pretime.dcsteps .* dat.info.sampRate.dcsteps);
-    postTime_samps = ceil(dat.info.posttime.dcsteps .* dat.info.sampRate.dcsteps);
+    % loop over channels, which may have their own ABF file
     for i_ch = 1:2
         
-        % make sure data are present for this recording channel. If not,
-        % store the data as an empty matrix.
-        HSname = sprintf('HS%d_Vm', i_ch);
-        HSpresent = strcmp(Iclamp_names, HSname);
-        if ~any(HSpresent) || ~(dat.info.HS_is_valid_Vclamp(i_ch) || dat.info.HS_is_valid_Iclamp(i_ch))
-            dat.dcsteps.Vm_raw{i_ch} = [];
-            dat.dcsteps.Icmd{i_ch} = [];
+        % initialize the ouput in case there isn't a vaild datafile, or
+        % there were other issues that prevented storing data
+        dat.dcsteps.Vm_raw{i_ch} = [];
+        dat.dcsteps.Icmd{i_ch} = [];
+        
+        % make sure there is a valid file.
+        hs_fid = sprintf('dcsteps_hs%d', i_ch);
+        if strncmpi(dat.info.fid.(hs_fid)(end-8:end), [filesep, 'none.abf'], 9)
             continue
         end
+        
+        % open an ABF file for HS1, and if there's a different file for HS2
+        if i_ch == 1 || (i_ch == 2 && ~strcmpi(dat.info.fid.dcsteps_hs1, dat.info.fid.dcsteps_hs2))
+            ax = abfobj(dat.info.fid.(hs_fid));
+        end
+        
+        
+        % fill out the info struct
+        dat.info.sampRate.dcsteps = ax.head.sampRate;
+        dat.info.fileStartTime_24hrs = ax.head.uFileStartTimeMS ./ (60*60*1000);
+        
+        % figure out which channels were turned on, and set to Iclamp
+        Iclamp_idx = strcmpi(ax.head.recChUnits, 'mV');
+        secCh = cellfun(@any, regexpi(ax.head.recChNames, '_sec'));
+        Iclamp_idx = Iclamp_idx & ~secCh;
+        Iclamp_names = ax.head.recChNames(Iclamp_idx);
+        
+        
+        % extract raw voltage traces and spike times.
+        preTime_samps = ceil(dat.info.pretime.dcsteps .* dat.info.sampRate.dcsteps);
+        postTime_samps = ceil(dat.info.posttime.dcsteps .* dat.info.sampRate.dcsteps);
+        
+        
+        % make sure data are present for this recording channel. If not,
+        % continue to the next channel
+        HSname = sprintf('HS%d_Vm', i_ch);
+        HSpresent = strcmp(Iclamp_names, HSname);
+        assert(HSpresent(i_ch), 'ERROR: DC ABF file supplied, but data from HS could not be located')
+            
         
         % determine the magnitude of each sweep's current injection and
         % make a trial type dictionary
@@ -180,12 +190,12 @@ function dat = unpack_dc_injections(dat)
         crossing_on = [false(1, size(aboveThreshold,2)); diff(aboveThreshold, 1, 1) == 1];
         crossing_on = find(crossing_on == 1);
         assert(numel(crossing_on) == 2, 'ERROR: may not have correctly identified the start stop of Iclamp pulse')
-
+        
         idx_on = crossing_on(1);
         idx_off = crossing_on(2);
         
         stimWF = bsxfun(@minus, stimWF, mean(stimWF([idx_on-preTime_samps : idx_on-1], :),1)); % re-baseline now that you know when the stimulus came on
-                
+        
         quarter_time = round((idx_off - idx_on) .* 0.20);
         idx_Icmd_middle_on = idx_on + quarter_time;
         idx_Icmd_middle_off = idx_off - quarter_time;
@@ -213,7 +223,7 @@ function dat = unpack_dc_injections(dat)
         raw_Vm = permute(ax.dat(stim_idx, ax.idx.(HSname), :), [3,1,2]);
         baseline = mean(raw_Vm(:,1:preTime_samps), 2);
         delta_baseline = baseline - mean(baseline);
-        assert(~any(delta_baseline>5), 'ERROR: found a resting Vm that changed from sweep to sweep')
+        assert(~any(delta_baseline>7.5), sprintf('ERROR: file has Vm that changed from sweep to sweep.\n fid: %s', dat.info.fid.(hs_fid)))
         raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline); % adjust for small differences in resting Vm from sweep to sweep
         
         dat.dcsteps.Vm_raw{i_ch} = raw_Vm; % [Nsweeps x Ntime]
@@ -224,8 +234,10 @@ function dat = unpack_dc_injections(dat)
         %%%%%%%%%%%%%%%%
         raw_Vm = permute(ax.dat([idx_on:(idx_off-1)], ax.idx.(HSname), :), [3,1,2]); % subtracting off 1 samps to avoid issues with obo errors with turning off currents
         raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline);
-        N_20ms = round(20e-3 .* dat.info.sampRate.dcsteps);
-        steady_state_mV = mean(raw_Vm(:, [end-N_20ms : end]), 2);
+        tt = [0:size(raw_Vm,2)-1] ./ dat.info.sampRate.dcsteps;
+        l_window_asym = (tt >= 0.450)&(tt < 0.500);
+        assert(any(tt >= 0.499), 'ERROR: current injection was too short')
+        steady_state_mV = mean(raw_Vm(:, l_window_asym), 2);
         
         % store the I-V data, but only for sub threshold responses
         l_no_spikes = max(raw_Vm,[],2) < 0; % when the neuron overshoots zero
@@ -253,11 +265,11 @@ function dat = unpack_dc_injections(dat)
         dat.dcsteps.IVasym.Rin{i_ch} = MOhm;
         
         % compute the Vm response right after the DC injection starts (as a
-        % proxy for the 'peak' response). Average a window 12 to 16 ms
-        % after the injection starts. 
+        % proxy for the 'peak' response). Average a window 6 to 16 ms
+        % after the injection starts.
         tt = [0:size(raw_Vm,2)-1] ./ dat.info.sampRate.dcsteps;
-        l_window = (tt >= 0.012)&(tt < 0.016);
-        peak_mV = mean(raw_Vm(:, l_window),2);
+        l_window_peak = (tt >= 0.012)&(tt < 0.025);
+        peak_mV = mean(raw_Vm(:, l_window_peak),2);
         subthresh_cmd_pA = trl_Iclamp_cmd_pA(l_no_spikes);
         subthresh_resp_mV =  peak_mV(l_no_spikes);
         unique_subthresh_cmd = unique(subthresh_cmd_pA);
@@ -282,17 +294,48 @@ function dat = unpack_dc_injections(dat)
         dat.dcsteps.IVpeak.Rin{i_ch} = MOhm;
         
         % estimate the amount of Ih at the onset of the negative current
-        % injection
-        min_inj_cmd = min(unique_cmd_pA);
-        if min_inj_cmd <= -400
-            idx_asym = dat.dcsteps.IVasym.raw{i_ch}(:,1) == min_inj_cmd;
-            idx_peak = dat.dcsteps.IVpeak.raw{i_ch}(:,1) == min_inj_cmd;
-            Ih_sag = dat.dcsteps.IVpeak.raw{i_ch}(idx_peak,2) - dat.dcsteps.IVasym.raw{i_ch}(idx_asym,2);
-            dat.dcsteps.Ih_sag{i_ch} = [min_inj_cmd, Ih_sag];
-        else
-            dat.dcsteps.Ih_sag{i_ch} = [nan, nan];
+        % injection. Find the "true peak" of the Ih sag instead of using
+        % the IVpeak.raw values (which underestimate the Ih sag). Then find
+        % the saddle point (the most positive point) between there and the
+        % end of the injection. This counteracts any hyperpolarizing
+        % current that exists to work against the Ih.
+        l_window_peak = (tt >= 0.002)&(tt < 0.050);
+        n_samps_true_peak = round(ax.head.sampRate .*125e-6);
+        n_samps_smooth_kernel = round(ax.head.sampRate .* 20e-3);
+        l_sweeps_for_Ih_analysis = trl_Iclamp_cmd_pA < -400;
+        unique_pA_levels = unique(trl_Iclamp_cmd_pA(l_sweeps_for_Ih_analysis));
+        
+        for i_pa = 1:numel(unique_pA_levels)
+            
+            % average sweeps at the same current injection strength
+            l_sweeps = trl_Iclamp_cmd_pA == unique_pA_levels(i_pa);
+            tmp_raw = mean(raw_Vm(l_sweeps, :), 1);
+            
+            % average samps for true peak.
+            true_peak = min(tmp_raw(l_window_peak));
+            peak_idx = find(tmp_raw == true_peak, 1, 'first');
+            true_peak = mean( tmp_raw((peak_idx - n_samps_true_peak) : (peak_idx + n_samps_true_peak)) );
+            
+            % locate the saddle point b/w the true peak and the asympote point (500
+            % ms)
+            l_window_saddle = (tt > tt(round(n_samps_smooth_kernel))) & (tt <= 0.500); % smoothing affects the waveform, so ignore the first samples
+            smooth_raw = tmp_raw;
+            smooth_raw(1:peak_idx) = true_peak;
+            smooth_raw = filtfilt(ones(1, n_samps_smooth_kernel)./n_samps_smooth_kernel, 1, smooth_raw);
+            smooth_raw = smooth_raw(l_window_saddle);
+            [~, saddle_idx] = max(smooth_raw(n_samps_true_peak : end-n_samps_true_peak-1)); % watch for edge effects
+            saddle_idx = saddle_idx + n_samps_true_peak;
+            saddle_value = mean(smooth_raw((saddle_idx - n_samps_true_peak) : (saddle_idx + n_samps_true_peak)));
+            
+            
+            % store the data
+            dat.dcsteps.Ih_sag.pA{i_ch}(i_pa) = unique_pA_levels(i_pa);
+            dat.dcsteps.Ih_sag.peak_Vm{i_ch}(i_pa) = true_peak;
+            dat.dcsteps.Ih_sag.sag{i_ch}(i_pa) = true_peak - saddle_value;
+            dat.dcsteps.Ih_sag.Vm_asym{i_ch}(i_pa) = mean(tmp_raw(l_window_asym));
+            
         end
-     
+        
         % flag instances with holding current
         idx_secCh = ax.idx.(sprintf('HS%d_secIm', i_ch));
         sec_raw_pA = permute(ax.dat(:, idx_secCh, :), [3, 1, 2]);
@@ -304,7 +347,7 @@ function dat = unpack_dc_injections(dat)
         
         % estimate spike frequency accomodation
         
-    end
+    end % for i_ch
 
 end
 
@@ -326,7 +369,6 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
     
     
     if strncmpi(dat.info.fid.vclamp(end-8:end), [filesep,'none.abf'], 9)
-        warning('No Vclamp file for %s, site %s', dat.info.mouseName, dat.info.siteNum)
         return
     end
     fprintf('  Unpacking Vclamp trains\n')
@@ -435,7 +477,10 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             
             
             % analyze the snippets and determine the peak current (EPSC or IPSC)
-            psc_sign = sign(sum(mean(dat.expt.(condname).raw.snips{i_ch}(1,:,:),3)));
+            nsamps_latency = round(1.75e-3 .* dat.info.sampRate.vclamp);
+            nsamps_pulse = round(5.75e-3 .* dat.info.sampRate.vclamp);
+            sign_idx = (preTime_samps + nsamps_latency) : (preTime_samps + nsamps_pulse);
+            psc_sign = sign(sum(mean(dat.expt.(condname).raw.snips{i_ch}(1,sign_idx,:),3)));
             [peak_pA, peak_tt] = get_peak_psc(dat.expt.(condname).raw.snips{i_ch}, psc_sign, dat, 'vclamp');
             dat.expt.(condname).stats.latency{i_ch} = peak_tt;
             if psc_sign == 1  %IPSP
@@ -450,7 +495,10 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             else
                     error('unexpected psc_sign')
             end
-                      
+            
+            % compute the rise times
+            dat.expt.(condname).stats.rise_time{i_ch} = compute_rise_times(dat, psc_sign, i_ch, condname);
+
         end
 
     end
@@ -535,7 +583,6 @@ function dat = unpack_iclamp_trains(dat, exinfo, hidx) % added args are for swee
     % dat.iclamp.[stimType].pOnTimes: the time of each pulse (in seconds). Includes the recovery pulse
     
     if strncmpi(dat.info.fid.iclamp(end-8:end), [filesep,'none.abf'], 9)
-        warning('No Iclamp file for %s, site %s', dat.info.mouseName, dat.info.siteNum)
         return
     end
     fprintf('  Unpacking Iclamp trains\n')
@@ -669,14 +716,15 @@ function dat = unpack_iclamp_trains(dat, exinfo, hidx) % added args are for swee
             if psp_sign == -1  %IPSP
                     dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
                     dat.iclamp.(condname).stats.IPSPamp{i_ch} = peak_pA;
+                    warning('found an IPSP')
             elseif psp_sign == 1 %EPSP
                     dat.iclamp.(condname).stats.EPSPamp{i_ch} = peak_pA;
                     dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
-            elseif isnan(psp_sign)
+            elseif isnan(psp_sign) ||psp_sign == 0
                     dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
                     dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
-            else
-                    error('unexpected psc_sign')
+                    channel_is_defined = str2double(exinfo{hidx.(['IC_HS', num2str(i_ch), '_valid'])});
+                    assert(channel_is_defined == 0, 'ERROR: Channel is defined but psp sign is not identified')
             end
                       
         end
@@ -749,6 +797,39 @@ function [peak_pA, peak_tt] = get_peak_psc(snips, psc_sign, dat, METHOD)
     assert(~any(isnan(peak_pA(:))), 'ERROR: found some nans');
     assert(~any(isnan(peak_tt(:))), 'ERROR: found some nans');
         
+end
+
+function rise_times = compute_rise_times(dat, psc_sign, i_ch, condname)
+
+            % compute the 5-95% time time here. multipy the snips by the
+            % psc_sign to make everything positive.
+            Npulses = size(dat.expt.(condname).raw.snips{i_ch}, 1);
+            Nsweeps = size(dat.expt.(condname).raw.snips{i_ch}, 3);
+            rise_times = nan(Npulses,1,Nsweeps); % pre-allocate
+            for i_swp = 1:Nsweeps
+                for i_pulse = 1:Npulses
+                    if psc_sign == 1  %IPSP
+                        peak_val = dat.expt.(condname).stats.IPSCamp{i_ch}(i_pulse,:,i_swp);
+                    elseif psc_sign == -1 %EPSC
+                        peak_val = dat.expt.(condname).stats.EPSCamp{i_ch}(i_pulse,:,i_swp);
+                    else
+                        error('unexpected psc_sign')
+                    end
+                    wf = dat.expt.(condname).raw.snips{i_ch}(i_pulse,:,i_swp);
+                    wf = wf .* psc_sign; % make sure all the values are positive.
+                    peak_idx = (dat.info.pretime.vclamp + dat.expt.(condname).stats.latency{i_ch}(i_pulse,1,i_swp)) .* dat.info.sampRate.vclamp;
+                    peak_idx = round(peak_idx);
+                    laser_idx = round(dat.info.pretime.vclamp .* dat.info.sampRate.vclamp);
+                    idx_95 = find(wf(laser_idx:peak_idx) <= (peak_val .* 0.95), 1, 'last');
+                    idx_05 = find(wf(laser_idx:peak_idx) <= (peak_val .* 0.05), 1, 'last');
+                    if ~isempty(idx_95) && ~isempty(idx_05)
+                        rise_times(i_pulse,:,i_swp) = (idx_95 - idx_05) ./ dat.info.sampRate.vclamp;
+                    else
+                        rise_times(i_pulse,:,i_swp) = nan;
+                    end
+                end
+            end
+            
 end
 
 function name = make_condition_name(tdict, i_cond)

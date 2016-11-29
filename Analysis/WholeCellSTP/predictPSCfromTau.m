@@ -1,6 +1,6 @@
 function pred = predictPSCfromTau(pOnTimes, d, dTau, f, fTau, A0)
 
-% define the state variables
+% define the variables
 d1 = d(1);
 d2 = d(2);
 tau_d1 = dTau(1);
@@ -10,7 +10,7 @@ tau_f1 = fTau(1);
 
 pred = nan(numel(pOnTimes),1); % by convention, pulse numbers go DOWN columns, so pred needs to be a column vector
 
-% solve for the variables after the first spike
+% solve for the state variables after the first spike
 pred(1) = A0;
 D1 = 1 .* d1;
 D2 = 1 .* d2;

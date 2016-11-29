@@ -15,7 +15,7 @@ end
 %
 %%%%%%%%%%%%%%%%%%%%
 guesses = [0.6 0.8 .5 5 1.5 2]; 
-upperbound = [1 1 5 15 15 25]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
+upperbound = [1 1 5 15 50 25]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 lowbound = [0 0 0 0 0 0]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point');
 problem = createOptimProblem('fmincon', 'objective', @fittau_rms,...
@@ -28,7 +28,7 @@ switch method
     case 'multistart'
         ms = MultiStart;
         ms.UseParallel = 'always';
-        [fitparams, ~, exitflag] = run(ms, problem, 20);
+        [fitparams, ~, exitflag] = run(ms, problem, 25);
     case 'global'
         gs = GlobalSearch;
         [fitparams, ~, exitflag] = run(gs, problem);
@@ -78,7 +78,7 @@ fTau = fitparams(6);
         % high side are both bad.
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);
         err = cat(1, err{:});
-        err = sum(abs(log(err)));
+        err = sum(abs(log(err))); 
 
     end
 
@@ -104,11 +104,11 @@ function test_recovery() %#ok<*DEFNU>
     % this simulation just verifies that the dynamical variables (D1, D2,
     % F1) recover according to 1st order kinetics
 
-    D1o = 0.5;
-    D2o = 0.8;
+    D1o = 0.5; % i.e., 1 * d1
+    D2o = 0.8; % i.e., 1 * d2
     tau_d1 = 0.5;
     tau_d2 = 1;
-    F1o = 1.8;
+    F1o = 1.8;  % i.e., 1 + f1
     tau_f1 = 0.8;
     
     % The simulation assumes that a presynaptic action potential occurs at

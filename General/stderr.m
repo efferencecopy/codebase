@@ -7,7 +7,7 @@ function sem = stderr(data, dim)
 % C.Hass 2015
 
 if isempty(data)
-    sem = NaN;
+    sem = [];
     return
 end
 
@@ -24,7 +24,10 @@ if ~exist('dim', 'var')
     end
 end
 
-sigma = std(data, [], dim);
-N = size(data, dim);
+sigma = nanstd(data, [], dim);
+N = sum(~isnan(data), dim);
 
 sem = sigma ./ sqrt(N);
+
+% fix instances of N=1. Make the SEM for these points == NaN
+sem(N==1) = NaN;

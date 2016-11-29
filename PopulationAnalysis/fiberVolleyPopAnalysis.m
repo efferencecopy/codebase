@@ -5,7 +5,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 2;
+EXPTTYPE = 8;
 BRAINAREA = 'any';
 COMBINE_CHIEF = true;
 switch EXPTTYPE
@@ -5364,7 +5364,6 @@ end
 popage = [];
 for i_mouse = 1:Nmice
     
-    
     % pull out the opsin for this mouse, just select the first experiment
     idx_expt = strcmpi(in(:,1), uniqueMice{i_mouse});
     idx_expt = find(idx_expt, 1, 'first');
@@ -5375,13 +5374,17 @@ for i_mouse = 1:Nmice
         popage.(opsin).days_incubate = [];
         popage.(opsin).days_old = [];
     end
-   
+
+    i_mouse
+    if (info{idx_expt}.tf40_led.nbqx_apv_ttx.pAmp < 7)
+        continue
+    end
+    
    incubation = date_record(i_mouse) - date_inj(i_mouse);
    popage.(opsin).days_incubate = cat(1, popage.(opsin).days_incubate, incubation);
    
    daysold = date_record(i_mouse) - date_birth(i_mouse);
    popage.(opsin).days_old = cat(1, popage.(opsin).days_old, daysold);
-    
 end
 
 % print out the mean age at recording and days incubated
