@@ -287,20 +287,22 @@ end
 
 
 %
-% plot histograms of Input resistance measured three different ways
+% plot histograms of Input resistance measured two different ways
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%
 f=figure;
 Ngroups = (numel(groupdata.Rin_peak)) + 1; % adding one for "summary" cdf fig
 groupcolors = lines(Ngroups);
-f.Position = [276         333        1276         478];
-allNums = cat(1, groupdata.Rin_peak{:},  groupdata.Rin_asym{:});
-edges = linspace(min(allNums)-10, max(allNums)+10, 30);
+f.Position = [451   187   968   665];
+allNums = cat(1, groupdata.Rin_peak{:}, groupdata.Rin_asym{:});
+edges = linspace(min(allNums)-1, max(allNums)+1, 30);
 for i_group = 1:numel(groupdata.Rin_asym)
     
+    %
     % current clamp, peak vals
-    pltidx = sub2ind([3, Ngroups], 1, i_group);
-    subplot(Ngroups, 3, pltidx)
+    %%%%%%%%%%%%%%%%%%
+    pltidx = sub2ind([2, Ngroups], 1, i_group);
+    subplot(Ngroups, 2, pltidx)
     
     h = histogram(groupdata.Rin_peak{i_group}, edges);
     h.FaceColor = groupcolors(i_group,:);
@@ -316,9 +318,21 @@ for i_group = 1:numel(groupdata.Rin_asym)
         title('Rin (iClamp, peak)')
     end
     
+    % CDF summary
+    pltidx = sub2ind([2, Ngroups], 1, 3);
+    subplot(Ngroups, 2, pltidx), hold on,
+    N = histcounts(groupdata.Rin_peak{i_group}, edges);
+    N(end+1) = 0;
+    cdf_vals = cumsum(N)./sum(N);
+    stairs(edges, cdf_vals, '-', 'color', groupcolors(i_group,:))
+    xlabel('Input R (MOhm)')
+    ylabel('Proportion')
+    
+    %
     % current clamp asym vals
-    pltidx = sub2ind([3, Ngroups], 2, i_group);
-    subplot(Ngroups, 3, pltidx)
+    %%%%%%%%%%%%%%%%%%%%%%%%
+    pltidx = sub2ind([2, Ngroups], 2, i_group);
+    subplot(Ngroups, 2, pltidx)
     
     h = histogram(groupdata.Rin_asym{i_group}, edges);
     h.FaceColor = groupcolors(i_group,:);
@@ -331,7 +345,15 @@ for i_group = 1:numel(groupdata.Rin_asym)
         title('Rin (iClamp, asym)')
     end
     
-    % voltage clamp
+    % CDF summary
+    pltidx = sub2ind([2, Ngroups], 2, 3);
+    subplot(Ngroups, 2, pltidx), hold on,
+    N = histcounts(groupdata.Rin_asym{i_group}, edges);
+    N(end+1) = 0;
+    cdf_vals = cumsum(N)./sum(N);
+    stairs(edges, cdf_vals, '-', 'color', groupcolors(i_group,:))
+    xlabel('Input R (MOhm)')
+    ylabel('Proportion')
 end
 
 
@@ -342,15 +364,15 @@ end
 f=figure;
 Ngroups = (numel(groupdata.Rin_peak));
 groupcolors = lines(Ngroups);
-f.Position = [276         333        1276         478];
+f.Position = [466   464   835   440];
 for i_group = 1:numel(groupdata.Vrest)
     
     % Vrest
     allNums = cat(1, groupdata.Vrest{:});
     edges = linspace(min(allNums)-10, max(allNums)+10, 30);
     
-    pltidx = sub2ind([3, Ngroups], 1, i_group);
-    subplot(Ngroups, 3, pltidx)
+    pltidx = sub2ind([2, Ngroups], 1, i_group);
+    subplot(Ngroups, 2, pltidx)
     
     h = histogram(groupdata.Vrest{i_group}, edges);
     h.FaceColor = groupcolors(i_group,:);
@@ -370,8 +392,8 @@ for i_group = 1:numel(groupdata.Vrest)
     allNums = cat(1, groupdata.Depth{:});
     edges = linspace(min(allNums)-10, max(allNums)+10, 30);
     
-    pltidx = sub2ind([3, Ngroups], 2, i_group);
-    subplot(Ngroups, 3, pltidx)
+    pltidx = sub2ind([2, Ngroups], 2, i_group);
+    subplot(Ngroups, 2, pltidx)
     
     h = histogram(groupdata.Depth{i_group}, edges);
     h.FaceColor = groupcolors(i_group,:);
@@ -1117,8 +1139,8 @@ PLOTERRBAR = true;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'AM', 'chief';...
-    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'med', 'chief';...
+    'PY', 'L23', 'lat', 'chief';...
     };
 
 % initalize the population structure
@@ -1194,6 +1216,7 @@ for i_tf = 1:Ntfs
         
     end
 end
+
 
 
 
@@ -1316,7 +1339,6 @@ plotgroups = {
     %'all_pv', 'any', 'any', 'chief';...
     'PY', 'L23', 'AM', 'chief';...
     'PY', 'L23', 'LM', 'chief';...
-    %'PY', 'L23', 'LM', 'chief';...
     };
 
 allTFs = recovpop.TFsAllExpts;
@@ -1349,7 +1371,6 @@ for i_ex = 1:numel(dat)
         ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
         group_idx = groupMatcher(plotgroups, ch_attribs);
         if sum(group_idx) == 0; continue; end
-
         
         % pull out the waveform data
         %
@@ -1395,7 +1416,7 @@ f = figure;
 f.Units = 'Normalized';
 f.Position = [0.0865, 0, 0.3161, 1];
 f.Color = 'w';
-plotcolors = {'r', 'b', 'g'};
+plotcolors = {'r', 'b', 'g', 'k'};
 for i_group = 1:size(plotgroups, 1)
     
     for i_tf = 1:Ntfs
@@ -1437,6 +1458,7 @@ end
 for i_tf = 1:Ntfs
     subplot(Ntfs, 1, i_tf)
     ylim([-1.5, 0.2])
+    axis tight
     plt_train_tf = allTFs(i_tf);
     l_recov_exist = cellfun(@(x) ~isempty(x), groupdata.wfs{i_group}(i_tf,:));
     l_recov_exist(1) = []; % ignore the first array b/c it's not recov pulse
@@ -1452,7 +1474,7 @@ end
 
 TRAINSET = 'recovery';  % could be 'rit', 'recovery', 'all'
 PLOTTRAININGDATA = true;
-NORMALIZEDATA = true;
+NORMALIZEDATA = false;
 FITAVERAGEDATA = true;
 FITRECOVERYPULSE = false;
 
@@ -1469,7 +1491,7 @@ switch TRAINSET
 end
 
 
-for i_ex = 1:numel(dat)
+for i_ex = 38:numel(dat)
    clc
    hf = figure;
    hf.Units = 'Normalized';
@@ -1492,73 +1514,89 @@ for i_ex = 1:numel(dat)
        
        % make a mini dataset that's composed of only pOnTimes, EPSC amps,
        % and p1Amps
-       [pOnTimes, rawAmps, p1Amps, raw_xbar, raw_sem] = deal({});
+       %[pOnTimes, rawAmps, p1Amps, raw_xbar, raw_sem, ex_tdict] = deal({});
+       [training_data, xval_data] = deal(struct('pOnTimes', {{}}, 'rawAmps', {{}}, 'tdict', {[]}, 'unique_conds_rawAmps', {{}}));
        condnames = fieldnames(dat{i_ex}.expt);
-       l_trainingSet = isTrainingSet(condnames);
        for i_cond = 1:numel(condnames)
            
            % check to make sure there are data for this condition
            if isempty(dat{i_ex}.expt.(condnames{i_cond}).stats.EPSCamp{i_ch})
-               pOnTimes{i_cond} = [];
-               rawAmps{i_cond} = [];
-               raw_sem{i_cond} = [];
-               raw_xbar{i_cond} = [];
-               p1Amps{i_cond} = [];
                continue
            end
            
-           % grab pOnTimes
-           pOnTimes{i_cond} = dat{i_ex}.expt.(condnames{i_cond}).pOnTimes;
-           rawAmps{i_cond} = dat{i_ex}.expt.(condnames{i_cond}).stats.EPSCamp{i_ch};
+           % grab pOnTimes, raw EPSC amps, and tdict
+           pOnTimes = dat{i_ex}.expt.(condnames{i_cond}).pOnTimes;
+           rawAmps = dat{i_ex}.expt.(condnames{i_cond}).stats.EPSCamp{i_ch};
+           ex_tdict = dat{i_ex}.expt.(condnames{i_cond}).tdict;
            
            % delete the recovery pulse if need be
            if ~FITRECOVERYPULSE
                has_recov_pulse = dat{i_ex}.expt.(condnames{i_cond}).tdict(4) > 0;
                if has_recov_pulse
-                   pOnTimes{i_cond}(end) = [];
-                   rawAmps{i_cond} = rawAmps{i_cond}(1:end-1,1,:);
+                   pOnTimes(end) = [];
+                   rawAmps = rawAmps(1:end-1,1,:);
+                   ex_tdict(4) = 0; % set the recovery field to zero
                end
            end
            
-           % normalize to the p1amp_norm if need be
-           if NORMALIZEDATA
-               % norm to first pulse
-               rawAmps{i_cond} = bsxfun(@rdivide, rawAmps{i_cond}, rawAmps{i_cond}(1,:,:));
-               raw_sem{i_cond} = stderr(rawAmps{i_cond}, 3);
-               raw_xbar{i_cond} = mean(rawAmps{i_cond},3);
-               if FITAVERAGEDATA
-                   p1Amps{i_cond} = 1;
-               else
-                   p1Amps{i_cond} = ones(1, size(rawAmps{i_cond},3));
-               end
-               
+           % allocate the data to either the training or xval datasets
+           if isTrainingSet(condnames{i_cond})
+               training_data.pOnTimes = cat(1, training_data.pOnTimes, pOnTimes);
+               training_data.rawAmps = cat(1, training_data.rawAmps, rawAmps);
+               training_data.tdict = cat(1, training_data.tdict, ex_tdict);
            else
-               
-               % leave 'rawAmps' unchanged, but update these:
-               raw_sem{i_cond} = stderr(rawAmps{i_cond}, 3);
-               raw_xbar{i_cond} = mean(rawAmps{i_cond},3);
-               if FITAVERAGEDATA
-                   p1Amps{i_cond} = raw_xbar{i_cond}(1);
-               else
-                   trlNums = dat{i_ex}.expt.(condnames{i_cond}).realTrialNum{i_ch};
-                   smooth_p1 = dat{i_ex}.qc.p1amp_norm{i_ch}(trlNums);
-                   smooth_p1 = permute(smooth_p1, [1,3,2]);
-                   p1Amps{i_cond} = squeeze(smooth_p1);
-               end
-               
+               xval_data.pOnTimes = cat(1, xval_data.pOnTimes, pOnTimes);
+               xval_data.rawAmps = cat(1, xval_data.rawAmps, rawAmps);
+               xval_data.tdict = cat(1, xval_data.tdict, ex_tdict);
            end
-           
        end
        
-       % allocate the training data
-       [training_amps, training_pOnTimes, training_p1Amps] = deal({});
-       if FITAVERAGEDATA
-           training_amps = raw_xbar(l_trainingSet);
-       else
-           training_amps = rawAmps(l_trainingSet);
+       % Combine across unique conditions. This only makes a difference if
+       % there were multiple different recovery conditions within a single
+       % TF, AND the analysis is set up to ignore the recovery pulses...
+       training_data.unique_conds_tdict = unique(training_data.tdict, 'rows');
+       for i_cond = 1:size(training_data.unique_conds_tdict,1)
+           cond_inds = ismember(training_data.tdict, training_data.unique_conds_tdict(i_cond,:), 'rows');
+           training_data.unique_conds_rawAmps{i_cond} = cat(3, training_data.rawAmps{cond_inds}); % sweeps is 3rd dim
+           training_data.unique_conds_pOnTimes{i_cond} = training_data.pOnTimes{find(cond_inds, 1, 'first')};
        end
-       training_pOnTimes = pOnTimes(l_trainingSet);
-       training_p1Amps = p1Amps(l_trainingSet);
+       xval_data.unique_conds_tdict = unique(xval_data.tdict, 'rows');
+       for i_cond = 1:size(xval_data.unique_conds_tdict,1)
+           cond_inds = ismember(xval_data.tdict, xval_data.unique_conds_tdict(i_cond,:), 'rows');
+           xval_data.unique_conds_rawAmps{i_cond} = cat(3, xval_data.rawAmps{cond_inds}); % sweeps is 3rd dim
+           xval_data.unique_conds_pOnTimes{i_cond} = xval_data.pOnTimes{find(cond_inds, 1, 'first')};
+       end
+       
+       
+       % TODO: fix this, it needs a loop over unique tconds
+       % normalize to the p1amp_norm if need be
+       % TODO : put the normalization after the averaging.
+       % norm to first pulse
+       if NORMALIZEDATA
+           
+           rawAmps{i_cond} = bsxfun(@rdivide, rawAmps{i_cond}, rawAmps{i_cond}(1,:,:));
+           raw_sem{i_cond} = stderr(rawAmps{i_cond}, 3);
+           raw_xbar{i_cond} = mean(rawAmps{i_cond},3);
+           if FITAVERAGEDATA
+               p1Amps{i_cond} = 1;
+           else
+               p1Amps{i_cond} = ones(1, size(rawAmps{i_cond},3));
+           end
+           
+       else
+           % leave 'rawAmps' unchanged, but update these:
+           raw_sem{i_cond} = stderr(rawAmps{i_cond}, 3);
+           raw_xbar{i_cond} = mean(rawAmps{i_cond},3);
+           if FITAVERAGEDATA
+               p1Amps{i_cond} = raw_xbar{i_cond}(1);
+           else
+               trlNums = dat{i_ex}.expt.(condnames{i_cond}).realTrialNum{i_ch};
+               smooth_p1 = dat{i_ex}.qc.p1amp_norm{i_ch}(trlNums);
+               smooth_p1 = permute(smooth_p1, [1,3,2]);
+               p1Amps{i_cond} = squeeze(smooth_p1);
+           end
+           
+       end
        
        
        % if there were no training data, then move along,
@@ -1572,6 +1610,7 @@ for i_ex = 1:numel(dat)
            end
        end
        NtrainingSets = sum(l_trainingSet);
+
        
        % look for instances where there are pOnTimes but no data (could
        % happen if some sweeps get deleted from one HS but not the other.
@@ -1610,6 +1649,8 @@ for i_ex = 1:numel(dat)
        end
        
        % predict all the data
+       % TODO make a train_set and a crossval_set earlier (and here) so tha
+       % plotting doesn't require the l_training list
        pred = {};
        for i_cond = 1:numel(condnames)
            if ~isempty(rawAmps{i_cond})
@@ -1623,7 +1664,7 @@ for i_ex = 1:numel(dat)
        
        % plot the training or cross validation data set, and the prediction
        figure(hf)
-       if PLOTTRAININGDATA
+       if PLOTTRAININGDATA % TODO : instead of this construct I could have a plot_raw, plot_mod that gets assigned to the train or crossval
            l_condsToPlot = isTrainingSet(condnames);
        else
            l_condsToPlot = ~isTrainingSet(condnames);
