@@ -1,67 +1,62 @@
-function [d, f, dTau, fTau] = fitTau2STP(raw, pOnTimes, ~, method)
+function [fitparams, fval] = fit_vca_model(raw, pOnTimes, model)
 
 % inputs:
 %
 %  raw: The PSC amplitudes {cell array}
 %  pOnTimes: Stimulus times in seconds,  {cell array, one for each stim type}
-%  method:  'MultiStart', or 'GlobalSearch'
+%  model: a string indicating the number of facilitating and depressing
+%         terms. Examples: 'DF', 'DDF', 'DDFF'
 
-if isempty(raw) || isempty(pOnTimes)
-    error('No data were provided')
-end
+% check input args
+assert(~isempty(raw), 'ERROR: no data were supplied')
+assert(~isempty(pOnTimes), 'ERROR: no pulse times were supplied')
+check_vca_model(model); % will throw and error if there are problems
 
 %
 % find the best fitting STP parameters.
 %
 %%%%%%%%%%%%%%%%%%%%
-guesses = [0.6 0.8 .5 5 1.5 2]; 
-upperbound = [1 1 3 3 5 3]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
-lowbound = [0 0 0 0 0 0]; % [d1, d2, tau_d1, tau_d2, f1, tau_f1]
+% make a function called parse_model_coeffs that takes a vector of all
+% coefficients (like the one returned from generate_guesses_and_bounds or
+% from FMINUNC and returns vectors for D, F, tauD, tauF
+% 
+[guesses, upper_bounds, lower_bounds] = generate_vca_guesses_and_bounds(model);
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point',...  
-                               'TolFun', 1e-8,...
-                               'TolCon', 1e-8); 
-problem = createOptimProblem('fmincon', 'objective', @fittau_rms,...
+                               'TolFun', 1e-10,...
+                               'TolX',   1e-10,...
+                               'FinDiffRelStep', eps^(1/4),... % default is sqrt(eps) but use bigger for solving ODEs? 
+                               'FinDiffType', 'central'); % potentially better for ODE
+problem = createOptimProblem('fmincon', 'objective', @fit_vca_rms,...
                             'x0', guesses,...
-                            'lb', lowbound,...
-                            'ub', upperbound,...
+                            'lb', lower_bounds,...
+                            'ub', upper_bounds,...
                             'options', opts);
 
-switch method
-    case 'multistart'
-        ms = MultiStart;
-        ms.UseParallel = 'always';
-        ms.StartPointsToRun = 'all';
-        ms.TolFun = 0;
-        [fitparams, ~, exitflag] = run(ms, problem, 100);
-    case 'global'
-        gs = GlobalSearch;
-        [fitparams, ~, exitflag] = run(gs, problem);
-end
+
+ms = MultiStart;
+ms.UseParallel = 'always';
+ms.StartPointsToRun = 'bounds';
+ms.TolFun = 1e-8;
+ms.TolX = 1e-3;
+[fitparams, fval, exitflag] = run(ms, problem, 100);
 
 
-% assign the outputs
+% fix the fitparams if the output was junk
 if exitflag <= 0
     fitparams = nan(size(fitparams));
 end
-d = fitparams(1:2);
-dTau = fitparams(3:4);
-f = fitparams(5);
-fTau = fitparams(6);
 
 
 
-    function err = fittau_rms(params)
+    function err = fit_vca_rms(params)
 
-        k_d = params(1:2);
-        tau_d = params(3:4);
-        k_f = params(5);
-        tau_f = params(6);
+        [d, tau_d, f, tau_f] = parse_vca_model_coeffs(params, model);
 
         pred = cellfun(@(x) nan(size(x)), raw, 'uniformoutput', false);
         for i_cond = 1:numel(raw)
             for i_trl = 1:size(raw{i_cond}, 3)
                 A0 = raw{i_cond}(1,1,i_trl);
-                pred{i_cond}(:,1,i_trl) = predictPSCfromTau(pOnTimes{i_cond}, k_d, tau_d, k_f, tau_f, A0);
+                pred{i_cond}(:,1,i_trl) = predict_vca_psc(pOnTimes{i_cond}, d, tau_d, f, tau_f, A0);
             end
         end
 
