@@ -1762,6 +1762,142 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
 end
 
 
+%% MODEL SELECTION 1: BEST FITTING MODELS
+
+% plan: binarize the best fitting model according to the MSE, R2_adj, AIC.
+% Show a histogram of model types
+
+NORMALIZATION = 'probability'; % how to normalize the histos. can be 'probability', or 'count'
+
+
+% define a set of attributes for each analysis group
+% {CellType, Layer,  BrainArea,  OpsinType}
+% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
+plotgroups = {
+    'PY', 'L23', 'any', 'chief';...
+    'PY', 'L23', 'any', 'chronos';...
+    'all_som', 'L23', 'any', 'any';...
+    'all_pv', 'L23', 'any', 'any';...
+    };
+
+
+% initalize the aggregate datasets
+error_types = {'R2_train', 'R2_train_adj', 'AICc_train', 'MSE_train'};
+empty_arrays = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1).
+group_data = [];
+for i_err = 1:numel(error_types)
+    group_data.(error_types{i_err}) = empty_arrays;
+end
+
+% initialze an analysis-wide model order. Start as empty, then fill in on
+% the first looop. compare suscessive instances to this template
+model_order_template = {};
+
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, upper(dat{i_ex}.info.brainArea), dat{i_ex}.info.opsin}; % force the brain area to be uppercase
+        group_idx = groupMatcher(plotgroups, ch_attribs);
+        if sum(group_idx) == 0; continue; end
+        
+        % get & check the model order for this experiment. Make sure that
+        % the order is consistent from run to run
+        ex_model_order = cellfun(@(x) x.model, dat{i_ex}.stpfits.fit_results{i_ch}, 'uniformoutput', false);
+        if isempty(model_order_template)
+            model_order_template = ex_model_order;
+        else
+            model_matches = cellfun(@(x,y) strcmp(x,y), ex_model_order, model_order_template);
+            assert(all(model_matches), 'ERROR: inconsistent model types found');
+        end
+        
+        % concatenate data into the appropriate group for each of the error
+        % types. one row for each Neuron, one column for each model type.
+        for i_err = 1:numel(error_types)
+            
+            tmp_pop_array = group_data.(error_types{i_err}){group_idx}; % grab the existing group data
+            
+            tmp_ex_array = cellfun(@(x) x.(error_types{i_err}), dat{i_ex}.stpfits.fit_results{i_ch}); % err vals for all models
+            tmp_pop_array = cat(1, tmp_pop_array, tmp_ex_array);
+            
+            group_data.(error_types{i_err}){group_idx} = tmp_pop_array; % update the group data
+        end
+        
+        
+    end
+end
+
+
+%
+%  HISTOGRAMS OF BEST FITTING MODELS
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+f = figure;
+f.Position = [349          55        1152         913];
+for i_err = 1:numel(error_types)
+    
+    % loop over group types, make normalized histogram over models
+    normalized_histos = nan(size(plotgroups,2), numel(model_order_template)); % each row is a histogram over model types
+    legend_text = {};
+    
+    for i_group = 1:size(plotgroups,2)
+        
+        tmp_errs = group_data.(error_types{i_err}){i_group};
+        
+        % find the best fitting model
+        switch error_types{i_err}
+            case {'R2_train', 'R2_train_adj'}
+                [~, best_model] = max(tmp_errs, [] , 2); % index to best model
+            case {'MSE_train', 'AICc_train'}
+                [~, best_model] = min(tmp_errs, [] , 2); % index to best model
+        end
+        
+        % calculate the normalized histogram and put it in the population
+        % array
+        edges = (1:numel(model_order_template)+1)-0.5; % one bin for each model's index value
+        counts = histcounts(best_model, edges, 'Normalization', NORMALIZATION);
+        normalized_histos(i_group,:) = counts;
+        
+        legend_text{i_group} = sprintf('%s, %s, %s, %s', plotgroups{i_group, 1}, plotgroups{i_group, 2}, plotgroups{i_group, 3}, plotgroups{i_group, 4});
+    end
+    
+    h_ax = subplot(numel(error_types), 1, i_err);
+    bar(1:numel(model_order_template), normalized_histos');
+    h_ax.Box = 'off';
+    h_ax.XLim = [0.5, numel(model_order_template)+0.5];
+    h_ax.TickDir = 'out';
+    h_ax.Title.String = error_types{i_err};
+    h_ax.Title.Interpreter = 'none';
+    h_ax.YLabel.String = NORMALIZATION;
+    h_ax.XTickLabel = model_order_template;
+    if i_err == 1
+        h_leg = legend(legend_text);
+        h_leg.Location = 'Northwest';
+        h_leg.Interpreter = 'none';
+        h_leg.Box = 'off';
+    end
+    
+end
+
+
+
+%
+%  LINE SERIES OF AVERAGE R2 FOR EACH MODEL
+%   
+% R2 for most complex model should be superior to the others, so I'm
+% looking to verify this in order to assert that the models are getting fit
+% appropriately by my fitting routines (i.e., enough start points, good
+% start points, etc.)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% SUMMARY OF FIT PARAMETERS
