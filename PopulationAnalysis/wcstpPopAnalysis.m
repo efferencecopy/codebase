@@ -1763,9 +1763,7 @@ end
 
 
 %% MODEL SELECTION 1: BEST FITTING MODELS
-
-% plan: binarize the best fitting model according to the MSE, R2_adj, AIC.
-% Show a histogram of model types
+close all; clc;
 
 NORMALIZATION = 'probability'; % how to normalize the histos. can be 'probability', or 'count'
 
@@ -1776,16 +1774,17 @@ NORMALIZATION = 'probability'; % how to normalize the histos. can be 'probabilit
 plotgroups = {
     'PY', 'L23', 'any', 'chief';...
     'PY', 'L23', 'any', 'chronos';...
-    'all_som', 'L23', 'any', 'any';...
-    'all_pv', 'L23', 'any', 'any';...
+    'all_som', 'L23', 'any', 'chief';...
+    'all_pv', 'L23', 'any', 'chief';...
     };
-
+N_groups = size(plotgroups,2);
 
 % initalize the aggregate datasets
 error_types = {'R2_train', 'R2_train_adj', 'AICc_train', 'MSE_train'};
+N_error_types = numel(error_types);
 empty_arrays = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1).
 group_data = [];
-for i_err = 1:numel(error_types)
+for i_err = 1:N_error_types
     group_data.(error_types{i_err}) = empty_arrays;
 end
 
@@ -1813,6 +1812,7 @@ for i_ex = 1:numel(dat)
         ex_model_order = cellfun(@(x) x.model, dat{i_ex}.stpfits.fit_results{i_ch}, 'uniformoutput', false);
         if isempty(model_order_template)
             model_order_template = ex_model_order;
+            N_models = numel(model_order_template);
         else
             model_matches = cellfun(@(x,y) strcmp(x,y), ex_model_order, model_order_template);
             assert(all(model_matches), 'ERROR: inconsistent model types found');
@@ -1820,7 +1820,7 @@ for i_ex = 1:numel(dat)
         
         % concatenate data into the appropriate group for each of the error
         % types. one row for each Neuron, one column for each model type.
-        for i_err = 1:numel(error_types)
+        for i_err = 1:N_error_types
             
             tmp_pop_array = group_data.(error_types{i_err}){group_idx}; % grab the existing group data
             
@@ -1839,16 +1839,16 @@ end
 %  HISTOGRAMS OF BEST FITTING MODELS
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 f = figure;
 f.Position = [349          55        1152         913];
-for i_err = 1:numel(error_types)
+plt_clrs = parula(N_groups);
+for i_err = 1:N_error_types
     
     % loop over group types, make normalized histogram over models
-    normalized_histos = nan(size(plotgroups,2), numel(model_order_template)); % each row is a histogram over model types
+    normalized_histos = nan(N_groups, N_models); % each row is a histogram over model types
     legend_text = {};
     
-    for i_group = 1:size(plotgroups,2)
+    for i_group = 1:N_groups
         
         tmp_errs = group_data.(error_types{i_err}){i_group};
         
@@ -1862,17 +1862,21 @@ for i_err = 1:numel(error_types)
         
         % calculate the normalized histogram and put it in the population
         % array
-        edges = (1:numel(model_order_template)+1)-0.5; % one bin for each model's index value
+        edges = (1:N_models+1)-0.5; % one bin for each model's index value
         counts = histcounts(best_model, edges, 'Normalization', NORMALIZATION);
         normalized_histos(i_group,:) = counts;
         
-        legend_text{i_group} = sprintf('%s, %s, %s, %s', plotgroups{i_group, 1}, plotgroups{i_group, 2}, plotgroups{i_group, 3}, plotgroups{i_group, 4});
+        legend_text{i_group} = sprintf('%s, %s, %s, %s, N=%d', plotgroups{i_group, 1}, plotgroups{i_group, 2}, plotgroups{i_group, 3}, plotgroups{i_group, 4}, size(group_data.(error_types{i_err}){i_group},1));
     end
     
-    h_ax = subplot(numel(error_types), 1, i_err);
-    bar(1:numel(model_order_template), normalized_histos');
+    h_ax = subplot(N_error_types, 1, i_err);
+    set(gca, 'ColorOrder', plt_clrs);
+    h_bar = bar(1:N_models, normalized_histos');
+    for i_group = 1:N_groups
+        h_bar(i_group).FaceColor = plt_clrs(i_group,:);
+    end
     h_ax.Box = 'off';
-    h_ax.XLim = [0.5, numel(model_order_template)+0.5];
+    h_ax.XLim = [0.5, N_models+0.5];
     h_ax.TickDir = 'out';
     h_ax.Title.String = error_types{i_err};
     h_ax.Title.Interpreter = 'none';
@@ -1889,7 +1893,7 @@ end
 
 
 
-%
+% 
 %  LINE SERIES OF AVERAGE R2 FOR EACH MODEL
 %   
 % R2 for most complex model should be superior to the others, so I'm
@@ -1897,7 +1901,51 @@ end
 % appropriately by my fitting routines (i.e., enough start points, good
 % start points, etc.)
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+f = figure;
+f.Position = [349          55        1152         913];
+for i_err = 1:N_error_types
+    
+    % loop over group types, aggregating the mean of the raw values
+    legend_text = {};
+    h_line = [];
+    for i_group = 1:N_groups
+        
+        tmp_errs = group_data.(error_types{i_err}){i_group}; % one row per neuron, one column per model
+        
+        % find the best fitting model
+        switch error_types{i_err}
+            case {'R2_train', 'R2_train_adj', 'MSE_train'}
+                % no special treatment yet for these error types.
+            case {'AICc_train'}
+                tmp_errs = bsxfun(@minus, tmp_errs, min(tmp_errs,[],2));
+        end
+        
+        h_ax = subplot(N_error_types, 1, i_err);
+        hold on,
+        h_line(i_group) = my_errorbar(1:N_models, mean(tmp_errs,1), stderr(tmp_errs, 1), 'color', plt_clrs(i_group, :), 'linewidth', 2);
+        
+        legend_text{i_group} = sprintf('%s, %s, %s, %s', plotgroups{i_group, 1}, plotgroups{i_group, 2}, plotgroups{i_group, 3}, plotgroups{i_group, 4});
+    end
+    
+    
+    h_ax.Box = 'off';
+    h_ax.XLim = [0.5, N_models+0.5];
+    h_ax.TickDir = 'out';
+    h_ax.Title.String = error_types{i_err};
+    h_ax.Title.Interpreter = 'none';
+    h_ax.YLabel.String = 'err value';
+    h_ax.XTick = 1:N_models;
+    h_ax.XTickLabel = model_order_template;
+    if i_err == 1
+        h_leg = legend(h_line, legend_text);
+        h_leg.Location = 'Southeast';
+        h_leg.Interpreter = 'none';
+        h_leg.Box = 'off';
+    end
+    
+end
+
 
 
 %% SUMMARY OF FIT PARAMETERS
