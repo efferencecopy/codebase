@@ -7,6 +7,10 @@ function [fitparams, fval] = fit_vca_model(raw, pOnTimes, model)
 %  model: a string indicating the number of facilitating and depressing
 %         terms. Examples: 'DF', 'DDF', 'DDFF'
 
+% assert an ERR_TYPE
+ERR_TYPE = 'RMS'; % can be 'RMS' or 'LnQ'
+
+
 % check input args
 assert(~isempty(raw), 'ERROR: no data were supplied')
 assert(~isempty(pOnTimes), 'ERROR: no pulse times were supplied')
@@ -21,12 +25,16 @@ check_vca_model(model); % will throw and error if there are problems
 % from FMINUNC and returns vectors for D, F, tauD, tauF
 % 
 [guesses, upper_bounds, lower_bounds] = generate_vca_guesses_and_bounds(model);
+N_pts_per_dim = 3;
+N_cust_start_points = N_pts_per_dim .^ numel(model)
+%custpts = get_vca_startpoints(lower_bounds, upper_bounds, N_pts_per_dim);
+N_start_points = max([N_cust_start_points, 25]); % a minimum of 100 start points;
+N_start_points = min([N_start_points, 200]); % a maximum of 5000 start points
+
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point',...  
-                               'TolFun', 1e-10,...
-                               'TolX',   1e-10,...
-                               'FinDiffRelStep', eps^(1/4),... % default is sqrt(eps) but use bigger for solving ODEs? 
-                               'FinDiffType', 'central'); % potentially better for ODE
-problem = createOptimProblem('fmincon', 'objective', @fit_vca_rms,...
+                               'TolFun', 1e-8,...
+                               'TolX',   1e-8); % default is sqrt(eps) 
+problem = createOptimProblem('fmincon', 'objective', @fit_vca_err,...
                             'x0', guesses,...
                             'lb', lower_bounds,...
                             'ub', upper_bounds,...
@@ -35,10 +43,7 @@ problem = createOptimProblem('fmincon', 'objective', @fit_vca_rms,...
 
 ms = MultiStart;
 ms.UseParallel = 'always';
-ms.StartPointsToRun = 'bounds';
-ms.TolFun = 1e-8;
-ms.TolX = 1e-3;
-[fitparams, fval, exitflag] = run(ms, problem, 100);
+[fitparams, fval, exitflag, output, manymins] = run(ms, problem, N_start_points);
 
 
 % fix the fitparams if the output was junk
@@ -48,7 +53,8 @@ end
 
 
 
-    function err = fit_vca_rms(params)
+
+    function err = fit_vca_err(params)
 
         [d, tau_d, f, tau_f] = parse_vca_model_coeffs(params, model);
 
@@ -63,8 +69,12 @@ end
         % pool the errors across pulse train types. Ingore the first pulse
         % (becuse the error is artifactually = zero). Do some error
         % checking along the way.
-        err = cellfun(@(x,y) abs(log(x./y)), raw, pred, 'uniformoutput', false); % log of ratios
-        %err = cellfun(@(x,y) (x-y).^2,  raw, pred, 'uniformoutput', false); % SSE
+        switch ERR_TYPE
+            case 'LnQ'
+                err = cellfun(@(x,y) abs(log(x./y)), raw, pred, 'uniformoutput', false); % log of ratios
+            case 'RMS'
+                err = cellfun(@(x,y) (x-y).^2,  raw, pred, 'uniformoutput', false); % squared error
+        end
         sizeMatch = cellfun(@(x,y) numel(x)==numel(y), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
         assert(all(sizeMatch), 'ERROR: unexpected dimensions after step 1')
         
@@ -77,7 +87,12 @@ end
         % high side are both bad.
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);
         err = cat(1, err{:});
-        err = sum(err); 
+        switch ERR_TYPE
+            case 'LnQ'
+                err = sum(err); % for log of ratios
+            case 'RMS'
+                err = sqrt(mean(err)); % for RMS error
+        end
 
     end
 
