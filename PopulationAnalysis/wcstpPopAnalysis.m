@@ -1878,6 +1878,7 @@ for i_err = 1:N_error_types
     h_ax.Box = 'off';
     h_ax.XLim = [0.5, N_models+0.5];
     h_ax.TickDir = 'out';
+    h_ax.FontSize = 14;
     h_ax.Title.String = error_types{i_err};
     h_ax.Title.Interpreter = 'none';
     h_ax.YLabel.String = NORMALIZATION;
@@ -1932,6 +1933,7 @@ for i_err = 1:N_error_types
     h_ax.Box = 'off';
     h_ax.XLim = [0.5, N_models+0.5];
     h_ax.TickDir = 'out';
+    h_ax.FontSize = 14;
     h_ax.Title.String = error_types{i_err};
     h_ax.Title.Interpreter = 'none';
     h_ax.YLabel.String = 'err value';
@@ -1979,16 +1981,16 @@ for i_ex = 1:numel(dat)
         if sum(group_idx) == 0; continue; end
         
         % add data to the appropriate group data array
-        tmp_params = dat{i_ex}.stpfits.modelParams{i_ch}; % [d, f, dTau, fTau]
+        tmp_params = dat{i_ex}.stpfits.fit_results{i_ch}{1}.params; % [d, dTau, f, fTau]
         groupdata_fit_params{group_idx} = cat(1, groupdata_fit_params{group_idx}, tmp_params);
         
-        tmp_train_R2 = dat{i_ex}.stpfits.R2.training{i_ch};
-        groupdata_training_R2{group_idx} = cat(1, groupdata_training_R2{group_idx}, tmp_train_R2);
-        
-        tmp_xval_R2 = dat{i_ex}.stpfits.R2.crossvalid{i_ch};
-        groupdata_xval_R2{group_idx} = cat(1, groupdata_xval_R2{group_idx}, tmp_xval_R2);
-        
-        
+%         tmp_train_R2 = dat{i_ex}.stpfits.R2.training{i_ch}(6);
+%         groupdata_training_R2{group_idx} = cat(1, groupdata_training_R2{group_idx}, tmp_train_R2);
+%         
+%         tmp_xval_R2 = dat{i_ex}.stpfits.R2.crossvalid{i_ch}(6);
+%         groupdata_xval_R2{group_idx} = cat(1, groupdata_xval_R2{group_idx}, tmp_xval_R2);
+%         
+%         
     end
 end
 
@@ -1998,7 +2000,7 @@ plotcolors = {'r', 'b', 'g'};
 
 figure, hold on,
 for i_group = 1:size(plotgroups,1)
-    tmp_dat = groupdata_fit_params{i_group}(:,[1,2,4,5,3,6]); % now ordered [d, dTau, f, fTau]
+    tmp_dat = groupdata_fit_params{i_group};
     
     % fix the order of the depressing terms. small first
     for ii = 1:size(tmp_dat,1)
@@ -2083,7 +2085,7 @@ for i_ex = 1:numel(dat)
         
         % make a smooth manifold for this neuron.
         % Assume TF = 10 : 50;
-        params = dat{i_ex}.stpfits.modelParams{i_ch};
+        params = dat{i_ex}.stpfits.fit_results{i_ch}{1}.params;
         isi_ms = fliplr([1000/50 : 1 : 1000/10]);
         NumPulses = 10;
         
@@ -2095,11 +2097,11 @@ for i_ex = 1:numel(dat)
         for i_isi = 1:numel(isi_ms)
             tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*NumPulses)-1;
             tmp_pOntimes_sec = tmp_pOntimes_ms ./ 1000;
-            smoothManifold(:,i_isi) = predictPSCfromTau(tmp_pOntimes_sec, params(1:2), params(4:5), params(3), params(6), A0);
+            smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, params(1:2), params(3:4), params(5), params(6), A0);
         end
         pprpop.smoothManifold{i_ex}{i_ch} = smoothManifold;
         pprpop.smoothManifold_isi{i_ex}{i_ch} = isi_ms;
-        pprpop.R2{i_ex}{i_ch} = dat{i_ex}.stpfits.R2.training{i_ch};
+        %pprpop.R2{i_ex}{i_ch} = dat{i_ex}.stpfits.R2.training{i_ch};
         
     end
     
