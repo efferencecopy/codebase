@@ -158,20 +158,18 @@ function dat = unpack_dc_injections(dat)
         Iclamp_idx = strcmpi(ax.head.recChUnits, 'mV');
         secCh = cellfun(@any, regexpi(ax.head.recChNames, '_sec'));
         Iclamp_idx = Iclamp_idx & ~secCh;
-        Iclamp_names = ax.head.recChNames(Iclamp_idx);
         
+        % make sure data are present for this recording channel. If not,
+        % continue to the next channel
+        Iclamp_name_is_HS_name = cellfun(@(x) ~isempty(regexpi(x,sprintf('HS%d_', i_ch))), ax.head.recChNames);
+        HSpresent = any(Iclamp_name_is_HS_name & Iclamp_idx);
+        assert(HSpresent, 'ERROR: DC ABF file supplied, but data from HS could not be located')
+        HSname = sprintf('HS%d_Vm', i_ch);
         
         % extract raw voltage traces and spike times.
         preTime_samps = ceil(dat.info.pretime.dcsteps .* dat.info.sampRate.dcsteps);
         postTime_samps = ceil(dat.info.posttime.dcsteps .* dat.info.sampRate.dcsteps);
-        
-        
-        % make sure data are present for this recording channel. If not,
-        % continue to the next channel
-        HSname = sprintf('HS%d_Vm', i_ch);
-        HSpresent = strcmp(Iclamp_names, HSname);
-        assert(HSpresent(i_ch), 'ERROR: DC ABF file supplied, but data from HS could not be located')
-            
+
         
         % determine the magnitude of each sweep's current injection and
         % make a trial type dictionary
@@ -343,9 +341,83 @@ function dat = unpack_dc_injections(dat)
         sec_raw_pA = mean(sec_raw_pA, 2);
         dat.dcsteps.pA_holding{i_ch} = [min(sec_raw_pA), max(sec_raw_pA)];
         
-        % estiamate the spike threshold
         
-        % estimate spike frequency accomodation
+        %
+        % estimate spike f-I relationship. Need to get spike rate, and Icmd
+        %%%%%%%%%%
+        raw_Vm = permute(ax.dat([idx_on:idx_off], ax.idx.(HSname), :), [3,1,2]); % subtracting off 1 samps to avoid issues with obo errors with turning off currents
+        raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline);
+        above_zero_mv_cross_up = [false(size(raw_Vm,1), 1), diff(raw_Vm > 0, 1, 2)==1];
+        n_spikes = sum(above_zero_mv_cross_up,2);
+        total_time = size(raw_Vm,2) ./ dat.info.sampRate.dcsteps;
+        spike_rate = n_spikes ./ total_time;
+        fi_dat = [];
+        for pA = unique(trl_Iclamp_cmd_pA)
+            l_trl = trl_Iclamp_cmd_pA == pA;
+            fi_dat = cat(1, fi_dat, [pA, mean(spike_rate(l_trl))]);
+        end
+        dat.dcsteps.fi_curve{i_ch} = fi_dat;
+        
+        
+        %
+        % estiamate the spike threshold
+        %%%%%%%%%%%%
+        dvdt = [zeros(size(raw_Vm,1),1), diff(raw_Vm, 1, 2)];
+        max_dvdt = max(dvdt, [], 2);
+        dvdt_thresh = 0.03 .* max_dvdt;
+        ms2_in_samps = round(0.002 .* dat.info.sampRate.dcsteps);
+        ms3_in_samps = round(0.003 .* dat.info.sampRate.dcsteps);
+        thresholds_first_last = nan(size(raw_Vm,1), 2);
+        resets_first_last = nan(size(raw_Vm,1), 2);
+        for i_trl = 1:size(raw_Vm,1)
+            
+            spike_idx = [false, diff(raw_Vm(i_trl,:)>0)==1];
+            tmp_spike_thresholds = [];
+            tmp_spike_reset = [];
+            if any(spike_idx)
+                trl_dvdt = dvdt(i_trl,:);
+                spike_idx = find(spike_idx);
+                for i_spk = 1:numel(spike_idx)
+                    % get spike thresholds
+                    first_samp = max([1, spike_idx(i_spk)-ms2_in_samps]);
+                    spk_dvdt = trl_dvdt(first_samp : spike_idx(i_spk));
+                    spk_raw_Vm = raw_Vm(i_trl, first_samp : spike_idx(i_spk));
+                    thresh_idx = find(spk_dvdt>dvdt_thresh(i_trl), 1, 'first');
+                    tmp_spike_thresholds = cat(1, tmp_spike_thresholds, spk_raw_Vm(thresh_idx));
+                    
+                    % get spike reset Vm
+                    if  (i_spk < numel(spike_idx)) || (i_spk == 1)
+                        if spike_idx(i_spk)+ms3_in_samps > size(raw_Vm,2)
+                            continue % probably not enough data to estimate depth of AHP
+                        end
+                        spk_raw_Vm = raw_Vm(i_trl, spike_idx(i_spk) : spike_idx(i_spk)+ms3_in_samps);
+                        tmp_spike_reset = cat(1, tmp_spike_reset, min(spk_raw_Vm));
+                    end
+                end
+            end
+            
+            % compute trial wide stats
+            if ~isempty(tmp_spike_thresholds)
+                thresholds_first_last(i_trl,1) = tmp_spike_thresholds(1);
+                resets_first_last(i_trl,1) = tmp_spike_reset(1);
+            end
+            if numel(tmp_spike_thresholds)>2
+                thresholds_first_last(i_trl,2) = tmp_spike_thresholds(end);
+                resets_first_last(i_trl,2) = tmp_spike_reset(end);
+            end
+        end
+        
+        % aggregate Vthresh and Vreset data across Icmd conditions, keeping
+        % track of first/last spike
+        Vthresh_dat = [];
+        Vreset_dat = [];
+        for pA = unique(trl_Iclamp_cmd_pA)
+            l_trl = trl_Iclamp_cmd_pA == pA;
+            Vthresh_dat = cat(1, Vthresh_dat, [pA, nanmean(thresholds_first_last(l_trl,:),1)]);
+            Vreset_dat = cat(1, Vreset_dat, [pA, nanmean(resets_first_last(l_trl,:),1)]);
+        end
+        dat.dcsteps.Vthresh{i_ch} = Vthresh_dat;
+        dat.dcsteps.Vreset{i_ch} = Vreset_dat;
         
     end % for i_ch
 

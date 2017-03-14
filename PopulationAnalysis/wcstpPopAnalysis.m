@@ -2,12 +2,9 @@
 
 fin
 
-GL_SAVE_FIGURE = false;
-GL_FIG_DIRECTORY = [GL_DATPATH(1:end-11), filesep, 'wcstp_figures'];
-
 
 % decide what experiment to run
-EXPTTYPE = 2;
+EXPTTYPE = 4;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -85,18 +82,19 @@ end
 %
 dat = {};
 Nexpts = numel(attributes);
+% 
+% pool = gcp('nocreate');
+% if isempty(pool)
+%     pool = parpool(25);
+% end
 
-pool = gcp('nocreate');
-if isempty(pool)
-    pool = parpool(25);
-end
-
-
-parfor i_ex_par = 1:Nexpts
+profile on
+for i_ex_par = 1:Nexpts
     dat{i_ex_par} = wcstp_compile_data(attributes{i_ex_par}, hidx, params);
 end
 
 fprintf('All done importing data\n')
+profile viewer
 
 %% QULAITY CONTROL PLOTS
 
@@ -209,21 +207,7 @@ for i_ex = 1:numel(dat)
     end
     drawnow
     
-    if GL_SAVE_FIGURE
-        
-        % cd to the correct directory
-        cd(GL_FIG_DIRECTORY)
-        d = dir;
-        mouse_dir_exists = any(strcmpi(structcat(d, 'name'), dat{i_ex}.info.mouseName));
-        if ~mouse_dir_exists
-            mkdir('./', dat{i_ex}.info.mouseName)
-        end
-        cd([GL_FIG_DIRECTORY, filesep, dat{i_ex}.info.mouseName])
-        
-        % save the figure
-        print('quality_control.eps', '-depsc')
-        
-    end
+
     
 end
 
@@ -587,6 +571,182 @@ end
 xlabel('Membrane Potential At Sag Peak (mV)')
 ylabel('Sag Rebound (mV)')
 
+%% SUMMARY OF SPIKES: THRESHOLDS, RESET, F-I CURVES
+
+
+close all; clc
+
+trl_cutoff_num = 10;
+
+% define a set of attributes for each analysis group
+% {CellType, Layer,  BrainArea,  OpsinType}
+% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
+plotgroups = {
+    'PY', 'L23', 'med', 'any';...
+    'PY', 'L23', 'lat', 'any';...
+    %'all_pv', 'any', 'any', 'any';...
+    %'all_som', 'any', 'any', 'any';...
+    };
+
+groupdata.Vthresh = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1).
+groupdata.Vreset = repmat({[]}, 1, size(plotgroups, 1));
+groupdata.fi = repmat({[]}, 1, size(plotgroups, 1));
+
+Ngroups = (numel(groupdata.Vthresh));
+groupcolors = lines(Ngroups);
+
+for i_ex = 1:numel(dat)
+    
+    for i_ch = 1:2
+        
+        % check to make sure this neuron was defined
+        hs_name = sprintf('dcsteps_hs%d', i_ch);
+        isvalid = ~strncmp(dat{i_ex}.info.fid.(hs_name)(end-8:end), [filesep, 'none.abf'], 9);
+        if ~isvalid
+            continue
+        end
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
+        group_idx = groupMatcher(plotgroups, ch_attribs);
+        if sum(group_idx) == 0; continue; end
+        
+        % add the statistics to the appropriate cell array
+        groupdata.Vthresh{group_idx} = cat(1, groupdata.Vthresh{group_idx}, dat{i_ex}.dcsteps.Vthresh(i_ch));
+        groupdata.Vreset{group_idx} = cat(1, groupdata.Vreset{group_idx}, dat{i_ex}.dcsteps.Vreset(i_ch));
+        groupdata.fi{group_idx} = cat(1, groupdata.fi{group_idx}, dat{i_ex}.dcsteps.fi_curve(i_ch));
+    end
+end
+
+
+% fix the data so that the pA is on a consistent latice
+for i_group = 1:Ngroups
+    
+    tmp_vthresh_data = groupdata.Vthresh{i_group};
+    tmp_vreset_data = groupdata.Vreset{i_group};
+    tmp_fi_data = groupdata.fi{i_group};
+    
+    N_neurons = numel(groupdata.Vthresh{i_group});
+    all_pA = [];
+    for i_neuron = 1:N_neurons
+        pA_thresh = tmp_vthresh_data{i_neuron}(:,1);
+        pA_reset = tmp_vreset_data{i_neuron}(:,1);
+        pA_fi = tmp_fi_data{i_neuron}(:,1);
+        assert(all(pA_thresh==pA_reset))
+        assert(all(pA_thresh==pA_fi))
+        all_pA = cat(1, all_pA, pA_thresh);
+    end
+    all_pA = unique(round(all_pA, -1));
+    
+    % reorganize the data [Nneurons, NpA]. One for first, one for last
+    [out_vthresh_first, out_vthresh_last] = deal(nan(N_neurons, numel(all_pA)));
+    [out_vreset_first, out_vreset_last] = deal(nan(N_neurons, numel(all_pA)));
+    out_fi_data = nan(N_neurons, numel(all_pA));
+    for i_neuron = 1:N_neurons
+       for i_pA = 1:numel(tmp_vthresh_data{i_neuron}(:,1));
+           idx_pA = round(tmp_vthresh_data{i_neuron}(i_pA, 1), -1) == all_pA;
+           out_vthresh_first(i_neuron, idx_pA) = tmp_vthresh_data{i_neuron}(i_pA, 2);
+           out_vthresh_last(i_neuron, idx_pA) = tmp_vthresh_data{i_neuron}(i_pA, 3);
+           out_vreset_first(i_neuron, idx_pA) = tmp_vreset_data{i_neuron}(i_pA, 2);
+           out_vreset_last(i_neuron, idx_pA) = tmp_vreset_data{i_neuron}(i_pA, 3);
+           out_fi_data(i_neuron, idx_pA) = tmp_fi_data{i_neuron}(i_pA, 2);
+       end
+    end
+    
+    groupdata.Vthresh_ordered_first{i_group} = out_vthresh_first;
+    groupdata.Vthresh_ordered_last{i_group} = out_vthresh_last;
+    groupdata.Vreset_ordered_first{i_group} = out_vreset_first;
+    groupdata.Vreset_ordered_last{i_group} = out_vreset_last;
+    groupdata.fi_ordered{i_group} = out_fi_data;
+    groupdata.pA_cmd{i_group} = all_pA;
+    
+end
+
+
+
+% first the spike thresholds
+figure, hold on,
+for i_group = 1:Ngroups
+    
+    % first spike
+    tmp_dat = groupdata.Vthresh_ordered_first{i_group};
+    tmp_pa = groupdata.pA_cmd{i_group};
+    N = sum(~isnan(tmp_dat),1);
+    
+    l_N_enough = N>= trl_cutoff_num;
+    xbar = nanmean(tmp_dat(:,l_N_enough), 1);
+    sem = stderr(tmp_dat(:,l_N_enough), 1);
+    plt_pA = tmp_pa(l_N_enough);
+    
+    shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    
+    % last spike
+    tmp_dat = groupdata.Vthresh_ordered_last{i_group};
+    tmp_pa = groupdata.pA_cmd{i_group};
+    N = sum(~isnan(tmp_dat),1);
+    
+    l_N_enough = N>=trl_cutoff_num;
+    xbar = nanmean(tmp_dat(:,l_N_enough), 1);
+    sem = stderr(tmp_dat(:,l_N_enough), 1);
+    plt_pA = tmp_pa(l_N_enough);
+    
+    shadedErrorBar(plt_pA, xbar, sem, {'--', 'color', groupcolors(i_group,:)});
+    
+end
+set(gca, 'ylim', [-46, -14]);
+xlabel('Current injection (pA)')
+ylabel('Avg Spike Threshold (mV)')
+
+% second, AHP reset Vm
+figure, hold on,
+for i_group = 1:Ngroups
+    
+    % first spike
+    tmp_dat = groupdata.Vreset_ordered_first{i_group};
+    tmp_pa = groupdata.pA_cmd{i_group};
+    N = sum(~isnan(tmp_dat),1);
+    
+    l_N_enough = N>= trl_cutoff_num;
+    xbar = nanmean(tmp_dat(:,l_N_enough), 1);
+    sem = stderr(tmp_dat(:,l_N_enough), 1);
+    plt_pA = tmp_pa(l_N_enough);
+    
+    shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    
+    % last spike
+    tmp_dat = groupdata.Vreset_ordered_last{i_group};
+    tmp_pa = groupdata.pA_cmd{i_group};
+    N = sum(~isnan(tmp_dat),1);
+    
+    l_N_enough = N>=trl_cutoff_num;
+    xbar = nanmean(tmp_dat(:,l_N_enough), 1);
+    sem = stderr(tmp_dat(:,l_N_enough), 1);
+    plt_pA = tmp_pa(l_N_enough);
+    
+    shadedErrorBar(plt_pA, xbar, sem, {'--', 'color', groupcolors(i_group,:)});
+    
+end
+xlabel('Current injection (pA)')
+ylabel('Avg AHP voltage (mV)')
+set(gca, 'ylim', [-46, -14]); % make same with other plot
+
+% third, plot the spike resets
+figure, hold on,
+for i_group = 1:Ngroups
+    tmp_dat = groupdata.fi_ordered{i_group};
+    tmp_pa = groupdata.pA_cmd{i_group};
+    N = sum(~isnan(tmp_dat), 1);
+    
+    l_N_enough = N>=trl_cutoff_num;
+    xbar = nanmean(tmp_dat(:,l_N_enough), 1);
+    sem = stderr(tmp_dat(:,l_N_enough), 1);
+    plt_pA = tmp_pa(l_N_enough);
+    
+    shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    
+end
+xlabel('Current injection (pA)')
+ylabel('Avg Spike Rate (Hz)')
 %% PLOT THE RAW VCLAMP WAVEFORMS FOLLOWING EACH PULSE
 
 close all
@@ -1958,6 +2118,8 @@ clc
 plotgroups = {
     'PY', 'L23', 'med', 'chief';...
     'PY', 'L23', 'lat', 'chief';...
+    'all_som', 'any', 'any', 'any';...
+    'all_pv', 'any', 'any', 'any';...
     };
 
 % initalize the aggregate datasets
@@ -1981,7 +2143,7 @@ for i_ex = 1:numel(dat)
         if sum(group_idx) == 0; continue; end
         
         % add data to the appropriate group data array
-        tmp_params = dat{i_ex}.stpfits.fit_results{i_ch}{1}.params; % [d, dTau, f, fTau]
+        tmp_params = dat{i_ex}.stpfits.fit_results{i_ch}{6}.params; % [d, dTau, f, fTau]
         groupdata_fit_params{group_idx} = cat(1, groupdata_fit_params{group_idx}, tmp_params);
         
 %         tmp_train_R2 = dat{i_ex}.stpfits.R2.training{i_ch}(6);
@@ -1996,8 +2158,9 @@ end
 
 
 % line plots of parameter fits
-plotcolors = {'r', 'b', 'g'};
+plotcolors = {'r', 'b', 'g', 'k'};
 
+% TODO: make this work with unknown numbers of Ds, Fs.
 figure, hold on,
 for i_group = 1:size(plotgroups,1)
     tmp_dat = groupdata_fit_params{i_group};
@@ -2017,6 +2180,59 @@ for i_group = 1:size(plotgroups,1)
     plot(xbar, '-', 'color', plotcolors{i_group}, 'linewidth', 4)
     set(gca, 'yscale', 'log')
     set(gca, 'xtick', [1:size(tmp_dat,2)], 'xticklabel', {'d1', 'd2', 'Tau d1', 'Tau d2', 'f', 'Tau f1'})
+    set(gca, 'TickDir', 'out')
+end
+
+
+figure, hold on,
+for i_group = 1:size(plotgroups,1)
+    tmp_dat = groupdata_fit_params{i_group};
+    
+    % fix the order of the depressing terms. small first
+    for ii = 1:size(tmp_dat,1)
+        if tmp_dat(ii, 1) > tmp_dat(ii, 2)
+            tmp_dat(ii, [1,2]) = tmp_dat(ii, [2,1]);
+            tmp_dat(ii, [3,4]) = tmp_dat(ii, [4,3]);
+        end
+    end
+    
+    xbar = mean(tmp_dat,1);
+    sem = stderr(tmp_dat,1);
+    
+    % D terms
+    subplot(1,4,1), hold on,
+    p1 = plot(tmp_dat(:,1:2)', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
+    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+    plot(xbar(1:2), '-', 'color', plotcolors{i_group}, 'linewidth', 4)
+    %set(gca, 'yscale', 'log')
+    set(gca, 'xtick', [1:2], 'xticklabel', {'d1', 'd2'})
+    set(gca, 'TickDir', 'out')
+    
+    % D taus
+    subplot(1,4,2), hold on,
+    p1 = plot(tmp_dat(:,3:4)', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
+    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+    plot(xbar(3:4), '-', 'color', plotcolors{i_group}, 'linewidth', 4)
+    %set(gca, 'yscale', 'log')
+    set(gca, 'xtick', [1:2], 'xticklabel', {'Tau d1', 'Tau d2'})
+    set(gca, 'TickDir', 'out')
+    
+    % F terms
+    subplot(1,4,3), hold on,
+    p1 = plot(ones(size(tmp_dat,1)), tmp_dat(:,5)', 'o', 'markeredgecolor', plotcolors{i_group}, 'linewidth', 0.5);
+    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+    plot(1, xbar(5), 'o', 'markeredgecolor', plotcolors{i_group}, 'markerfacecolor', plotcolors{i_group}, 'linewidth', 4)
+    %set(gca, 'yscale', 'log')
+    set(gca, 'xtick', [1], 'xticklabel', {'f'})
+    set(gca, 'TickDir', 'out')
+    
+    % F taus
+    subplot(1,4,4), hold on,
+    p1 = plot(ones(size(tmp_dat,1)), tmp_dat(:,6)', 'o', 'markeredgecolor', plotcolors{i_group}, 'linewidth', 0.5);
+    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+    plot(1, xbar(6), 'o', 'markeredgecolor', plotcolors{i_group}, 'markerfacecolor', plotcolors{i_group}, 'linewidth', 4)
+    %set(gca, 'yscale', 'log')
+    set(gca, 'xtick', [1], 'xticklabel', {'Tau f1'})
     set(gca, 'TickDir', 'out')
 end
 
