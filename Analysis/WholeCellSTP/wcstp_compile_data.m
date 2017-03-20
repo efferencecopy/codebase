@@ -238,7 +238,8 @@ function dat = unpack_dc_injections(dat)
         steady_state_mV = mean(raw_Vm(:, l_window_asym), 2);
         
         % store the I-V data, but only for sub threshold responses
-        l_no_spikes = max(raw_Vm,[],2) < 0; % when the neuron overshoots zero
+        spike_threshold = -10;
+        l_no_spikes = max(raw_Vm,[],2) < spike_threshold;
         subthresh_cmd_pA = trl_Iclamp_cmd_pA(l_no_spikes);
         subthresh_resp_mV =  steady_state_mV(l_no_spikes);
         unique_subthresh_cmd = unique(subthresh_cmd_pA);
@@ -347,8 +348,8 @@ function dat = unpack_dc_injections(dat)
         %%%%%%%%%%
         raw_Vm = permute(ax.dat([idx_on:idx_off], ax.idx.(HSname), :), [3,1,2]); % subtracting off 1 samps to avoid issues with obo errors with turning off currents
         raw_Vm = bsxfun(@minus, raw_Vm, delta_baseline);
-        above_zero_mv_cross_up = [false(size(raw_Vm,1), 1), diff(raw_Vm > 0, 1, 2)==1];
-        n_spikes = sum(above_zero_mv_cross_up,2);
+        above_threshold_cross_up = [false(size(raw_Vm,1), 1), diff(raw_Vm > spike_threshold, 1, 2)==1];
+        n_spikes = sum(above_threshold_cross_up,2);
         total_time = size(raw_Vm,2) ./ dat.info.sampRate.dcsteps;
         spike_rate = n_spikes ./ total_time;
         fi_dat = [];
@@ -360,18 +361,26 @@ function dat = unpack_dc_injections(dat)
         
         
         %
-        % estiamate the spike threshold
+        % Estimate the spike threshold
         %%%%%%%%%%%%
         dvdt = [zeros(size(raw_Vm,1),1), diff(raw_Vm, 1, 2)];
         max_dvdt = max(dvdt, [], 2);
-        dvdt_thresh = 0.03 .* max_dvdt;
-        ms2_in_samps = round(0.002 .* dat.info.sampRate.dcsteps);
-        ms3_in_samps = round(0.003 .* dat.info.sampRate.dcsteps);
+        dvdt_thresh = 0.04 .* max_dvdt;
+        ms1_in_samps = round(0.001 .* dat.info.sampRate.dcsteps);
         thresholds_first_last = nan(size(raw_Vm,1), 2);
         resets_first_last = nan(size(raw_Vm,1), 2);
+        figure
+        set(gcf, 'position', [12         383        1903         420])
+        fig_name = sprintf('  %s, site: %s, ch: %d', dat.info.mouseName, dat.info.siteNum, i_ch);
+        set(gcf, 'name', fig_name)
+        fig_count = 0;
         for i_trl = 1:size(raw_Vm,1)
+            if ~l_no_spikes(i_trl)
+                fig_count = fig_count + 1;
+                subplot(1,sum(~l_no_spikes), fig_count), hold on,
+            end
             
-            spike_idx = [false, diff(raw_Vm(i_trl,:)>0)==1];
+            spike_idx = [false, diff(raw_Vm(i_trl,:)>spike_threshold)==1];
             tmp_spike_thresholds = [];
             tmp_spike_reset = [];
             if any(spike_idx)
@@ -379,19 +388,31 @@ function dat = unpack_dc_injections(dat)
                 spike_idx = find(spike_idx);
                 for i_spk = 1:numel(spike_idx)
                     % get spike thresholds
-                    first_samp = max([1, spike_idx(i_spk)-ms2_in_samps]);
+                    first_samp = max([1, spike_idx(i_spk)-ms1_in_samps]);
                     spk_dvdt = trl_dvdt(first_samp : spike_idx(i_spk));
                     spk_raw_Vm = raw_Vm(i_trl, first_samp : spike_idx(i_spk));
                     thresh_idx = find(spk_dvdt>dvdt_thresh(i_trl), 1, 'first');
-                    tmp_spike_thresholds = cat(1, tmp_spike_thresholds, spk_raw_Vm(thresh_idx));
+                    if isempty(thresh_idx); % slope criterion not met
+                        thresh_val = nan;
+                    else
+                        thresh_val = spk_raw_Vm(thresh_idx);
+                    end
+                    tmp_spike_thresholds = cat(1, tmp_spike_thresholds, thresh_val);
+                    if ~l_no_spikes(i_trl)
+                        plot(spk_raw_Vm, 'k')
+                        plot(thresh_idx, spk_raw_Vm(thresh_idx), 'ko', 'markerfacecolor', 'k')
+                    end
                     
                     % get spike reset Vm
-                    if  (i_spk < numel(spike_idx)) || (i_spk == 1)
-                        if spike_idx(i_spk)+ms3_in_samps > size(raw_Vm,2)
-                            continue % probably not enough data to estimate depth of AHP
+                    if  (i_spk < numel(spike_idx)) && (numel(spike_idx)>=2)
+                        spk_raw_Vm = raw_Vm(i_trl, spike_idx(i_spk) : spike_idx(i_spk+1));
+                        [ahp_val, ahp_idx] = min(spk_raw_Vm);
+                        tmp_spike_reset = cat(1, tmp_spike_reset, ahp_val);
+                        
+                        if ~l_no_spikes(i_trl)
+                            plot(spk_raw_Vm, 'b')
+                            plot(ahp_idx, spk_raw_Vm(ahp_idx), 'bo', 'markerfacecolor','b')
                         end
-                        spk_raw_Vm = raw_Vm(i_trl, spike_idx(i_spk) : spike_idx(i_spk)+ms3_in_samps);
-                        tmp_spike_reset = cat(1, tmp_spike_reset, min(spk_raw_Vm));
                     end
                 end
             end
@@ -399,13 +420,16 @@ function dat = unpack_dc_injections(dat)
             % compute trial wide stats
             if ~isempty(tmp_spike_thresholds)
                 thresholds_first_last(i_trl,1) = tmp_spike_thresholds(1);
-                resets_first_last(i_trl,1) = tmp_spike_reset(1);
             end
             if numel(tmp_spike_thresholds)>2
                 thresholds_first_last(i_trl,2) = tmp_spike_thresholds(end);
-                resets_first_last(i_trl,2) = tmp_spike_reset(end);
+                resets_first_last(i_trl,1) = tmp_spike_reset(1); % need 2 spikes to define an AHP
+            end
+            if numel(tmp_spike_thresholds)>3
+                resets_first_last(i_trl,2) = tmp_spike_reset(end); % need 3 spikes to define "last" AHP
             end
         end
+        drawnow
         
         % aggregate Vthresh and Vreset data across Icmd conditions, keeping
         % track of first/last spike

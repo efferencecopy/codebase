@@ -82,20 +82,19 @@ end
 %
 dat = {};
 Nexpts = numel(attributes);
-% 
+
 % pool = gcp('nocreate');
 % if isempty(pool)
 %     pool = parpool(25);
 % end
-
 profile on
 for i_ex_par = 1:Nexpts
     dat{i_ex_par} = wcstp_compile_data(attributes{i_ex_par}, hidx, params);
+    close all
 end
 
 fprintf('All done importing data\n')
 profile viewer
-
 %% QULAITY CONTROL PLOTS
 
 close all
@@ -574,6 +573,20 @@ ylabel('Sag Rebound (mV)')
 %% SUMMARY OF SPIKES: THRESHOLDS, RESET, F-I CURVES
 
 
+% trial cutoff seems busted for lateral areas, would have thought there
+% would be roughly equal trials for med and lat
+%
+% WHY IS THERE SUCH A LARGE DIFFERENCE IN NEURON COUNTS B/W THE SPIKE
+% FREQUENCY STUFF AND THE THRESHOLD STUFF. I WOULD THINK THAT N FOR HZ AND 
+% THRESHOLD WOULD BE THE SAME (NOT FOR RESET, WHICH REQUIRES 2 SPIKES...)
+%
+% MAYBE DEFINE N's FOR FIRST SPIKE ONLY (INSTEAD OF FOR FIRST AND LAST 
+% SEPARATELY)
+%
+% Need to compute spike threshold on a spike by spike basis, or compute AHP
+% between spike threshold crossings and not dvdt crossings..
+
+
 close all; clc
 
 trl_cutoff_num = 10;
@@ -588,6 +601,7 @@ plotgroups = {
     %'all_som', 'any', 'any', 'any';...
     };
 
+groupdata = [];
 groupdata.Vthresh = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1).
 groupdata.Vreset = repmat({[]}, 1, size(plotgroups, 1));
 groupdata.fi = repmat({[]}, 1, size(plotgroups, 1));
@@ -620,37 +634,43 @@ end
 
 
 % fix the data so that the pA is on a consistent latice
+pA_cmd_bins = [-10;0;25;50;100;200;250;300;400;500;600;700;860];
+%pA_cmd_bins = [-20:25:875];
 for i_group = 1:Ngroups
     
     tmp_vthresh_data = groupdata.Vthresh{i_group};
     tmp_vreset_data = groupdata.Vreset{i_group};
     tmp_fi_data = groupdata.fi{i_group};
     
-    N_neurons = numel(groupdata.Vthresh{i_group});
-    all_pA = [];
+    
+    % reorganize the data [Nneurons, NpA]. One for first, one for last
+    N_neurons = size(groupdata.Vthresh{i_group},1);
+    [out_vthresh_first, out_vthresh_last] = deal(nan(N_neurons, numel(pA_cmd_bins)));
+    [out_vreset_first, out_vreset_last] = deal(nan(N_neurons, numel(pA_cmd_bins)));
+    out_fi_data = nan(N_neurons, numel(pA_cmd_bins));
     for i_neuron = 1:N_neurons
+        
+        % make sure each used the same pA_cmd for all measurements
         pA_thresh = tmp_vthresh_data{i_neuron}(:,1);
         pA_reset = tmp_vreset_data{i_neuron}(:,1);
         pA_fi = tmp_fi_data{i_neuron}(:,1);
         assert(all(pA_thresh==pA_reset))
         assert(all(pA_thresh==pA_fi))
-        all_pA = cat(1, all_pA, pA_thresh);
-    end
-    all_pA = unique(round(all_pA, -1));
-    
-    % reorganize the data [Nneurons, NpA]. One for first, one for last
-    [out_vthresh_first, out_vthresh_last] = deal(nan(N_neurons, numel(all_pA)));
-    [out_vreset_first, out_vreset_last] = deal(nan(N_neurons, numel(all_pA)));
-    out_fi_data = nan(N_neurons, numel(all_pA));
-    for i_neuron = 1:N_neurons
-       for i_pA = 1:numel(tmp_vthresh_data{i_neuron}(:,1));
-           idx_pA = round(tmp_vthresh_data{i_neuron}(i_pA, 1), -1) == all_pA;
-           out_vthresh_first(i_neuron, idx_pA) = tmp_vthresh_data{i_neuron}(i_pA, 2);
-           out_vthresh_last(i_neuron, idx_pA) = tmp_vthresh_data{i_neuron}(i_pA, 3);
-           out_vreset_first(i_neuron, idx_pA) = tmp_vreset_data{i_neuron}(i_pA, 2);
-           out_vreset_last(i_neuron, idx_pA) = tmp_vreset_data{i_neuron}(i_pA, 3);
-           out_fi_data(i_neuron, idx_pA) = tmp_fi_data{i_neuron}(i_pA, 2);
-       end
+        
+        % bin the experimental commands into the ones specified. Only
+        % consider positive current injections.
+        [~,~,bin_idx]=histcounts(pA_thresh, pA_cmd_bins);
+        for i_pA = 1:numel(pA_cmd_bins);
+            
+            
+            l_in_bin = bin_idx == i_pA;
+            
+            out_vthresh_first(i_neuron, i_pA) = nanmean(tmp_vthresh_data{i_neuron}(l_in_bin, 2));
+            out_vthresh_last(i_neuron, i_pA) = nanmean(tmp_vthresh_data{i_neuron}(l_in_bin, 3));
+            out_vreset_first(i_neuron, i_pA) = nanmean(tmp_vreset_data{i_neuron}(l_in_bin, 2));
+            out_vreset_last(i_neuron, i_pA) = nanmean(tmp_vreset_data{i_neuron}(l_in_bin, 3));
+            out_fi_data(i_neuron, i_pA) = nanmean(tmp_fi_data{i_neuron}(l_in_bin, 2));
+        end
     end
     
     groupdata.Vthresh_ordered_first{i_group} = out_vthresh_first;
@@ -658,7 +678,6 @@ for i_group = 1:Ngroups
     groupdata.Vreset_ordered_first{i_group} = out_vreset_first;
     groupdata.Vreset_ordered_last{i_group} = out_vreset_last;
     groupdata.fi_ordered{i_group} = out_fi_data;
-    groupdata.pA_cmd{i_group} = all_pA;
     
 end
 
@@ -670,30 +689,28 @@ for i_group = 1:Ngroups
     
     % first spike
     tmp_dat = groupdata.Vthresh_ordered_first{i_group};
-    tmp_pa = groupdata.pA_cmd{i_group};
-    N = sum(~isnan(tmp_dat),1);
+    N = sum(~isnan(tmp_dat),1)
     
     l_N_enough = N>= trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
-    plt_pA = tmp_pa(l_N_enough);
+    plt_pA = pA_cmd_bins(l_N_enough);
+    %pA_cmd_bins;
     
-    shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
     
     % last spike
     tmp_dat = groupdata.Vthresh_ordered_last{i_group};
-    tmp_pa = groupdata.pA_cmd{i_group};
     N = sum(~isnan(tmp_dat),1);
     
     l_N_enough = N>=trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
-    plt_pA = tmp_pa(l_N_enough);
+    plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'--', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'s--', 'color', groupcolors(i_group,:)});
     
 end
-set(gca, 'ylim', [-46, -14]);
 xlabel('Current injection (pA)')
 ylabel('Avg Spike Threshold (mV)')
 
@@ -703,46 +720,42 @@ for i_group = 1:Ngroups
     
     % first spike
     tmp_dat = groupdata.Vreset_ordered_first{i_group};
-    tmp_pa = groupdata.pA_cmd{i_group};
     N = sum(~isnan(tmp_dat),1);
     
     l_N_enough = N>= trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
-    plt_pA = tmp_pa(l_N_enough);
+    plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
     
     % last spike
     tmp_dat = groupdata.Vreset_ordered_last{i_group};
-    tmp_pa = groupdata.pA_cmd{i_group};
     N = sum(~isnan(tmp_dat),1);
     
     l_N_enough = N>=trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
-    plt_pA = tmp_pa(l_N_enough);
+    plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'--', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'s--', 'color', groupcolors(i_group,:)});
     
 end
 xlabel('Current injection (pA)')
 ylabel('Avg AHP voltage (mV)')
-set(gca, 'ylim', [-46, -14]); % make same with other plot
 
-% third, plot the spike resets
+% third, plot the spike rates
 figure, hold on,
 for i_group = 1:Ngroups
     tmp_dat = groupdata.fi_ordered{i_group};
-    tmp_pa = groupdata.pA_cmd{i_group};
-    N = sum(~isnan(tmp_dat), 1);
+    N = sum(~isnan(tmp_dat), 1)
     
     l_N_enough = N>=trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
-    plt_pA = tmp_pa(l_N_enough);
+    plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
     
 end
 xlabel('Current injection (pA)')
@@ -1497,7 +1510,7 @@ plotgroups = {
     %'all_pv', 'any', 'any', 'chief';...
     %'all_som', 'any', 'any', 'chief';...
     %'all_pv', 'any', 'any', 'chief';...
-    'PY', 'L23', 'AM', 'chief';...
+    'PY', 'L23', 'PM', 'chief';...
     'PY', 'L23', 'LM', 'chief';...
     };
 
