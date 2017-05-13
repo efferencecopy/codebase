@@ -19,7 +19,7 @@ switch whoami
             GL_ALLENPATH = ''; % not defined
         end
         
-        GL_DOCUPATH = '~/LabStuff/DocuBase/';
+        GL_DOCUPATH = '~/github/DocuBase/';
         defaultpath = '~/LabStuff/';
         
     case 'hass_linux'
