@@ -304,6 +304,12 @@ function dat = unpack_dc_injections(dat)
         l_sweeps_for_Ih_analysis = trl_Iclamp_cmd_pA < -400;
         unique_pA_levels = unique(trl_Iclamp_cmd_pA(l_sweeps_for_Ih_analysis));
         
+        % initialize the outputs
+        dat.dcsteps.Ih_sag.pA{i_ch} = [];
+        dat.dcsteps.Ih_sag.peak_Vm{i_ch} = [];
+        dat.dcsteps.Ih_sag.sag{i_ch} = [];
+        dat.dcsteps.Ih_sag.Vm_asym{i_ch} = [];
+        
         for i_pa = 1:numel(unique_pA_levels)
             
             % average sweeps at the same current injection strength

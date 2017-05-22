@@ -30,9 +30,9 @@ end
 function l_celltype_match = subfxn_celltype_match(group_celltype, cell_celltype)
     % modify the celltype to include special flags such as 'all_pv', or 'all_som'
     switch lower(cell_celltype)
-        case {'pvtom', 'fs'}
+        case {'pvcre', 'fs'}
             cell_celltype = [cell_celltype, ' all_pv'];
-        case {'somtom', 'npvin'}
+        case {'somcre', 'ltsin'}
             cell_celltype = [cell_celltype, ' all_som'];
     end
     l_group_is_any = strcmpi(group_celltype, 'any');

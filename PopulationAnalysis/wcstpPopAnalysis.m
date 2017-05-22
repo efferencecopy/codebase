@@ -4,7 +4,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 4;
+EXPTTYPE = 6;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -16,6 +16,8 @@ switch EXPTTYPE
         EXPTTYPE = 'Passive_Props';
     case 5
         EXPTTYPE = 'LGN';
+    case 6
+        EXPTTYPE = 'IN_strength';
 end
 
 
@@ -83,18 +85,18 @@ end
 dat = {};
 Nexpts = numel(attributes);
 
-% pool = gcp('nocreate');
-% if isempty(pool)
-%     pool = parpool(25);
-% end
-profile on
-for i_ex_par = 1:Nexpts
+pool = gcp('nocreate');
+if isempty(pool)
+    pool = parpool();
+end
+
+
+parfor i_ex_par = 1:Nexpts
     dat{i_ex_par} = wcstp_compile_data(attributes{i_ex_par}, hidx, params);
     close all
 end
-
 fprintf('All done importing data\n')
-profile viewer
+
 %% QULAITY CONTROL PLOTS
 
 close all
@@ -108,11 +110,11 @@ for i_ex = 1:numel(dat)
     for i_ch = 1:2
         
         % plot the current step data set to help identify cell types
-        if ~all(cellfun(@isempty, dat{i_ex}.dcsteps.Vm_raw))
+        if ~isempty(dat{i_ex}.dcsteps.Vm_raw{i_ch})
             Vm = dat{i_ex}.dcsteps.Vm_raw{i_ch};
             Icmd = dat{i_ex}.dcsteps.Icmd{i_ch};
             N = size(Vm,2);
-            tt = ([0:N-1] ./ dat{i_ex}.info.sampRate.dcsteps) - params.pretime.dcsteps;
+            tt = ([0:N-1] ./ dat{i_ex}.info.sampRate.dcsteps) - dat{i_ex}.info.pretime.dcsteps;
             if i_ch == 1; col = 1; else col = 3; end
             
             if any(Icmd<0)
@@ -123,7 +125,7 @@ for i_ex = 1:numel(dat)
                     l_cmd = Icmd == neg_cmds(i_cmd);
                     plot(tt, mean(Vm(l_cmd,:), 1))
                 end
-                if isfield(dat{i_ex}.dcsteps, 'Ih_sag')
+                if isfield(dat{i_ex}.dcsteps, 'Ih_sag') && ~isempty(dat{i_ex}.dcsteps.Ih_sag.sag{i_ch})
                     peak_vals = repmat(dat{i_ex}.dcsteps.Ih_sag.peak_Vm{i_ch}, 2, 1);
                     sag_amps = repmat(dat{i_ex}.dcsteps.Ih_sag.sag{i_ch}, 2, 1);
                     asym_vals = repmat(dat{i_ex}.dcsteps.Ih_sag.Vm_asym{i_ch}, 2, 1);
@@ -159,6 +161,7 @@ for i_ex = 1:numel(dat)
                 ha.Box = 'off';
                 ha.TickDir = 'out';
                 ylabel('mV')
+                title(dat{i_ex}.info.cellType{i_ch})
             end
         end
         
@@ -274,7 +277,8 @@ end
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%
 f=figure;
-Ngroups = (numel(groupdata.Rin_peak)) + 1; % adding one for "summary" cdf fig
+Ngroups = (numel(groupdata.Rin_peak)); % adding one for "summary" cdf fig
+N_plt_rows = Ngroups+1;
 groupcolors = lines(Ngroups);
 f.Position = [451   187   968   665];
 allNums = cat(1, groupdata.Rin_peak{:}, groupdata.Rin_asym{:});
@@ -284,8 +288,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     %
     % current clamp, peak vals
     %%%%%%%%%%%%%%%%%%
-    pltidx = sub2ind([2, Ngroups], 1, i_group);
-    subplot(Ngroups, 2, pltidx)
+    pltidx = sub2ind([2, N_plt_rows], 1, i_group);
+    subplot(N_plt_rows, 2, pltidx)
     
     h = histogram(groupdata.Rin_peak{i_group}, edges);
     h.FaceColor = groupcolors(i_group,:);
@@ -302,8 +306,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     end
     
     % CDF summary
-    pltidx = sub2ind([2, Ngroups], 1, 3);
-    subplot(Ngroups, 2, pltidx), hold on,
+    pltidx = sub2ind([2, N_plt_rows], 1, Ngroups+1);
+    subplot(N_plt_rows, 2, pltidx), hold on,
     N = histcounts(groupdata.Rin_peak{i_group}, edges);
     N(end+1) = 0;
     cdf_vals = cumsum(N)./sum(N);
@@ -314,8 +318,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     %
     % current clamp asym vals
     %%%%%%%%%%%%%%%%%%%%%%%%
-    pltidx = sub2ind([2, Ngroups], 2, i_group);
-    subplot(Ngroups, 2, pltidx)
+    pltidx = sub2ind([2, N_plt_rows], 2, i_group);
+    subplot(N_plt_rows, 2, pltidx)
     
     h = histogram(groupdata.Rin_asym{i_group}, edges);
     h.FaceColor = groupcolors(i_group,:);
@@ -329,8 +333,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     end
     
     % CDF summary
-    pltidx = sub2ind([2, Ngroups], 2, 3);
-    subplot(Ngroups, 2, pltidx), hold on,
+    pltidx = sub2ind([2, N_plt_rows], 2, Ngroups+1);
+    subplot(N_plt_rows, 2, pltidx), hold on,
     N = histcounts(groupdata.Rin_asym{i_group}, edges);
     N(end+1) = 0;
     cdf_vals = cumsum(N)./sum(N);
@@ -392,12 +396,6 @@ for i_group = 1:numel(groupdata.Vrest)
     
     
 end
-
-
-%
-% NEED TO ADD histogram MEMBRANE TAU TO FIGURE WITH Vrest AND Rm
-% 
-
 
 
 
@@ -494,23 +492,24 @@ Ngroups = (numel(groupdata.IVcurve_peak));
 groupcolors = lines(Ngroups);
 f.Position = [114 426 1667 456];
 legtext = {};
+leghand = [];
 
 % I-V curves for peak values
 subplot(1,3,1), hold on,
-%allX = % for linear interpolation
 for i_group = 1:numel(groupdata.IVcurve_peak)
     for i_cell = 1:numel(groupdata.IVcurve_peak{i_group})
         X = groupdata.IVcurve_peak{i_group}{i_cell}(:,1);
         Y = groupdata.IVcurve_peak{i_group}{i_cell}(:,2);
-        plot(X, Y, '-', 'color', groupcolors(i_group,:))
+        hp = plot(X, Y, '-', 'color', groupcolors(i_group,:));
     end
-    %legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    leghand(i_group) = hp;
 end
 title('IV curve, peak vals')
 xlabel('current injection (pA)')
 ylabel('voltage response (mV)')
-% legend(legtext, 'Location', 'best')
-% legend boxoff
+legend(leghand, legtext, 'location', 'best')
+legend boxoff
 
 % I-V curves for asym values
 subplot(1,3,2), hold on,
@@ -520,13 +519,10 @@ for i_group = 1:numel(groupdata.IVcurve_asym)
         Y = groupdata.IVcurve_asym{i_group}{i_cell}(:,2);
         plot(X, Y, '-', 'color', groupcolors(i_group,:))
     end
-    %legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
 end
 title('IV curve, asym vals')
 xlabel('current injection (pA)')
 ylabel('voltage response (mV)')
-% legend(legtext, 'Location', 'best')
-% legend boxoff
 
 % directly compare peak vs. steady state DC response 
 subplot(1,3,3), hold on,
@@ -545,17 +541,23 @@ ylabel('Difference (mV)')
 
 
 % compare Ih sag
+legtext = {};
+leghand = [];
 f = figure;
 f.Position = [384 353 1071 415];
 subplot(1,2,1), hold on,
 for i_group = 1:numel(groupdata.Ih_sag)
     N = numel(groupdata.Ih_sag{i_group});
     for i_ex = 1:N
-        plot(groupdata.Ih_Vm{i_group}{i_ex}, groupdata.Ih_sag{i_group}{i_ex}, 'o-', 'color', groupcolors(i_group,:))
+        hp = plot(groupdata.Ih_Vm{i_group}{i_ex}, groupdata.Ih_sag{i_group}{i_ex}, 'o-', 'color', groupcolors(i_group,:));
     end
+    legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    leghand(i_group) = hp;
 end
 xlabel('Membrane Potential At Sag Peak (mV)')
 ylabel('Sag Amplitude (mV)')
+legend(leghand, legtext, 'location', 'best')
+legend boxoff
 
 subplot(1,2,2), hold on,
 for i_group = 1:numel(groupdata.Ih_asym)
@@ -634,8 +636,8 @@ end
 
 
 % fix the data so that the pA is on a consistent latice
-pA_cmd_bins = [-10;0;25;50;100;200;250;300;400;500;600;700;860];
-%pA_cmd_bins = [-20:25:875];
+%pA_cmd_bins = [-10;0;25;50;100;200;250;300;400;500;600;700;860];
+pA_cmd_bins = [-20:25:875];
 for i_group = 1:Ngroups
     
     tmp_vthresh_data = groupdata.Vthresh{i_group};
@@ -671,6 +673,18 @@ for i_group = 1:Ngroups
             out_vreset_last(i_neuron, i_pA) = nanmean(tmp_vreset_data{i_neuron}(l_in_bin, 3));
             out_fi_data(i_neuron, i_pA) = nanmean(tmp_fi_data{i_neuron}(l_in_bin, 2));
         end
+        
+        % here is where I could interpolate the fi_data, and set the values
+        % above the max pA to nans. could also cull experiments that lacked
+        % a high pA condition (e.g, >600pA), but this might unnecessarily
+        % cull the IN recordings)
+        old_dat = out_fi_data(i_neuron,:);
+        l_nan = isnan(old_dat);
+        old_dat = old_dat(~l_nan);
+        old_pa = pA_cmd_bins(~l_nan);
+        interp_dat = interp1(old_pa, old_dat, pA_cmd_bins, 'linear');
+        out_fi_data(i_neuron, :) = interp_dat;
+        
     end
     
     groupdata.Vthresh_ordered_first{i_group} = out_vthresh_first;
@@ -685,19 +699,22 @@ end
 
 % first the spike thresholds
 figure, hold on,
+legtext = {};
+leghands = [];
 for i_group = 1:Ngroups
     
     % first spike
     tmp_dat = groupdata.Vthresh_ordered_first{i_group};
-    N = sum(~isnan(tmp_dat),1)
+    N = sum(~isnan(tmp_dat),1);
     
     l_N_enough = N>= trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
-    %pA_cmd_bins;
     
-    shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    hp = shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    leghands(i_group) = hp.mainLine;
+    legtext{i_group} =  sprintf('first sipke: %s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
     
     % last spike
     tmp_dat = groupdata.Vthresh_ordered_last{i_group};
@@ -713,9 +730,13 @@ for i_group = 1:Ngroups
 end
 xlabel('Current injection (pA)')
 ylabel('Avg Spike Threshold (mV)')
+legend(leghands, legtext, 'location', 'northwest')
+legend boxoff
 
 % second, AHP reset Vm
 figure, hold on,
+legtext = {};
+leghands = [];
 for i_group = 1:Ngroups
     
     % first spike
@@ -727,7 +748,10 @@ for i_group = 1:Ngroups
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    hp = shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    leghands(i_group) = hp.mainLine;
+    legtext{i_group} =  sprintf('first sipke: %s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+   
     
     % last spike
     tmp_dat = groupdata.Vreset_ordered_last{i_group};
@@ -743,30 +767,39 @@ for i_group = 1:Ngroups
 end
 xlabel('Current injection (pA)')
 ylabel('Avg AHP voltage (mV)')
+legend(leghands, legtext, 'location', 'northwest')
+legend boxoff
 
 % third, plot the spike rates
 figure, hold on,
+legtext = {};
+leghands = [];
 for i_group = 1:Ngroups
     tmp_dat = groupdata.fi_ordered{i_group};
-    N = sum(~isnan(tmp_dat), 1)
+    N = sum(~isnan(tmp_dat), 1);
     
     l_N_enough = N>=trl_cutoff_num;
     xbar = nanmean(tmp_dat(:,l_N_enough), 1);
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    hp = shadedErrorBar(plt_pA, xbar, sem, {'-', 'color', groupcolors(i_group,:)});
+    leghands(i_group) = hp.mainLine;
+    legtext{i_group} =  sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
+    
     
 end
 xlabel('Current injection (pA)')
 ylabel('Avg Spike Rate (Hz)')
+legend(leghands, legtext, 'location', 'northwest')
+legend boxoff
 %% PLOT THE RAW VCLAMP WAVEFORMS FOLLOWING EACH PULSE
 
 close all
 
 
 PLOT_ALL_TRIALS = true;
-DEBUG_MEAN = true;
+DEBUG_MEAN = false;
 DEBUG_ALL = false;
 NORM_TO_SMOOTH_P1 = false;
 PLOT_RIT = false;
@@ -1177,10 +1210,10 @@ for i_ex = 1:numel(dat)
         switch dat{i_ex}.info.opsin
             case {'chief_flx', 'chief_cit', 'chief'}
                 pltclr = 'r';
-            case {'chronos', 'chronos_flx', 'chronos_gfp', 'chronos_tom'}
+            case {'chronos', 'chronos_flx', 'chronos_gfp', 'chronos_tom', 'chronos_9_gfp'}
                 pltclr = 'g';
             otherwise
-                pltclr = nan;
+                error('unknown opsin type')
         end
         
         figure(f)
@@ -1358,8 +1391,11 @@ for i_ex = 1:numel(dat)
             tmpdat = cat(2, tmpdat, nan(size(tmpdat,1), whitesamps));
             tmpdat = reshape(tmpdat', [], 1)'; % notice the extra transpose to make this a row vector
             
+            
             % add to the population structure
-            groupdata_raw{group_idx}{tf_idx} = cat(1, groupdata_raw{group_idx}{tf_idx}, tmpdat);
+            if ~isempty(tmpdat)
+                groupdata_raw{group_idx}{tf_idx} = cat(1, groupdata_raw{group_idx}{tf_idx}, tmpdat);
+            end
         end
 
     end
@@ -1371,7 +1407,7 @@ f = figure;
 f.Units = 'normalized';
 f.Position = [0.1, 0.01, 0.3, 0.9];
 Ntfs = numel(allTFs);
-groupcolors = {'r', 'b', 'g'};
+groupcolors = lines(size(plotgroups,1));
 for i_tf = 1:Ntfs
     subplot(Ntfs, 1, i_tf), hold on,
     for i_grp = 1:numel(groupdata_raw)
@@ -1381,13 +1417,13 @@ for i_tf = 1:Ntfs
         unique(N)
         sem = nanstd(tmp, [], 1) ./ sqrt(N);
         if PLOTERRBAR
-            shadedErrorBar(1:size(tmp,2), xbar, sem, {'color', groupcolors{i_grp}, 'linewidth', 2});
+            shadedErrorBar(1:size(tmp,2), xbar, sem, {'color', groupcolors(i_grp,:), 'linewidth', 2});
         else
-            plot(tmp', '-', 'color', groupcolors{i_grp})
+            plot(tmp', '-', 'color', groupcolors(i_grp,:))
             %plot(mean(tmp,1), '-', 'color', groupcolors{i_grp}, 'linewidth', 3)
         end
-        
     end
+    ylim([0,2])
 end
 
 
@@ -1424,9 +1460,20 @@ for i_ex = 1:numel(dat)
     % recording channel)
     recovpop.dat{i_ex}.psc_amps = {};
     recovpop.dat{i_ex}.psc_wfs = {};
+    recovpop.dat{i_ex}.ignore={[],[]};
     Ntfs = numel(unique_tfs);
     Nrecov = numel(unique_recov);
     for i_ch = 1:2
+        
+        %flag instances of potential bad datafiles that should be excluded
+        %later
+        if strcmpi(dat{i_ex}.info.cellType{i_ch}, 'PY_L23')
+            p1amp_avg = nanmean(dat{i_ex}.qc.p1amp{i_ch});
+%             if p1amp_avg < 200
+%                 recovpop.dat{i_ex}.ignore{i_ch} = true;
+%                 warning('culling data on basis of P1 amp')
+%             end
+        end
         
         % initialize the outputs. I need to concatenate similar TFs
         % together, but keep each of their recovery conditions separate
@@ -1496,23 +1543,26 @@ end
 
 
 %% V-CLAMP POPULATION ANALYSIS (PLOTS)
-
+close all; clc
 % plot recovery pulse amplitude (normalized) vs. train frequency. Do this
 % separately for cell types, brain areas, opsins, etc...
-clc
+
 PLOT_RAW_DATA = false;
 PLOT_AVG_DATA = true;
+PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
 
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    %'all_pv', 'any', 'any', 'chief';...
-    %'all_som', 'any', 'any', 'chief';...
-    %'all_pv', 'any', 'any', 'chief';...
-    'PY', 'L23', 'PM', 'chief';...
-    'PY', 'L23', 'LM', 'chief';...
+    %'PY', 'L23', 'any', 'chief';...
+    %'PY', 'L23', 'lat', 'chief';...
+    %'PY', 'L23', 'AM', 'chronos';...
+    %'PY', 'L23', 'any', 'chronos';...
+    %'all_pv', 'any', 'any', 'any';...
+    'NPVIN', 'any', 'any', 'any';...
     };
+
 
 allTFs = recovpop.TFsAllExpts;
 Ntfs = numel(allTFs);
@@ -1524,7 +1574,9 @@ Nrecovs = numel(allRecoveryTimes);
 %  {{trains_(tf=X)}{recov=A, tf=X}{recov=B, tf=X}...} one cell for each recovery pulse, one row for each TF
 %
 template = repmat({[]}, Ntfs, Nrecovs+1);
+groupdata = [];
 groupdata.wfs = repmat({template}, size(plotgroups,1), 1); 
+groupdata.amps = repmat({template}, size(plotgroups,1), 1);
 
 % iterate over the experiments. For each recording channel, determine what
 % the attributes are, and place the data in the correct ploting group.
@@ -1540,6 +1592,11 @@ for i_ex = 1:numel(dat)
             continue
         end
         
+        % was the the EPSC amp too small?
+        if recovpop.dat{i_ex}.ignore{i_ch}
+            continue
+        end
+        
         % check the attributes
         ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
         group_idx = groupMatcher(plotgroups, ch_attribs);
@@ -1551,28 +1608,50 @@ for i_ex = 1:numel(dat)
         % individual data file's lattice
         %
         wf_top_level = recovpop.dat{i_ex}.psc_wfs{i_ch};
+        amps_top_level = recovpop.dat{i_ex}.psc_amps{i_ch};
         ex_tfs = cell2mat(wf_top_level{1});
+        %if any(ex_tfs==10);
+        i_ex    
+        group_idx
+            ch_attribs
+            
+        %end
         wfs_train = cellfun(@(x) mean(x, 3), wf_top_level{2}, 'uniformoutput', false); % average across replicates
+        amps_train = cellfun(@(x) mean(x, 1), amps_top_level{2}, 'uniformoutput', false); % average across replicates
         for i_tf = 1:numel(ex_tfs)
-            % grab the data from the trains
+            
+            % grab the data from cell array containing average across sweeps
             tf_wf = wfs_train{i_tf};
             tf_wf = cat(2, tf_wf, nan(size(tf_wf, 1), 25)); % add some nans for separation
             tf_wf = reshape(tf_wf', 1, []); % a row vector
+            tf_amps = amps_train{i_tf};
             
-            % push the data into the correct slot in the groupdata
+            
+            % push the wfs data into the correct slot in the groupdata
             row_idx = allTFs == ex_tfs(i_tf);
             tmp_group = groupdata.wfs{group_idx}{row_idx, 1};
             tmp_group = cat(1, tmp_group, tf_wf); % Ntraces x Ntime
             groupdata.wfs{group_idx}{row_idx, 1} = tmp_group;
             
+            % push the amps data into the correct slot in the groupdata
+            tmp_group = groupdata.amps{group_idx}{row_idx, 1};
+            tmp_group = cat(1, tmp_group, tf_amps); % Nneurons x Npulses
+            groupdata.amps{group_idx}{row_idx, 1} = tmp_group;
+            
             % loop over the recovery conditions and deal with those
             ex_recovs = cell2mat(wf_top_level{3}{i_tf, 1});
             wfs_recovs = cellfun(@(x) mean(x, 3), wf_top_level{3}{i_tf,2}, 'uniformoutput', false); % average across replicates
+            amps_recovs = cellfun(@(x) mean(x, 3), amps_top_level{3}{i_tf, 2}, 'uniformoutput', false); % average across replicates. Each recovTime gets a scalar
             for i_recov = 1:numel(ex_recovs)
                 col_idx = [false, allRecoveryTimes == ex_recovs(i_recov)]; % leading False to offset the "trains" position
                 tmp_group = groupdata.wfs{group_idx}{row_idx, col_idx};
                 tmp_group = cat(1, tmp_group, wfs_recovs{i_recov});
-                groupdata.wfs{group_idx}{row_idx, col_idx} = tmp_group;                
+                groupdata.wfs{group_idx}{row_idx, col_idx} = tmp_group; 
+                
+                % deal with amps
+                tmp_group = groupdata.amps{group_idx}{row_idx, col_idx};
+                tmp_group = cat(1, tmp_group, amps_recovs{i_recov});
+                groupdata.amps{group_idx}{row_idx, col_idx} = tmp_group;
             end
         end
 
@@ -1589,7 +1668,10 @@ f = figure;
 f.Units = 'Normalized';
 f.Position = [0.0865, 0, 0.3161, 1];
 f.Color = 'w';
-plotcolors = {'r', 'b', 'g', 'k'};
+Ngroups = size(plotgroups,1);
+plotcolors = lines(Ngroups);
+legtext = repmat({{}}, 1, Ntfs);
+leghand = repmat({[]}, 1, Ntfs);
 for i_group = 1:size(plotgroups, 1)
     
     for i_tf = 1:Ntfs
@@ -1598,13 +1680,12 @@ for i_group = 1:size(plotgroups, 1)
         
         % check to make sure there are data for this TF condition
         data_exist = ~isempty(groupdata.wfs{i_group}{i_tf,1});
-        
         if data_exist
             
             
             % concatenate the time series, padding with nans
             N_expts = cellfun(@(x) size(x,1), groupdata.wfs{i_group}(i_tf,:));
-            N_expts = max(N_expts)
+            N_expts = max(N_expts);
             all_wfs = cellfun(@(x) cat(2, x, nan(N_expts, 200)), groupdata.wfs{i_group}(i_tf,:), 'uniformoutput', false);
             all_wfs = cat(2, all_wfs{:});
             
@@ -1614,24 +1695,25 @@ for i_group = 1:size(plotgroups, 1)
             
             % mean +/- sem
             if PLOT_AVG_DATA
-                shadedErrorBar(1:numel(xbar), xbar, sem, {'color', plotcolors{i_group}});
+                hp = shadedErrorBar(1:numel(xbar), xbar, sem, {'color', plotcolors(i_group,:)});
+                leghand{i_tf}(end+1) = hp.mainLine;
+                legtext{i_tf}{end+1} = sprintf('%s, %s, %s, N=%d', plotgroups{i_group,1}, plotgroups{i_group,2}, plotgroups{i_group,3}, N_expts);
             end
             
             
             % all the data
             if PLOT_RAW_DATA
-                plot(1:numel(xbar), all_wfs', '-', 'color', plotcolors{i_group})
+                plot(1:numel(xbar), all_wfs', '-', 'color', plotcolors(i_group,:))
             end
             
         end
         
     end
 end
-% indicate the TF, and recovery times
+% indicate the TF, and recovery times, add a legend
 for i_tf = 1:Ntfs
     subplot(Ntfs, 1, i_tf)
-    ylim([-1.5, 0.2])
-    axis tight
+    %ylim([-1.4, 0.2])
     plt_train_tf = allTFs(i_tf);
     l_recov_exist = cellfun(@(x) ~isempty(x), groupdata.wfs{i_group}(i_tf,:));
     l_recov_exist(1) = []; % ignore the first array b/c it's not recov pulse
@@ -1639,17 +1721,104 @@ for i_tf = 1:Ntfs
     plt_string = sprintf('Train = %d Hz, Recovery (in ms): %s', plt_train_tf, num2str(plt_recov_ms));
     txt_hand = text(750, 0.2, plt_string);
     txt_hand.FontSize = 9;
+    legend(leghand{i_tf}, legtext{i_tf}, 'location', 'best', 'interpreter', 'none')
+    legend boxoff
 end
 
 
 
-%% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
+%
+% Plots of the normalized amplitudes
+%
+%%%%%%%%%%%%
+f = figure;
+f.Units = 'Normalized';
+f.Position = [0.0865, 0, 0.3161, 1];
+f.Color = 'w';
+Ngroups = size(plotgroups,1);
+plotcolors = lines(Ngroups);
+legtext = repmat({{}}, 1, Ntfs);
+leghand = repmat({[]}, 1, Ntfs);
+for i_group = 1:size(plotgroups, 1)
+    
+    for i_tf = 1:Ntfs
+        
+        hs = subplot(Ntfs, 1, i_tf); hold on,
+        hs.TickDir = 'out';
+        
+        % check to make sure there are data for this TF condition
+        data_exist = ~isempty(groupdata.amps{i_group}{i_tf,1});
+        if data_exist
+            
+            
+            % grab the data for this tf condition
+            N_expts = cellfun(@(x) size(x,1), groupdata.amps{i_group}(i_tf,:));
+            N_expts = max(N_expts);
+            train_amps = groupdata.amps{i_group}{i_tf,1};
+            recov_amps = cat(2, groupdata.amps{i_group}{i_tf,2:end});
+            
+            % determine the mean across experiments
+            xbar_trains = nanmean(train_amps, 1);
+            sem_trains = stderr(train_amps, 1);
+            xx_trains = 1:numel(xbar_trains);
+            xbar_recov = nanmean(recov_amps, 1);
+            sem_recov = stderr(recov_amps, 1);
+            xx_recov = numel(xbar_trains)+1 : numel(xbar_trains)+numel(xbar_recov);
+            
+            % plot
+            hp = errorbar(xx_trains, xbar_trains, sem_trains, 'color', plotcolors(i_group,:));
+            errorbar(xx_recov, xbar_recov, sem_recov, 'o', 'markerfacecolor', plotcolors(i_group,:), 'markeredgecolor', plotcolors(i_group,:))
+            leghand{i_tf}(end+1) = hp(1);
+            legtext{i_tf}{end+1} = sprintf('%s, %s, %s, N=%d', plotgroups{i_group,1}, plotgroups{i_group,2}, plotgroups{i_group,3}, N_expts);
+            
+            % add predictions from the fits to the averaged raw data
+            if PLOT_MANIFOLD_OF_AVG_RAW_DATA
+                % check that the plot_group defined here is the same as the
+                % plot-group defined by the group_fit_to_grand_avg dataset
+                data_matches = all(strcmpi(plotgroups(i_group,:), group_fit_to_grand_avg{i_group}.grouptypes));
+                assert(data_matches, 'ERROR: plot groups do not match')
+                
+                smooth_manifold = group_fit_to_grand_avg{i_group}.smooth_manifold;
+                
+                train_tf = allTFs(i_tf);
+                isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+                manifold_freqs = 1000./isi_ms;
+                [~, freq_idx] = min(abs(manifold_freqs - train_tf));
+                smooth_xx = 1:size(smooth_manifold, 1);
+                smooth_yy = smooth_manifold(:, freq_idx);
+                
+                %plot the smooth manifold
+                predmod = plot(smooth_xx,smooth_yy, '--', 'color', plotcolors(i_group,:));
+            end
+        end
+        
+    end
+end
+% indicate the TF, and recovery times, add a legend
+figure(f)
+for i_tf = 1:Ntfs
+    subplot(Ntfs, 1, i_tf)
+    plt_train_tf = allTFs(i_tf);
+    l_recov_exist = cellfun(@(x) ~isempty(x), groupdata.wfs{i_group}(i_tf,:));
+    l_recov_exist(1) = []; % ignore the first array b/c it's not recov pulse
+    plt_recov_ms = allRecoveryTimes(l_recov_exist);
+    plt_string = sprintf('Train = %d Hz, Recovery (in ms): %s', plt_train_tf, num2str(plt_recov_ms));
+    txt_hand = text(2, 1.65, plt_string);
+    txt_hand.FontSize = 9;
+    legend(leghand{i_tf}, legtext{i_tf}, 'location', 'best', 'interpreter', 'none')
+    legend boxoff
+end
 
-TRAINSET = 'recovery';  % could be 'rit', 'recovery', 'all'
-PLOT_TRAINING_DATA = true;
-FIT_RECOVERY_PULSE = false;
+
+%% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
+tic
+MODEL = 'ddff'; % string (eg 'ddff') or number of d and f terms (eg, 3) for FULLFACT
+TRAINSET = 'rit';  % could be 'rit', 'recovery', 'all'
+PLOT_TRAINING_DATA = false;
+FIT_RECOVERY_PULSE = true;
 DATA_FOR_FIT = 'avg'; % can be 'avg', 'norm', 'raw'. 
 CONVERT_TO_SMOOTH_P1 = true;
+FORCE_RECOVERY = false;
 
 % write an anyonomous helper function to find the training data
 clear isTrainingSet
@@ -1663,7 +1832,7 @@ switch TRAINSET
 end
 
 
-for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
+for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
     clc
     hf = figure;
     hf.Units = 'Normalized';
@@ -1716,6 +1885,16 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
                     pOnTimes(end) = [];
                     rawAmps = rawAmps(1:end-1,1,:);
                 end
+            end
+            
+            % force the model to fit a ficticious data point at +15 seconds
+            % at a normalized value of 1
+            if FORCE_RECOVERY
+                if ~FIT_RECOVERY_PULSE; error('ERROR: need to fit recov for force_recovery'); end
+                if ~CONVERT_TO_SMOOTH_P1; error('ERROR: need to normalize for force_recovery'); end
+                pOnTimes(end+1:end+3) = [15, 17, 25]; % in seconds
+                nsweeps = size(rawAmps,3);
+                rawAmps(end+1:end+3,:,:) = repmat([1;1;1], 1, 1, nsweeps);
             end
             
             % allocate the data to either the training or xval datasets
@@ -1805,17 +1984,47 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
         training_data.amps_for_fit(l_empty) = [];
         training_data.ptimes_for_fit(l_empty) = [];
         
-        % fit the RIT data, but only if the fit params do not already exist
-        [d, f, dTau, fTau] = fitTau2STP(training_data.amps_for_fit, training_data.ptimes_for_fit, [], 'multistart');
-        
-        % predict all the data
-        training_data.pred_amps = cellfun(@(x,y) predictPSCfromTau(x, d, dTau, f, fTau, mean(y(1,1,:))), training_data.ptimes_for_fit, training_data.amps_for_fit, 'uniformoutput', false);
-        if xval_exists
-            xval_data.pred_amps = cellfun(@(x,y) predictPSCfromTau(x, d, dTau, f, fTau, mean(y(1,1,:))), xval_data.ptimes_for_fit, xval_data.amps_for_fit, 'uniformoutput', false);
+        fit_results = {};
+        % fit the data
+        if ischar(MODEL)
+            [tmp_best_fit_params, fxn_val] = fit_vca_model(training_data.amps_for_fit, training_data.ptimes_for_fit, MODEL);
+            fit_results{1}.params = tmp_best_fit_params;
+            fit_results{1}.fxn_val = fxn_val;
+            fit_results{1}.model = MODEL;
+            
+        elseif isscalar(MODEL)
+            all_models = fullfact([MODEL+1, MODEL+1])-1; % -1 to have models with just d or f. +1 to bring the total back up to the desired number
+            l_zeros = sum(all_models, 2)==0;
+            all_models(l_zeros,:) = []; % delete models with zero d and zero f terms
+            
+            for i_mod = 1:size(all_models,1)
+                d_terms = repmat('d',1,all_models(i_mod,1));
+                f_terms = repmat('f',1,all_models(i_mod,2));
+                tmp_model = strcat(d_terms, f_terms);
+                
+                [tmp_best_fit_params, fxn_val] = fit_vca_model(training_data.amps_for_fit, training_data.ptimes_for_fit, tmp_model);
+                fit_results{i_mod}.params = tmp_best_fit_params;
+                fit_results{i_mod}.fxn_val = fxn_val;
+                fit_results{i_mod}.model = tmp_model;
+            end
+            
+        else
+            error('MODEL was neither a scalar or a string')
         end
         
+        % predict all the data (for all types of models)
+        for i_mod = 1:numel(fit_results)
+            [d, dTau, f, fTau] = parse_vca_model_coeffs(fit_results{i_mod}.params, fit_results{i_mod}.model);
+            training_data.pred_amps{i_mod} = cellfun(@(x,y) predict_vca_psc(x, d, dTau, f, fTau, mean(y(1,1,:))), training_data.ptimes_for_fit, training_data.amps_for_fit, 'uniformoutput', false);
+            if xval_exists
+                xval_data.pred_amps{i_mod} = cellfun(@(x,y) predict_vca_psc(x, d, dTau, f, fTau, mean(y(1,1,:))), xval_data.ptimes_for_fit, xval_data.amps_for_fit, 'uniformoutput', false);
+            end
+        end
         
+        %
         % plot the training or cross validation data set, and the prediction
+        %
+        %%%%%%%%%%%%%%
         figure(hf)
         if PLOT_TRAINING_DATA
             amps_for_plot = training_data.amps_for_fit;
@@ -1826,6 +2035,80 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
             ptimes_for_plot = xval_data.ptimes_for_fit;
             pred_for_plot = xval_data.pred_amps;
         end
+        
+        % make a scatter plot of all predicted and actual PSC amps
+        plt_clr = lines(numel(pred_for_plot));
+        for i_mod = 1:numel(pred_for_plot)
+            hs = [];
+            training_pred = cellfun(@(x,y) repmat(x, [1,1,size(y,3)]), training_data.pred_amps{i_mod}, training_data.amps_for_fit, 'uniformoutput', false); % make sure there is one pred for every real amp
+            training_pred = cellfun(@(x) x(:), training_pred, 'uniformoutput', false); %  a single col vector for each cond
+            training_pred = cat(1, training_pred{:}); % now all conds aggregated into a single col vec
+            training_raw = cellfun(@(x) x(:), training_data.amps_for_fit, 'uniformoutput', false);
+            training_raw = cat(1, training_raw{:});
+            l_ones = training_raw == 1; % valid hits when raw data are normalized
+            training_raw(l_ones) = [];
+            training_pred(l_ones) = [];
+            if xval_exists
+                crossval_pred =  cellfun(@(x,y) repmat(x, [1,1,size(y,3)]), xval_data.pred_amps{i_mod}, xval_data.amps_for_fit, 'uniformoutput', false);
+                crossval_pred = cellfun(@(x) x(:), crossval_pred, 'uniformoutput', false);
+                crossval_pred = cat(1, crossval_pred{:});
+                crossval_raw = cellfun(@(x) x(:), xval_data.amps_for_fit, 'uniformoutput', false);
+                crossval_raw = cat(1, crossval_raw{:});
+                l_ones = crossval_raw == 1;
+                crossval_raw(l_ones) = [];
+                crossval_pred(l_ones) = [];
+            end
+            
+            % calculate all the fitting errors
+            num_params = numel(fit_results{i_mod}.params);
+            fit_results{i_mod}.R2_train = get_r2(training_raw, training_pred);
+            fit_results{i_mod}.R2_train_adj = get_r2(training_raw, training_pred, num_params);
+            fit_results{i_mod}.AICc_train = get_aic(training_raw, training_pred, num_params);
+            fit_results{i_mod}.MSE_train = mean((training_raw - training_pred).^2);
+            fit_results{i_mod}.R2_crossvalid = NaN; % this needs to be fixed... get_r2(crossval_raw, crossval_pred);
+            
+            
+            
+            
+            if i_ch == 1; pltcol=1; else pltcol=4; end
+            pltIdx = sub2ind([4, 3], pltcol, 1);
+            hs = subplot(3, 4, pltIdx); hold on,
+            plot(training_raw, training_pred, 'o', 'color', plt_clr(i_mod,:))
+            if xval_exists
+                plot(crossval_raw, crossval_pred, '.', 'color', plt_clr(i_mod,:))
+            end
+            
+            maxval = max([hs.XLim, hs.YLim]);
+            minval = min([hs.XLim, hs.YLim]);
+            plot([minval, maxval], [minval, maxval], 'k--')
+            xlabel('raw EPSC amp')
+            ylabel('pred amp')
+            
+            pltIdx = sub2ind([4, 3], pltcol, 2);
+            subplot(3,4,pltIdx), hold on,
+            resid = training_raw - training_pred;
+            histogram(resid, 'FaceColor', plt_clr(i_mod,:))
+            plot(mean(resid), 10, 'rv', 'markerfacecolor', 'r')
+            xlabel('real-pred')
+            if i_mod == numel(pred_for_plot);
+                title(sprintf('Best R2 = %.2f', max(cell2mat(structcat(fit_results, 'R2_train')))));
+            end
+            
+            % plot cross validation stuff
+            if xval_exists
+                pltIdx = sub2ind([4, 3], pltcol, 3);
+                subplot(3,4,pltIdx), hold on,
+                resid = crossval_raw - crossval_pred;
+                histogram(resid, 'FaceColor', plt_clr(i_mod,:));
+                plot(mean(resid), 5, 'rv', 'markerfacecolor', 'r')
+                xlabel('cross-valid (real-pred)')
+                if i_mod == numel(pred_for_plot);
+                    title(sprintf('Best R2 = %.2f', max(cell2mat(structcat(fit_results, 'R2_train')))));
+                end
+            end
+        end % i_mod scatter plots
+        
+        % main figures of raw data and predictions
         xlims = [inf -inf];
         ylims = [inf -inf];
         hs = [];
@@ -1835,15 +2118,24 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
             
             pltIdx = sub2ind([4, numel(amps_for_plot)], i_ch+1, i_cond);
             hs(i_cond) = subplot(numel(amps_for_plot), 4, pltIdx); hold on,
-            
+           
+            % plot the model fits
             xx = ptimes_for_plot{i_cond};
+            hp = [];
+            model_string = {};
+            for i_mod = 1:numel(pred_for_plot)
+                hp(i_mod) = plot(xx, pred_for_plot{i_mod}{i_cond}, '-', 'color', plt_clr(i_mod,:), 'linewidth', 2);
+                model_string{i_mod} = [fit_results{i_mod}.model, ',', blanks(8-numel(fit_results{i_mod}.model)-1) 'R2: ', num2str(fit_results{i_mod}.R2_train, 3)];
+            end
+            % plot the experimental data
             switch DATA_FOR_FIT
                 case {'avg', 'norm'}
                     plot(xx, amps_for_plot{i_cond}, '-k.');
                 case 'raw'
                     my_errorbar(xx, mean(amps_for_plot{i_cond},3), stderr(amps_for_plot{i_cond},3), '-k');
             end
-            plot(xx, pred_for_plot{i_cond}, 'r', 'linewidth', 2)
+            
+            %legend(hp, model_string);
             axis tight
             xlims(1) = min([min(xx), xlims(1)]);
             xlims(2) = max([max(xx), xlims(2)]);
@@ -1858,73 +2150,11 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
         end
         
         
-        
-        % make a scatter plot of all predicted and actual PSC amps
-        hs = [];
-        training_pred = cellfun(@(x,y) repmat(x, [1,1,size(y,3)]), training_data.pred_amps, training_data.amps_for_fit, 'uniformoutput', false); % make sure there is one pred for every real amp
-        training_pred = cellfun(@(x) x(:), training_pred, 'uniformoutput', false); %  a single col vector for each cond
-        training_pred = cat(1, training_pred{:}); % now all conds aggregated into a single col vec
-        training_raw = cellfun(@(x) x(:), training_data.amps_for_fit, 'uniformoutput', false);
-        training_raw = cat(1, training_raw{:});
-        if xval_exists
-            crossval_pred =  cellfun(@(x,y) repmat(x, [1,1,size(y,3)]), xval_data.pred_amps, xval_data.amps_for_fit, 'uniformoutput', false);
-            crossval_pred = cellfun(@(x) x(:), crossval_pred, 'uniformoutput', false);
-            crossval_pred = cat(1, crossval_pred{:});
-            crossval_raw = cellfun(@(x) x(:), xval_data.amps_for_fit, 'uniformoutput', false);
-            crossval_raw = cat(1, crossval_raw{:});
-        end
-        
-        if i_ch == 1; pltcol=1; else pltcol=4; end
-        pltIdx = sub2ind([4, 3], pltcol, 1);
-        hs = subplot(3, 4, pltIdx); hold on,
-        plot(training_raw, training_pred, 'k.')
-        if xval_exists
-            plot(crossval_raw, crossval_pred, 'r.')
-        end
-        
-        maxval = max([hs.XLim, hs.YLim]);
-        minval = min([hs.XLim, hs.YLim]);
-        plot([minval, maxval], [minval, maxval], 'k--')
-        xlabel('raw EPSC amp')
-        ylabel('pred amp')
-        
-        
-        
-        pltIdx = sub2ind([4, 3], pltcol, 2);
-        subplot(3,4,pltIdx), hold on,
-        resid = training_pred - training_raw;
-        histogram(resid)
-        plot(mean(resid), 10, 'rv', 'markerfacecolor', 'r')
-        R2_train = 1 - (sum(resid.^2) ./ sum((training_raw - mean(training_raw)).^2));
-        xlabel('pred-real')
-        title(sprintf('R2 = %.2f', R2_train));
-        
-        % plot cross validation stuff
-        R2_crossvalid = [];
-        if xval_exists
-            pltIdx = sub2ind([4, 3], pltcol, 3);
-            subplot(3,4,pltIdx), hold on,
-            resid = crossval_pred - crossval_raw;
-            histogram(resid);
-            plot(mean(resid), 5, 'rv', 'markerfacecolor', 'r')
-            R2_crossvalid = 1 - (sum(resid.^2) ./ sum((crossval_raw-mean(crossval_raw)).^2));
-            xlabel('cross-valid (pred-real)')
-            title(sprintf('R2 = %.2f', R2_crossvalid));
-        end
-        
-        
-        % display the function fits as text at the bottom
-        if i_ch == 1; horiz_shift = 0.1; else horiz_shift = 0.6; end
-        text_string = sprintf('d [%.2f, %.2f],  Tau_d [%.3f, %.3f],  f [%.2f],  Tau_f [%.3f]', d(1), d(2), dTau(1), dTau(2), f(1), fTau(1));
-        uicontrol('style', 'text', 'units', 'normalized', 'position', [horiz_shift, -0.07, 0.25, 0.1], 'string', text_string);
-        
         % store some parameters in the dat array
         dat{i_ex}.stpfits.trainingSet = TRAINSET;
         dat{i_ex}.stpfits.fitRecovPulse = FIT_RECOVERY_PULSE;
         dat{i_ex}.stpfits.dataforfit = DATA_FOR_FIT;
-        dat{i_ex}.stpfits.modelParams{i_ch} = [d, f, dTau, fTau];
-        dat{i_ex}.stpfits.R2.training{i_ch} = R2_train;
-        dat{i_ex}.stpfits.R2.crossvalid{i_ch} = R2_crossvalid;
+        dat{i_ex}.stpfits.fit_results{i_ch} = fit_results; % previously = [d, f, dTau, fTau], now has all models
         dat{i_ex}.stpfits.training_data{i_ch} = training_data;
         dat{i_ex}.stpfits.xval_data{i_ch} = xval_data;
         
@@ -1933,7 +2163,160 @@ for i_ex = 1:numel(dat)   %  i_ex = 17 is a good one for debugging.
     
     
 end
+toc
 
+
+%% STP FITTING PLOTS RE-DO
+
+PLOT_TRAINING_DATA = true;
+
+for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
+    clc
+    hf = figure;
+    hf.Units = 'Normalized';
+    hf.Position = [0.3347    0.0422    0.6639    0.7489];
+    hf.Name = sprintf('Mouse %s, site %s, opsin: %s.  Train with: %s, Plot training set: %d',...
+        dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.opsin, TRAINSET, PLOT_TRAINING_DATA);
+    chempty = false(1,2);
+    for i_ch = 1:2
+        
+        % determine if there are data to fit
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+        if ~isvalid
+            chempty(i_ch) = true;
+            if  all(chempty)
+                close(hf)
+            end
+            continue
+        end
+        
+        % define training_data, xval_data
+        fit_results = dat{i_ex}.stpfits.fit_results{i_ch}; % previously = [d, f, dTau, fTau], now has all models
+        training_data = dat{i_ex}.stpfits.training_data{i_ch};
+        xval_data = dat{i_ex}.stpfits.xval_data{i_ch};
+        
+        %
+        % plot the training or cross validation data set, and the prediction
+        %
+        %%%%%%%%%%%%%%
+        figure(hf)
+        if PLOT_TRAINING_DATA
+            amps_for_plot = training_data.amps_for_fit;
+            ptimes_for_plot = training_data.ptimes_for_fit;
+            pred_for_plot = training_data.pred_amps;
+        else
+            amps_for_plot = xval_data.amps_for_fit;
+            ptimes_for_plot = xval_data.ptimes_for_fit;
+            pred_for_plot = xval_data.pred_amps;
+        end
+        
+        % make a scatter plot of all predicted and actual PSC amps
+        plt_clr = lines(numel(pred_for_plot));
+        for i_mod = 1:numel(pred_for_plot)
+            hs = [];
+            training_pred = cellfun(@(x,y) repmat(x, [1,1,size(y,3)]), training_data.pred_amps{i_mod}, training_data.amps_for_fit, 'uniformoutput', false); % make sure there is one pred for every real amp
+            training_pred = cellfun(@(x) x(:), training_pred, 'uniformoutput', false); %  a single col vector for each cond
+            training_pred = cat(1, training_pred{:}); % now all conds aggregated into a single col vec
+            training_raw = cellfun(@(x) x(:), training_data.amps_for_fit, 'uniformoutput', false);
+            training_raw = cat(1, training_raw{:});
+            l_ones = training_raw == 1; % valid hits when raw data are normalized
+            training_raw(l_ones) = [];
+            training_pred(l_ones) = [];
+            if xval_exists
+                crossval_pred =  cellfun(@(x,y) repmat(x, [1,1,size(y,3)]), xval_data.pred_amps{i_mod}, xval_data.amps_for_fit, 'uniformoutput', false);
+                crossval_pred = cellfun(@(x) x(:), crossval_pred, 'uniformoutput', false);
+                crossval_pred = cat(1, crossval_pred{:});
+                crossval_raw = cellfun(@(x) x(:), xval_data.amps_for_fit, 'uniformoutput', false);
+                crossval_raw = cat(1, crossval_raw{:});
+                l_ones = crossval_raw == 1;
+                crossval_raw(l_ones) = [];
+                crossval_pred(l_ones) = [];
+            end
+            
+            if i_ch == 1; pltcol=1; else pltcol=4; end
+            pltIdx = sub2ind([4, 3], pltcol, 1);
+            hs = subplot(3, 4, pltIdx); hold on,
+            plot(training_raw, training_pred, 'o', 'color', plt_clr(i_mod,:))
+            if xval_exists
+                plot(crossval_raw, crossval_pred, '.', 'color', plt_clr(i_mod,:))
+            end
+            
+            maxval = max([hs.XLim, hs.YLim]);
+            minval = min([hs.XLim, hs.YLim]);
+            plot([minval, maxval], [minval, maxval], 'k--')
+            xlabel('raw EPSC amp')
+            ylabel('pred amp')
+            
+            pltIdx = sub2ind([4, 3], pltcol, 2);
+            subplot(3,4,pltIdx), hold on,
+            resid = training_raw - training_pred;
+            histogram(resid, 'FaceColor', plt_clr(i_mod,:))
+            plot(mean(resid), 10, 'rv', 'markerfacecolor', 'r')
+            xlabel('real-pred')
+            if i_mod == numel(pred_for_plot);
+                title(sprintf('Best R2 = %.2f', max(cell2mat(structcat(fit_results, 'R2_train')))));
+            end
+            
+            % plot cross validation stuff
+            if xval_exists
+                pltIdx = sub2ind([4, 3], pltcol, 3);
+                subplot(3,4,pltIdx), hold on,
+                resid = crossval_raw - crossval_pred;
+                histogram(resid, 'FaceColor', plt_clr(i_mod,:));
+                plot(mean(resid), 5, 'rv', 'markerfacecolor', 'r')
+                xlabel('cross-valid (real-pred)')
+                if i_mod == numel(pred_for_plot);
+                    title(sprintf('Best R2 = %.2f', max(cell2mat(structcat(fit_results, 'R2_train')))));
+                end
+            end
+        end % i_mod scatter plots
+        
+        % main figures of raw data and predictions
+        xlims = [inf -inf];
+        ylims = [inf -inf];
+        hs = [];
+        for i_cond = 1:numel(amps_for_plot)
+            
+            if isempty(amps_for_plot{i_cond}); continue; end
+            
+            pltIdx = sub2ind([4, numel(amps_for_plot)], i_ch+1, i_cond);
+            hs(i_cond) = subplot(numel(amps_for_plot), 4, pltIdx); hold on,
+            
+            % plot the model fits
+            xx = ptimes_for_plot{i_cond};
+            hp = [];
+            model_string = {};
+            for i_mod = 1:numel(pred_for_plot)
+                hp(i_mod) = plot(xx, pred_for_plot{i_mod}{i_cond}, '-', 'color', plt_clr(i_mod,:), 'linewidth', 2);
+                model_string{i_mod} = [fit_results{i_mod}.model, ',', blanks(8-numel(fit_results{i_mod}.model)-1) 'R2: ', num2str(fit_results{i_mod}.R2_train, 3)];
+            end
+            % plot the experimental data
+            switch DATA_FOR_FIT
+                case {'avg', 'norm'}
+                    plot(xx, amps_for_plot{i_cond}, '-k.');
+                case 'raw'
+                    my_errorbar(xx, mean(amps_for_plot{i_cond},3), stderr(amps_for_plot{i_cond},3), '-k');
+            end
+            
+            %legend(hp, model_string);
+            axis tight
+            %xlims(1) = min([min(xx), xlims(1)]);
+            %xlims(2) = max([max(xx), xlims(2)]);
+            yvals = get(gca, 'ylim');
+            ylims(1) = min([yvals(1), ylims(1)]);
+            ylims(2) = max([yvals(2), ylims(2)]);
+            xlim([0,7])
+            
+        end
+        if ~isempty(hs) && sum(hs)>0
+            set(hs(hs~=0), 'YLim', ylims) % standardize y axis
+            %set(hs(hs~=0), 'XLim', xlims)  % standardize x axis
+        end
+        
+        
+    end
+    drawnow
+end
 
 %% MODEL SELECTION 1: BEST FITTING MODELS
 close all; clc;
@@ -2125,19 +2508,24 @@ end
 
 %% SUMMARY OF FIT PARAMETERS
 clc
+
+MODEL = 'ddff'; % only consider one of the models at a time (if many are present)
+
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
     'PY', 'L23', 'med', 'chief';...
     'PY', 'L23', 'lat', 'chief';...
+    'PY', 'L23', 'med', 'chronos';...
+    'PY', 'L23', 'lat', 'chronos';...
     'all_som', 'any', 'any', 'any';...
     'all_pv', 'any', 'any', 'any';...
     };
 
 % initalize the aggregate datasets
-empty_array = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
-[groupdata_fit_params, groupdata_training_R2, groupdata_xval_R2] = deal(empty_array);
+empty_array = repmat({[]}, 1, size(plotgroups, 1)); 
+[groupdata_fit_params, groupdata_training_MSE, groupdata_xval_MSE] = deal(empty_array);
 
 
 for i_ex = 1:numel(dat)
@@ -2155,103 +2543,119 @@ for i_ex = 1:numel(dat)
         group_idx = groupMatcher(plotgroups, ch_attribs);
         if sum(group_idx) == 0; continue; end
         
-        % add data to the appropriate group data array
-        tmp_params = dat{i_ex}.stpfits.fit_results{i_ch}{6}.params; % [d, dTau, f, fTau]
-        groupdata_fit_params{group_idx} = cat(1, groupdata_fit_params{group_idx}, tmp_params);
+        % find the index to the model requested
+        tmp_fit_results = dat{i_ex}.stpfits.fit_results{i_ch};
+        mod_idx = cellfun(@(x) ~isempty(strcmpi(x.model, MODEL)), tmp_fit_results);
         
-%         tmp_train_R2 = dat{i_ex}.stpfits.R2.training{i_ch}(6);
-%         groupdata_training_R2{group_idx} = cat(1, groupdata_training_R2{group_idx}, tmp_train_R2);
-%         
-%         tmp_xval_R2 = dat{i_ex}.stpfits.R2.crossvalid{i_ch}(6);
-%         groupdata_xval_R2{group_idx} = cat(1, groupdata_xval_R2{group_idx}, tmp_xval_R2);
-%         
-%         
+        % add data to the appropriate group data array
+        assert(numel(tmp_fit_results{mod_idx}.params) == numel(MODEL)*2, 'ERROR: params mismatch')
+        groupdata_fit_params{group_idx} = cat(1, groupdata_fit_params{group_idx}, tmp_fit_results{mod_idx}.params);
+        
     end
 end
+
+
+% fix the order of the params: ascending order
+for i_group = 1:size(plotgroups,1)
+    tmp_dat = groupdata_fit_params{i_group};
+
+    for ii = 1:size(tmp_dat,1)
+        [d, tau_d, f, tau_f] = parse_vca_model_coeffs(tmp_dat(ii,:), MODEL);
+        [~, d_sort_idx] = sort(d, 2, 'ascend');
+        [~, f_sort_idx] = sort(f, 2, 'ascend');
+        d = d(d_sort_idx);
+        tau_d = tau_d(d_sort_idx);
+        f = f(f_sort_idx);
+        tau_f = tau_f(f_sort_idx);
+        tmp_dat(ii,:) = [d, tau_d, f, tau_f];        
+    end
+    groupdata_fit_params{i_group} = tmp_dat;
+end
+
+% make a summary table of the average fit params
+T = table;
+for i_group = 1:size(plotgroups,1)
+    tmp_dat = groupdata_fit_params{i_group};
+    avg_params = mean(tmp_dat, 1);
+    [d, tau_d, f, tau_f] = parse_vca_model_coeffs(avg_params, MODEL);
+    cell_type = plotgroups(i_group, 1);
+    opsin_type = plotgroups(i_group, 4);
+    brain_area = plotgroups(i_group, 3);
+    N_expts = size(tmp_dat,1);
+    T = [T; table(cell_type, brain_area, opsin_type, d, tau_d, f, tau_f, N_expts)];
+end
+T
 
 
 % line plots of parameter fits
 plotcolors = {'r', 'b', 'g', 'k'};
 
-% TODO: make this work with unknown numbers of Ds, Fs.
 figure, hold on,
 for i_group = 1:size(plotgroups,1)
     tmp_dat = groupdata_fit_params{i_group};
     
-    % fix the order of the depressing terms. small first
-    for ii = 1:size(tmp_dat,1)
-        if tmp_dat(ii, 1) > tmp_dat(ii, 2)
-            tmp_dat(ii, [1,2]) = tmp_dat(ii, [2,1]);
-            tmp_dat(ii, [3,4]) = tmp_dat(ii, [4,3]);
-        end
-    end
-    
     xbar = mean(tmp_dat,1);
     sem = stderr(tmp_dat,1);
-    p1 = plot(tmp_dat', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
-    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
-    plot(xbar, '-', 'color', plotcolors{i_group}, 'linewidth', 4)
-    set(gca, 'yscale', 'log')
-    set(gca, 'xtick', [1:size(tmp_dat,2)], 'xticklabel', {'d1', 'd2', 'Tau d1', 'Tau d2', 'f', 'Tau f1'})
+    %p1 = plot(tmp_dat', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
+    %for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+    %plot(xbar, '-', 'color', plotcolors{i_group}, 'linewidth', 4)
+    shadedErrorBar(1:numel(MODEL)*2, xbar, sem, {'color', plotcolors{i_group}, 'linewidth', 4}, true);   
+    %set(gca, 'yscale', 'log')
+    %set(gca, 'xtick', [1:size(tmp_dat,2)], 'xticklabel', {'d1', 'd2', 'Tau d1', 'Tau d2', 'f', 'Tau f1'})
     set(gca, 'TickDir', 'out')
 end
 
-
-figure, hold on,
-for i_group = 1:size(plotgroups,1)
-    tmp_dat = groupdata_fit_params{i_group};
-    
-    % fix the order of the depressing terms. small first
-    for ii = 1:size(tmp_dat,1)
-        if tmp_dat(ii, 1) > tmp_dat(ii, 2)
-            tmp_dat(ii, [1,2]) = tmp_dat(ii, [2,1]);
-            tmp_dat(ii, [3,4]) = tmp_dat(ii, [4,3]);
-        end
-    end
-    
-    xbar = mean(tmp_dat,1);
-    sem = stderr(tmp_dat,1);
-    
-    % D terms
-    subplot(1,4,1), hold on,
-    p1 = plot(tmp_dat(:,1:2)', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
-    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
-    plot(xbar(1:2), '-', 'color', plotcolors{i_group}, 'linewidth', 4)
-    %set(gca, 'yscale', 'log')
-    set(gca, 'xtick', [1:2], 'xticklabel', {'d1', 'd2'})
-    set(gca, 'TickDir', 'out')
-    
-    % D taus
-    subplot(1,4,2), hold on,
-    p1 = plot(tmp_dat(:,3:4)', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
-    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
-    plot(xbar(3:4), '-', 'color', plotcolors{i_group}, 'linewidth', 4)
-    %set(gca, 'yscale', 'log')
-    set(gca, 'xtick', [1:2], 'xticklabel', {'Tau d1', 'Tau d2'})
-    set(gca, 'TickDir', 'out')
-    
-    % F terms
-    subplot(1,4,3), hold on,
-    p1 = plot(ones(size(tmp_dat,1)), tmp_dat(:,5)', 'o', 'markeredgecolor', plotcolors{i_group}, 'linewidth', 0.5);
-    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
-    plot(1, xbar(5), 'o', 'markeredgecolor', plotcolors{i_group}, 'markerfacecolor', plotcolors{i_group}, 'linewidth', 4)
-    %set(gca, 'yscale', 'log')
-    set(gca, 'xtick', [1], 'xticklabel', {'f'})
-    set(gca, 'TickDir', 'out')
-    
-    % F taus
-    subplot(1,4,4), hold on,
-    p1 = plot(ones(size(tmp_dat,1)), tmp_dat(:,6)', 'o', 'markeredgecolor', plotcolors{i_group}, 'linewidth', 0.5);
-    for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
-    plot(1, xbar(6), 'o', 'markeredgecolor', plotcolors{i_group}, 'markerfacecolor', plotcolors{i_group}, 'linewidth', 4)
-    %set(gca, 'yscale', 'log')
-    set(gca, 'xtick', [1], 'xticklabel', {'Tau f1'})
-    set(gca, 'TickDir', 'out')
-end
+% error('Does not work with arbitrary model types')
+% figure, hold on,
+% for i_group = 1:size(plotgroups,1)
+%     tmp_dat = groupdata_fit_params{i_group};
+%     
+%     xbar = mean(tmp_dat,1);
+%     sem = stderr(tmp_dat,1);
+%     
+%     % D terms
+%     subplot(1,4,1), hold on,
+%     p1 = plot(tmp_dat(:,1:2)', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
+%     for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+%     plot(xbar(1:2), '-', 'color', plotcolors{i_group}, 'linewidth', 4)
+%     %set(gca, 'yscale', 'log')
+%     set(gca, 'xtick', [1:2], 'xticklabel', {'d1', 'd2'})
+%     set(gca, 'TickDir', 'out')
+%     
+%     % D taus
+%     subplot(1,4,2), hold on,
+%     p1 = plot(tmp_dat(:,3:4)', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
+%     for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+%     plot(xbar(3:4), '-', 'color', plotcolors{i_group}, 'linewidth', 4)
+%     %set(gca, 'yscale', 'log')
+%     set(gca, 'xtick', [1:2], 'xticklabel', {'Tau d1', 'Tau d2'})
+%     set(gca, 'TickDir', 'out')
+%     
+%     % F terms
+%     subplot(1,4,3), hold on,
+%     p1 = plot(ones(size(tmp_dat,1)), tmp_dat(:,5)', 'o', 'markeredgecolor', plotcolors{i_group}, 'linewidth', 0.5);
+%     for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+%     plot(1, xbar(5), 'o', 'markeredgecolor', plotcolors{i_group}, 'markerfacecolor', plotcolors{i_group}, 'linewidth', 4)
+%     %set(gca, 'yscale', 'log')
+%     set(gca, 'xtick', [1], 'xticklabel', {'f'})
+%     set(gca, 'TickDir', 'out')
+%     
+%     % F taus
+%     subplot(1,4,4), hold on,
+%     p1 = plot(ones(size(tmp_dat,1)), tmp_dat(:,6)', 'o', 'markeredgecolor', plotcolors{i_group}, 'linewidth', 0.5);
+%     for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
+%     plot(1, xbar(6), 'o', 'markeredgecolor', plotcolors{i_group}, 'markerfacecolor', plotcolors{i_group}, 'linewidth', 4)
+%     %set(gca, 'yscale', 'log')
+%     set(gca, 'xtick', [1], 'xticklabel', {'Tau f1'})
+%     set(gca, 'TickDir', 'out')
+% end
 
 %% PAIRED PULSE PLASTICITY MANIFOLDS (DATA COLLECTION)
 % TODO convert raw data used here to the data explicitly used in the fits.
 % (including the smoothed version)
+
+%error('Does not generalize to arbitrary fit params')
+MODEL = 'ddff';
 
 % loop through the experiments. Pull out the trains data. Ignore the
 % recovery train (if present) and aggregate across recovery conditions.
@@ -2261,7 +2665,7 @@ pprpop.MaxNPulses = 0;
 for i_ex = 1:numel(dat)
     
     % assume that the model was trained using the recovery trains data
-    assert(strcmpi(dat{i_ex}.stpfits.trainingSet, 'recovery'), 'ERROR: model needs to be fit with the recovery trains')
+    %assert(strcmpi(dat{i_ex}.stpfits.trainingSet, 'recovery'), 'ERROR: model needs to be fit with the recovery trains')
     
     % store some metadata
     pprpop.info{i_ex} = dat{i_ex}.info;
@@ -2271,6 +2675,7 @@ for i_ex = 1:numel(dat)
     pprpop.tfs{i_ex} = {[],[]};
     pprpop.smoothManifold{i_ex} = {[],[]};
     pprpop.smoothManifold_isi{i_ex} = {[],[]};
+    pprpop.params{i_ex} = {[],[]};
     pprpop.R2{i_ex}= {[],[]};
     
     % loop over channels
@@ -2287,7 +2692,9 @@ for i_ex = 1:numel(dat)
         % multiple recovery times for a single base train TF
         all_training_conds = dat{i_ex}.stpfits.training_data{i_ch}.unique_conds_tdict;
         unique_tconds = unique(all_training_conds, 'rows');
-        assert(~any(unique_tconds(:,5) >0), 'ERROR: found a RIT train')
+        l_rit = unique_tconds(:,5) > 0;
+        unique_tconds(l_rit,:) = [];
+        %assert(~any(unique_tconds(:,5) >0), 'ERROR: found a RIT train')
         
         % identify the unique TF conditions for this experiment, and update the
         % running log of TFs used across all experiments
@@ -2313,10 +2720,12 @@ for i_ex = 1:numel(dat)
         
         
         % make a smooth manifold for this neuron.
-        % Assume TF = 10 : 50;
-        params = dat{i_ex}.stpfits.fit_results{i_ch}{1}.params;
+        tmp_fit_results = dat{i_ex}.stpfits.fit_results{i_ch};
+        mod_idx = cellfun(@(x) ~isempty(strcmpi(x.model, MODEL)), tmp_fit_results);
+        assert(numel(tmp_fit_results{mod_idx}.params) == numel(MODEL)*2, 'ERROR: params mismatch')
+        params = tmp_fit_results{mod_idx}.params;
         isi_ms = fliplr([1000/50 : 1 : 1000/10]);
-        NumPulses = 10;
+        NumPulses = 20;
         
         % solve for P1 amp
         all_p1_amps = cat(3, pprpop.dat{i_ex}.xbar{i_ch}{:});
@@ -2326,23 +2735,27 @@ for i_ex = 1:numel(dat)
         for i_isi = 1:numel(isi_ms)
             tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*NumPulses)-1;
             tmp_pOntimes_sec = tmp_pOntimes_ms ./ 1000;
-            smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, params(1:2), params(3:4), params(5), params(6), A0);
+            smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, params(1:2), params(3:4), params(5:6), params(7:8), A0);
         end
         pprpop.smoothManifold{i_ex}{i_ch} = smoothManifold;
         pprpop.smoothManifold_isi{i_ex}{i_ch} = isi_ms;
-        %pprpop.R2{i_ex}{i_ch} = dat{i_ex}.stpfits.R2.training{i_ch};
+        pprpop.params{i_ex}{i_ch} = params;
         
     end
     
 end
 
 
+
 %% PAIRED PULSE PLASTICITY MANIFOLDS (PLOTS)
 clc;
 
 % switches for first figure
-PLOT_AVG_SMOOTH_MANIFOLD = true;
-PLOT_OVERLAY_ALL_MANIFOLDS = false;
+PLOT_AVG_SMOOTH_MANIFOLD = false;
+PLOT_MANIFOLD_OF_AVG_PARAMS = false;
+PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD = false;
+PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
+PLOT_OVERLAY_ALL_MANIFOLDS = true;
 PLOT_AVG_RAW_DATA = false;
 
 % add other plots?
@@ -2351,13 +2764,13 @@ PLOT_DATASETS_INDIVIDUALLY = false;
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
-plotgroups = {
-    'all_som', 'any', 'any', 'any';...
-    'all_pv', 'any', 'any', 'any';...
+man_plotgrps = {
+    'PY', 'L23', 'AM', 'chief';...
+    'PY', 'L23', 'LM', 'chief';...
     };
 
-empty_array = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
-[groupdata_raw, groupdata_smooth, groupexpinds, groupchinds] = deal(empty_array);
+empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
+[groupdata_raw, groupdata_smooth, groupexpinds, groupchinds, group_params] = deal(empty_array);
 canonicalGrid = nan(pprpop.MaxNPulses, numel(pprpop.TFsAllExpts)); % need to get the maxNpulses into the pprpop struct
 allTFs = pprpop.TFsAllExpts;
 
@@ -2375,7 +2788,7 @@ for i_ex = 1:numel(dat)
         
         % check the attributes
         ch_attribs = {dat{i_ex}.info.cellType{i_ch}, upper(dat{i_ex}.info.brainArea), dat{i_ex}.info.opsin}; % force the brain area to be uppercase
-        group_idx = groupMatcher(plotgroups, ch_attribs);
+        group_idx = groupMatcher(man_plotgrps, ch_attribs);
         if sum(group_idx) == 0; continue; end
         
         % add data to the appropriate group data array
@@ -2397,16 +2810,16 @@ for i_ex = 1:numel(dat)
         
         if PLOT_AVG_SMOOTH_MANIFOLD || PLOT_OVERLAY_ALL_MANIFOLDS
             groupdata_smooth{group_idx} = cat(3, groupdata_smooth{group_idx}, pprpop.smoothManifold{i_ex}{i_ch});
+            group_params{group_idx} = cat(1, group_params{group_idx}, pprpop.params{i_ex}{i_ch});
         end
     end
 end
 
 
-% Plot average manfold. any global (above) that has multiple elements will
-% be ploted against eachother, but the other globals will be held constant.
-hf = figure;
+% Plot manfold(s)
+f = figure;
 hold on,
-plotcolors = {'r', 'b', 'g'};
+plotcolors = lines(size(man_plotgrps, 1));
 for i_group = 1:numel(groupdata_raw)
     
     if PLOT_AVG_RAW_DATA
@@ -2419,10 +2832,10 @@ for i_group = 1:numel(groupdata_raw)
         l_nan_tfs = all(isnan(grid_average), 1);
         
         hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
-        hs.EdgeColor = plotcolors{i_group};
+        hs.EdgeColor = plotcolors(i_group,:);
         hs.EdgeAlpha = 1;
         hs.LineWidth = 1.5;
-        hs.FaceColor = plotcolors{i_group};
+        hs.FaceColor = plotcolors(i_group,:);
         hs.FaceAlpha = 0.3;
     end
     
@@ -2435,9 +2848,25 @@ for i_group = 1:numel(groupdata_raw)
     if PLOT_AVG_SMOOTH_MANIFOLD
         grid_average = nanmean(groupdata_smooth{i_group}, 3);
         hmod = surf(X,Y, flipud(grid_average));
-        hmod.EdgeAlpha = .2;
-        hmod.FaceColor = plotcolors{i_group};
-        hmod.FaceAlpha = 0.5;
+        hmod.EdgeAlpha = 0;
+        hmod.FaceColor = plotcolors(i_group,:);
+        hmod.FaceAlpha = 0.6;
+    end
+    
+    if PLOT_MANIFOLD_OF_AVG_PARAMS
+        avg_params = mean(group_params{i_group}, 1);
+        [d, tau_d, f, tau_f] = parse_vca_model_coeffs(avg_params, MODEL);
+        A0 = 1;
+        smoothManifold = nan(N_pulses_smooth, numel(isi_ms));
+        for i_isi = 1:numel(isi_ms)
+            tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*N_pulses_smooth)-1;
+            tmp_pOntimes_sec = tmp_pOntimes_ms ./ 1000;
+            smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, d, tau_d, f, tau_f, A0);
+        end
+        predmod = surf(X,Y, flipud(smoothManifold));
+        predmod.EdgeAlpha = 0;
+        predmod.FaceColor = plotcolors(i_group,:);
+        predmod.FaceAlpha = 0.2;
     end
     
     if PLOT_OVERLAY_ALL_MANIFOLDS
@@ -2445,7 +2874,7 @@ for i_group = 1:numel(groupdata_raw)
         for i_examp = 1:N_manifolds
             hmod = surf(X,Y, flipud(groupdata_smooth{i_group}(:,:,i_examp)));
             hmod.EdgeAlpha = .2;
-            hmod.FaceColor = plotcolors{i_group};
+            hmod.FaceColor = plotcolors(i_group,:);
             hmod.FaceAlpha = 0.5;
         end
     end
@@ -2460,9 +2889,63 @@ set(gca, 'XMinorGrid', 'off', 'YMinorGrid', 'off', 'ZMinorGrid', 'off')
 xlabel('Temporal Frequency')
 ylabel('Pulse Number')
 zlabel('norm amp')
+set(gca, 'zscale', 'log')
 
+% plot manifold of params fit to grand average
+if PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD
+    for i_group = 1:numel(groupdata_raw)
+        % remake the smooth manifold
+        isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+        X = 1000./isi_ms;
+        N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
+        Y = 1:N_pulses_smooth;
+        [d, tau_d, f, tau_f] = parse_vca_model_coeffs(grand_avg_params{i_group}, MODEL);
+        A0 = 1;
+        smoothManifold = nan(N_pulses_smooth, numel(isi_ms));
+        for i_isi = 1:numel(isi_ms)
+            tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*N_pulses_smooth)-1;
+            tmp_pOntimes_sec = tmp_pOntimes_ms ./ 1000;
+            smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, d, tau_d, f, tau_f, A0);
+        end
+        
+        %re-plot the smooth manifold
+        predmod = surf(X,Y, flipud(smoothManifold));
+        predmod.EdgeAlpha = 0.5;
+        predmod.EdgeColor = plotcolors(i_group,:);
+        predmod.FaceColor = plotcolors(i_group,:);
+        predmod.FaceAlpha = 0;
+        
+    end
+end
 
+if PLOT_MANIFOLD_OF_AVG_RAW_DATA
+    for i_group = 1:size(man_plotgrps,1)
+        
+        % check that the plot_group defined here is the same as the
+        % plot-group defined by the group_fit_to_grand_avg dataset
+        data_matches = all(strcmpi(man_plotgrps(i_group,:), group_fit_to_grand_avg{i_group}.grouptypes));
+        assert(data_matches, 'ERROR: plot groups do not match')
+        
+        isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+        X = 1000./isi_ms;
+        N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
+        Y = 1:N_pulses_smooth;
+        smoothManifold = group_fit_to_grand_avg{i_group}.smooth_manifold;
+        
+        %plot the smooth manifold
+        predmod = surf(X,Y, flipud(smoothManifold));
+        predmod.EdgeAlpha = 0.5;
+        predmod.EdgeColor = plotcolors(i_group,:);
+        predmod.FaceColor = plotcolors(i_group,:);
+        predmod.FaceAlpha = 0;
+        
+    end
+end
+
+%
 % plot manifolds for each dataset individually
+% (lots of figures)
+%%%%%%%
 if PLOT_DATASETS_INDIVIDUALLY
     for i_group = 1:numel(groupdata_raw)
         
@@ -2477,9 +2960,9 @@ if PLOT_DATASETS_INDIVIDUALLY
             l_nan_tfs = all(isnan(grid_average), 1);
             
             hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
-            hs.EdgeColor = plotcolors{i_group};
+            hs.EdgeColor = plotcolors(i_group,:)
             hs.EdgeAlpha = 1;
-            hs.FaceColor = plotcolors{i_group};
+            hs.FaceColor = plotcolors(i_group,:);
             hs.FaceAlpha = 0;
             hs.LineWidth = 1.5;
             
@@ -2513,7 +2996,312 @@ if PLOT_DATASETS_INDIVIDUALLY
     end
 end
 
+%%  FIT THE "GRAND AVERAGE" MANIFOLDS
+% the manifold of the average params is dead wrong. Instead, find the 
+% best fitting params of the "average" manifold.
+grand_avg_params={};
+for i_group = 1:size(man_plotgrps,1)
+    
+    % calculate the average across manifolds
+    avg_manifold = mean(groupdata_smooth{i_group}, 3);
+    
+    % fit the grand-average manifold with the VCA model
+    isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+    X = 1000./isi_ms;
+    N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
+    Y = 1:N_pulses_smooth;
+    grand_avg_amps = {};
+    grand_avg_p_times = {};
+    for i_isi = 1:numel(isi_ms)
+        tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*N_pulses_smooth)-1;
+        grand_avg_p_times{i_isi} = tmp_pOntimes_ms ./ 1000;
+        grand_avg_amps{i_isi} = avg_manifold(:,i_isi);
+    end
+    grand_avg_params{i_group} = fit_vca_model(grand_avg_amps, grand_avg_p_times, MODEL);
+end
 
+% SUMMARY TABLE OF GRAND AVERAGE PARAMS
+clc
+T = table;
+for i_group = 1:numel(groupdata_raw)
+    avg_params = grand_avg_params{i_group};
+    [d, tau_d, f, tau_f] = parse_vca_model_coeffs(avg_params, MODEL);
+    cell_type = man_plotgrps(i_group, 1);
+    opsin_type = man_plotgrps(i_group, 4);
+    brain_area = man_plotgrps(i_group, 3);
+    T = [T; table(cell_type, brain_area, opsin_type, d, tau_d, f, tau_f)];
+end
+T_fit_to_avg_manifold = T
+
+
+%% FIT THE MODEL TO THE AVERAGE RAW DATA
+
+% initialize the output cell array
+empty_struct.amps_for_fit = {};
+empty_struct.ptimes_for_fit = {};
+empty_struct.model = {};
+empty_struct.params = {};
+empty_struct.grouptypes = {};
+group_fit_to_grand_avg = repmat({empty_struct}, size(man_plotgrps,1), 1);
+
+% aggregate data across plotgroups
+for i_ex = 1:numel(dat)
+
+    for i_ch = 1:2
+        % check to make sure this neuron was defined
+        isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+        if ~isvalid
+            continue
+        end
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
+        group_idx = groupMatcher(man_plotgrps, ch_attribs);
+        if sum(group_idx) == 0; continue; end
+        
+        % check to make sure the amplitudes exceeded a certian criterion
+        if regexpi(dat{i_ex}.info.cellType{i_ch}, 'PY_L23')
+            p1amp_avg = nanmean(dat{i_ex}.qc.p1amp{i_ch});
+            if p1amp_avg < 200
+                warning('culling data on basis of p1amp')
+                continue
+            end
+        end
+        
+        % pull out the data used for fitting (from before) and place it in
+        % the correct group_data array
+        tmp_amps = group_fit_to_grand_avg{group_idx}.amps_for_fit;
+        ex_amps = dat{i_ex}.stpfits.training_data{i_ch}.amps_for_fit;
+        tmp_amps = cat(1, tmp_amps, ex_amps');
+        group_fit_to_grand_avg{group_idx}.amps_for_fit = tmp_amps;
+        
+        % pull out the p_times used for fitting (from before) and place it in
+        % the correct group_data array
+        tmp_ptimes = group_fit_to_grand_avg{group_idx}.ptimes_for_fit;
+        ex_ptimes = dat{i_ex}.stpfits.training_data{i_ch}.ptimes_for_fit;
+        tmp_ptimes = cat(1, tmp_ptimes, ex_ptimes');
+        group_fit_to_grand_avg{group_idx}.ptimes_for_fit = tmp_ptimes;
+
+    end
+end
+
+% fit the population datasets
+for i_group = 1:size(man_plotgrps, 1)
+    group_fit_to_grand_avg{i_group}.model = MODEL;
+    tmp_amps = group_fit_to_grand_avg{i_group}.amps_for_fit;
+    tmp_ptimes = group_fit_to_grand_avg{i_group}.ptimes_for_fit;
+    params = fit_vca_model(tmp_amps, tmp_ptimes, MODEL);
+    group_fit_to_grand_avg{i_group}.params = params;
+    
+    % make a smooth surface for plotting
+    isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+    X = 1000./isi_ms;
+    N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
+    Y = 1:N_pulses_smooth;
+    [d, tau_d, f, tau_f] = parse_vca_model_coeffs(params, MODEL);
+    A0 = 1;
+    smoothManifold = nan(N_pulses_smooth, numel(isi_ms));
+    for i_isi = 1:numel(isi_ms)
+        tmp_pOntimes_ms = 0 : isi_ms(i_isi) : (isi_ms(i_isi)*N_pulses_smooth)-1;
+        tmp_pOntimes_sec = tmp_pOntimes_ms ./ 1000;
+        smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, d, tau_d, f, tau_f, A0);
+    end
+    group_fit_to_grand_avg{i_group}.smooth_manifold = smoothManifold;
+    group_fit_to_grand_avg{i_group}.grouptypes = man_plotgrps(i_group,:);
+end
+
+
+% SUMMARY TABLE OF GRAND AVERAGE PARAMS
+clc
+T = table;
+for i_group = 1:size(man_plotgrps, 1)
+    avg_params = group_fit_to_grand_avg{i_group}.params;
+    [d, tau_d, f, tau_f] = parse_vca_model_coeffs(avg_params, MODEL);
+    cell_type = man_plotgrps(i_group, 1);
+    opsin_type = man_plotgrps(i_group, 4);
+    brain_area = man_plotgrps(i_group, 3);
+    T = [T; table(cell_type, brain_area, opsin_type, d, tau_d, f, tau_f)];
+end
+T_fit_to_avg_raw = T
+writetable(T_fit_to_avg_raw, 'params_from_fit_to_grand_avg_raw_withRecovAndRIT.csv')
+
+
+%% STRENGTH OF INPUT ONTO INs
+
+% define a set of attributes for each analysis group. Cell_type_pairs will
+% be split according to opsin, layer, and/or brain areas
+cell_type_pairs = {'all_som', 'PY';...  % defines the different groups that will appear on the x-axis
+                   'all_pv',  'PY';...
+                   };
+grp_opsins = {'any_opsin'}; % need to be encapsulated in a cell array {'any_opsin'}
+grp_layers = {'L23'};
+grp_brain_areas = {'AM', 'PM', 'LM', 'AL'}; % case sensitive, 'any_hva', 'med', 'lat', 'AL', 'LM' etc..
+
+close all; clc
+
+pop_in_strength = [];
+for i_ex = 1:numel(dat)
+    
+    % book keeping
+    pop_in_strength{i_ex}.opsin = dat{i_ex}.info.opsin;
+    pop_in_strength{i_ex}.cellType = dat{i_ex}.info.cellType;
+    pop_in_strength{i_ex}.brainArea = dat{i_ex}.info.brainArea;
+    
+    % get the data
+    for i_ch = 1:2
+        
+        % double check that the data are present
+        
+        % pull out p1 amps across all trials
+        p1_amps =  dat{i_ex}.qc.p1amp{i_ch};
+        assert(~isempty(p1_amps), 'ERROR: could not find the p1 data')
+        
+        pop_in_strength{i_ex}.p1amps{i_ch} = nanmean(p1_amps);
+    end
+end
+
+% initialize a group_data structure
+bar_groups = [];
+for i_grp = 1:size(cell_type_pairs,1)
+    fld_name = sprintf('%s_and_%s', cell_type_pairs{i_grp,1}, cell_type_pairs{i_grp,2});
+    for i_opsin = 1:numel(grp_opsins)
+        for i_layer = 1:numel(grp_layers)
+            for i_hva = 1:numel(grp_brain_areas)
+                bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).p1_ratio = [];
+            end
+        end
+    end
+end
+
+
+% fill in the group_data structure
+for i_ex = 1:numel(pop_in_strength)
+    
+    % retrieve the brain area, and catagorize according the user defined groups
+    ex_brain_area = pop_in_strength{i_ex}.brainArea;
+    switch lower(ex_brain_area)
+        case {'am', 'pm', 'am/pm', 'pm/am'}
+            ex_brain_area = [ex_brain_area, ' med'];
+        case {'al', 'lm', 'al/lm', 'lm/al'}
+            ex_brain_area = [ex_brain_area, ' lat'];
+    end
+    l_brainarea_is_any = strcmpi(grp_brain_areas, 'any_hva');
+    l_brainarea_matches_input = cellfun(@(x) ~isempty(regexp(ex_brain_area, x, 'once')), grp_brain_areas);
+    l_brainarea_match = l_brainarea_is_any | l_brainarea_matches_input;
+    assert(sum(l_brainarea_match)<=1, 'ERROR: >1 match to brain area');
+    if sum(l_brainarea_match)==0
+        continue
+    end
+    ex_brain_area = grp_brain_areas{l_brainarea_match};
+    
+    % retrieve the opsin, and catagorize according the user defined groups
+    ex_opsin = pop_in_strength{i_ex}.opsin;
+    l_opsin_is_any = strcmpi(grp_opsins, 'any_opsin');
+    l_opsin_matches_input = cellfun(@(x) ~isempty(regexpi(ex_opsin, x)), grp_opsins);
+    l_opsin_match = l_opsin_matches_input | l_opsin_is_any;
+    assert(sum(l_opsin_match)==1, 'ERROR: opsin was not correctly identified')
+    ex_opsin = grp_opsins{l_opsin_match};
+    
+    % figure out what cell & layer the data are from for each head stage
+    idx_flag = cellfun(@(x) regexp(x, '_L'), pop_in_strength{i_ex}.cellType, 'uniformoutput', false);
+    ex_cell_type = cellfun(@(x, y) x(1:y-1), pop_in_strength{i_ex}.cellType, idx_flag, 'uniformoutput', false);
+    ex_cell_layer = cellfun(@(x, y) x(y+1:end), pop_in_strength{i_ex}.cellType, idx_flag, 'uniformoutput', false);
+    
+    % error checking
+    all_same_layer = all(strcmpi(ex_cell_layer, ex_cell_layer{1}));
+    assert(all_same_layer, 'ERROR: recordings were from different layers')
+    ex_cell_layer = ex_cell_layer{1};
+    
+    % modify the cell types to deal with different types of entries in the
+    % cell_type_pairs array
+    for i_ch = 1:2
+        switch lower(ex_cell_type{i_ch})
+            case {'pvcre', 'fs'}
+                ex_cell_type{i_ch} = [ex_cell_type{i_ch}, ' all_pv'];
+            case {'somcre', 'ltsin'}
+                ex_cell_type{i_ch} = [ex_cell_type{i_ch}, ' all_som'];
+        end
+    end
+    
+    % which plot group (cell_type_pair) do these data contribute to?
+    cell_1_matches = cellfun(@(x) ~isempty(regexp(ex_cell_type{1}, x, 'once')), cell_type_pairs);
+    cell_2_matches = cellfun(@(x) ~isempty(regexp(ex_cell_type{2}, x, 'once')), cell_type_pairs);
+    l_group_match = sum(cell_1_matches | cell_2_matches, 2) == 2;
+    assert(sum(l_group_match) == 1, 'ERROR: plot group has not be correctly identified')
+    ex_group_name =  sprintf('%s_and_%s', cell_type_pairs{l_group_match,1}, cell_type_pairs{l_group_match,2});
+    
+    
+    % switch the order of the cell type labels acorrding to the pattern
+    % above. In so doing, figure out the P1:P1 ratio
+    idx_to_cell_1 = cellfun(@(x) ~isempty(regexp(ex_cell_type{1}, x, 'once')), cell_type_pairs(l_group_match,:));
+    assert(sum(idx_to_cell_1)==1);
+    idx_to_cell_2 = cellfun(@(x) ~isempty(regexp(ex_cell_type{2}, x, 'once')), cell_type_pairs(l_group_match,:));
+    assert(sum(idx_to_cell_2)==1);
+    assert(sum(idx_to_cell_1 | idx_to_cell_2) == 2)
+    
+    % assign the P1:P1 ration
+    p1_numerator = pop_in_strength{i_ex}.p1amps{idx_to_cell_1};
+    p1_denomenator = pop_in_strength{i_ex}.p1amps{idx_to_cell_2};
+    p1_ratio = p1_numerator ./ p1_denomenator;
+    bar_groups.(ex_group_name).(ex_opsin).(ex_cell_layer).(ex_brain_area).p1_ratio(end+1) = p1_ratio;
+    
+    % do some verbose error checking
+    first_cell_name = pop_in_strength{i_ex}.cellType{idx_to_cell_1};
+    second_cell_name = pop_in_strength{i_ex}.cellType{idx_to_cell_2};
+    original_pair = sprintf('%s_and_%s', first_cell_name, second_cell_name);
+    fprintf('[%s] is [%s]\n', original_pair, ex_group_name) 
+
+end
+
+
+% now do the plotting
+plot_yy = [];
+plot_sem = [];
+plot_labels = {};
+for i_grp = 1:size(cell_type_pairs,1)
+    fld_name = sprintf('%s_and_%s', cell_type_pairs{i_grp,1}, cell_type_pairs{i_grp,2});
+    for i_opsin = 1:numel(grp_opsins)
+        for i_layer = 1:numel(grp_layers)
+            for i_hva = 1:numel(grp_brain_areas)
+                tmp_data = bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).p1_ratio;
+                assert(~any(isnan(tmp_data)))
+                if isempty(tmp_data)
+                    xbar_ratios = nan;
+                    sem_ratios = nan;
+                else
+                    xbar_ratios = mean(tmp_data);
+                    sem_ratios = stderr(tmp_data);
+                end
+                tmp_label = sprintf('%s, %s, %s, %s, n=%d', fld_name, grp_opsins{i_opsin}, grp_layers{i_layer}, grp_brain_areas{i_hva}, numel(tmp_data));
+                
+                plot_yy(end+1) = xbar_ratios;
+                plot_sem(end+1) = sem_ratios;
+                plot_labels{end+1} = tmp_label;
+            end
+        end
+    end
+end
+
+N_plots = numel(plot_yy);
+plt_colors = lines(N_plots);
+hf = figure; hold on,
+for i_plt = 1:N_plots
+    errorbar(i_plt, plot_yy(i_plt), plot_sem(i_plt), 's',...
+                                                     'markeredgecolor', plt_colors(i_plt,:),...
+                                                     'markerfacecolor', plt_colors(i_plt,:),...
+                                                     'markersize', 10)
+end
+plot([0.8, N_plots+.2], [1,1], ':k')
+h_leg = legend(plot_labels);
+h_leg.Interpreter = 'none';
+h_leg.Location = 'best';
+legend boxoff
+hf.Position = [226         619        1063         342];
+set(gca, 'xtick', [1:N_plots], 'xticklabel', [])
+set(gca, 'yscale', 'log', 'ytick', [0.0313, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32])
+ylim([0.0313, 32])
+xlim([0.8, N_plots+0.2])
+ylabel('P1 : P1 ratio')
 
 %% CONTROLS: LOOKING FOR RECURRENT OR POLY-SYNAPTIC PSCs
 
