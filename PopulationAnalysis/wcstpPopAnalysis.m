@@ -4,7 +4,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 6;
+EXPTTYPE = 2;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -799,10 +799,10 @@ close all
 
 
 PLOT_ALL_TRIALS = true;
-DEBUG_MEAN = false;
+DEBUG_MEAN = true;
 DEBUG_ALL = false;
 NORM_TO_SMOOTH_P1 = false;
-PLOT_RIT = false;
+PLOT_RIT = true;
 
 
 % goal: to plot the snipets, one after another, on a separate subplot for
@@ -1813,12 +1813,12 @@ end
 %% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
 tic
 MODEL = 'ddff'; % string (eg 'ddff') or number of d and f terms (eg, 3) for FULLFACT
-TRAINSET = 'rit';  % could be 'rit', 'recovery', 'all'
-PLOT_TRAINING_DATA = false;
+TRAINSET = 'all';  % could be 'rit', 'recovery', 'all'
+PLOT_TRAINING_DATA = true;
 FIT_RECOVERY_PULSE = true;
 DATA_FOR_FIT = 'avg'; % can be 'avg', 'norm', 'raw'. 
 CONVERT_TO_SMOOTH_P1 = true;
-FORCE_RECOVERY = false;
+FORCE_RECOVERY = true;
 
 % write an anyonomous helper function to find the training data
 clear isTrainingSet
@@ -2154,6 +2154,7 @@ for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
         dat{i_ex}.stpfits.trainingSet = TRAINSET;
         dat{i_ex}.stpfits.fitRecovPulse = FIT_RECOVERY_PULSE;
         dat{i_ex}.stpfits.dataforfit = DATA_FOR_FIT;
+        dat{i_ex}.stpfits.force_recovery = FORCE_RECOVERY;
         dat{i_ex}.stpfits.fit_results{i_ch} = fit_results; % previously = [d, f, dTau, fTau], now has all models
         dat{i_ex}.stpfits.training_data{i_ch} = training_data;
         dat{i_ex}.stpfits.xval_data{i_ch} = xval_data;
@@ -2517,10 +2518,10 @@ MODEL = 'ddff'; % only consider one of the models at a time (if many are present
 plotgroups = {
     'PY', 'L23', 'med', 'chief';...
     'PY', 'L23', 'lat', 'chief';...
-    'PY', 'L23', 'med', 'chronos';...
-    'PY', 'L23', 'lat', 'chronos';...
-    'all_som', 'any', 'any', 'any';...
-    'all_pv', 'any', 'any', 'any';...
+%     'PY', 'L23', 'med', 'chronos';...
+%     'PY', 'L23', 'lat', 'chronos';...
+%     'all_som', 'any', 'any', 'any';...
+%     'all_pv', 'any', 'any', 'any';...
     };
 
 % initalize the aggregate datasets
@@ -2725,7 +2726,7 @@ for i_ex = 1:numel(dat)
         assert(numel(tmp_fit_results{mod_idx}.params) == numel(MODEL)*2, 'ERROR: params mismatch')
         params = tmp_fit_results{mod_idx}.params;
         isi_ms = fliplr([1000/50 : 1 : 1000/10]);
-        NumPulses = 20;
+        NumPulses = 10;
         
         % solve for P1 amp
         all_p1_amps = cat(3, pprpop.dat{i_ex}.xbar{i_ch}{:});
@@ -2751,12 +2752,12 @@ end
 clc;
 
 % switches for first figure
-PLOT_AVG_SMOOTH_MANIFOLD = false;
+PLOT_AVG_SMOOTH_MANIFOLD = true;
 PLOT_MANIFOLD_OF_AVG_PARAMS = false;
 PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD = false;
 PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
-PLOT_OVERLAY_ALL_MANIFOLDS = true;
-PLOT_AVG_RAW_DATA = false;
+PLOT_OVERLAY_ALL_MANIFOLDS = false;
+PLOT_AVG_RAW_DATA = true;
 
 % add other plots?
 PLOT_DATASETS_INDIVIDUALLY = false;
@@ -2765,8 +2766,8 @@ PLOT_DATASETS_INDIVIDUALLY = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'AM', 'chief';...
-    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'LM', 'chronos';...
+    'PY', 'L23', 'med', 'chronos';...
     };
 
 empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
@@ -2808,7 +2809,7 @@ for i_ex = 1:numel(dat)
         groupexpinds{group_idx} = cat(1, groupexpinds{group_idx}, i_ex);
         groupchinds{group_idx} = cat(1, groupchinds{group_idx}, i_ch);
         
-        if PLOT_AVG_SMOOTH_MANIFOLD || PLOT_OVERLAY_ALL_MANIFOLDS
+        if PLOT_AVG_SMOOTH_MANIFOLD || PLOT_OVERLAY_ALL_MANIFOLDS || PLOT_MANIFOLD_OF_AVG_RAW_DATA
             groupdata_smooth{group_idx} = cat(3, groupdata_smooth{group_idx}, pprpop.smoothManifold{i_ex}{i_ch});
             group_params{group_idx} = cat(1, group_params{group_idx}, pprpop.params{i_ex}{i_ch});
         end
@@ -2824,9 +2825,10 @@ for i_group = 1:numel(groupdata_raw)
     
     if PLOT_AVG_RAW_DATA
         grid_average = nanmean(groupdata_raw{i_group},3);
+        grid_average = grid_average(1:10, :);
         grid_N = sum(~isnan(groupdata_raw{i_group}),3)
         
-        Y = 1:pprpop.MaxNPulses;
+        Y = 1:10;
         X = allTFs';
         
         l_nan_tfs = all(isnan(grid_average), 1);
@@ -2935,8 +2937,8 @@ if PLOT_MANIFOLD_OF_AVG_RAW_DATA
         %plot the smooth manifold
         predmod = surf(X,Y, flipud(smoothManifold));
         predmod.EdgeAlpha = 0.5;
-        predmod.EdgeColor = plotcolors(i_group,:);
-        predmod.FaceColor = plotcolors(i_group,:);
+        predmod.EdgeColor = 'k';
+        predmod.FaceColor = 'k';
         predmod.FaceAlpha = 0;
         
     end
@@ -3059,14 +3061,14 @@ for i_ex = 1:numel(dat)
         group_idx = groupMatcher(man_plotgrps, ch_attribs);
         if sum(group_idx) == 0; continue; end
         
-        % check to make sure the amplitudes exceeded a certian criterion
-        if regexpi(dat{i_ex}.info.cellType{i_ch}, 'PY_L23')
-            p1amp_avg = nanmean(dat{i_ex}.qc.p1amp{i_ch});
-            if p1amp_avg < 200
-                warning('culling data on basis of p1amp')
-                continue
-            end
-        end
+%         % check to make sure the amplitudes exceeded a certian criterion
+%         if regexpi(dat{i_ex}.info.cellType{i_ch}, 'PY_L23')
+%             p1amp_avg = nanmean(dat{i_ex}.qc.p1amp{i_ch});
+%             if p1amp_avg < 200
+%                 warning('culling data on basis of p1amp')
+%                 continue
+%             end
+%         end
         
         % pull out the data used for fitting (from before) and place it in
         % the correct group_data array
@@ -3123,19 +3125,20 @@ for i_group = 1:size(man_plotgrps, 1)
     T = [T; table(cell_type, brain_area, opsin_type, d, tau_d, f, tau_f)];
 end
 T_fit_to_avg_raw = T
-writetable(T_fit_to_avg_raw, 'params_from_fit_to_grand_avg_raw_withRecovAndRIT.csv')
+writetable(T_fit_to_avg_raw, 'params_from_fit_to_grand_avg_raw_withRecovAndRIT_forcedRecov.csv')
 
 
 %% STRENGTH OF INPUT ONTO INs
 
 % define a set of attributes for each analysis group. Cell_type_pairs will
 % be split according to opsin, layer, and/or brain areas
+PLOTVAL = 'p1_ratio'; % 'p1_ratio', 'num_val', 'denom_val' 
 cell_type_pairs = {'all_som', 'PY';...  % defines the different groups that will appear on the x-axis
                    'all_pv',  'PY';...
                    };
 grp_opsins = {'any_opsin'}; % need to be encapsulated in a cell array {'any_opsin'}
 grp_layers = {'L23'};
-grp_brain_areas = {'AM', 'PM', 'LM', 'AL'}; % case sensitive, 'any_hva', 'med', 'lat', 'AL', 'LM' etc..
+grp_brain_areas = {'med', 'lat'}; % case sensitive, 'any_hva', 'med', 'lat', 'AL', 'LM' etc..
 
 close all; clc
 
@@ -3168,6 +3171,8 @@ for i_grp = 1:size(cell_type_pairs,1)
         for i_layer = 1:numel(grp_layers)
             for i_hva = 1:numel(grp_brain_areas)
                 bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).p1_ratio = [];
+                bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).num_val = [];
+                bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).denom_val = [];
             end
         end
     end
@@ -3244,6 +3249,8 @@ for i_ex = 1:numel(pop_in_strength)
     p1_denomenator = pop_in_strength{i_ex}.p1amps{idx_to_cell_2};
     p1_ratio = p1_numerator ./ p1_denomenator;
     bar_groups.(ex_group_name).(ex_opsin).(ex_cell_layer).(ex_brain_area).p1_ratio(end+1) = p1_ratio;
+    bar_groups.(ex_group_name).(ex_opsin).(ex_cell_layer).(ex_brain_area).num_val(end+1) = p1_numerator;
+    bar_groups.(ex_group_name).(ex_opsin).(ex_cell_layer).(ex_brain_area).denom_val(end+1) = p1_denomenator;
     
     % do some verbose error checking
     first_cell_name = pop_in_strength{i_ex}.cellType{idx_to_cell_1};
@@ -3263,7 +3270,7 @@ for i_grp = 1:size(cell_type_pairs,1)
     for i_opsin = 1:numel(grp_opsins)
         for i_layer = 1:numel(grp_layers)
             for i_hva = 1:numel(grp_brain_areas)
-                tmp_data = bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).p1_ratio;
+                tmp_data = bar_groups.(fld_name).(grp_opsins{i_opsin}).(grp_layers{i_layer}).(grp_brain_areas{i_hva}).(PLOTVAL);
                 assert(~any(isnan(tmp_data)))
                 if isempty(tmp_data)
                     xbar_ratios = nan;
@@ -3298,10 +3305,12 @@ h_leg.Location = 'best';
 legend boxoff
 hf.Position = [226         619        1063         342];
 set(gca, 'xtick', [1:N_plots], 'xticklabel', [])
-set(gca, 'yscale', 'log', 'ytick', [0.0313, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32])
-ylim([0.0313, 32])
-xlim([0.8, N_plots+0.2])
-ylabel('P1 : P1 ratio')
+if strcmpi(PLOTVAL, 'p1_ratio')
+    set(gca, 'yscale', 'log', 'ytick', [0.0313, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32])
+    ylim([0.0313, 32])
+    xlim([0.8, N_plots+0.2])
+    ylabel('P1 : P1 ratio')
+end
 
 %% CONTROLS: LOOKING FOR RECURRENT OR POLY-SYNAPTIC PSCs
 

@@ -27,7 +27,7 @@ check_vca_model(model); % will throw and error if there are problems
 N_pts_per_dim = 4;
 N_cust_start_points = N_pts_per_dim .^ numel(model);
 custpts = get_vca_startpoints(lower_bounds, upper_bounds, N_pts_per_dim);
-N_start_points = 100;
+N_start_points = 200;
 
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point',...  
                                'TolFun', 1e-8,...
