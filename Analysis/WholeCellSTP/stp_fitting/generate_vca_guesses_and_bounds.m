@@ -9,9 +9,9 @@ default_guess_f = 1.5;
 default_guess_f_tau = 2;
 
 default_ub_d = 1;  % upper bound constrained to be 1
-default_ub_d_tau = 7; % units are in seconds for the taus
-default_ub_f = 2; 
-default_ub_f_tau = 7; 
+default_ub_d_tau = 15; % units are in seconds for the taus
+default_ub_f = 10; 
+default_ub_f_tau = 15; 
 
 default_lb_d = 0;  % upper bound constrained to be 1
 default_lb_d_tau = 0.040; % units are in seconds for the taus

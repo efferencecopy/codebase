@@ -190,10 +190,10 @@ classdef abfobj
                     % the Im doesn't start until after the onset of the
                     % Vcmd pulse. Find the most negative point following the
                     % Vcmd pulse
-                    minVal = min(obj.dat(idx_pulse, obj.idx.(HSname), i_swp));
-                    eq2minval = squeeze(obj.dat(:, obj.idx.(HSname), i_swp)) == minVal;
-                    respStart = find([idx_pulse & eq2minval], 1, 'first');
-                    t_idx = respStart:idxOffset;
+                    test_pulse_wf = obj.dat(idx_pulse, obj.idx.(HSname), i_swp);
+                    minVal = min(test_pulse_wf);
+                    respStart = find(test_pulse_wf == minVal, 1, 'first');
+                    t_idx = (respStart + idxOnset + 1) : idxOffset;
                     Im_pulse = obj.dat(t_idx, obj.idx.(HSname), i_swp);
                     tt_pulse = obj.tt(t_idx);
                     

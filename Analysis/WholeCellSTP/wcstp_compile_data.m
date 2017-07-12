@@ -57,6 +57,7 @@ dat.info = defineInfo(exinfo, hidx, params);
 
 % the function is verbose. Tell the user what's going on
 fprintf('Analyzing data from mouse %s, site %s\n', dat.info.mouseName, dat.info.siteNum)
+exinfo
 
 % unpack the DC current injection dataset
 dat = unpack_dc_injections(dat);
@@ -75,6 +76,7 @@ end
 
 
 function info = defineInfo(exinfo, hidx, params)
+
     info.fid.dcsteps_hs1 = exinfo{hidx.ABFDCstepsHS1};
     info.fid.dcsteps_hs2 = exinfo{hidx.ABFDCstepsHS2};
     info.fid.vclamp = exinfo{hidx.ABFOptostimVclamp};
@@ -87,6 +89,7 @@ function info = defineInfo(exinfo, hidx, params)
     info.brainArea = exinfo{hidx.brainarea};
     info.HS_is_valid_Vclamp = [str2double(exinfo{hidx.VC_HS1_valid}), str2double(exinfo{hidx.VC_HS2_valid})];
     info.HS_is_valid_Iclamp = [str2double(exinfo{hidx.IC_HS1_valid}), str2double(exinfo{hidx.IC_HS2_valid})];
+    info.laser_power_supply_ND_filt = exinfo{hidx.laserpowsupply};
     
     info.pretime.vclamp = params.pretime.vclamp;
     info.posttime.vclamp = params.posttime.vclamp;

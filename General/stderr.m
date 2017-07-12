@@ -7,7 +7,7 @@ function sem = stderr(data, dim)
 % C.Hass 2015
 
 if isempty(data)
-    sem = [];
+    sem = NaN;
     return
 end
 

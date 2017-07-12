@@ -26,8 +26,8 @@ function tDict = outerleave(stimWF, sampRate, BLACKROCKCORRECTION)
     % C.Hass 2015
     %
 
-
-    if ~exist('BLACKROCKCORRECTION', 'var')
+    
+    if ~exist('BLACKROCKCORRECTION', 'var') || isempty(BLACKROCKCORRECTION)
         BLACKROCKCORRECTION = false;
     end
 
@@ -91,16 +91,18 @@ function tDict = outerleave(stimWF, sampRate, BLACKROCKCORRECTION)
         % different IPIs.
         if numel(pOnTimes)>1
             IPIs = diff(pOnTimes);
-            Nipi = numel(unique(round(IPIs, 6)));
+            unique_ipis = unique(round(IPIs, 6), 'stable'); % force unique to preserve order and not sort
+            Nipi = numel(unique_ipis);
 
-            if Nipi <= 2 % assume normal trains or recovery trains
-                tFreq(swp) =  1./(pOnTimes(2)-pOnTimes(1));
+            if Nipi <= 3 % assume normal trains or recovery trains or zucker trains
+                tFreq(swp) =  1./unique_ipis(1);
                 tFreq(swp) = round(tFreq(swp)); % round to the nearest whole number
 
                 % was there a recovery pulse?
-                lastIPI = round([pOnTimes(end)-pOnTimes(end-1)]*1000); % in milliseconds
-                if lastIPI > ((1./tFreq(swp))+0.010)*1000 % needs to be 10 ms longer than the typical IPI
-                    tRecov(swp) = lastIPI;
+                % lastIPI = round(unique_ipis(end).*1000); % this line is deprecated due to Zucker stim
+                recovIPI = round(unique_ipis(2).*1000); % in ms
+                if recovIPI > ((1./tFreq(swp))+0.010)*1000 % needs to be 10 ms longer than the typical IPI
+                    tRecov(swp) = recovIPI;
                 end
             else
                 [RIT_num, RIT_versions] = define_RIT_version(pOnTimes, RIT_versions);

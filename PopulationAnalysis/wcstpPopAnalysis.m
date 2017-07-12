@@ -18,6 +18,8 @@ switch EXPTTYPE
         EXPTTYPE = 'LGN';
     case 6
         EXPTTYPE = 'IN_strength';
+    case 7
+        EXPTTYPE = 'Zucker_Stim';
 end
 
 
@@ -169,7 +171,7 @@ for i_ex = 1:numel(dat)
         if i_ch == 1; col = 2; else col = 4; end
         
         % series resistance
-        if isfield(dat{i_ex}.qc, 'Rs') && ~all(isnan(dat{i_ex}.qc.Rs{i_ch}))
+        if isfield(dat{i_ex}.qc, 'Rs') && dat{i_ex}.info.HS_is_valid_Vclamp(i_ch)
             pltidx = sub2ind([4,3], col, 1);
             subplot(3,4,pltidx)
             tmp = squeeze(dat{i_ex}.qc.Rs{i_ch});
@@ -181,7 +183,7 @@ for i_ex = 1:numel(dat)
         end
         
         % verr
-        if isfield(dat{i_ex}.qc, 'Verr') && ~all(isnan(dat{i_ex}.qc.verr{i_ch}))            
+        if isfield(dat{i_ex}.qc, 'Verr') && dat{i_ex}.info.HS_is_valid_Vclamp(i_ch)
             pltidx = sub2ind([4,3],col,2);
             subplot(3,4,pltidx)
             tmp = squeeze(dat{i_ex}.qc.verr{i_ch});
@@ -193,7 +195,7 @@ for i_ex = 1:numel(dat)
         end
         
         % p1amps
-        if isfield(dat{i_ex}.qc, 'p1amp') && ~all(isnan(dat{i_ex}.qc.p1amp{i_ch}))
+        if isfield(dat{i_ex}.qc, 'p1amp') && dat{i_ex}.info.HS_is_valid_Vclamp(i_ch)
             pltidx = sub2ind([4,3], col, 3);
             subplot(3,4,pltidx), hold on,
             tmp = squeeze(dat{i_ex}.qc.p1amp{i_ch});
@@ -222,8 +224,8 @@ close all; clc
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'med', 'any';...
-    'PY', 'L23', 'lat', 'any';...
+    'all_som', 'L23', 'med', 'any';...
+    'all_som', 'L23', 'lat', 'any';...
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -1016,10 +1018,14 @@ end
 %% COMPARISON OF FIRST PULSE RESPONSES ACROSS OPSINS
 
 NORM_VALS = true;
+PLOT_RAW = false;
 CELL_TYPE = 'PY_L23';
 
 p1pop.opsin = {};
 p1pop.avgwf_vclamp = [];
+p1pop.power = [];
+p1pop.ND_status = {};
+p1pop.p1amp = [];
 for i_ex = 1:numel(dat)
     for i_ch = 1:2
         
@@ -1050,11 +1056,16 @@ for i_ex = 1:numel(dat)
             p1pop.opsin{end+1} = dat{i_ex}.info.opsin;
             p1pop.avgwf_vclamp = cat(1, p1pop.avgwf_vclamp, mean(tmp_wfs, 1));
             p1pop.tt = ([0:size(tmp_wfs,2)-1] ./ dat{i_ex}.info.sampRate.vclamp) - dat{i_ex}.info.pretime.vclamp;
+            p1pop.power(end+1) = dat{i_ex}.expt.(condnames{1}).tdict(1);
+            p1pop.ND_status{end+1} = dat{i_ex}.info.laser_power_supply_ND_filt;
+            p1pop.p1amp(end+1) = nanmean(dat{i_ex}.qc.p1amp{i_ch}, 3);
             
         end
         
     end    
 end
+
+% -------- P1 amp waveforms ---------% 
 
 f = figure; hold on,
 clrs.chronos = 'b';
@@ -1063,10 +1074,43 @@ for opsin = {'chronos', 'chief'}
     l_opsin = cellfun(@(x) ~isempty(x), regexpi(p1pop.opsin, opsin));
     wf_avg = mean(p1pop.avgwf_vclamp(l_opsin,:), 1);
     wf_sem = stderr(p1pop.avgwf_vclamp(l_opsin, :), 1);
+    if PLOT_RAW
+        plot(p1pop.tt.*1000, p1pop.avgwf_vclamp(l_opsin,:)', '-', 'color',  clrs.(opsin{1}))
+    end
     shadedErrorBar(p1pop.tt.*1000, wf_avg, wf_sem, {'linewidth', 2, 'color', clrs.(opsin{1})});
 end
 xlabel('time (ms)')
 legend('chronos', 'chief')
+if NORM_VALS
+    ylabel('norm amplitude')
+else
+    ylabel('average waveform (pA)')
+end
+
+
+% -------- P1 amp vs. Laser power ---------% 
+
+% adjust the nominal laser power to account for a lack of an ND filter
+l_10 = cellfun(@(x) ~isempty(regexpi(x, '10')), p1pop.ND_status);
+l_ND_filter = cellfun(@(x) isempty(regexpi(x, 'none')), p1pop.ND_status);
+pow_scalar = ones(numel(p1pop.ND_status), 1);
+pow_scalar(~l_ND_filter) = 5;
+l_to_plot = l_ND_filter;
+
+
+f = figure; hold on,
+clrs.chronos = 'b';
+clrs.chief = 'r';
+for opsin = {'chronos', 'chief'}
+    l_opsin = cellfun(@(x) ~isempty(x), regexpi(p1pop.opsin, opsin));
+    l_tmp = l_opsin;
+    tmp_pow = p1pop.power(l_tmp) .* pow_scalar(l_tmp)';
+    tmp_amps = p1pop.p1amp(l_tmp);
+    plot(tmp_pow, tmp_amps, 'o', 'markerfacecolor', clrs.(opsin{1}), 'markeredgecolor', clrs.(opsin{1}))
+end
+xlabel('Laser cmd voltage')
+ylabel('EPSC amplitude')
+
 %% STP SUMMARY FOR EACH RECORDING
 
 
@@ -1555,12 +1599,12 @@ PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    %'PY', 'L23', 'any', 'chief';...
-    %'PY', 'L23', 'lat', 'chief';...
+    'PY', 'L23', 'med', 'chronos';...
+    'PY', 'L23', 'lat', 'chronos';...
     %'PY', 'L23', 'AM', 'chronos';...
     %'PY', 'L23', 'any', 'chronos';...
     %'all_pv', 'any', 'any', 'any';...
-    'NPVIN', 'any', 'any', 'any';...
+    %'NPVIN', 'any', 'any', 'any';...
     };
 
 
@@ -1610,12 +1654,7 @@ for i_ex = 1:numel(dat)
         wf_top_level = recovpop.dat{i_ex}.psc_wfs{i_ch};
         amps_top_level = recovpop.dat{i_ex}.psc_amps{i_ch};
         ex_tfs = cell2mat(wf_top_level{1});
-        %if any(ex_tfs==10);
-        i_ex    
-        group_idx
-            ch_attribs
-            
-        %end
+
         wfs_train = cellfun(@(x) mean(x, 3), wf_top_level{2}, 'uniformoutput', false); % average across replicates
         amps_train = cellfun(@(x) mean(x, 1), amps_top_level{2}, 'uniformoutput', false); % average across replicates
         for i_tf = 1:numel(ex_tfs)
@@ -1781,10 +1820,11 @@ for i_group = 1:size(plotgroups, 1)
                 smooth_manifold = group_fit_to_grand_avg{i_group}.smooth_manifold;
                 
                 train_tf = allTFs(i_tf);
-                isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+                isi_ms = pprpop.smoothManifold_isi_ms;
+                N_pulses_smooth = pprpop.smoothManifold_numPulses;
                 manifold_freqs = 1000./isi_ms;
                 [~, freq_idx] = min(abs(manifold_freqs - train_tf));
-                smooth_xx = 1:size(smooth_manifold, 1);
+                smooth_xx = 1:N_pulses_smooth;
                 smooth_yy = smooth_manifold(:, freq_idx);
                 
                 %plot the smooth manifold
@@ -1811,7 +1851,7 @@ end
 
 
 %% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
-tic
+
 MODEL = 'ddff'; % string (eg 'ddff') or number of d and f terms (eg, 3) for FULLFACT
 TRAINSET = 'all';  % could be 'rit', 'recovery', 'all'
 PLOT_TRAINING_DATA = true;
@@ -2155,6 +2195,7 @@ for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
         dat{i_ex}.stpfits.fitRecovPulse = FIT_RECOVERY_PULSE;
         dat{i_ex}.stpfits.dataforfit = DATA_FOR_FIT;
         dat{i_ex}.stpfits.force_recovery = FORCE_RECOVERY;
+        dat{i_ex}.stpfits.convert_to_smooth_p1 = CONVERT_TO_SMOOTH_P1;
         dat{i_ex}.stpfits.fit_results{i_ch} = fit_results; % previously = [d, f, dTau, fTau], now has all models
         dat{i_ex}.stpfits.training_data{i_ch} = training_data;
         dat{i_ex}.stpfits.xval_data{i_ch} = xval_data;
@@ -2164,11 +2205,12 @@ for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
     
     
 end
-toc
+
 
 
 %% STP FITTING PLOTS RE-DO
 
+TIME_IS_SEC = false
 PLOT_TRAINING_DATA = true;
 
 for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
@@ -2285,6 +2327,13 @@ for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
             
             % plot the model fits
             xx = ptimes_for_plot{i_cond};
+            max_x = 7;
+            min_x = 0;
+            if ~TIME_IS_SEC
+                xx = 1:numel(xx);
+                max_x = numel(xx);
+                min_x = 1;
+            end
             hp = [];
             model_string = {};
             for i_mod = 1:numel(pred_for_plot)
@@ -2301,12 +2350,10 @@ for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
             
             %legend(hp, model_string);
             axis tight
-            %xlims(1) = min([min(xx), xlims(1)]);
-            %xlims(2) = max([max(xx), xlims(2)]);
             yvals = get(gca, 'ylim');
             ylims(1) = min([yvals(1), ylims(1)]);
             ylims(2) = max([yvals(2), ylims(2)]);
-            xlim([0,7])
+            xlim([min_x,max_x])
             
         end
         if ~isempty(hs) && sum(hs)>0
@@ -2663,6 +2710,8 @@ MODEL = 'ddff';
 pprpop = [];
 pprpop.TFsAllExpts = [];
 pprpop.MaxNPulses = 0;
+pprpop.smoothManifold_isi_ms = fliplr([1000/60 : 2 : 1000/.1]);
+pprpop.smoothManifold_numPulses = 20;
 for i_ex = 1:numel(dat)
     
     % assume that the model was trained using the recovery trains data
@@ -2675,7 +2724,6 @@ for i_ex = 1:numel(dat)
     pprpop.dat{i_ex}.xbar = {[],[]};
     pprpop.tfs{i_ex} = {[],[]};
     pprpop.smoothManifold{i_ex} = {[],[]};
-    pprpop.smoothManifold_isi{i_ex} = {[],[]};
     pprpop.params{i_ex} = {[],[]};
     pprpop.R2{i_ex}= {[],[]};
     
@@ -2725,8 +2773,8 @@ for i_ex = 1:numel(dat)
         mod_idx = cellfun(@(x) ~isempty(strcmpi(x.model, MODEL)), tmp_fit_results);
         assert(numel(tmp_fit_results{mod_idx}.params) == numel(MODEL)*2, 'ERROR: params mismatch')
         params = tmp_fit_results{mod_idx}.params;
-        isi_ms = fliplr([1000/50 : 1 : 1000/10]);
-        NumPulses = 10;
+        isi_ms = pprpop.smoothManifold_isi_ms;
+        NumPulses = pprpop.smoothManifold_numPulses;
         
         % solve for P1 amp
         all_p1_amps = cat(3, pprpop.dat{i_ex}.xbar{i_ch}{:});
@@ -2739,7 +2787,6 @@ for i_ex = 1:numel(dat)
             smoothManifold(:,i_isi) = predict_vca_psc(tmp_pOntimes_sec, params(1:2), params(3:4), params(5:6), params(7:8), A0);
         end
         pprpop.smoothManifold{i_ex}{i_ch} = smoothManifold;
-        pprpop.smoothManifold_isi{i_ex}{i_ch} = isi_ms;
         pprpop.params{i_ex}{i_ch} = params;
         
     end
@@ -2753,6 +2800,7 @@ clc;
 
 % switches for first figure
 PLOT_AVG_SMOOTH_MANIFOLD = true;
+PLOT_BOOTSTRAP_SMOOTH_MANIFOLD = false;
 PLOT_MANIFOLD_OF_AVG_PARAMS = false;
 PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD = false;
 PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
@@ -2766,8 +2814,8 @@ PLOT_DATASETS_INDIVIDUALLY = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'LM', 'chronos';...
-    'PY', 'L23', 'med', 'chronos';...
+    'PY', 'L23', 'med', 'chief';...
+    'PY', 'L23', 'lat', 'chief';...
     };
 
 empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
@@ -2809,7 +2857,7 @@ for i_ex = 1:numel(dat)
         groupexpinds{group_idx} = cat(1, groupexpinds{group_idx}, i_ex);
         groupchinds{group_idx} = cat(1, groupchinds{group_idx}, i_ch);
         
-        if PLOT_AVG_SMOOTH_MANIFOLD || PLOT_OVERLAY_ALL_MANIFOLDS || PLOT_MANIFOLD_OF_AVG_RAW_DATA
+        if PLOT_AVG_SMOOTH_MANIFOLD || PLOT_OVERLAY_ALL_MANIFOLDS || PLOT_MANIFOLD_OF_AVG_RAW_DATA || PLOT_BOOTSTRAP_SMOOTH_MANIFOLD
             groupdata_smooth{group_idx} = cat(3, groupdata_smooth{group_idx}, pprpop.smoothManifold{i_ex}{i_ch});
             group_params{group_idx} = cat(1, group_params{group_idx}, pprpop.params{i_ex}{i_ch});
         end
@@ -2828,7 +2876,7 @@ for i_group = 1:numel(groupdata_raw)
         grid_average = grid_average(1:10, :);
         grid_N = sum(~isnan(groupdata_raw{i_group}),3)
         
-        Y = 1:10;
+        Y = 10:-1:1;
         X = allTFs';
         
         l_nan_tfs = all(isnan(grid_average), 1);
@@ -2842,10 +2890,10 @@ for i_group = 1:numel(groupdata_raw)
     end
     
     % plot the average smoothManifold
-    isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+    isi_ms = pprpop.smoothManifold_isi_ms;
+    N_pulses_smooth = pprpop.smoothManifold_numPulses;
     X = 1000./isi_ms;
-    N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
-    Y = 1:N_pulses_smooth;
+    Y = N_pulses_smooth:-1:1;
     
     if PLOT_AVG_SMOOTH_MANIFOLD
         grid_average = nanmean(groupdata_smooth{i_group}, 3);
@@ -2853,6 +2901,20 @@ for i_group = 1:numel(groupdata_raw)
         hmod.EdgeAlpha = 0;
         hmod.FaceColor = plotcolors(i_group,:);
         hmod.FaceAlpha = 0.6;
+    end
+    
+    if PLOT_BOOTSTRAP_SMOOTH_MANIFOLD
+        sample_surfs = groupdata_raw{i_group};
+        N_samps = size(sample_surfs,3);
+        N_boots = 10000;
+        btstrp_idx = randi(N_samps, N_boots, 1);
+        grid_average = nanmean(sample_surfs(:,:,btstrp_idx), 3);
+
+        hmod = surf(X,Y, flipud(grid_average));
+        hmod.EdgeAlpha = .2;
+        hmod.FaceColor = 'k';
+        hmod.EdgeColor = 'k';
+        hmod.FaceAlpha = 0;
     end
     
     if PLOT_MANIFOLD_OF_AVG_PARAMS
@@ -2883,8 +2945,8 @@ for i_group = 1:numel(groupdata_raw)
     
 end
 %set(gca, 'zlim', [0.45, 1.4])
-set(gca, 'zscale', 'linear', 'view', [-43    16])
-set(gca, 'YTick', 1:10, 'YTickLabel', {'10','9','8','7','6','5','4','3','2','1'})
+set(gca, 'zscale', 'linear', 'view', [177 20])
+set(gca, 'Xdir', 'reverse')
 zmax = get(gca, 'zlim');
 set(gca, 'XGrid', 'on', 'Ygrid', 'on', 'Zgrid', 'on')
 set(gca, 'XMinorGrid', 'off', 'YMinorGrid', 'off', 'ZMinorGrid', 'off')
@@ -2897,10 +2959,10 @@ set(gca, 'zscale', 'log')
 if PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD
     for i_group = 1:numel(groupdata_raw)
         % remake the smooth manifold
-        isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+        isi_ms = pprpop.smoothManifold_isi_ms;
+        N_pulses_smooth = pprpop.smoothManifold_numPulses;
         X = 1000./isi_ms;
-        N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
-        Y = 1:N_pulses_smooth;
+        Y = N_pulses_smooth:-1:1;
         [d, tau_d, f, tau_f] = parse_vca_model_coeffs(grand_avg_params{i_group}, MODEL);
         A0 = 1;
         smoothManifold = nan(N_pulses_smooth, numel(isi_ms));
@@ -2928,10 +2990,10 @@ if PLOT_MANIFOLD_OF_AVG_RAW_DATA
         data_matches = all(strcmpi(man_plotgrps(i_group,:), group_fit_to_grand_avg{i_group}.grouptypes));
         assert(data_matches, 'ERROR: plot groups do not match')
         
-        isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+        isi_ms = pprpop.smoothManifold_isi_ms;
+        N_pulses_smooth = pprpop.smoothManifold_numPulses;
         X = 1000./isi_ms;
-        N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
-        Y = 1:N_pulses_smooth;
+        Y = N_pulses_smooth:-1:1;
         smoothManifold = group_fit_to_grand_avg{i_group}.smooth_manifold;
         
         %plot the smooth manifold
@@ -2942,6 +3004,7 @@ if PLOT_MANIFOLD_OF_AVG_RAW_DATA
         predmod.FaceAlpha = 0;
         
     end
+    set(gca, 'Xdir', 'reverse')
 end
 
 %
@@ -2982,9 +3045,10 @@ if PLOT_DATASETS_INDIVIDUALLY
             % display the smooth manifold
             if PLOT_AVG_SMOOTH_MANIFOLD
                 smoothManifold = pprpop.smoothManifold{i_ex}{i_ch};
-                isi_ms = pprpop.smoothManifold_isi{i_ex}{i_ch};
+                isi_ms = pprpop.smoothManifold_isi_ms;
+                N_pulses_smooth = pprpop.smoothManifold_numPulses;
                 X = 1000./isi_ms;
-                Y = 1:size(smoothManifold,1);
+                Y = N_pulses_smooth:-1:1;
                 hold on,
                 hmod = surf(X,Y, flipud(smoothManifold));
                 hmod.EdgeAlpha = 0;
@@ -3008,10 +3072,10 @@ for i_group = 1:size(man_plotgrps,1)
     avg_manifold = mean(groupdata_smooth{i_group}, 3);
     
     % fit the grand-average manifold with the VCA model
-    isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+    isi_ms = pprpop.smoothManifold_isi_ms;
+    N_pulses_smooth = pprpop.smoothManifold_numPulses;
     X = 1000./isi_ms;
-    N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
-    Y = 1:N_pulses_smooth;
+    Y = N_pulses_smooth:-1:1;
     grand_avg_amps = {};
     grand_avg_p_times = {};
     for i_isi = 1:numel(isi_ms)
@@ -3096,10 +3160,10 @@ for i_group = 1:size(man_plotgrps, 1)
     group_fit_to_grand_avg{i_group}.params = params;
     
     % make a smooth surface for plotting
-    isi_ms = fliplr([1000/50 : 1 : 1000/10]);
+    isi_ms = pprpop.smoothManifold_isi_ms;
+    N_pulses_smooth = pprpop.smoothManifold_numPulses;
     X = 1000./isi_ms;
-    N_pulses_smooth = size(groupdata_smooth{i_group}, 1);
-    Y = 1:N_pulses_smooth;
+    Y = N_pulses_smooth:-1:1;
     [d, tau_d, f, tau_f] = parse_vca_model_coeffs(params, MODEL);
     A0 = 1;
     smoothManifold = nan(N_pulses_smooth, numel(isi_ms));
@@ -3125,14 +3189,14 @@ for i_group = 1:size(man_plotgrps, 1)
     T = [T; table(cell_type, brain_area, opsin_type, d, tau_d, f, tau_f)];
 end
 T_fit_to_avg_raw = T
-writetable(T_fit_to_avg_raw, 'params_from_fit_to_grand_avg_raw_withRecovAndRIT_forcedRecov.csv')
+writetable(T_fit_to_avg_raw, 'params_from_fit_to_grand_avg_raw_withRecovAndRIT_forcedRecov_newDefaults.csv')
 
 
 %% STRENGTH OF INPUT ONTO INs
 
 % define a set of attributes for each analysis group. Cell_type_pairs will
 % be split according to opsin, layer, and/or brain areas
-PLOTVAL = 'p1_ratio'; % 'p1_ratio', 'num_val', 'denom_val' 
+PLOTVAL = 'denom_val'; % 'p1_ratio', 'num_val', 'denom_val' 
 cell_type_pairs = {'all_som', 'PY';...  % defines the different groups that will appear on the x-axis
                    'all_pv',  'PY';...
                    };
@@ -3311,6 +3375,328 @@ if strcmpi(PLOTVAL, 'p1_ratio')
     xlim([0.8, N_plots+0.2])
     ylabel('P1 : P1 ratio')
 end
+
+
+%% LATENCY ANALYSIS (DATA COLLECTION)
+
+ENFORCE_MIN_EPSC = true;
+
+% this analysis is only reasonable when the INs are recorded simultaneous
+% to the PY cells.
+assert(strcmp(EXPTTYPE, 'IN_strength'), 'ERROR: not the correct type of experiment for latency analysis')
+
+
+latency_pop = [];
+latency_pop.TFsAllExpts = [];
+latency_pop.recoveryTimesAllExpts = [];
+for i_ex = 1:numel(dat)
+    
+    
+    % both recording channels should have valid Vclamp data. Check this,
+    % and then (optionally) exclude files with very small peak epscs.
+    assert(all(dat{i_ex}.info.HS_is_valid_Vclamp), 'Error: vclamp not defined for at least one channel')
+    if ENFORCE_MIN_EPSC
+        p1amp_avg = cellfun(@nanmean, dat{i_ex}.qc.p1amp);
+        baseline_noise = cellfun(@nanmean, dat{i_ex}.qc.instNoise);
+        assert(all([p1amp_avg ./ baseline_noise] >= 1.25), 'ERROR: some of the recordings are too noisy')
+        if [p1amp_avg ./ baseline_noise] < 1.25
+            latency_pop.dat{i_ex}.ignore{i_ch} = true;
+            warning('culling data on basis of P1 amp')
+        end
+    end
+
+    %
+    % analyze only the first pulse latency (aggregated across all train
+    % types). pull out the raw wfs. , average, re-measure the latency. This is a
+    % less noisy estimate of latency than the average of single pulse
+    % latencys
+    %
+    %%%%%%%
+    latency_pop.dat{i_ex}.p1_latency = {};
+    condnames = fieldnames(dat{i_ex}.expt);
+    for i_ch = 1:2
+        wfs = cellfun(@(x) dat{i_ex}.expt.(x).raw.snips{i_ch}(1,:,:), condnames, 'uniformoutput', false);
+        wfs = cat(3, wfs{:});
+        avg_p1_wf = mean(wfs, 3);
+        
+        N = numel(avg_p1_wf);
+        tt = [0:N-1] ./ dat{i_ex}.info.sampRate.vclamp;
+        tt = tt - dat{i_ex}.info.pretime.vclamp;
+        peak_window = (tt > 500e-6) & (tt < 6e-3);
+        minval = min(avg_p1_wf(peak_window));
+        eq2min = avg_p1_wf == minval;
+        peak_idx = find(eq2min & peak_window, 1, 'first');
+        p1_latency = tt(peak_idx);
+        
+        latency_pop.dat{i_ex}.p1_latency{i_ch} = p1_latency;
+    end
+end
+%     
+%     %
+%     % Now analyze only the recovery trains to see if there is a TF
+%     % dependence on latency
+%     %
+%     %%%%
+%     l_trains = ~strncmp(condnames, 'RITv', 4);
+%     if sum(l_trains)==0; continue; end % no trains data
+%     
+%     condnames_trains = condnames(l_trains);
+%     trainParams = cellfun(@(x) dat{i_ex}.expt.(x).tdict, condnames_trains, 'uniformoutput', false);
+%     trainParams = cat(1, trainParams{:});
+%     latency_pop.trainParams{i_ex} = trainParams;
+%     unique_tfs = unique(trainParams(:,3));
+%     unique_recov = unique(trainParams(:,4));
+%     unique_recov(unique_recov == 0) = [];
+%     if isempty(unique_recov); continue; end
+%     
+%     % make sure the pulse amplitude and width were identical across ttypes
+%     assert(numel(unique(trainParams(:,1)))==1, 'ERROR: more than one pulse amplitude')
+%     assert(numel(unique(trainParams(:,2)))==1, 'ERROR: more than one pulse width');
+%     
+%     % aggregate data across TF conditons and recovery times (Separately for each
+%     % recording channel)
+%     latency_pop.dat{i_ex}.trains_latency = {};
+%     latency_pop.dat{i_ex}.ignore={[],[]};
+%     Ntfs = numel(unique_tfs);
+%     Nrecov = numel(unique_recov);
+%     for i_ch = 1:2
+%         
+%         % initialize the outputs. I need to concatenate similar TFs
+%         % together, but keep each of their recovery conditions separate
+%         %
+%         % latency_pop.dat.psc_amps = {{TF}, {psc_amps}, {{recov_time}, {recov_psc_amp}}}
+%         % latency_pop.dat.psc_wfs = {{TF}, {psc_wfs}, {{recov_time}, {recov_psc_wfs}}}
+%         latency_pop.dat{i_ex}.psc_amps{i_ch} = {num2cell(unique_tfs), repmat({[]}, Ntfs,1), repmat({num2cell(unique_recov), repmat({[]}, Nrecov,1)}, Ntfs,1)};
+%         latency_pop.dat{i_ex}.psc_wfs{i_ch} =  {num2cell(unique_tfs), repmat({[]}, Ntfs,1), repmat({num2cell(unique_recov), repmat({[]}, Nrecov,1)}, Ntfs,1)};
+% 
+%         for i_tf = 1:Ntfs
+%             
+%             for i_recov = 1:Nrecov
+%                 
+%                 cond_idx = (trainParams(:,3)==unique_tfs(i_tf)) & (trainParams(:,4)==unique_recov(i_recov));
+%                 
+%                 % check to make sure this neuron was defined, and that the
+%                 % stimulus train is a is a recovery train. also check to make
+%                 % sure there are data for these conditions. Even though this
+%                 % recording channel should be defined (See above), it's
+%                 % possible there are no data due to deletion of single sweeps
+%                 isvalid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+%                 isrecovery = trainParams(cond_idx,4) > 0;
+%                 no_data = isempty(dat{i_ex}.expt.(condnames_trains{cond_idx}).stats.EPSCamp{i_ch});
+%                 if ~isvalid || ~isrecovery || no_data
+%                     continue
+%                 end                
+%                 
+%                 % pull out the EPSC amplitudes (mean across sweeps), norm to
+%                 % first pulse
+%                 tmp_psc = mean(dat{i_ex}.expt.(condnames_trains{cond_idx}).stats.EPSCamp{i_ch}, 3);
+%                 norm_fact = tmp_psc(1);
+%                 tmp_psc = tmp_psc ./ norm_fact;
+%                 
+%                 % concatenate 1:10 into 'trains', and the 11th into 'recov'
+%                 latency_pop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf} = cat(1, latency_pop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf}, tmp_psc(1:end-1)');
+%                 latency_pop.dat{i_ex}.psc_amps{i_ch}{3}{i_tf,2}{i_recov} = cat(1, latency_pop.dat{i_ex}.psc_amps{i_ch}{3}{i_tf,2}{i_recov}, tmp_psc(end));
+% 
+%                 % pull out the EPSC waveforms (mean across sweeps)
+%                 tmp_wfs = mean(dat{i_ex}.expt.(condnames_trains{cond_idx}).raw.snips{i_ch}, 3);% Npulses x Ntime
+%                 norm_fact = min(tmp_wfs(1,:), [], 2);
+%                 tmp_wfs = tmp_wfs ./ -norm_fact; 
+%                 
+%                 % store the waveforms in the population structures
+%                 latency_pop.dat{i_ex}.psc_wfs{i_ch}{2}{i_tf} = cat(3, latency_pop.dat{i_ex}.psc_wfs{i_ch}{2}{i_tf}, tmp_wfs(1:end-1, :));
+%                 latency_pop.dat{i_ex}.psc_wfs{i_ch}{3}{i_tf,2}{i_recov} = cat(3, latency_pop.dat{i_ex}.psc_wfs{i_ch}{3}{i_tf,2}{i_recov}, tmp_wfs(end,:));
+%                 
+%             end
+%         end
+%     end
+%     
+%     
+%     
+%     % identify the unique TF conditions for this experiment, and update the
+%     % running log of TFs used across all experiments. This will be used by
+%     % the plotting routines to figure out the "canonical grid"
+%     tmp = cat(1, latency_pop.TFsAllExpts, unique_tfs);
+%     latency_pop.TFsAllExpts = unique(tmp);
+%     
+%     % identify the unique recovery times for this experiment, and update the
+%     % running log of recov times used across all experiments. This will be used by
+%     % the plotting routines to figure out the "canonical grid"
+%     tmp = cat(1, latency_pop.recoveryTimesAllExpts, unique_recov);
+%     latency_pop.recoveryTimesAllExpts = unique(tmp);
+% 
+%     
+% end
+
+%% LATENCY ANALYSIS (PLOTS)
+
+
+close all; clc
+
+
+COMBINE_HVAS = true;
+COMBINE_OPSINS = true;
+COMBINE_INS = true;
+
+assert(strcmp(EXPTTYPE, 'IN_strength'), 'ERROR: not the correct type of experiment for latency analysis')
+assert(COMBINE_OPSINS, 'error: combine opsins needs to be true, otherwise things may break')
+assert(COMBINE_INS, 'error: combine interneurons needs to be true, otherwise things may break')
+
+% make a table with the following fields
+% {BrainArea, OpsinType, IN_type, PY_latency, IN_latency}
+groupdata = {};
+row_names = {'BrainArea', 'OpsinType', 'IN_type', 'PY_latency', 'IN_latency'};
+template = {'str', 'str', 'str', NaN, NaN};
+
+for i_ex = 1:numel(dat)
+    
+    ex_template = template;
+    ex_brain_area = dat{i_ex}.info.brainArea;
+    ex_opsin = dat{i_ex}.info.opsin;
+    
+    if COMBINE_HVAS
+        if regexpi(ex_brain_area, 'pm|am')
+            ex_brain_area = 'med';
+        elseif regexpi(ex_brain_area, 'lm|al')
+            ex_brain_area = 'lat';
+        else
+            error('did not identify area')
+        end
+    end
+    ex_template{1} = ex_brain_area;
+    
+    if COMBINE_OPSINS
+        if regexpi(ex_opsin, 'chronos')
+            ex_opsin = 'chronos';
+        elseif regexpi(ex_opsin, 'chief')
+            ex_opsin = 'chief';
+        else
+            error('did not identify opsin')
+        end
+    end
+    ex_template{2} = ex_opsin;
+    
+    
+    
+    
+    for i_ch = 1:2
+        
+        cell_type = dat{i_ex}.info.cellType{i_ch};
+        if ~strcmpi(cell_type, 'py_l23')
+            if COMBINE_INS
+                if regexpi(cell_type, 'LTSIN|SOMCRE')
+                    cell_type = 'all_som';
+                elseif regexpi(cell_type, 'FS|PVCRE')
+                    cell_type = 'all_pv';
+                else
+                    error('did not identify cell type')
+                end
+            end
+            ex_template{3} = cell_type;
+            latency_idx = strcmp(row_names, 'IN_latency');
+        else
+            latency_idx = strcmp(row_names, 'PY_latency');
+        end
+        
+        ex_template{latency_idx} = latency_pop.dat{i_ex}.p1_latency{i_ch};
+        
+    end
+    
+    groupdata(i_ex,:) = ex_template;
+end
+
+t_latency = cell2table(groupdata, 'VariableNames', row_names);
+t_latency.diffval = minus(t_latency.IN_latency, t_latency.PY_latency);
+
+% summary table:
+t_xbar = grpstats(t_latency,...
+                  {'BrainArea','IN_type'},...
+                  {'mean'},...
+                  'DataVars', {'PY_latency', 'IN_latency', 'diffval'},...
+                  'VarNames', {'BrainArea','IN_type','GroupCount','PY_mean','IN_mean', 'diff_mean'})
+              
+t_sem = grpstats(t_latency,...
+                  {'BrainArea','IN_type'},...
+                  {'stderr'},...
+                  'DataVars', {'PY_latency', 'IN_latency', 'diffval'},...
+                  'VarNames', {'BrainArea','IN_type','GroupCount','PY_sem','IN_sem', 'diff_sem'});
+
+unique_cell_types = unique(t_latency.IN_type);
+unique_areas = unique(t_latency.BrainArea);
+[py_vals, in_vals, diff_vals] = deal([]);
+[py_sem, in_sem, diff_sem] = deal([]);
+for i_area = 1:numel(unique_areas)
+    for i_in = 1:numel(unique_cell_types)
+        l_area = strcmpi(t_latency.BrainArea, unique_areas{i_area});
+        l_in = strcmpi(t_latency.IN_type, unique_cell_types{i_in});
+        
+        t_grp = t_latency(l_area & l_in, {'PY_latency', 'IN_latency', 'diffval'});
+        py_vals(i_area, i_in) = nanmean(t_grp.PY_latency);
+        in_vals(i_area, i_in) = nanmean(t_grp.IN_latency);
+        diff_vals(i_area, i_in) = nanmean(t_grp.diffval);
+        
+        py_sem(i_area, i_in) = stderr(t_grp.PY_latency);
+        in_sem(i_area, i_in) = stderr(t_grp.IN_latency);
+        diff_sem(i_area, i_in) = stderr(t_grp.diffval);
+    end
+end
+
+hf = figure;
+hf.Position = [402         216        1289         368];
+subplot(1,3,1)
+hold on,
+xmax = numel(unique_areas);
+for i_in = 1:numel(unique_cell_types)
+    errorbar(1:numel(unique_areas), diff_vals(:,i_in), diff_sem(:,i_in),...
+        'linewidth', 3)
+end
+plot([0.75, xmax+.25], [0 0], '--k')
+xlim([0.75, xmax+.25])
+hl = legend(unique_cell_types);
+hl.Interpreter = 'None';
+hl.Location = 'Best';
+hl.Box = 'off';
+title('diff val: IN - PY')
+ylabel('latency (sec)')
+xlabel('brain area')
+set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
+
+subplot(1,3,2)
+hold on,
+for i_in = 1:numel(unique_cell_types)
+    errorbar(1:numel(unique_areas), py_vals(:,i_in), py_sem(:,i_in),...
+        'linewidth', 3)
+end
+ylim([3e-3, 5.8e-3])
+xlim([0.75, xmax+.25])
+hl = legend(unique_cell_types);
+hl.Interpreter = 'None';
+hl.Location = 'Best';
+hl.Box = 'off';
+title('raw latency PY only')
+ylabel('latency (sec)')
+xlabel('brain area')
+set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
+
+
+subplot(1,3,3)
+hold on,
+for i_in = 1:numel(unique_cell_types)
+    errorbar(1:numel(unique_areas), in_vals(:,i_in), in_sem(:,i_in),...
+        'linewidth', 3)
+end
+ylim([3e-3, 5.8e-3])
+xlim([0.75, xmax+.25])
+hl = legend(unique_cell_types);
+hl.Interpreter = 'None';
+hl.Location = 'Best';
+hl.Box = 'off';
+title('raw latency IN only')
+ylabel('latency (sec)')
+xlabel('brain area')
+set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
+
+
+
 
 %% CONTROLS: LOOKING FOR RECURRENT OR POLY-SYNAPTIC PSCs
 
