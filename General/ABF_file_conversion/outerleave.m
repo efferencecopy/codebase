@@ -89,31 +89,42 @@ function tDict = outerleave(stimWF, sampRate, BLACKROCKCORRECTION)
         % simple trains, there should only be 1 (or 2) different IPIs (2 if
         % there is a recovery train). For RITs, there should be several
         % different IPIs.
-        if numel(pOnTimes)>1
+        is_train = numel(pOnTimes)>1;
+        if is_train
             IPIs = diff(pOnTimes);
             unique_ipis = unique(round(IPIs, 6), 'stable'); % force unique to preserve order and not sort
             Nipi = numel(unique_ipis);
-
-            if Nipi <= 3 % assume normal trains or recovery trains or zucker trains
-                tFreq(swp) =  1./unique_ipis(1);
-                tFreq(swp) = round(tFreq(swp)); % round to the nearest whole number
-
-                % was there a recovery pulse?
-                % lastIPI = round(unique_ipis(end).*1000); % this line is deprecated due to Zucker stim
+            
+            % all trains have at least one unique IPI. Assume this
+            % corresponds to the train freq
+            train_tf =  1./unique_ipis(1);
+            tFreq(swp) = round(train_tf); % round to the nearest whole number
+            
+            % determine the recovery time if the stimulus was Recovery
+            % or Zucker
+            is_zucker = Nipi == 3;
+            is_recov = Nipi == 2;
+            if is_zucker || is_recov
                 recovIPI = round(unique_ipis(2).*1000); % in ms
                 if recovIPI > ((1./tFreq(swp))+0.010)*1000 % needs to be 10 ms longer than the typical IPI
                     tRecov(swp) = recovIPI;
+                else
+                    error('ERROR: Nominal recovery pulse was <10ms from previous induction pulse')
                 end
-            else
+            end
+            
+            % if the stimulus was a RIT, then define the RIT_version
+            % number
+            is_rit = Nipi > 3;
+            if is_rit
                 [RIT_num, RIT_versions] = define_RIT_version(pOnTimes, RIT_versions);
                 tRIT(swp) = RIT_num;
                 tFreq(swp) = 0; % needs to be defined so that unique doesn't bonk below
             end
-
+            
         else
             tFreq(swp) = 0; % a single pulse
         end
-
     end
 
     % now determine the number of unique trial types

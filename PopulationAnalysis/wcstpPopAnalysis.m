@@ -4,7 +4,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 2;
+EXPTTYPE = 6;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -32,6 +32,7 @@ params.pretime.dcsteps = 0.100;    % seconds before current onset
 params.posttime.dcsteps = 0.300;   % seconds after current offset 
 params.pretime.iclamp = 0.005;
 params.posttime.iclamp = 0.015;    % actually a minimum value, real value stored in the dat structure, and depends on ISI
+params.expttype = EXPTTYPE;
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -224,8 +225,8 @@ close all; clc
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'all_som', 'L23', 'med', 'any';...
-    'all_som', 'L23', 'lat', 'any';...
+    'PY', 'L23', 'med', 'any';...
+    'PY', 'L23', 'lat', 'any';...
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -251,6 +252,11 @@ for i_ex = 1:numel(dat)
         if ~isvalid
             continue
         end
+        
+        % check to make sure the cell was healthy (as based on presence of
+        % holding current)
+        max_holding_pa = abs(dat{i_ex}.dcsteps.pA_holding{i_ch}(2));
+        if max_holding_pa > 20; disp(max_holding_pa); continue; end
         
         % check the attributes
         ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
@@ -282,7 +288,7 @@ f=figure;
 Ngroups = (numel(groupdata.Rin_peak)); % adding one for "summary" cdf fig
 N_plt_rows = Ngroups+1;
 groupcolors = lines(Ngroups);
-f.Position = [451   187   968   665];
+f.Position = [506   158   838   749];
 allNums = cat(1, groupdata.Rin_peak{:}, groupdata.Rin_asym{:});
 edges = linspace(min(allNums)-1, max(allNums)+1, 30);
 for i_group = 1:numel(groupdata.Rin_asym)
@@ -298,9 +304,11 @@ for i_group = 1:numel(groupdata.Rin_asym)
     xbar = nanmean(groupdata.Rin_peak{i_group});
     hold on,
     plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
-    legtext = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
-    legend(legtext, 'Location', 'northeast')
+    N = numel(groupdata.Rin_peak{i_group});
+    legtext = sprintf('%s, %s, %s, n=%d', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3}, N);
+    hl = legend(legtext, 'Location', 'northeast');
     legend boxoff
+    hl.Interpreter = 'none';
     xlabel('Input R (MOhm)')
     ylabel('counts')
     if i_group == 1
@@ -528,33 +536,81 @@ ylabel('voltage response (mV)')
 
 % directly compare peak vs. steady state DC response 
 subplot(1,3,3), hold on,
+edges = [-825:25:625];
+group_iv_vals = {};
 for i_group = 1:numel(groupdata.IVcurve_peak)
+    vals = repmat({[]}, 1, numel(edges));
     for i_cell = 1:numel(groupdata.IVcurve_peak{i_group})
         X = groupdata.IVcurve_peak{i_group}{i_cell}(:,1);
         Y_peak = groupdata.IVcurve_peak{i_group}{i_cell}(:,2);
         Y_asym = groupdata.IVcurve_asym{i_group}{i_cell}(:,2);
-        plot(X, Y_peak-Y_asym, '-', 'color', groupcolors(i_group,:))
+        diff_val = Y_asym-Y_peak;
+        plot(X, diff_val, '-', 'color', groupcolors(i_group,:))
+        for i_val = 1:numel(diff_val)
+            idx = histc(X(i_val), edges);
+            vals{logical(idx)}(end+1) = diff_val(i_val);
+        end
     end
+    group_iv_vals{i_group} = vals;
 end
 axis tight
-title('Peak - Steady State')
+title('Steady State - Peak')
 xlabel('DC injection (pA)')
 ylabel('Difference (mV)')
 
 
-% compare Ih sag
+% ----- regression of IV curve --------------
+hf = figure;
+hold on,
+for i_group = 1:numel(groupdata.IVcurve_peak)
+    [X,Y] = deal([]);
+    for i_val = 1:numel(edges);
+        if edges(i_val)<=0; continue; end
+        tmpvals = group_iv_vals{i_group}{i_val};
+        Y = cat(1,Y, tmpvals(:));
+        X = cat(1,X, ones(numel(tmpvals), 1).*edges(i_val));
+    end
+    [B,BINT] = regress(Y(:), [ones(size(X(:))), X(:)]);
+    [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
+    CI_up = top_int - y_mod;
+    CI_down = y_mod - bot_int;
+    plot(X, Y, '.', 'color', groupcolors(i_group,:))
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+end
+xlabel('Current Injection (pA)')
+ylabel('Difference (mV)')
+title('Steady State - Peak')
+
+
+% -----  compare Ih sag --------- 
 legtext = {};
 leghand = [];
 f = figure;
 f.Position = [384 353 1071 415];
 subplot(1,2,1), hold on,
+edges = [-150:5:-80];
+vals = repmat({[]}, 1, numel(edges));
 for i_group = 1:numel(groupdata.Ih_sag)
     N = numel(groupdata.Ih_sag{i_group});
     for i_ex = 1:N
-        hp = plot(groupdata.Ih_Vm{i_group}{i_ex}, groupdata.Ih_sag{i_group}{i_ex}, 'o-', 'color', groupcolors(i_group,:));
+        hp = plot(groupdata.Ih_Vm{i_group}{i_ex}, groupdata.Ih_sag{i_group}{i_ex}, '.-', 'color', groupcolors(i_group,:));
     end
     legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
     leghand(i_group) = hp;
+end
+for i_group = 1:numel(groupdata.Ih_sag)
+    N = numel(groupdata.Ih_sag{i_group});
+    for i_ex = 1:N
+        tmpval = groupdata.Ih_sag{i_group}{i_ex};
+        tmpmv = groupdata.Ih_Vm{i_group}{i_ex};
+        for i_val= 1:numel(tmpval)
+            idx = histc(tmpmv(i_val), edges);
+            vals{logical(idx)}(end+1) = tmpval(i_val);
+        end
+    end
+    l_enough = cellfun(@numel, vals) > 5;
+    avg_ih = cellfun(@nanmean, vals);
+    %plot(edges(l_enough), avg_ih(l_enough), '-', 'color', groupcolors(i_group,:), 'linewidth', 4)
 end
 xlabel('Membrane Potential At Sag Peak (mV)')
 ylabel('Sag Amplitude (mV)')
@@ -571,8 +627,50 @@ for i_group = 1:numel(groupdata.Ih_asym)
         plot(groupdata.Ih_Vm{i_group}{i_ex}, rebound, 'o-', 'color', groupcolors(i_group,:))
     end
 end
+
+edges = [-150:1:-80];
+group_iv_vals = {};
+for i_group = 1:numel(groupdata.Ih_asym)
+    vals = repmat({[]}, 1, numel(edges));
+    N = numel(groupdata.Ih_asym{i_group});
+    for i_ex = 1:N
+        sag_Vm = groupdata.Ih_Vm{i_group}{i_ex} - groupdata.Ih_sag{i_group}{i_ex};
+        asym_Vm =  groupdata.Ih_asym{i_group}{i_ex};
+        rebound = sag_Vm - asym_Vm;
+        tmpmv = groupdata.Ih_Vm{i_group}{i_ex};
+        for i_val= 1:numel(rebound)
+            idx = histc(tmpmv(i_val), edges);
+            vals{logical(idx)}(end+1) = rebound(i_val);
+        end
+    end
+    l_enough = cellfun(@numel, vals) > 5;
+    avg_rebound = cellfun(@nanmean, vals);
+    %plot(edges(l_enough), avg_rebound(l_enough), '-', 'color', groupcolors(i_group,:), 'linewidth', 4)
+    group_iv_vals{i_group} = vals;
+end
 xlabel('Membrane Potential At Sag Peak (mV)')
 ylabel('Sag Rebound (mV)')
+
+% ----- Regression for sag rebound --------
+hf = figure;
+hold on,
+for i_group = 1:numel(groupdata.Ih_asym)
+    [X,Y] = deal([]);
+    for i_val = 1:numel(edges);
+        tmpvals = group_iv_vals{i_group}{i_val};
+        Y = cat(1,Y, tmpvals(:));
+        X = cat(1,X, ones(numel(tmpvals), 1).*edges(i_val));
+    end
+    [B,BINT] = regress(Y(:), [ones(size(X(:))), X(:)]);
+    [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
+    CI_up = top_int - y_mod;
+    CI_down = y_mod - bot_int;
+    plot(X, Y, '.', 'color', groupcolors(i_group,:))
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+end
+xlabel('Membrane Potential At Sag Peak (mV)')
+ylabel('Sag Rebound (mV)')
+
 
 %% SUMMARY OF SPIKES: THRESHOLDS, RESET, F-I CURVES
 
@@ -2816,6 +2914,10 @@ PLOT_DATASETS_INDIVIDUALLY = false;
 man_plotgrps = {
     'PY', 'L23', 'med', 'chief';...
     'PY', 'L23', 'lat', 'chief';...
+    'PY', 'L23', 'med', 'chronos';...
+    'PY', 'L23', 'lat', 'chronos';...
+    'all_som', 'L23', 'med', 'any';...
+    'all_pv', 'L23', 'lat', 'any';...
     };
 
 empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
