@@ -8,7 +8,7 @@ function [fitparams, fval] = fit_vca_model(raw, pOnTimes, model)
 %         terms. Examples: 'DF', 'DDF', 'DDFF'
 
 % assert an ERR_TYPE
-ERR_TYPE = 'RMS'; % can be 'RMS' or 'LnQ'
+ERR_TYPE = 'SSE'; % can be 'RMS' or 'LnQ', or 'SSE'
 
 % check input args
 assert(~isempty(raw), 'ERROR: no data were supplied')
@@ -24,14 +24,12 @@ check_vca_model(model); % will throw and error if there are problems
 % from FMINUNC and returns vectors for D, F, tauD, tauF
 % 
 [guesses, upper_bounds, lower_bounds] = generate_vca_guesses_and_bounds(model);
-N_pts_per_dim = 4;
-N_cust_start_points = N_pts_per_dim .^ numel(model);
+N_pts_per_dim = 2;
 custpts = get_vca_startpoints(lower_bounds, upper_bounds, N_pts_per_dim);
-N_start_points = 200;
 
 opts = optimoptions(@fmincon, 'Algorithm', 'interior-point',...  
-                               'TolFun', 1e-8,...
-                               'TolX',   1e-8);
+                               'TolFun', 1e-12,...
+                               'TolX',   1e-12);
 problem = createOptimProblem('fmincon', 'objective', @fit_vca_err,...
                             'x0', guesses,...
                             'lb', lower_bounds,...
@@ -41,7 +39,7 @@ problem = createOptimProblem('fmincon', 'objective', @fit_vca_err,...
 
 ms = MultiStart;
 ms.UseParallel = 'always';
-[fitparams, fval, exitflag, output, manymins] = run(ms, problem, N_start_points);
+[fitparams, fval, exitflag, output, manymins] = run(ms, problem, 150);
 
 
 % fix the fitparams if the output was junk
@@ -70,7 +68,7 @@ end
         switch ERR_TYPE
             case 'LnQ'
                 err = cellfun(@(x,y) abs(log(x./y)), raw, pred, 'uniformoutput', false); % log of ratios
-            case 'RMS'
+            case {'RMS', 'SSE'}
                 err = cellfun(@(x,y) (x-y).^2,  raw, pred, 'uniformoutput', false); % squared error
         end
         sizeMatch = cellfun(@(x,y) numel(x)==numel(y), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
@@ -86,7 +84,7 @@ end
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);
         err = cat(1, err{:});
         switch ERR_TYPE
-            case 'LnQ'
+            case {'LnQ', 'SSE'}
                 err = sum(err); % for log of ratios
             case 'RMS'
                 err = sqrt(mean(err)); % for RMS error

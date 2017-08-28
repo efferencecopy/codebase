@@ -43,7 +43,7 @@ for i_pulse = 2:numel(pOnTimes);
     assert(all(F>=1), 'ERROR: facilitating terms oob')
     
     % make a prediction regarding the current spike
-    pred(i_pulse) = prod(cat(1, A0(:), D(:), F(:))); % equivalent to (A0 * D1 * D2 ... * Dn * F1 * F2 ... * Fn)
+    pred(i_pulse) = prod(cat(1, A0, D(:), F(:))); % equivalent to (A0 * D1 * D2 ... * Dn * F1 * F2 ... * Fn)
     
     % now add the per-spike plasticity (d, f).
     D = D .* d;

@@ -3810,16 +3810,16 @@ end
 
 ERRBARS = true;
 NPULSES = 7;
-PHARMCONDITION = 'FV_Na'; % could be 'synapticTransmission' or 'nbqx_apv_cd2_ttx' or 'FV_Na'
+PHARMCONDITION = 'synapticTransmission'; % could be 'synapticTransmission' or 'nbqx_apv_cd2_ttx' or 'FV_Na'
 STATTYPE = 'pnp1'; % could be 'raw' or 'pnp1'
-METRIC = 'diffval';
+METRIC = 'slope';
 
 
 % load in data from each area
-load('pop_al_stimL23_recL23_mainExpt_combineChief.mat');
+load('pop_al_stimL23_recL23_mainExpt.mat');
 al_pop = pop;
 
-load('pop_pm_stimL23_recL23_mainExpt_combineChief.mat');
+load('pop_pm_stimL23_recL23_mainExpt.mat');
 pm_pop = pop;
 
 
@@ -3833,7 +3833,7 @@ set(F, 'position', [109    31   891   754])
 Y = []; % for the ANOVAn. Log transform prior to the analysis aggregate Pn:P1 vals for all pulses, then only do the test on one of the pulses
 group = []; % grouping variables for the ANOVA [brain area, opsin, TF]
 
-opsinTypes = {'chr2', 'chief_all', 'chronos'};
+opsinTypes = {'chr2', 'chief_flx', 'chronos'};
 for i_opsin = 1:numel(opsinTypes)
     
     

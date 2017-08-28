@@ -222,8 +222,6 @@ classdef abfobj
                             delta_pa = Im_atOnset - Im_baseline;
                             delta_na = delta_pa ./ 1000;
                             out.Ra(1, i_ch, i_swp) = pulse_mv ./ delta_na;
-                        case 'exp'
-                            % currently doesn't do anything
                     end
                     
                     %
@@ -248,8 +246,6 @@ classdef abfobj
                     delta_pa = Im_steadyState - Im_baseline;
                     delta_na = delta_pa ./ 1000;
                     out.Rinput(1, i_ch, i_swp) = pulse_mv ./ delta_na;
-                        
-                    
                     
                 end
             end

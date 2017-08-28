@@ -266,6 +266,15 @@ function dat = unpack_dc_injections(dat)
         end
         dat.dcsteps.IVasym.Rin{i_ch} = MOhm;
         
+        % now only consider +/- going current steps
+        MOhm = (mV_asym - dat.dcsteps.Vrest{i_ch}) ./ (pA_cmd/1000);
+        MOhm = abs(MOhm);
+        l_neg = l_valid_pA & pA_cmd<0;
+        l_pos = l_valid_pA & pA_cmd>0;
+        dat.dcsteps.Rin_posPA{i_ch} = max(MOhm(l_pos));
+        dat.dcsteps.Rin_negPA{i_ch} = max(MOhm(l_neg));
+        
+        
         % compute the Vm response right after the DC injection starts (as a
         % proxy for the 'peak' response). Average a window 6 to 16 ms
         % after the injection starts.
@@ -294,6 +303,39 @@ function dat = unpack_dc_injections(dat)
             MOhm = NaN;
         end
         dat.dcsteps.IVpeak.Rin{i_ch} = MOhm;
+        
+        % compute the membrane time constant for sub-threhold current
+        % injections. Do this two ways: by estimation of exponential tau,
+        % and by eye-balling 63% decay
+        %
+        % return [pA_cmd, Vm_at_cmd, tau_fitted, tau_quick]
+        
+        % iterate over subthreshold current injections:
+        raw_Vm_offset = permute(ax.dat(:, ax.idx.(HSname), :), [3,1,2]);
+        baseline = mean(raw_Vm_offset(:, idx_on-preTime_samps:idx_on), 2);
+        delta_baseline = baseline - mean(baseline);
+        assert(~any(delta_baseline>7.5), sprintf('ERROR: file has Vm that changed from sweep to sweep.\n fid: %s', dat.info.fid.(hs_fid)))
+        raw_Vm_offset = bsxfun(@minus, raw_Vm_offset, delta_baseline); % adjust for small differences in resting Vm from sweep to sweep
+        raw_Vm_offset = raw_Vm_offset(:, idx_off+10:idx_off+postTime_samps); % just getting the decay
+        l_valid_pA = (trl_Iclamp_cmd_pA ~= 0) & (trl_Iclamp_cmd_pA <= 40) & (trl_Iclamp_cmd_pA >= -65);
+        unique_valid_cmd = unique(trl_Iclamp_cmd_pA(l_valid_pA));
+        tau_data = nan(numel(unique_valid_cmd), 3);
+        for i_pa = 1:numel(unique_valid_cmd)
+            pa_idx = trl_Iclamp_cmd_pA == unique_valid_cmd(i_pa);
+            avg_off_Vm = mean(raw_Vm_offset(pa_idx, :), 1);
+            mv_at_offset = avg_off_Vm(1);
+            tt_off_tau = [0:numel(avg_off_Vm)-1] ./ dat.info.sampRate.dcsteps;
+            if unique_valid_cmd(i_pa) < 0;
+                avg_off_Vm = -avg_off_Vm;
+            end
+            [Ao, tau, C, tau_quick_est] = fit_exp1(avg_off_Vm, tt_off_tau);
+            tau_data(i_pa, 1) = unique_valid_cmd(i_pa);
+            tau_data(i_pa, 2) = mv_at_offset;
+            tau_data(i_pa, 3) = tau;
+            tau_data(i_pa, 4) = tau_quick_est;
+        end
+        dat.dcsteps.tau{i_ch} = tau_data;
+        
         
         % estimate the amount of Ih at the onset of the negative current
         % injection. Find the "true peak" of the Ih sag instead of using
@@ -935,6 +977,29 @@ function rise_times = compute_rise_times(dat, psc_sign, i_ch, condname)
                 end
             end
             
+end
+
+function [Ao, tau, C, tau_guess] = fit_exp1(vm, tt)
+    
+    % guess values for Ao, tau, C
+    total_decay = vm(1)-vm(end);
+    idx_to_63prcnt = find(vm<(vm(1)-(total_decay*0.63)), 1, 'first');
+    tau_guess = tt(idx_to_63prcnt);
+    C_guess = mean(vm(end-5000:end));
+    Ao_guess = total_decay;
+    
+    % run the fminsearch, minimize sse
+    [fitted_params] = fminsearch(@sse_err, [Ao_guess, tau_guess, C_guess]);
+    Ao = fitted_params(1);
+    tau = fitted_params(2);
+    C = fitted_params(3);
+    
+    function err = sse_err(params)
+        
+        fit = params(1) .* exp(-tt./params(2)) + params(3);
+        err = sum((vm - fit).^2);
+        
+    end
 end
 
 function name = make_condition_name(tdict, i_cond)
