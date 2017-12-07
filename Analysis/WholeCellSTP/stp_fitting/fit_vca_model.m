@@ -8,7 +8,7 @@ function [fitparams, fval] = fit_vca_model(raw, pOnTimes, model)
 %         terms. Examples: 'DF', 'DDF', 'DDFF'
 
 % assert an ERR_TYPE
-ERR_TYPE = 'SSE'; % can be 'RMS' or 'LnQ', or 'SSE'
+ERR_TYPE = 'L1'; % can be 'RMS', 'LnQ', 'SSE', 'L1'
 
 % check input args
 assert(~isempty(raw), 'ERROR: no data were supplied')
@@ -39,7 +39,7 @@ problem = createOptimProblem('fmincon', 'objective', @fit_vca_err,...
 
 ms = MultiStart;
 ms.UseParallel = 'always';
-[fitparams, fval, exitflag, output, manymins] = run(ms, problem, 150);
+[fitparams, fval, exitflag, output, manymins] = run(ms, problem, 500);
 
 
 % fix the fitparams if the output was junk
@@ -70,6 +70,8 @@ end
                 err = cellfun(@(x,y) abs(log(x./y)), raw, pred, 'uniformoutput', false); % log of ratios
             case {'RMS', 'SSE'}
                 err = cellfun(@(x,y) (x-y).^2,  raw, pred, 'uniformoutput', false); % squared error
+            case {'L1'}
+                err = cellfun(@(x,y) abs(x-y),  raw, pred, 'uniformoutput', false); % squared error
         end
         sizeMatch = cellfun(@(x,y) numel(x)==numel(y), err, raw); % subtracting off 1 to account for the fact that I'm ignoring the first pulse
         assert(all(sizeMatch), 'ERROR: unexpected dimensions after step 1')
@@ -84,11 +86,14 @@ end
         err = cellfun(@(x) x(:), err, 'uniformoutput', false);
         err = cat(1, err{:});
         switch ERR_TYPE
-            case {'LnQ', 'SSE'}
+            case {'LnQ', 'SSE', 'L1'}
                 err = sum(err); % for log of ratios
             case 'RMS'
                 err = sqrt(mean(err)); % for RMS error
         end
+        
+       % warning('using L2 regularization')
+       % err = err + (0.05 .* norm(params));
 
     end
 
