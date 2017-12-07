@@ -225,13 +225,15 @@ close all; clc
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'med', 'any';...
-    'PY', 'L23', 'lat', 'any';...
+    'PY', 'L23', 'AM', 'any';...
+    'PY', 'L23', 'PM', 'any';...
+    'PY', 'L23', 'AL', 'any';...
+    'PY', 'L23', 'LM', 'any';...
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
 groupdata.Rin_asym = repmat({[]}, 1, size(plotgroups, 1));
-% groupdata.Rin_vclamp = repmat({[]}, 1, size(plotgroups, 1)); % a place  holder for when this analysis is up and running
+groupdata.tau = repmat({[]}, 1, size(plotgroups, 1));
 groupdata.Vrest = repmat({[]}, 1, size(plotgroups, 1));
 groupdata.Depth = repmat({[]}, 1, size(plotgroups, 1));
 groupdata.IVcurve_peak = repmat({{}}, 1, size(plotgroups,1));
@@ -275,6 +277,13 @@ for i_ex = 1:numel(dat)
             groupdata.Ih_sag{group_idx} = cat(1, groupdata.Ih_sag{group_idx}, [dat{i_ex}.dcsteps.Ih_sag.sag{i_ch}]);
             groupdata.Ih_Vm{group_idx} = cat(1, groupdata.Ih_Vm{group_idx}, [dat{i_ex}.dcsteps.Ih_sag.peak_Vm{i_ch}]);
             groupdata.Ih_asym{group_idx} = cat(1, groupdata.Ih_asym{group_idx}, [dat{i_ex}.dcsteps.Ih_sag.Vm_asym{i_ch}]);
+        end
+        if isfield(dat{i_ex}.dcsteps, 'tau')
+            if isempty(dat{i_ex}.dcsteps.tau{i_ch});
+                dat{i_ex}.info.fid
+                continue
+            end
+            groupdata.tau{group_idx} = cat(1, groupdata.tau{group_idx}, mean(dat{i_ex}.dcsteps.tau{i_ch}(:,3)));
         end
     end
 end
@@ -353,6 +362,27 @@ for i_group = 1:numel(groupdata.Rin_asym)
     ylabel('Proportion')
 end
 
+%
+% membrane time constants
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+figure, hold on,
+allTaus = cat(1, groupdata.tau{:});
+edges_taus = linspace(min(allTaus)-0.002, 0.050, 50).*1000;
+legtext = {};
+for i_group = 1:numel(groupdata.tau)
+    N = histcounts(groupdata.tau{i_group}.*1000, edges_taus);
+    N(end+1) = 0;
+    cdf_vals = cumsum(N)./sum(N);
+    stairs(edges_taus, cdf_vals, '-', 'color', groupcolors(i_group,:))
+    num_cells = numel(groupdata.tau{i_group});
+    legtext{i_group} = sprintf('%s, %s, %s, n=%d', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3}, num_cells);
+end
+hl = legend(legtext, 'Location', 'northeast');
+legend boxoff
+hl.Interpreter = 'none';
+xlabel('Time constant (ms)')
+ylabel('Proportion')
 
 %
 % plot a histograms of Vrest and depth for each group
@@ -958,7 +988,7 @@ legend boxoff
 
 % -------  bin the data and plot the average  -----------
 figure
-edges = 0:25:900;
+edges = 0:150:900;
 for i_group = 1:Ngroups
     X = group_all_pa{i_group};
     Y = group_all_frs{i_group};
@@ -985,6 +1015,31 @@ hl = legend(leghands, legtext, 'location', 'northwest');
 legend boxoff
 hl.Interpreter = 'none';
 set(gca, 'fontsize', 14)
+
+%% SCATTER PLOT OF DIFFERENT TAU ESTIMATES
+close all;
+figure, hold on,
+for i_ex = 1:numel(dat)
+    if ~isfield(dat{i_ex}.dcsteps, 'tau')
+        dat{i_ex}.info.fid
+        continue
+    end
+    tau = dat{i_ex}.dcsteps.tau;
+    if numel(tau)>=1 && ~isempty(tau{1})
+        plot(tau{1}(:,3), tau{1}(:,4), 'ow', 'markerfacecolor', 'b')
+    end
+    if numel(tau)>=2 && ~isempty(tau{2})
+        plot(tau{2}(:,3), tau{2}(:,4), 'ow', 'markerfacecolor', 'b')
+    end
+end
+xlim([0, 0.07])
+ylim([0, 0.07])
+plot([0, 0.07], [0, 0.07], 'k')
+set(gca, 'fontsize', 16)
+xlabel('\tau from exponential fit')
+ylabel('\tau from quick estimate')
+axis square
+
 %% PLOT THE RAW VCLAMP WAVEFORMS FOLLOWING EACH PULSE
 
 close all
@@ -1793,7 +1848,7 @@ end
 
 % loop through the experiments. Pull out the trains data. Ignore the
 % recovery train (if present) and aggregate across recovery conditions.
-MIN_TRL_COUNT = 11; % set to 0 to turn off
+MIN_TRL_COUNT = 0; % set to 0 to turn off
 MIN_TFS_COUNT = 0; % set to 0 to turn off
 MIN_RECOV_COUNT = 0; % set to 0 to turn off
 recovpop = [];
@@ -1931,10 +1986,10 @@ man_plotgrps = {
     'PY', 'L23', 'AM', 'chief';...
     'PY', 'L23', 'LM', 'chief';...
     'PY', 'L23', 'AL', 'chief';...
-    %'PY', 'L23', 'med', 'chronos';...
-    %'PY', 'L23', 'lat', 'chronos';...
-    %'all_som', 'L23', 'any', 'any';...
-    %'all_pv', 'L23', 'any', 'any';...
+%     'PY', 'L23', 'med', 'chronos';...
+%     'PY', 'L23', 'lat', 'chronos';...
+%     'all_som', 'any', 'any', 'any';...
+%     'all_pv', 'any', 'any', 'any';...
     };
 
 
