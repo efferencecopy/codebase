@@ -5,12 +5,12 @@ fin
 % read in the spreadsheet that defines a bunch of things for the population
 % analysis
 %
-% sheet 1 = PV-Cre cells
+% sheet 1 = PVcre cells
 % sheet 2 = GIN cells
-% sheet 3 = SOM-Cre cells
+% sheet 3 = SOMcre cells
 %
 
-CELLTYPE = 3;
+CELLTYPE = 'GIN';
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
