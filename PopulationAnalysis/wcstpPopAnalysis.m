@@ -343,7 +343,6 @@ close all; clc
 plotgroups = {
     'PY', 'L23', 'med', 'any';...
     'PY', 'L23', 'lat', 'any';...
-    'PY', 'L23', 'LM', 'any';...
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -2045,7 +2044,7 @@ for i_ex = 1:numel(dat)
                 % first pulse
                 tmp_psc = mean(dat{i_ex}.expt.(condnames_trains{cond_idx}).stats.EPSCamp{i_ch}, 3);
                 norm_fact = tmp_psc(1);
-                %tmp_psc = tmp_psc ./ norm_fact;
+                tmp_psc = tmp_psc ./ norm_fact;
                 
                 % concatenate 1:10 into 'trains', and the 11th into 'recov'
                 recovpop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf} = cat(1, recovpop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf}, tmp_psc(1:end-1)');
@@ -2094,14 +2093,10 @@ PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'med', 'chief';...
-    'PY', 'L23', 'lat', 'chief';...
-    'PY', 'L23', 'med', 'chronos';...
-    'PY', 'L23', 'lat', 'chronos';...
-    %'PY', 'L23', 'med', 'chronos';...
-    %'PY', 'L23', 'lat', 'chronos';...
-%     'all_som', 'any', 'any', 'any';...
-    %'all_pv', 'L23', 'any', 'any';...
+    'PY', 'L23', 'AL', 'chief';...
+    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'PM', 'chief';...
+    'PY', 'L23', 'AM', 'chief';...
     };
 
 
@@ -4453,6 +4448,21 @@ for i_ex = 1:numel(dat)
             warning('culling data on basis of P1 amp')
         end
     end
+    
+    % I'm including the multi-power datasets. I need to flag them and
+    % select out a single amplitude to analyze
+    condnames = fieldnames(dat{i_ex}.expt);
+    powers = cellfun(@(x) dat{i_ex}.expt.(x).tdict(1), condnames);
+    n_powers = numel(unique(powers));
+    if n_powers > 1
+        err_from_2pt7 = powers - 2.7;
+        err_from_2pt7(err_from_2pt7 < 0) = Inf;
+        assert(~all(isinf(err_from_2pt7)), 'ERROR: all the Voltages are below 2.7')
+        idx_to_2pt7 = find(err_from_2pt7 == min(err_from_2pt7));
+        
+        % keep only the condition where the laser power is closest to 2.7V
+        condnames = condnames{idx_to_2pt7};
+    end
 
     %
     % analyze only the first pulse amplitude (aggregated across all train
@@ -4462,11 +4472,14 @@ for i_ex = 1:numel(dat)
     %
     %%%%%%%
     inamp_pop.dat{i_ex}.p1_amp = {};
-    condnames = fieldnames(dat{i_ex}.expt);
     for i_ch = 1:2
-        wfs = cellfun(@(x) dat{i_ex}.expt.(x).raw.snips{i_ch}(1,:,:), condnames, 'uniformoutput', false);
-        wfs = cat(3, wfs{:});
-        avg_p1_wf = mean(wfs, 3);
+        if n_powers > 1
+            avg_p1_wf = dat{i_ex}.expt.(condnames).raw.snips{i_ch};
+        else
+            wfs = cellfun(@(x) dat{i_ex}.expt.(x).raw.snips{i_ch}(1,:,:), condnames, 'uniformoutput', false);
+            wfs = cat(3, wfs{:});
+            avg_p1_wf = mean(wfs, 3);
+        end
         
         N = numel(avg_p1_wf);
         tt = [0:N-1] ./ dat{i_ex}.info.sampRate.vclamp;
@@ -4602,6 +4615,7 @@ for i_in = 1:numel(unique_cell_types)
     subplot(1,numel(unique_cell_types),i_in), hold on
     %pclr = pltclrs.(unique_cell_types{i_in});
     pclr='rbcy';
+    scatter_clr = {'r', 'b', 'c', 'y'};
     box_x = [];
     box_g = [];
     for i_hva = 1:numel(unique_areas)
@@ -4616,13 +4630,14 @@ for i_in = 1:numel(unique_cell_types)
             end
         end
     end
-    %scatter(box_g, box_x, 'markeredgecolor', pclr)
+    scatter(box_g, box_x, 'markeredgecolor', 'k', 'linewidth', 1)
     title(sprintf('IN:PY for %s', unique_cell_types{i_in}))
     ylabel('amplitude ratio', 'fontsize', 14)
     xlabel('brain area', 'fontsize', 14)
     set(gca, 'tickDir', 'out', 'xticklabel', unique_areas, 'box', 'off')
     set(gca, 'yscale', 'linear')
 end
+
 
 
 hf = figure;
@@ -4744,12 +4759,20 @@ for i_ex = 1:numel(dat)
         amps = cellfun(@(x) dat{i_ex}.expt.(x).stats.EPSCamp{i_ch}(1,:,:), condnames);
         inpow_pop.dat{i_ex}.p1_amp{i_ch} = amps;
     end
+    
+    
+    % grab some meta data
+    inpow_pop.dat{i_ex}.hva = dat{i_ex}.info.brainArea;
+    inpow_pop.dat{i_ex}.cell_type = dat{i_ex}.info.cellType;
 end
 
 
 %% INTERNEURON MULTIPOWER (PLOTS)
 
-close all; clc
+
+
+PLOT_TYPE = 'ratio'; % could be 'ratio', or 'scatter'
+COLOR_BY = 'in';  % could be 'hva', or 'in'
 
 NORM_TO_PY_MAX = true;
 COMBINE_HVAS = true;
@@ -4757,7 +4780,6 @@ COMBINE_OPSINS = true;
 COMBINE_INS = true;
 
 assert(strcmp(EXPTTYPE, 'IN_powers'), 'ERROR: not the correct type of experiment for multipower analysis')
-assert(COMBINE_OPSINS, 'error: combine opsins needs to be true, otherwise things may break')
 assert(COMBINE_INS, 'error: combine interneurons needs to be true, otherwise things may break')
 
 figure, hold on,
@@ -4767,24 +4789,28 @@ for i_ex = 1:numel(dat)
     tmp_dat = {[], []};
     for i_ch = 1:2
         
-        ex_brain_area = dat{i_ex}.info.brainArea;
+        ex_brain_area = inpow_pop.dat{i_ex}.hva;
         if COMBINE_HVAS
             if regexpi(ex_brain_area, 'pm|am')
                 ex_brain_area = 'med';
+                hva_clr = 'b';
             elseif regexpi(ex_brain_area, 'lm|al')
                 ex_brain_area = 'lat';
+                hva_clr = 'r';
             else
                 error('did not identify area')
             end
         end
         
-        cell_type = dat{i_ex}.info.cellType{i_ch};
+        cell_type = inpow_pop.dat{i_ex}.cell_type{i_ch};
         if ~strcmpi(cell_type, 'py_l23')
             if COMBINE_INS
                 if regexpi(cell_type, 'LTSIN|SOMCRE')
                     cell_type = 'all_som';
+                    cell_clr = [250, 100, 0]./255;
                 elseif regexpi(cell_type, 'FS|PVCRE')
                     cell_type = 'all_pv';
+                    cell_clr = [0, 128, 0]./255;
                 else
                     error('did not identify cell type')
                 end
@@ -4802,12 +4828,25 @@ for i_ex = 1:numel(dat)
         tmp_dat = cellfun(@(x) x./maxval, tmp_dat, 'uniformoutput', false);
     end
     
-    % to plot the raw values
-    plot(tmp_dat{1}, tmp_dat{2}, '-o', 'linewidth', 2)
     
-    % to plot the ratio values
-    %ratio_vals = tmp_dat{2} ./ tmp_dat{1};
-    %plot(inpow_pop.dat{i_ex}.laser_V, ratio_vals, '-o', 'linewidth', 2)
+    switch COLOR_BY
+        case 'in'
+            plt_clr = cell_clr;
+        case 'hva'
+            plt_clr = hva_clr;
+    end
+    
+    % to plot the raw values
+    if strcmpi(PLOT_TYPE, 'scatter')
+        plot(tmp_dat{1}, tmp_dat{2}, '-o', 'color', plt_clr, 'linewidth', 2)
+    elseif strcmpi(PLOT_TYPE, 'ratio')
+        % to plot the ratio values
+        ratio_vals = tmp_dat{2} ./ tmp_dat{1};
+        plot(inpow_pop.dat{i_ex}.laser_V, ratio_vals, '-o', 'color', plt_clr, 'linewidth', 2)
+        set(gca, 'yscale', 'log')
+        ylabel('IN : PY ratio', 'fontsize', 14)
+        xlabel('Laser Voltage', 'fontsize', 14)
+    end
 end
 
 %% ZUCKER POPULATION ANALYSIS (DATA COLLECTION) WITH TABLES
