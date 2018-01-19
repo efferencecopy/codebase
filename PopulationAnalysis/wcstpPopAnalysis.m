@@ -4,7 +4,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 2;
+EXPTTYPE = 8;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -35,6 +35,12 @@ params.posttime.dcsteps = 0.300;   % seconds after current offset
 params.pretime.iclamp = 0.005;
 params.posttime.iclamp = 0.015;    % actually a minimum value, real value stored in the dat structure, and depends on ISI
 params.expttype = EXPTTYPE;
+switch EXPTTYPE
+    case {'IN_strength', 'IN_powers'}
+        params.force_epsc = true;
+    otherwise
+        params.force_epsc = false;
+end
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3893,7 +3899,7 @@ cell_type_pairs = {'all_som', 'PY';...  % defines the different groups that will
                    };
 grp_opsins = {'any_opsin'}; % need to be encapsulated in a cell array {'any_opsin'}
 grp_layers = {'L23'};
-grp_brain_areas = {'med', 'lat'}; % case sensitive, 'any_hva', 'med', 'lat', 'AL', 'LM' etc..
+grp_brain_areas = {'AL', 'LM', 'PM', 'AM'}; % case sensitive, 'any_hva', 'med', 'lat', 'AL', 'LM' etc..
 
 close all; clc
 
@@ -4760,6 +4766,11 @@ for i_ex = 1:numel(dat)
         inpow_pop.dat{i_ex}.p1_amp{i_ch} = amps;
     end
     
+    above_10pa = cellfun(@(x) x>10, inpow_pop.dat{i_ex}.p1_amp, 'uniformoutput', false);
+    l_gt_10pA = above_10pa{1} & above_10pa{2};
+    inpow_pop.dat{i_ex}.p1_amp = cellfun(@(x) x(l_gt_10pA), inpow_pop.dat{i_ex}.p1_amp, 'uniformoutput', false);
+    inpow_pop.dat{i_ex}.laser_V = inpow_pop.dat{i_ex}.laser_V(l_gt_10pA);
+    
     
     % grab some meta data
     inpow_pop.dat{i_ex}.hva = dat{i_ex}.info.brainArea;
@@ -4774,9 +4785,8 @@ end
 PLOT_TYPE = 'ratio'; % could be 'ratio', or 'scatter'
 COLOR_BY = 'in';  % could be 'hva', or 'in'
 
-NORM_TO_PY_MAX = true;
+NORM_TO_PY_MAX = false;
 COMBINE_HVAS = true;
-COMBINE_OPSINS = true;
 COMBINE_INS = true;
 
 assert(strcmp(EXPTTYPE, 'IN_powers'), 'ERROR: not the correct type of experiment for multipower analysis')

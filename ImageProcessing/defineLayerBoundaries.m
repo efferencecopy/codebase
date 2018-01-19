@@ -16,16 +16,18 @@ function [raw, mask, fpath] = io_importData
 
     % find the path to the mask file (created in the opticaldissector.m program)
     [fnames, fpath] = uigetfile({['*'], ['all files']}, 'Select the mask file', 'multiselect', 'on');
+    if ~iscell(fnames)
+        tmpname = fnames;
+        fnames = {};
+        fnames{1} = tmpname;
+    end
 
     
     % figure out which one was the .mat and the .tif
-    assert(numel(fnames) == 2, 'ERROR: please select a .mat AND a .tiff file')
-    idx_raw = cellfun(@(x,y) ~isempty(regexpi(x,y)), fnames, repmat({'.tif'}, size(fnames)));
+    numel(fnames)
+    assert(any([1,2] == numel(fnames)), 'ERROR: please select a .tif and (optionally) a .mat file too')
+    idx_raw = cellfun(@(x,y) ~isempty(regexpi(x,y)), fnames, repmat({'\.tif'}, size(fnames)));
     idx_mask = ~idx_raw;
-    
-    % load the mask
-    load([fpath, fnames{idx_mask}]); % loads a structure called "cellFillData"
-    mask = cellFillData.mask;
     
     % load the raw image
     tiffstack = [fpath, fnames{idx_raw}];
@@ -41,7 +43,18 @@ function [raw, mask, fpath] = io_importData
         raw.img(:,:,fr,:) = imread(tiffstack, 'tif', 'index', fr);
     end
     
-
+    % load the mask
+    if any(idx_mask)
+        load([fpath, fnames{idx_mask}]); % loads a structure called "cellFillData"
+        mask = cellFillData.mask;
+    else
+        nrows = size(raw.img, 1);
+        ncols = size(raw.img, 2);
+        nplanes = size(raw.img, 3);
+        mask.img = zeros([nrows, ncols, nplanes]);
+        mask.Ncells = 0;
+    end
+    
 end
 
 function io_exportData(varargin)

@@ -63,7 +63,7 @@ exinfo
 dat = unpack_dc_injections(dat);
 
 % unpack the Vclamp trains dataset(s)
-dat = unpack_vclamp_trains(dat, exinfo, hidx);
+dat = unpack_vclamp_trains(dat, exinfo, hidx, params.force_epsc);
 
 % unpack the Iclamp trains dataset
 dat = unpack_iclamp_trains(dat, exinfo, hidx);
@@ -498,7 +498,7 @@ function dat = unpack_dc_injections(dat)
 
 end
 
-function dat = unpack_vclamp_trains(dat, exinfo, hidx)
+function dat = unpack_vclamp_trains(dat, exinfo, hidx, FORCE_EPSC)
     %
     % NEED TO DEFINE THE FOLLOWING:
     %
@@ -630,10 +630,10 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             psc_sign = sign(sum(mean(dat.expt.(condname).raw.snips{i_ch}(1,sign_idx,:),3)));
             [peak_pA, peak_tt] = get_peak_psc(dat.expt.(condname).raw.snips{i_ch}, psc_sign, dat, 'vclamp');
             dat.expt.(condname).stats.latency{i_ch} = peak_tt;
-            if psc_sign == 1  %IPSP
+            if psc_sign == 1 && ~FORCE_EPSC  %IPSP
                     dat.expt.(condname).stats.EPSCamp{i_ch} = [];
                     dat.expt.(condname).stats.IPSCamp{i_ch} = peak_pA;
-            elseif psc_sign == -1 %EPSC
+            elseif psc_sign == -1 || FORCE_EPSC %EPSC
                     dat.expt.(condname).stats.EPSCamp{i_ch} = peak_pA;
                     dat.expt.(condname).stats.IPSCamp{i_ch} = [];
             elseif isnan(psc_sign)
@@ -644,7 +644,7 @@ function dat = unpack_vclamp_trains(dat, exinfo, hidx)
             end
             
             % compute the rise times
-            dat.expt.(condname).stats.rise_time{i_ch} = compute_rise_times(dat, psc_sign, i_ch, condname);
+            dat.expt.(condname).stats.rise_time{i_ch} = compute_rise_times(dat, psc_sign, i_ch, condname, FORCE_EPSC);
 
         end
 
@@ -946,7 +946,7 @@ function [peak_pA, peak_tt] = get_peak_psc(snips, psc_sign, dat, METHOD)
         
 end
 
-function rise_times = compute_rise_times(dat, psc_sign, i_ch, condname)
+function rise_times = compute_rise_times(dat, psc_sign, i_ch, condname, FORCE_EPSC)
 
             % compute the 5-95% time time here. multipy the snips by the
             % psc_sign to make everything positive.
@@ -955,9 +955,9 @@ function rise_times = compute_rise_times(dat, psc_sign, i_ch, condname)
             rise_times = nan(Npulses,1,Nsweeps); % pre-allocate
             for i_swp = 1:Nsweeps
                 for i_pulse = 1:Npulses
-                    if psc_sign == 1  %IPSP
+                    if psc_sign == 1 && ~FORCE_EPSC %IPSP
                         peak_val = dat.expt.(condname).stats.IPSCamp{i_ch}(i_pulse,:,i_swp);
-                    elseif psc_sign == -1 %EPSC
+                    elseif psc_sign == -1  || FORCE_EPSC %EPSC
                         peak_val = dat.expt.(condname).stats.EPSCamp{i_ch}(i_pulse,:,i_swp);
                     else
                         error('unexpected psc_sign')
