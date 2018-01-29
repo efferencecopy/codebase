@@ -1,30 +1,21 @@
-function [clr_raw, clr_avg] = hvaPlotColor(hva)
-
+function plt_clr = hvaPlotColor(hva)
 
 switch lower(hva)
-    case {'pm', 'py'}
-        clr_avg = 'b';
-        clr_raw = [0.6 0.6 1];
+    case 'pm'
+        plt_clr = [0, 0.4470, 0.7410];
         
+    case 'al'
+        plt_clr = [0.9290    0.6940    0.1250];
         
-    case {'al', 'som'}
-        clr_avg = 'r';
-        clr_raw = [1 0.6 0.6];
+    case 'lm'
+        plt_clr = [0.8500    0.3250    0.0980];
         
-        
-    case {'lm', 'in'}
-        clr_raw = [.6 1 .6];
-        clr_avg = 'g';
-        
+    case 'am'
+        plt_clr = [0.4940    0.1840    0.5560];
+             
     case 'erc'
-        clr_avg = [0.8235, 0.4118, 0.1176];
-        clr_raw = [0.8706, 0.7216, 0.5294];
-        
-    case 'rl'
-        clr_avg = [ 0.5804, 0, 0.8275];
-        clr_raw = [0.8549, 0.4392, 0.8392];
+        plt_clr = [0 0.5 0];
         
     otherwise
-        clr_raw = [.5 .5 .5];
-        clr_avg = [.3 .3 .3];
+        error('HVA name not recognized')
 end

@@ -4,7 +4,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 8;
+EXPTTYPE = 6;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -1481,7 +1481,7 @@ clc, close all
 ppr_vs_depth.pnp1 = [];
 ppr_vs_depth.depth = [];
 ppr_vs_depth.brainarea = {};
- ppr_vs_depth.opsin = {};
+ppr_vs_depth.opsin = {};
 for i_ex = 1:numel(dat)
     for i_ch = 1:2
         % is there Vclamp data,
@@ -1521,7 +1521,8 @@ for i_ex = 1:numel(dat)
     end
 end
 
-%l_chief = cellfun(@(x) ~isempty(x), regexpi(ppr_vs_depth.opsin, 'c'));
+l_opsin = cellfun(@(x) ~isempty(x), regexpi(ppr_vs_depth.opsin, 'chief'));
+l_has_depth = ~isnan(ppr_vs_depth.depth);
 l_med = cellfun(@(x) ~isempty(x), regexpi(ppr_vs_depth.brainarea, 'am|pm'));
 l_lat = cellfun(@(x) ~isempty(x), regexpi(ppr_vs_depth.brainarea, 'al|lm'));
 
@@ -1529,11 +1530,11 @@ p2p1 = ppr_vs_depth.pnp1(:,2);
 p4p1 = ppr_vs_depth.pnp1(:,4);
 p10p1 = ppr_vs_depth.pnp1(:,10);
 
-
+ymax = 410;
 figure, hold on
 set(gcf, 'position', [440         459        1084         416])
 subplot(2,3,1), hold on,
-l_plt = l_med;
+l_plt = l_med & l_opsin & l_has_depth;
 X = ppr_vs_depth.depth(l_plt);
 Y = p2p1(l_plt);
 plot(X, Y, 'bo')
@@ -1542,6 +1543,9 @@ plot(X, Y, 'bo')
 CI_up = top_int - y_mod;
 CI_down = y_mod - bot_int;
 shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'b'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson')
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
 title('P2:P1', 'fontsize', 14)
 ylabel('Med Areas', 'fontsize', 14)
 
@@ -1553,6 +1557,9 @@ plot(X, Y, 'bo')
 CI_up = top_int - y_mod;
 CI_down = y_mod - bot_int;
 shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'b'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson');
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
 title('P4:P1', 'fontsize', 14)
 
 subplot(2,3,3), hold on,
@@ -1563,10 +1570,13 @@ plot(X, Y, 'bo')
 CI_up = top_int - y_mod;
 CI_down = y_mod - bot_int;
 shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'b'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson');
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
 title('P10:P1', 'fontsize', 14)
 
 subplot(2,3,4), hold on,
-l_plt = l_lat;
+l_plt = l_lat & l_opsin & l_has_depth;
 X = ppr_vs_depth.depth(l_plt);
 Y = p2p1(l_plt);
 plot(X, Y, 'ro')
@@ -1575,6 +1585,9 @@ plot(X, Y, 'ro')
 CI_up = top_int - y_mod;
 CI_down = y_mod - bot_int;
 shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'r'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson');
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
 xlabel('depth (um)', 'fontsize', 14)
 ylabel('Lat Areas', 'fontsize', 14)
 
@@ -1586,6 +1599,9 @@ plot(X, Y, 'ro')
 CI_up = top_int - y_mod;
 CI_down = y_mod - bot_int;
 shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'r'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson');
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
 xlabel('depth (um)', 'fontsize', 14)
 
 subplot(2,3,6), hold on,
@@ -1596,9 +1612,27 @@ plot(X, Y, 'ro')
 CI_up = top_int - y_mod;
 CI_down = y_mod - bot_int;
 shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'r'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson');
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
 xlabel('depth (um)', 'fontsize', 14)
 
-
+% plot all data aggregated together
+figure, hold on,
+l_plt = l_opsin & l_has_depth;
+X = ppr_vs_depth.depth(l_plt);
+Y = p2p1(l_plt);
+plot(X, Y, 'ko')
+[B,~] = regress(Y(:), [ones(size(X(:))), X(:)]);
+[top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
+CI_up = top_int - y_mod;
+CI_down = y_mod - bot_int;
+shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', 'k'});
+xlim([150, ymax])
+[rho, p] = corr(X, Y, 'type', 'pearson');
+text(155, max(Y), sprintf('r = %.2f, p = %.2f', rho, p))
+xlabel('depth (um)', 'fontsize', 14)
+ylabel('All Cells', 'fontsize', 14)
 %% STP SUMMARY FOR EACH RECORDING
 
 
@@ -4858,6 +4892,38 @@ for i_ex = 1:numel(dat)
         xlabel('Laser Voltage', 'fontsize', 14)
     end
 end
+
+
+%% DISTANCE BETWEEN PY AND IN FOR PAIRED RECORDINGS
+
+xy_diff = nan(numel(dat), 2);
+for i_ex = 1:numel(dat)
+    % both recording channels should have valid Vclamp data. Check this,
+    % and then (optionally) exclude files with very small peak epscs.
+    assert(all(dat{i_ex}.info.HS_is_valid_Vclamp), 'Error: vclamp not defined for at least one channel')
+    
+    % find indicies to PY cell and IN
+    idx_py = strcmpi(dat{i_ex}.info.cellType, 'py_l23');
+    assert(sum(idx_py) == 1, 'ERROR: did not find the PY cell')
+    
+    % pull out xy cordinates for IN and PY cell
+    xy_py = dat{i_ex}.info.HS_xy_pos{idx_py};
+    xy_in = dat{i_ex}.info.HS_xy_pos{~idx_py};
+    
+    xy_diff(i_ex,:) = xy_py - xy_in;
+end
+
+figure
+[theta, radius] = cart2pol(xy_diff(:,1), xy_diff(:,2));
+hp = polar(theta, log10(radius), 'ko');
+hp.MarkerFaceColor = 'k';
+ytick = get(gca, 'ytick');
+set(gca, 'yticklabel', cellfun(@(x) num2str(10^x, 3), num2cell(ytick), 'uniformoutput', false))
+
+figure
+histogram(radius, 15)
+xlabel('distance between PY and IN (um)')
+ylabel('count')
 
 %% ZUCKER POPULATION ANALYSIS (DATA COLLECTION) WITH TABLES
 
