@@ -30,10 +30,10 @@ for i_mouse = 1:numel(mouse_names)
             xx = [1:numel(profile_raw)] - l1_idx;
             hp = plot(xx, profile_raw);
             
-            % add a dashed line denoting the bottom of the cortex
-            L5_L6_yy = dat.(mouse).(hva).layers.L5_L6{i_img};
-            L5_L6_idx = mean(L5_L6_yy) - l1_idx;
-            plot([L5_L6_idx, L5_L6_idx], [min(profile_raw), max(profile_raw)], '--k')
+%             % add a dashed line denoting the bottom of the cortex
+%             L5_L6_yy = dat.(mouse).(hva).layers.L5_L6{i_img};
+%             L5_L6_idx = mean(L5_L6_yy) - l1_idx;
+%             plot([L5_L6_idx, L5_L6_idx], [min(profile_raw), max(profile_raw)], '--k')
             
             % store the max axis vals
             max_y = max(max_y, max(profile_raw));
