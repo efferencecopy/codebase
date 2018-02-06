@@ -4,7 +4,7 @@ fin
 
 
 % decide what experiment to run
-EXPTTYPE = 6;
+EXPTTYPE = 2;
 switch EXPTTYPE
     case 1
         EXPTTYPE = 'all';
@@ -2138,7 +2138,6 @@ man_plotgrps = {
     'PY', 'L23', 'PM', 'chief';...
     'PY', 'L23', 'AM', 'chief';...
     };
-
 
 allTFs = recovpop.TFsAllExpts;
 Ntfs = numel(allTFs);
@@ -4794,11 +4793,21 @@ for i_ex = 1:numel(dat)
     inpow_pop.dat{i_ex}.p1_amp = {};
     inpow_pop.dat{i_ex}.laser_V = [];
     condnames = fieldnames(dat{i_ex}.expt);
-    inpow_pop.dat{i_ex}.laser_V = cellfun(@(x) dat{i_ex}.expt.(x).tdict(1), condnames);
+    ex_laser_powers = cellfun(@(x) dat{i_ex}.expt.(x).tdict(1), condnames);
+    l_ex_good_powers = true(size(ex_laser_powers));
+    ch_amps = {};
     for i_ch = 1:2
-        amps = cellfun(@(x) dat{i_ex}.expt.(x).stats.EPSCamp{i_ch}(1,:,:), condnames);
-        inpow_pop.dat{i_ex}.p1_amp{i_ch} = amps;
+        amps = cellfun(@(x) dat{i_ex}.expt.(x).stats.EPSCamp{i_ch}(1,:,:), condnames, 'uniformoutput', false);
+        % hack to remove some sweeps that were deleted in the .abf file
+        % post-hoc. Greedy update of exp-wide list
+        l_ch_good_powers = cellfun(@(x) ~isempty(x), amps);
+        l_ex_good_powers = l_ex_good_powers & l_ch_good_powers;
+        ch_amps{i_ch} = amps;
     end
+    for i_ch = 1:2
+        inpow_pop.dat{i_ex}.p1_amp{i_ch} = cat(1, ch_amps{i_ch}{l_ex_good_powers});
+    end
+    inpow_pop.dat{i_ex}.laser_V = ex_laser_powers(l_ex_good_powers);
     
     above_10pa = cellfun(@(x) x>10, inpow_pop.dat{i_ex}.p1_amp, 'uniformoutput', false);
     l_gt_10pA = above_10pa{1} & above_10pa{2};
