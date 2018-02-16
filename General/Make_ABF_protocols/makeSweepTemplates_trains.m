@@ -56,8 +56,8 @@ for i_cond = 1:size(conditions, 1)
     samplesPerPulse = ceil(tmp_pWidth ./ params.si); 
     
     % basic error checking
-    if tmp_pAmp<=10;  warning('Warning: pulse amp > 10 volts'); end
-    if tmp_pWidth<=1; warning('Warning: pulse width > 1 second'); end
+    if tmp_pAmp>=10;  warning('Warning: pulse amp > 10 volts'); end
+    if tmp_pWidth>=1; warning('Warning: pulse width > 1 second'); end
     
     if tmp_pFreq == 0 || strcmpi(params.type, 'pulse') % only one pulse
         params.templates_trains{i_cond}(tStartIdx : tStartIdx+samplesPerPulse-1) = tmp_pAmp;
