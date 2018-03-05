@@ -44,8 +44,11 @@ load('\\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed.
 
 close all; clc
 all_hvas = {'lm', 'pm', 'al', 'am'};
-NORMALIZE = false;
+NORMALIZE = true;
 plot_z_profiles(dat, all_hvas, NORMALIZE);
+
+% now plot the qc profiles individually
+plot_z_profiles_for_each_mouse(dat, all_hvas, NORMALIZE);
 
 
 %% PLOT THE RAW IMAGES WITH LAYER BOUNDARIES

@@ -32,12 +32,12 @@ params.pretime.vclamp = 0.002;     % seconds before pulse onset
 params.posttime.vclamp = 0.015;    % seconds after pulse onset
 params.pretime.dcsteps = 0.100;    % seconds before current onset
 params.posttime.dcsteps = 0.300;   % seconds after current offset 
-params.pretime.iclamp = 0.005;
-params.posttime.iclamp = 0.015;    % actually a minimum value, real value stored in the dat structure, and depends on ISI
+params.pretime.iclamp = 0.003;
+params.posttime.iclamp = 0.019;    % actually a minimum value, real value stored in the dat structure, and depends on ISI
 params.expttype = EXPTTYPE;
 switch EXPTTYPE
     case {'IN_strength', 'IN_powers'}
-        params.force_epsc = true;
+        params.force_epsc = true; % allows small amplitude SOM EPSCs to be analyzed correctly
     otherwise
         params.force_epsc = false;
 end
@@ -53,7 +53,8 @@ if ~strcmpi(EXPTTYPE, 'all')
     assert(sum(header_idx) == 1)
     l_to_analyze = cellfun(@(x) numel(x)==1 && (x==1 || x=='1'), wb_expt(:, header_idx));
 else
-    l_to_analyze = ones(size(wb_expt,1), 1);
+    l_to_analyze = true(size(wb_expt,1), 1);
+    l_to_analyze(1) = false; % don't analyze the header row
 end
 expt_idx = find(l_to_analyze);
 
@@ -105,8 +106,6 @@ pool = gcp('nocreate');
 if isempty(pool)
     pool = parpool();
 end
-
-
 parfor i_ex_par = 1:Nexpts
     dat{i_ex_par} = wcstp_compile_data(attributes{i_ex_par}, hidx, params);
     close all
@@ -226,7 +225,7 @@ fprintf('deleted %d experiments\n', sum(~l_mice_with_2HVAs))
 
 close all
 
-for i_ex = 1:numel(dat)
+for i_ex = 180:numel(dat)
 
     f = figure;
     f.Name = sprintf('Mouse %s, site %s, HVA: %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.brainArea);
@@ -348,7 +347,7 @@ close all; clc
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
     'PY', 'L23', 'med', 'any';...
-    'PY', 'L23', 'lat', 'any';...
+    'PY', 'L23', 'lat', 'any'
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -398,12 +397,10 @@ for i_ex = 1:numel(dat)
             groupdata.Ih_Vm{group_idx} = cat(1, groupdata.Ih_Vm{group_idx}, [dat{i_ex}.dcsteps.Ih_sag.peak_Vm{i_ch}]);
             groupdata.Ih_asym{group_idx} = cat(1, groupdata.Ih_asym{group_idx}, [dat{i_ex}.dcsteps.Ih_sag.Vm_asym{i_ch}]);
         end
-        if isfield(dat{i_ex}.dcsteps, 'tau')
-            if isempty(dat{i_ex}.dcsteps.tau{i_ch});
-                dat{i_ex}.info.fid
-                continue
-            end
-            groupdata.tau{group_idx} = cat(1, groupdata.tau{group_idx}, mean(dat{i_ex}.dcsteps.tau{i_ch}(:,3)));
+        if isfield(dat{i_ex}.dcsteps, 'tau') && ~isempty(dat{i_ex}.dcsteps.tau{i_ch})
+            tmp_all_tau = dat{i_ex}.dcsteps.tau{i_ch}(:,3);
+            l_neg = dat{i_ex}.dcsteps.tau{i_ch}(:,1) < 0;
+            groupdata.tau{group_idx} = cat(1, groupdata.tau{group_idx}, mean(tmp_all_tau(l_neg)));
         end
     end
 end
@@ -416,11 +413,13 @@ end
 f=figure;
 Ngroups = (numel(groupdata.Rin_peak)); % adding one for "summary" cdf fig
 N_plt_rows = Ngroups+1;
-groupcolors = lines(Ngroups);
 f.Position = [506   158   838   749];
 allNums = cat(1, groupdata.Rin_peak{:}, groupdata.Rin_asym{:});
-edges = linspace(min(allNums)-1, max(allNums)+1, 30);
+edges = linspace(min(allNums)-1, max(allNums)+1, 50);
 for i_group = 1:numel(groupdata.Rin_asym)
+    
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     
     %
     % current clamp, peak vals
@@ -429,7 +428,7 @@ for i_group = 1:numel(groupdata.Rin_asym)
     subplot(N_plt_rows, 2, pltidx)
     
     h = histogram(groupdata.Rin_peak{i_group}, edges);
-    h.FaceColor = groupcolors(i_group,:);
+    h.FaceColor = grp_clr;
     xbar = nanmean(groupdata.Rin_peak{i_group});
     hold on,
     plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
@@ -450,7 +449,7 @@ for i_group = 1:numel(groupdata.Rin_asym)
     N = histcounts(groupdata.Rin_peak{i_group}, edges);
     N(end+1) = 0;
     cdf_vals = cumsum(N)./sum(N);
-    stairs(edges, cdf_vals, '-', 'color', groupcolors(i_group,:))
+    stairs(edges, cdf_vals, '-', 'color', grp_clr)
     xlabel('Input R (MOhm)')
     ylabel('Proportion')
     
@@ -461,7 +460,7 @@ for i_group = 1:numel(groupdata.Rin_asym)
     subplot(N_plt_rows, 2, pltidx)
     
     h = histogram(groupdata.Rin_asym{i_group}, edges);
-    h.FaceColor = groupcolors(i_group,:);
+    h.FaceColor = grp_clr;
     xbar = nanmean(groupdata.Rin_asym{i_group});
     hold on,
     plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
@@ -477,7 +476,7 @@ for i_group = 1:numel(groupdata.Rin_asym)
     N = histcounts(groupdata.Rin_asym{i_group}, edges);
     N(end+1) = 0;
     cdf_vals = cumsum(N)./sum(N);
-    stairs(edges, cdf_vals, '-', 'color', groupcolors(i_group,:))
+    stairs(edges, cdf_vals, '-', 'color', grp_clr)
     xlabel('Input R (MOhm)')
     ylabel('Proportion')
 end
@@ -491,10 +490,13 @@ allTaus = cat(1, groupdata.tau{:});
 edges_taus = linspace(min(allTaus)-0.002, 0.050, 50).*1000;
 legtext = {};
 for i_group = 1:numel(groupdata.tau)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     N = histcounts(groupdata.tau{i_group}.*1000, edges_taus);
     N(end+1) = 0;
     cdf_vals = cumsum(N)./sum(N);
-    stairs(edges_taus, cdf_vals, '-', 'color', groupcolors(i_group,:))
+    stairs(edges_taus, cdf_vals, '-', 'color', grp_clr)
     num_cells = numel(groupdata.tau{i_group});
     legtext{i_group} = sprintf('%s, %s, %s, n=%d', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3}, num_cells);
 end
@@ -513,6 +515,9 @@ Ngroups = (numel(groupdata.Rin_peak));
 f.Position = [466   464   835   440];
 for i_group = 1:numel(groupdata.Vrest)
     
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     % Vrest
     allNums = cat(1, groupdata.Vrest{:});
     edges = linspace(min(allNums)-10, max(allNums)+10, 30);
@@ -521,7 +526,7 @@ for i_group = 1:numel(groupdata.Vrest)
     subplot(Ngroups, 2, pltidx)
     
     h = histogram(groupdata.Vrest{i_group}, edges);
-    h.FaceColor = groupcolors(i_group,:);
+    h.FaceColor = grp_clr;
     xbar = nanmean(groupdata.Vrest{i_group});
     hold on,
     plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
@@ -542,7 +547,7 @@ for i_group = 1:numel(groupdata.Vrest)
     subplot(Ngroups, 2, pltidx)
     
     h = histogram(groupdata.Depth{i_group}, edges);
-    h.FaceColor = groupcolors(i_group,:);
+    h.FaceColor = grp_clr;
     xbar = nanmean(groupdata.Depth{i_group});
     hold on,
     plot(xbar, 0.5, 'kv', 'markerfacecolor', 'k', 'markersize', 5)
@@ -559,13 +564,16 @@ end
 
 
 %
-% scatter plots of cell depth vs. Rin, Vrest, tau
+% scatter plots of cell depth vs. Rin, Vrest
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%
 f=figure;
 Ngroups = (numel(groupdata.Rin_asym));
 f.Position = [49         305        1333         602];
 for i_group = 1:numel(groupdata.Rin_asym)
+    
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     
     % for axis standardization
     allRin = cat(1, groupdata.Rin_asym{:});
@@ -583,8 +591,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
     CI_up = top_int - y_mod;
     CI_down = y_mod - bot_int;
-    plot(X, Y, 'o', 'color', groupcolors(i_group,:), 'markerfacecolor', groupcolors(i_group,:), 'markersize', 5);
-    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+    plot(X, Y, 'o', 'color', grp_clr, 'markerfacecolor', grp_clr, 'markersize', 5);
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', grp_clr});
     legtext = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
     legend(legtext, 'Location', 'best')
     legend boxoff
@@ -606,8 +614,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
     CI_up = top_int - y_mod;
     CI_down = y_mod - bot_int;
-    plot(X, Y, 'o', 'color', groupcolors(i_group,:), 'markerfacecolor', groupcolors(i_group,:), 'markersize', 5)
-    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+    plot(X, Y, 'o', 'color', grp_clr, 'markerfacecolor', grp_clr, 'markersize', 5)
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', grp_clr});
     xlabel('start time (24hrs)')
     ylabel('Input Resistance')
     if i_group == 1
@@ -627,8 +635,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
     CI_up = top_int - y_mod;
     CI_down = y_mod - bot_int;
-    plot(X, Y, 'o', 'color', groupcolors(i_group,:), 'markerfacecolor', groupcolors(i_group,:), 'markersize', 5)
-    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+    plot(X, Y, 'o', 'color', grp_clr, 'markerfacecolor', grp_clr, 'markersize', 5)
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', grp_clr});
     xlabel('V rest (mV)')
     ylabel('Rin asym (Mohm)')
     if i_group == 1
@@ -654,10 +662,13 @@ leghand = [];
 % I-V curves for peak values
 subplot(1,3,1), hold on,
 for i_group = 1:numel(groupdata.IVcurve_peak)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     for i_cell = 1:numel(groupdata.IVcurve_peak{i_group})
         X = groupdata.IVcurve_peak{i_group}{i_cell}(:,1);
         Y = groupdata.IVcurve_peak{i_group}{i_cell}(:,2);
-        hp = plot(X, Y, '-', 'color', groupcolors(i_group,:));
+        hp = plot(X, Y, '-', 'color', grp_clr);
     end
     legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
     leghand(i_group) = hp;
@@ -671,10 +682,13 @@ legend boxoff
 % I-V curves for asym values
 subplot(1,3,2), hold on,
 for i_group = 1:numel(groupdata.IVcurve_asym)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     for i_cell = 1:numel(groupdata.IVcurve_asym{i_group})
         X = groupdata.IVcurve_asym{i_group}{i_cell}(:,1);
         Y = groupdata.IVcurve_asym{i_group}{i_cell}(:,2);
-        plot(X, Y, '-', 'color', groupcolors(i_group,:))
+        plot(X, Y, '-', 'color', grp_clr)
     end
 end
 title('IV curve, asym vals')
@@ -686,13 +700,16 @@ subplot(1,3,3), hold on,
 edges = [-825:25:625];
 group_iv_vals = {};
 for i_group = 1:numel(groupdata.IVcurve_peak)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     vals = repmat({[]}, 1, numel(edges));
     for i_cell = 1:numel(groupdata.IVcurve_peak{i_group})
         X = groupdata.IVcurve_peak{i_group}{i_cell}(:,1);
         Y_peak = groupdata.IVcurve_peak{i_group}{i_cell}(:,2);
         Y_asym = groupdata.IVcurve_asym{i_group}{i_cell}(:,2);
         diff_val = Y_asym-Y_peak;
-        plot(X, diff_val, '-', 'color', groupcolors(i_group,:))
+        plot(X, diff_val, '-', 'color', grp_clr)
         for i_val = 1:numel(diff_val)
             idx = histc(X(i_val), edges);
             vals{logical(idx)}(end+1) = diff_val(i_val);
@@ -710,6 +727,9 @@ ylabel('Difference (mV)')
 hf = figure;
 hold on,
 for i_group = 1:numel(groupdata.IVcurve_peak)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     [X,Y] = deal([]);
     for i_val = 1:numel(edges);
         if edges(i_val)<=0; continue; end
@@ -721,8 +741,8 @@ for i_group = 1:numel(groupdata.IVcurve_peak)
     [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
     CI_up = top_int - y_mod;
     CI_down = y_mod - bot_int;
-    plot(X, Y, '.', 'color', groupcolors(i_group,:))
-    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+    plot(X, Y, '.', 'color', grp_clr)
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', grp_clr});
 end
 xlabel('Current Injection (pA)')
 ylabel('Difference (mV)')
@@ -735,17 +755,21 @@ leghand = [];
 f = figure;
 f.Position = [384 353 1071 415];
 subplot(1,2,1), hold on,
-edges = [-150:5:-80];
+edges = [-150:10:-80];
 vals = repmat({[]}, 1, numel(edges));
 for i_group = 1:numel(groupdata.Ih_sag)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     N = numel(groupdata.Ih_sag{i_group});
     for i_ex = 1:N
-        hp = plot(groupdata.Ih_Vm{i_group}{i_ex}, groupdata.Ih_sag{i_group}{i_ex}, '.-', 'color', groupcolors(i_group,:));
+        hp = plot(groupdata.Ih_Vm{i_group}{i_ex}, groupdata.Ih_sag{i_group}{i_ex}, '.-', 'color', grp_clr);
     end
     legtext{i_group} = sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
     leghand(i_group) = hp;
 end
 for i_group = 1:numel(groupdata.Ih_sag)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     N = numel(groupdata.Ih_sag{i_group});
     for i_ex = 1:N
         tmpval = groupdata.Ih_sag{i_group}{i_ex};
@@ -757,7 +781,7 @@ for i_group = 1:numel(groupdata.Ih_sag)
     end
     l_enough = cellfun(@numel, vals) > 5;
     avg_ih = cellfun(@nanmean, vals);
-    %plot(edges(l_enough), avg_ih(l_enough), '-', 'color', groupcolors(i_group,:), 'linewidth', 4)
+    plot(edges(l_enough), avg_ih(l_enough), '-', 'color', grp_clr, 'linewidth', 4)
 end
 xlabel('Membrane Potential At Sag Peak (mV)')
 ylabel('Sag Amplitude (mV)')
@@ -766,18 +790,23 @@ legend boxoff
 
 subplot(1,2,2), hold on,
 for i_group = 1:numel(groupdata.Ih_asym)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     N = numel(groupdata.Ih_asym{i_group});
     for i_ex = 1:N
         sag_Vm = groupdata.Ih_Vm{i_group}{i_ex} - groupdata.Ih_sag{i_group}{i_ex};
         asym_Vm =  groupdata.Ih_asym{i_group}{i_ex};
         rebound = sag_Vm - asym_Vm;
-        plot(groupdata.Ih_Vm{i_group}{i_ex}, rebound, 'o-', 'color', groupcolors(i_group,:))
+        plot(groupdata.Ih_Vm{i_group}{i_ex}, rebound, 'o-', 'color', grp_clr)
     end
 end
 
-edges = [-150:1:-80];
+edges = [-150:10:-80];
 group_iv_vals = {};
 for i_group = 1:numel(groupdata.Ih_asym)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     vals = repmat({[]}, 1, numel(edges));
     N = numel(groupdata.Ih_asym{i_group});
     for i_ex = 1:N
@@ -792,7 +821,7 @@ for i_group = 1:numel(groupdata.Ih_asym)
     end
     l_enough = cellfun(@numel, vals) > 5;
     avg_rebound = cellfun(@nanmean, vals);
-    %plot(edges(l_enough), avg_rebound(l_enough), '-', 'color', groupcolors(i_group,:), 'linewidth', 4)
+    plot(edges(l_enough), avg_rebound(l_enough), '-', 'color', grp_clr, 'linewidth', 4)
     group_iv_vals{i_group} = vals;
 end
 xlabel('Membrane Potential At Sag Peak (mV)')
@@ -802,6 +831,8 @@ ylabel('Sag Rebound (mV)')
 hf = figure;
 hold on,
 for i_group = 1:numel(groupdata.Ih_asym)
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     [X,Y] = deal([]);
     for i_val = 1:numel(edges);
         tmpvals = group_iv_vals{i_group}{i_val};
@@ -812,8 +843,8 @@ for i_group = 1:numel(groupdata.Ih_asym)
     [top_int, bot_int, x_mod, y_mod] = regression_line_ci(0.05, B, X, Y);
     CI_up = top_int - y_mod;
     CI_down = y_mod - bot_int;
-    plot(X, Y, '.', 'color', groupcolors(i_group,:))
-    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+    plot(X, Y, '.', 'color', grp_clr)
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', grp_clr});
 end
 xlabel('Membrane Potential At Sag Peak (mV)')
 ylabel('Sag Rebound (mV)')
@@ -838,16 +869,14 @@ ylabel('Sag Rebound (mV)')
 
 close all; clc
 
-trl_cutoff_num = 2;
+trl_cutoff_num = 5;
 
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'any', 'any';...
-    %'all_som', 'any', 'any', 'any';...
-    %'all_pv', 'any', 'any', 'any';...
-    %'all_som', 'any', 'any', 'any';...
+    'PY', 'L23', 'med', 'any';...
+    'PY', 'L23', 'lat', 'any';...
     };
 
 groupdata = [];
@@ -856,8 +885,6 @@ groupdata.Vreset = repmat({[]}, 1, size(plotgroups, 1));
 groupdata.fi = repmat({[]}, 1, size(plotgroups, 1));
 
 Ngroups = (numel(groupdata.Vthresh));
-groupcolors = lines(Ngroups);
-
 for i_ex = 1:numel(dat)
     
     for i_ch = 1:2
@@ -950,6 +977,9 @@ legtext = {};
 leghands = [];
 for i_group = 1:Ngroups
     
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     % first spike
     tmp_dat = groupdata.Vthresh_ordered_first{i_group};
     N = sum(~isnan(tmp_dat),1);
@@ -959,7 +989,7 @@ for i_group = 1:Ngroups
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
     
-    hp = shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    hp = shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', grp_clr});
     leghands(i_group) = hp.mainLine;
     legtext{i_group} =  sprintf('first sipke: %s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
     
@@ -972,7 +1002,7 @@ for i_group = 1:Ngroups
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'s--', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'s--', 'color', grp_clr});
     
 end
 xlabel('Current injection (pA)')
@@ -986,6 +1016,9 @@ legtext = {};
 leghands = [];
 for i_group = 1:Ngroups
     
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     % first spike
     tmp_dat = groupdata.Vreset_ordered_first{i_group};
     N = sum(~isnan(tmp_dat),1);
@@ -995,7 +1028,7 @@ for i_group = 1:Ngroups
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
     
-    hp = shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', groupcolors(i_group,:)});
+    hp = shadedErrorBar(plt_pA, xbar, sem, {'o-', 'color', grp_clr});
     leghands(i_group) = hp.mainLine;
     legtext{i_group} =  sprintf('first sipke: %s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
    
@@ -1009,7 +1042,7 @@ for i_group = 1:Ngroups
     sem = stderr(tmp_dat(:,l_N_enough), 1);
     plt_pA = pA_cmd_bins(l_N_enough);
     
-    shadedErrorBar(plt_pA, xbar, sem, {'s--', 'color', groupcolors(i_group,:)});
+    shadedErrorBar(plt_pA, xbar, sem, {'s--', 'color', grp_clr});
     
 end
 xlabel('Current injection (pA)')
@@ -1024,9 +1057,8 @@ close all; clc
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'any', 'any';...
-    'all_pv', 'any', 'any', 'any';...
-    'all_som', 'any', 'any', 'any';...
+    'PY', 'L23', 'med', 'any';...
+    'PY', 'L23', 'lat', 'any';...
     };
 
 groupdata = [];
@@ -1035,8 +1067,6 @@ groupdata.Vreset = repmat({[]}, 1, size(plotgroups, 1));
 groupdata.fi = repmat({[]}, 1, size(plotgroups, 1));
 
 Ngroups = (numel(groupdata.Vthresh));
-groupcolors = lines(Ngroups);
-
 for i_ex = 1:numel(dat)
     
     for i_ch = 1:2
@@ -1080,6 +1110,8 @@ for i_group = 1:Ngroups
 end
 
 for i_group = 1:Ngroups
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
     
     X = group_all_pa{i_group};
     Y = group_all_frs{i_group};
@@ -1089,8 +1121,8 @@ for i_group = 1:Ngroups
     CI_up = top_int - y_mod;
     CI_down = y_mod - bot_int;
     
-    hp = plot(X, Y, '.', 'color', groupcolors(i_group,:));
-    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', groupcolors(i_group,:)});
+    hp = plot(X, Y, '.', 'color', grp_clr);
+    shadedErrorBar(x_mod, y_mod, [CI_up ; CI_down], {'color', grp_clr});
     
     leghands(i_group) = hp;
     legtext{i_group} =  sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
@@ -1107,6 +1139,10 @@ legend boxoff
 figure
 edges = 0:150:900;
 for i_group = 1:Ngroups
+    
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
     X = group_all_pa{i_group};
     Y = group_all_frs{i_group};
     [counts, bin_idx] = histc(X, edges);
@@ -1122,7 +1158,7 @@ for i_group = 1:Ngroups
     bined_fi_curve_avg = bined_fi_curve_avg(l_good);
     bined_fi_curve_sem = bined_fi_curve_sem(l_good);
     
-    hse = shadedErrorBar(edges(l_good), bined_fi_curve_avg, [bined_fi_curve_sem ; bined_fi_curve_sem], {'color', groupcolors(i_group,:)});
+    hse = shadedErrorBar(edges(l_good), bined_fi_curve_avg, [bined_fi_curve_sem ; bined_fi_curve_sem], {'color', grp_clr});
     leghands(i_group) = hse.mainLine;
     legtext{i_group} =  sprintf('%s, %s, %s', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3} );
 end
@@ -1153,9 +1189,10 @@ xlim([0, 0.07])
 ylim([0, 0.07])
 plot([0, 0.07], [0, 0.07], 'k')
 set(gca, 'fontsize', 16)
-xlabel('\tau from exponential fit')
-ylabel('\tau from quick estimate')
+xlabel('tau from exponential fit')
+ylabel('tau from quick estimate')
 axis square
+
 
 %% PLOT THE RAW VCLAMP WAVEFORMS FOLLOWING EACH PULSE
 
@@ -1163,10 +1200,10 @@ close all
 
 
 PLOT_ALL_TRIALS = true;
-DEBUG_MEAN = true;
-DEBUG_ALL = false;
+DEBUG_MEAN = false;
+DEBUG_ALL = true;
 NORM_TO_SMOOTH_P1 = false;
-PLOT_RIT = true;
+PLOT_RIT = false;
 
 
 % goal: to plot the snipets, one after another, on a separate subplot for
@@ -1381,7 +1418,7 @@ end
 
 NORM_VALS = true;
 PLOT_RAW = false;
-CELL_TYPE = 'PVCRE_L23';
+CELL_TYPE = 'PY_L23';
 
 p1pop.opsin = {};
 p1pop.avgwf_vclamp = [];
@@ -1704,7 +1741,7 @@ end
 %% STP: LOOKING FOR CLASS 1b AND 2 INPUTS
 
 NORM_TO_RUNNING_AVG = true;
-PULSE_NUM = 10; % PnP1
+PULSE_NUM = 4; % PnP1
 
 % initialize the figure
 f = figure; hold on,
@@ -1911,8 +1948,10 @@ PLOTERRBAR = true;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'med', 'chief';...
-    'PY', 'L23', 'lat', 'chief';...
+    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'AL', 'chief';...
+    'PY', 'L23', 'PM', 'chief';...
+    'PY', 'L23', 'AM', 'chief';...
     };
 
 % initalize the population structure
@@ -1973,7 +2012,6 @@ f = figure;
 f.Units = 'normalized';
 f.Position = [0.1, 0.01, 0.3, 0.9];
 Ntfs = numel(allTFs);
-groupcolors = lines(size(plotgroups,1));
 for i_tf = 1:Ntfs
     subplot(Ntfs, 1, i_tf), hold on,
     for i_grp = 1:numel(groupdata_raw)
@@ -1982,14 +2020,16 @@ for i_tf = 1:Ntfs
         N = sum(~isnan(tmp),1);
         unique(N)
         sem = nanstd(tmp, [], 1) ./ sqrt(N);
+        plt_clr = hvaPlotColor(plotgroups{i_grp, 3});
         if PLOTERRBAR
-            shadedErrorBar(1:size(tmp,2), xbar, sem, {'color', groupcolors(i_grp,:), 'linewidth', 2});
+            shadedErrorBar(1:size(tmp,2), xbar, sem, {'color', plt_clr, 'linewidth', 2});
         else
-            plot(tmp', '-', 'color', groupcolors(i_grp,:))
+            plot(tmp', '-', 'color', plt_clr)
             %plot(mean(tmp,1), '-', 'color', groupcolors{i_grp}, 'linewidth', 3)
         end
     end
     ylim([0,2])
+    ylabel('EPSP amplitude')
 end
 
 
@@ -2133,10 +2173,8 @@ PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'AL', 'chief';...
-    'PY', 'L23', 'LM', 'chief';...
-    'PY', 'L23', 'PM', 'chief';...
-    'PY', 'L23', 'AM', 'chief';...
+    'allsom', 'L23', 'med', 'any';...
+    'allsom', 'L23', 'lat', 'any';...
     };
 
 allTFs = recovpop.TFsAllExpts;
@@ -2240,10 +2278,10 @@ f.Units = 'Normalized';
 f.Position = [0.0865, 0, 0.3161, 1];
 f.Color = 'w';
 Ngroups = size(man_plotgrps,1);
-plotcolors = lines(Ngroups);
 legtext = repmat({{}}, 1, Ntfs);
 leghand = repmat({[]}, 1, Ntfs);
 for i_group = 1:size(man_plotgrps, 1)
+    plt_clr = hvaPlotColor(man_plotgrps{i_group, 3});
     
     for i_tf = 1:Ntfs
         
@@ -2267,7 +2305,7 @@ for i_group = 1:size(man_plotgrps, 1)
             
             % mean +/- sem
             if PLOT_AVG_DATA
-                hp = shadedErrorBar(1:numel(xbar), xbar, sem, {'color', plotcolors(i_group,:)});
+                hp = shadedErrorBar(1:numel(xbar), xbar, sem, {'color', plt_clr});
                 leghand{i_tf}(end+1) = hp.mainLine;
                 legtext{i_tf}{end+1} = sprintf('%s, %s, %s, N=%d', man_plotgrps{i_group,1}, man_plotgrps{i_group,2}, man_plotgrps{i_group,3}, N_expts);
             end
@@ -2275,7 +2313,7 @@ for i_group = 1:size(man_plotgrps, 1)
             
             % all the data
             if PLOT_RAW_DATA
-                plot(1:numel(xbar), all_wfs', '-', 'color', plotcolors(i_group,:))
+                plot(1:numel(xbar), all_wfs', '-', 'color', plt_clr)
             end
             
         end
@@ -2308,10 +2346,10 @@ f.Units = 'Normalized';
 f.Position = [0.0865, 0, 0.3161, 1];
 f.Color = 'w';
 Ngroups = size(man_plotgrps,1);
-plotcolors = lines(Ngroups);
 legtext = repmat({{}}, 1, Ntfs);
 leghand = repmat({[]}, 1, Ntfs);
 for i_group = 1:size(man_plotgrps, 1)
+    plt_clr = hvaPlotColor(man_plotgrps{i_group, 3});
     
     for i_tf = 1:Ntfs
         
@@ -2340,8 +2378,8 @@ for i_group = 1:size(man_plotgrps, 1)
             xx_recov = numel(xbar_trains)+1 : numel(xbar_trains)+numel(xbar_recov);
             
             % plot
-            hp = errorbar(xx_trains, xbar_trains, sem_trains, 'color', plotcolors(i_group,:));
-            errorbar(xx_recov, xbar_recov, sem_recov, 'o', 'markerfacecolor', plotcolors(i_group,:), 'markeredgecolor', plotcolors(i_group,:))
+            hp = errorbar(xx_trains, xbar_trains, sem_trains, 'color', plt_clr);
+            errorbar(xx_recov, xbar_recov, sem_recov, 'o', 'markerfacecolor', plt_clr, 'markeredgecolor', plt_clr)
             leghand{i_tf}(end+1) = hp(1);
             legtext{i_tf}{end+1} = sprintf('%s, %s, %s, N=%d', man_plotgrps{i_group,1}, man_plotgrps{i_group,2}, man_plotgrps{i_group,3}, N_expts);
             
@@ -2378,7 +2416,7 @@ for i_group = 1:size(man_plotgrps, 1)
                     train_amps(1,:) = pred_amps(1:N_train_pulses);
                     recov_amps(i_recov) = pred_amps(end);
                 end
-                plot([xx_trains, xx_recov], [train_amps, recov_amps], '--', 'color', plotcolors(i_group,:))
+                plot([xx_trains, xx_recov], [train_amps, recov_amps], '--', 'color', plt_clr)
             end
         end
         
@@ -2410,7 +2448,7 @@ if PLOT_MANIFOLD_OF_AVG_RAW_DATA
     f.Position = [0.0865, 0, 0.3161, 1];
     f.Color = 'w';
     for i_group = 1:size(man_plotgrps, 1)
-        
+        plt_clr = hvaPlotColor(man_plotgrps{i_group, 3});
         for i_tf = 1:Ntfs
             
             hs = subplot(Ntfs, 1, i_tf); hold on,
@@ -2447,11 +2485,11 @@ if PLOT_MANIFOLD_OF_AVG_RAW_DATA
                 recov_amps(i_recov) = pred_amps(end);
             end
             xx_trains = 1:numel(train_amps);
-            plot(xx_trains, train_amps, '-', 'color', plotcolors(i_group,:))
+            plot(xx_trains, train_amps, '-', 'color', plt_clr)
             xx_recov = xx_trains(end) + 1 : xx_trains(end) + numel(recov_amps);
             plot(xx_recov, recov_amps, 'o',...
-                                       'markeredgecolor', plotcolors(i_group,:),...
-                                       'markerfacecolor', plotcolors(i_group,:),...
+                                       'markeredgecolor', plt_clr,...
+                                       'markerfacecolor', plt_clr,...
                                        'markersize', 4)
             t = title(sprintf('%d Hz: d=[%.1f,%.1f], dtau=[%.1f,%.1f], f=[%.1f,%.1f], ftau=[%.1f,%.1f]', train_tf, d, tau_d, f, tau_f));
             t.FontSize=10;
@@ -2493,7 +2531,176 @@ end
                         {all_hva_labels, all_tf_labels, all_pnum_labels},...
                         'model', 'interaction',...
                         'varnames', {'all_hva_labels', 'all_tf_labels', 'all_pnum_labels'});
-multcompare(stats, 'Dimension', [1])
+multcompare(stats, 'Dimension', [3])
+
+
+
+%%  WITHIN-MOUSE STP COMPARISON
+
+clc; close all;
+
+
+% iterate over mice and store the PPRs for each HVA tested
+%
+% 1) I can ignore mice that only have one line in the sheet
+freq_tags = {'_f12_', '_f25_', '_f50_'};
+wincomp_pop = struct();
+for i_ex = 1:numel(dat)
+    
+    ex_mouse_name = dat{i_ex}.info.mouseName;
+    ex_hva = dat{i_ex}.info.brainArea;
+    
+
+    % is this mouse in the pop array? If not, add it to the array
+    is_in_array = isfield(wincomp_pop, ex_mouse_name);
+    if ~is_in_array
+        wincomp_pop.(ex_mouse_name) = struct('LM', {[]}, 'PM', {[]}, 'AL', {[]}, 'AM', {[]}, 'RL', {[]}, 'med', {[]}, 'lat', {[]});
+    end
+      
+    % loop over cells and TF conditions. Keep the PPRs in an array that is 
+    % Npulses x NTFs x Ncells
+    for i_ch = 1:2
+        
+        % ignore some of the experiments
+        is_valid = dat{i_ex}.info.HS_is_valid_Vclamp(i_ch);
+        if ~is_valid; continue; end
+        is_chief = any(regexpi(dat{i_ex}.info.opsin, 'chief'));
+        is_pyl23 = any(regexpi(dat{i_ex}.info.cellType{i_ch}, 'PY_L23'));
+        if ~is_chief || ~is_pyl23; continue; end
+        
+        % find the fields that have the correct frequencies and iterate
+        % through them in order
+        all_conds = fieldnames(dat{i_ex}.expt);
+        cell_data = nan(10,3); % pulses x TF
+        for i_tf = 1:numel(freq_tags)
+            tf_recov_cond_inds = cellfun(@(x) ~isempty(x), regexpi(all_conds, freq_tags{i_tf}));
+            tf_recov_conds = all_conds(tf_recov_cond_inds);
+            tf_recov_data_sum = zeros(10, 1);
+            n_sweeps = 0;
+            for i_recov = 1:numel(tf_recov_conds)
+                tmp_dat = dat{i_ex}.expt.(tf_recov_conds{i_recov}).stats.EPSCamp{i_ch};
+                if isempty(tmp_dat); continue; end
+                tmp_dat = tmp_dat(1:10,:,:); % remove the recovery pulse
+                tf_recov_data_sum = tf_recov_data_sum + sum(tmp_dat, 3);
+                n_sweeps = n_sweeps + size(tmp_dat, 3);
+            end
+            
+            % compute the mean for this TF condition (across recov times).
+            % Normalize to the first pulse
+            tf_data_mean = tf_recov_data_sum ./ n_sweeps;
+            pprs = tf_data_mean ./ tf_data_mean(1);
+            
+            % add to the cell_data matrix
+            cell_data(:, i_tf) = pprs;
+        end
+        
+        % add the cell_data matrix to the appropriate HVA field in the
+        % population array
+        tmp_array = wincomp_pop.(ex_mouse_name).(ex_hva);
+        tmp_array = cat(3, tmp_array, cell_data);
+        wincomp_pop.(ex_mouse_name).(ex_hva) = tmp_array;
+        
+        % add the cell_data matrix to either the "med" or "lat" arrays in
+        % the populaiton database
+        switch lower(ex_hva)
+            case {'am', 'pm'}
+                alt_hva = 'med';
+            case {'al', 'lm', 'rl'}
+                alt_hva = 'lat';
+        end
+        tmp_array = wincomp_pop.(ex_mouse_name).(alt_hva);
+        tmp_array = cat(3, tmp_array, cell_data);
+        wincomp_pop.(ex_mouse_name).(alt_hva) = tmp_array;
+        
+    end
+    
+end
+
+% 3) make the full-factorized comparisons of the HVAs.
+%hvas = {'LM', 'AL', 'PM', 'AM'};
+hvas = {'med', 'lat'};
+hva_pair_inds = combinator(numel(hvas), 2, 'c');
+pulse_num_for_plot = 3;
+hf_p1pn = figure;
+hf_tfs = figure;
+n_cols = size(hva_pair_inds, 1);
+n_rows = numel(freq_tags);
+
+for i_comp = 1:n_cols
+    
+    hva1 = hvas{hva_pair_inds(i_comp, 1)};
+    hva2 = hvas{hva_pair_inds(i_comp, 2)};
+    
+    [hva1_dat, hva2_dat] = deal([]);
+    mouse_names = fieldnames(wincomp_pop);
+    for i_mouse = 1:numel(mouse_names)
+        
+        % do not analyze mice for which paired data aren't available
+        has_hva1 = ~isempty(wincomp_pop.(mouse_names{i_mouse}).(hva1));
+        has_hva2 = ~isempty(wincomp_pop.(mouse_names{i_mouse}).(hva2));
+        if ~has_hva1 || ~has_hva2; continue; end
+        
+        % add this mouse's data to the population array. Average when there
+        % are multiple cells for a single area with in a mouse
+        hva1_dat = cat(3, hva1_dat, mean(wincomp_pop.(mouse_names{i_mouse}).(hva1), 3));
+        hva2_dat = cat(3, hva2_dat, mean(wincomp_pop.(mouse_names{i_mouse}).(hva2), 3));    
+    end
+    
+    
+    % deal with the full plot of all PPRs in sequence
+    figure(hf_tfs)
+    for i_tf = 1:n_rows
+        pltidx = sub2ind([n_cols, n_rows], i_comp, i_tf);
+        subplot(n_rows, n_cols, pltidx);
+        hold on,
+        hva1_clr = hvaPlotColor(hva1);
+        errorbar(1:10, mean(hva1_dat(:, i_tf, :), 3),...
+                       stderr(hva1_dat(:, i_tf, :), 3),...
+                       '-', 'color', hva1_clr);
+                   
+        hva2_clr = hvaPlotColor(hva2);
+        errorbar(1:10, mean(hva2_dat(:, i_tf, :), 3),...
+                       stderr(hva2_dat(:, i_tf, :), 3),...
+                       '-', 'color', hva2_clr);
+        
+        if i_tf == 1
+            leg_text = {sprintf('%s, n=%d', hva1, size(hva1_dat,3)),...
+                        sprintf('%s, n=%d', hva2, size(hva2_dat,3))};
+            legend(leg_text, 'location', 'best');
+            title(sprintf('%s vs. %s', hva1, hva2));
+        end
+        if i_comp == 1
+            ylabel(sprintf('Norm EPSC \n tf = %s Hz', freq_tags{i_tf}(3:4)));
+        end
+        xlim([0, 11])
+    end
+    
+    % deal with the pn:p1 ratios
+    figure(hf_p1pn)
+    for i_tf = 1:n_rows
+        pltidx = sub2ind([n_cols, n_rows], i_comp, i_tf);
+        subplot(n_rows, n_cols, pltidx);
+        hold on,
+        plt_mtx = [permute(hva1_dat(pulse_num_for_plot, i_tf, :), [1,3,2]);...
+                   permute(hva2_dat(pulse_num_for_plot, i_tf, :), [1,3,2])];
+        plot([1,2], plt_mtx, 'k-');
+        
+        if i_tf == 1
+            title(sprintf('%s vs. %s', hva1, hva2));
+        end
+        if i_comp == 1
+            ylabel(sprintf('Norm EPSC \n tf = %s Hz', freq_tags{i_tf}(3:4)));
+        end
+        xlim([0.5, 2.5])
+        axis tight
+    end
+    
+end
+
+
+
+
+
 
 
 %% ESTIMATE TIME CONSTANTS OF SHORT TERM PLASTICITY
@@ -3309,10 +3516,9 @@ T
 
 
 % line plots of parameter fits
-plotcolors = {'r', 'b', 'g', 'k'};
-
 figure, hold on,
 for i_group = 1:size(plotgroups,1)
+    plt_clr = hvaPlotColor(plotgroups{i_group, 3});
     tmp_dat = groupdata_fit_params{i_group};
     
     xbar = mean(tmp_dat,1);
@@ -3320,7 +3526,7 @@ for i_group = 1:size(plotgroups,1)
     %p1 = plot(tmp_dat', '-', 'color', plotcolors{i_group}, 'linewidth', 0.5);
     %for ii = 1:numel(p1); p1(ii).Color(4) = 0.5; end
     %plot(xbar, '-', 'color', plotcolors{i_group}, 'linewidth', 4)
-    shadedErrorBar(1:numel(MODEL)*2, xbar, sem, {'color', plotcolors{i_group}, 'linewidth', 4}, true);   
+    shadedErrorBar(1:numel(MODEL)*2, xbar, sem, {'color', plt_clr, 'linewidth', 4}, true);   
     %set(gca, 'yscale', 'log')
     %set(gca, 'xtick', [1:size(tmp_dat,2)], 'xticklabel', {'d1', 'd2', 'Tau d1', 'Tau d2', 'f', 'Tau f1'})
     set(gca, 'TickDir', 'out')
@@ -3597,8 +3803,8 @@ end
 % Plot manfold(s)
 f = figure;
 hold on,
-plotcolors = lines(size(man_plotgrps, 1));
 for i_group = 1:numel(groupdata_raw)
+    plt_clr = hvaPlotColor(man_plotgrps{i_group, 3});
     
     if PLOT_AVG_RAW_DATA
         grid_average = nanmean(groupdata_raw{i_group},3);
@@ -3611,10 +3817,10 @@ for i_group = 1:numel(groupdata_raw)
         l_nan_tfs = all(isnan(grid_average), 1);
         
         hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
-        hs.EdgeColor = plotcolors(i_group,:);
+        hs.EdgeColor = plt_clr;
         hs.EdgeAlpha = 1;
         hs.LineWidth = 1.5;
-        hs.FaceColor = plotcolors(i_group,:);
+        hs.FaceColor = plt_clr;
         hs.FaceAlpha = 0.1;
     end
     
@@ -3628,7 +3834,7 @@ for i_group = 1:numel(groupdata_raw)
         grid_average = nanmean(groupdata_smooth{i_group}, 3);
         hmod = surf(X,Y, flipud(grid_average));
         hmod.EdgeAlpha = 0;
-        hmod.FaceColor = plotcolors(i_group,:);
+        hmod.FaceColor = plt_clr;
         hmod.FaceAlpha = 0.6;
     end
     
@@ -3658,7 +3864,7 @@ for i_group = 1:numel(groupdata_raw)
         end
         predmod = surf(X,Y, flipud(smoothManifold));
         predmod.EdgeAlpha = 0;
-        predmod.FaceColor = plotcolors(i_group,:);
+        predmod.FaceColor = plt_clr;
         predmod.FaceAlpha = 0.2;
     end
     
@@ -3667,7 +3873,7 @@ for i_group = 1:numel(groupdata_raw)
         for i_examp = 1:N_manifolds
             hmod = surf(X,Y, flipud(groupdata_smooth{i_group}(:,:,i_examp)));
             hmod.EdgeAlpha = .2;
-            hmod.FaceColor = plotcolors(i_group,:);
+            hmod.FaceColor = plt_clr;
             hmod.FaceAlpha = 0.5;
         end
     end
@@ -3687,6 +3893,8 @@ set(gca, 'zscale', 'log')
 % plot manifold of params fit to grand average
 if PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD
     for i_group = 1:numel(groupdata_raw)
+        plt_clr = hvaPlotColor(man_plotgrps{i_group, 3});
+        
         % remake the smooth manifold
         isi_ms = pprpop.smoothManifold_isi_ms;
         N_pulses_smooth = pprpop.smoothManifold_numPulses;
@@ -3704,8 +3912,8 @@ if PLOT_MINIFOLD_FROM_FITTED_GRAND_AVERAGE_MANIFOLD
         %re-plot the smooth manifold
         predmod = surf(X,Y, flipud(smoothManifold));
         predmod.EdgeAlpha = 0.5;
-        predmod.EdgeColor = plotcolors(i_group,:);
-        predmod.FaceColor = plotcolors(i_group,:);
+        predmod.EdgeColor = plt_clr;
+        predmod.FaceColor = plt_clr;
         predmod.FaceAlpha = 0;
         
     end
@@ -3742,7 +3950,8 @@ end
 %%%%%%%
 if PLOT_DATASETS_INDIVIDUALLY
     for i_group = 1:numel(groupdata_raw)
-        
+        plt_clr = hvaPlotColor(man_plotgrps{i_group, 3});
+
         for i_examp = 1:size(groupdata_raw{i_group},3)
             f = figure;
             
@@ -3754,9 +3963,9 @@ if PLOT_DATASETS_INDIVIDUALLY
             l_nan_tfs = all(isnan(grid_average), 1);
             
             hs = surf(X(:,~l_nan_tfs), Y, flipud(grid_average(:,~l_nan_tfs)));
-            hs.EdgeColor = plotcolors(i_group,:)
+            hs.EdgeColor = plt_clr;
             hs.EdgeAlpha = 1;
-            hs.FaceColor = plotcolors(i_group,:);
+            hs.FaceColor = plt_clr;
             hs.FaceAlpha = 0;
             hs.LineWidth = 1.5;
             
@@ -4165,7 +4374,7 @@ end
 
 %% INTERNEURON LATENCY ANALYSIS (PLOT RAW WAVEFORMS)
 
-NORM_WF = false;
+NORM_WF = true;
 
 close all; clc
 assert(strcmp(EXPTTYPE, 'IN_strength'), 'ERROR: not the correct type of experiment for latency analysis')
@@ -5297,6 +5506,103 @@ shadedErrorBar(1:maxlength, xbar_chief, sem_chief, {'r', 'linewidth', 3});
 title('Percent change in P1 amplitude')
 xlabel('Trial Number')
 ylabel('Percent change from sweep 1')
+
+%% CONTROLS: CO-VARIATION IN P1 INPUTS FOR PAIRED RECORDINGS
+clc; close all;
+
+% initalize the output structure
+paired_pop = [];
+paired_pop.amps = {};
+paired_pop.rho_fixed = [];
+paired_pop.rho_raw = [];
+paired_pop.info = {};
+
+% pull out the data
+counter = 1;
+Nexpts = numel(dat);
+for i_ex = 1:Nexpts
+    % is this a paired recording?
+    is_paired = all(dat{i_ex}.info.HS_is_valid_Vclamp);
+    if ~is_paired; continue; end
+    
+    % do the p1 amps exist
+    if ~isfield(dat{i_ex}.qc, 'p1amp'); continue; end
+    
+    % cull cases where one of the cells is a SOM cell
+    is_som = cellfun(@(x) ~isempty(x), regexpi(dat{i_ex}.info.cellType, 'somcre|ltsin|udfrs'));
+    if any(is_som); continue; end
+    
+    % extract the p1 amps, and back out the non-stationarities using the
+    % boxcar filtered estimate of the underlying P1 amps
+    raw_p1_amps = cellfun(@(x) permute(x, [3,1,2]), dat{i_ex}.qc.p1amp, 'uniformoutput', false);
+    boxcar_p1_amps = cellfun(@(x) permute(x, [2,1]), dat{i_ex}.qc.p1amp_norm, 'uniformoutput', false);
+    residual_p1_amps = cellfun(@(x,y) x-y, raw_p1_amps, boxcar_p1_amps, 'uniformoutput', false);
+    
+    % cull low trial counts
+    trl_count = cellfun(@(x) sum(~isnan(x)), residual_p1_amps);
+    if any(trl_count < 10); continue; end
+    
+    % run the correlation, store the value
+    [rho_fixed, pval] = corr(residual_p1_amps{1}, residual_p1_amps{2}, 'type', 'spearman', 'rows', 'complete');
+    [rho_raw, ~] = corr(raw_p1_amps{1}, raw_p1_amps{2}, 'type', 'spearman', 'rows', 'complete');
+    
+    % compute the distance between the cells
+    cell_distance = norm(dat{i_ex}.info.HS_xy_pos{1} - dat{i_ex}.info.HS_xy_pos{2});
+    
+    % store some things across experiments
+    paired_pop.amps{counter} = residual_p1_amps;
+    paired_pop.rho_raw(counter) = rho_raw;
+    paired_pop.rho_fixed(counter) = rho_fixed;
+    paired_pop.info{counter} = dat{i_ex}.info;
+    paired_pop.cell_distance(counter) = cell_distance;
+    
+    % update the counter
+    counter = counter + 1;
+end
+
+
+% histogram of rhow for all pairs
+hf = figure;
+hold on,
+hp1 = cdfplot(paired_pop.rho_fixed);
+hp1.LineWidth = 2;
+hp1.Color = 'b';
+hp1 = cdfplot(paired_pop.rho_raw);
+hp1.LineWidth = 2;
+hp1.Color = 'r';
+legend({'fixed', 'raw'}, 'location', 'best')
+xlabel('Spearman''s rho', 'fontsize', 14)
+ylabel('Cumulative Density', 'fontsize', 14)
+
+
+% scatter plot of all x,y pairs
+tmp = cat(1, paired_pop.amps{:});
+x_zscore = cellfun(@(x) (x-nanmean(x))./nanstd(x), tmp(:,1), 'uniformoutput', false);
+y_zscore = cellfun(@(x) (x-nanmean(x))./nanstd(x), tmp(:,2), 'uniformoutput', false);
+
+x_zscore = cat(1, x_zscore{:});
+y_zscore = cat(1, y_zscore{:});
+[rho, p] = corr(x_zscore, y_zscore, 'type', 'spearman', 'rows', 'complete');
+
+hf = figure;
+hp = plot(x_zscore, y_zscore, 'k.');
+title(sprintf('Rho: %.3f, p = %.3f', rho, p))
+xlabel('Z-score cell 1')
+ylabel('Z-score cell 2')
+
+
+% scatter plot of rho vs. distance
+hf = figure;
+hp = plot(paired_pop.cell_distance, paired_pop.rho_fixed, 'ko');
+[rho, p] = corr(paired_pop.cell_distance(:), paired_pop.rho_fixed(:), 'type', 'spearman', 'rows', 'complete');
+title(sprintf('Rho: %.3f, p = %.3f', rho, p))
+xlabel('distance between cells (um)')
+ylabel('Spearman rho')
+
+
+
+
+
 
 %% PHOTOS OF THE RECORDING SITES
 

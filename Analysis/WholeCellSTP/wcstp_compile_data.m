@@ -55,22 +55,29 @@ function dat = wcstp_compile_data(exinfo, hidx, params)
 % fill out the info field and get things ready for the analysis
 dat.info = defineInfo(exinfo, hidx, params);
 
-% the function is verbose. Tell the user what's going on
-fprintf('Analyzing data from mouse %s, site %s\n', dat.info.mouseName, dat.info.siteNum)
-exinfo
-
-% unpack the DC current injection dataset
-dat = unpack_dc_injections(dat);
-
-% unpack the Vclamp trains dataset(s)
-dat = unpack_vclamp_trains(dat, exinfo, hidx, params.force_epsc);
-
-% unpack the Iclamp trains dataset
-dat = unpack_iclamp_trains(dat, exinfo, hidx);
-
-% get an estimate of the P1 amp smoothed across time
-N = 6;
-dat = smoothP1amp(dat, N);
+try
+    % the function is verbose. Tell the user what's going on
+    fprintf('Analyzing data from mouse %s, site %s\n', dat.info.mouseName, dat.info.siteNum)
+    
+    % unpack the DC current injection dataset
+    dat = unpack_dc_injections(dat);
+    
+    % unpack the Vclamp trains dataset(s)
+    dat = unpack_vclamp_trains(dat, exinfo, hidx, params.force_epsc);
+    
+    % unpack the Iclamp trains dataset
+    dat = unpack_iclamp_trains(dat, exinfo, hidx);
+    
+    % get an estimate of the P1 amp smoothed across time
+    N = 6;
+    dat = smoothP1amp(dat, N);
+    
+catch
+    fprintf('crashed on this cell:\n')
+    dat.info
+    exinfo
+    error('analysis has stopped')
+end
 
 end
 
@@ -822,23 +829,6 @@ function dat = unpack_iclamp_trains(dat, exinfo, hidx) % added args are for swee
             end
             
             
-            % DELETED SWEEPS NOT YET FUNCTIONAL FOR ICLAMP RECORDINGS
-% %             % deal with deleted sweeps here. things that need to get
-% %             % culled:
-% %             %  dat.iclamp.(condname).raw.snips{i_ch}
-% %             %  dat.iclamp.(condname).realTrialNum
-% %             rmSweep_string = exinfo{hidx.(sprintf('VC_rm_swp_HS%d', i_ch))};
-% %             if ~any(isnan(rmSweep_string))
-% %                 badSweeps = eval(['[',rmSweep_string,']']);
-% %                 [~, l_badSweeps] = intersect(dat.iclamp.(condname).realTrialNum{i_ch}, badSweeps);
-% %                 if ~isempty(l_badSweeps)
-% %                     fprintf('    Deleting %d sweeps from %s site %s ch %d\n',...
-% %                                numel(l_badSweeps), dat.info.mouseName, dat.info.siteNum, i_ch);
-% %                     dat.iclamp.(condname).realTrialNum{i_ch}(l_badSweeps) = [];
-% %                     dat.iclamp.(condname).raw.snips{i_ch}(:,:,l_badSweeps) = [];
-% %                 end
-% %             end
-            
             
             % subtract off the background from all the pulses. DEFINE THE
             % BACKROUND AS THE TIME BEFORE ONLY THE FIRST PULSE. This
@@ -857,21 +847,25 @@ function dat = unpack_iclamp_trains(dat, exinfo, hidx) % added args are for swee
             
             
             % analyze the snippets and determine the peak current (EPSP or IPSP)
+            ch_is_valid = dat.info.HS_is_valid_Iclamp(i_ch);
             psp_sign = sign(sum(mean(dat.iclamp.(condname).raw.snips{i_ch}(1,:,:),3)));
             [peak_pA, peak_tt] = get_peak_psc(dat.iclamp.(condname).raw.snips{i_ch}, psp_sign, dat, 'iclamp');
             dat.iclamp.(condname).stats.latency{i_ch} = peak_tt;
-            if psp_sign == -1  %IPSP
-                    dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
-                    dat.iclamp.(condname).stats.IPSPamp{i_ch} = peak_pA;
-                    warning('found an IPSP')
+            if ~ch_is_valid
+                dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
+                dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
+            elseif psp_sign == -1  %IPSP
+                dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
+                dat.iclamp.(condname).stats.IPSPamp{i_ch} = peak_pA;
+                warning('found an IPSP')
             elseif psp_sign == 1 %EPSP
-                    dat.iclamp.(condname).stats.EPSPamp{i_ch} = peak_pA;
-                    dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
-            elseif isnan(psp_sign) ||psp_sign == 0
-                    dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
-                    dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
-                    channel_is_defined = str2double(exinfo{hidx.(['IC_HS', num2str(i_ch), '_valid'])});
-                    assert(channel_is_defined == 0, 'ERROR: Channel is defined but psp sign is not identified')
+                dat.iclamp.(condname).stats.EPSPamp{i_ch} = peak_pA;
+                dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
+            elseif isnan(psp_sign) || psp_sign == 0
+                dat.iclamp.(condname).stats.EPSPamp{i_ch} = [];
+                dat.iclamp.(condname).stats.IPSPamp{i_ch} = [];
+                channel_is_defined = str2double(exinfo{hidx.(['IC_HS', num2str(i_ch), '_valid'])});
+                assert(channel_is_defined == 0, 'ERROR: Channel is defined but psp sign is not identified')
             end
                       
         end
