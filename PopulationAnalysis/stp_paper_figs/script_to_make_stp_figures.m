@@ -23,8 +23,23 @@ switch DATASET
         clear dat
 end
 
+% define a set of attributes for each analysis group
+% {CellType, Layer,  BrainArea,  OpsinType}
+% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
+plotgroups_all = {
+    'PY', 'L23', 'PM', 'any';...
+    'PY', 'L23', 'LM', 'any';...
+    'PY', 'L23', 'AM', 'any';...
+    'PY', 'L23', 'AL', 'any';...
+    };
 
-%% Figure 1: DC injections
+plotgroups_ml = {
+    'PY', 'L23', 'med', 'any';...
+    'PY', 'L23', 'lat', 'any';...
+    };
+
+
+%% Figure 2: DC injections
 
 close all; clc;
 
@@ -32,42 +47,28 @@ close all; clc;
 example_idx = 221;
 example_ch = 2;
 
-fig_1_dc_injections(dat_passive, example_idx, example_ch)
+fig_dc_injections(dat_passive, example_idx, example_ch)
 
 
-%% Figure 1: Input resistance
-
-close all; clc
-
-% define a set of attributes for each analysis group
-% {CellType, Layer,  BrainArea,  OpsinType}
-% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
-plotgroups = {
-    'PY', 'L23', 'PM', 'any';...
-    'PY', 'L23', 'LM', 'any';...
-    'PY', 'L23', 'AM', 'any';...
-    'PY', 'L23', 'AL', 'any';...
-    };
-
-fig_1_Rin(dat_passive, plotgroups);
-
-
-%% Figure 1: Membrane time constant
+%% Figure 2: Input resistance
 
 close all; clc
 
-% define a set of attributes for each analysis group
-% {CellType, Layer,  BrainArea,  OpsinType}
-% Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
-plotgroups = {
-    'PY', 'L23', 'PM', 'any';...
-    'PY', 'L23', 'LM', 'any';...
-    'PY', 'L23', 'AM', 'any';...
-    'PY', 'L23', 'AL', 'any';...
-    };
+fig_Rin(dat_passive, plotgroups_ml);
 
-fig_1_tau(dat_passive, plotgroups);
 
+%% Figure 2: Membrane time constant
+
+close all; clc
+
+fig_tau(dat_passive, plotgroups_all);
+
+
+%% Figure 2: Input - output functions
+
+close all; clc
+
+fig_input_output_curves(dat_passive, plotgroups_all)
 
 
 

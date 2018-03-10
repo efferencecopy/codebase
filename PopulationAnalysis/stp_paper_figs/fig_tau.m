@@ -1,4 +1,4 @@
-function fig_1_tau(dat, plotgroups)
+function fig_tau(dat, plotgroups)
 
 
 
