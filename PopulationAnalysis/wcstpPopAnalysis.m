@@ -1199,9 +1199,9 @@ axis square
 close all
 
 
-PLOT_ALL_TRIALS = true;
-DEBUG_MEAN = false;
-DEBUG_ALL = true;
+PLOT_ALL_TRIALS = false;
+DEBUG_MEAN = true;
+DEBUG_ALL = false;
 NORM_TO_SMOOTH_P1 = false;
 PLOT_RIT = false;
 
@@ -1224,6 +1224,14 @@ for i_ex = 1:numel(dat)
         if ~isvalid
             continue
         end
+        
+        % skip non-py cells
+        if ~strcmpi(dat{i_ex}.info.cellType{i_ch}, 'PY_L23');
+            continue
+        end
+        
+        % skip non-ochief
+        if ~regexpi(dat{i_ex}.info.opsin, 'chief'); continue; end
         
         
         conds = fieldnames(dat{i_ex}.expt);
@@ -2161,7 +2169,7 @@ for i_ex = 1:numel(dat)
 end
 
 %% V-CLAMP POPULATION ANALYSIS (PLOTS)
-clc; close all
+% clc; close all
 % plot recovery pulse amplitude (normalized) vs. train frequency. Do this
 % separately for cell types, brain areas, opsins, etc...
 
@@ -2173,8 +2181,10 @@ PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'allsom', 'L23', 'med', 'any';...
-    'allsom', 'L23', 'lat', 'any';...
+    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'AL', 'chief';...
+    'PY', 'L23', 'PM', 'chief';...
+    'PY', 'L23', 'AM', 'chief';...
     };
 
 allTFs = recovpop.TFsAllExpts;

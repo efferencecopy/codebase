@@ -4,9 +4,20 @@ Ngroups = size(plotgroups, 1);
 groupdata = [];
 groupdata.fi = repmat({[]}, 1, Ngroups);
 
-bin_edge_l = [20, 140, 210, 340, 470, 590, 720];
-bin_edge_r = [40, 160, 230, 360, 490, 610, 740];
-bin_center = [30, 150, 220, 350, 480, 600, 730];
+% % latice one
+% bin_edge_l = [20, 140, 290, 590];
+% bin_edge_r = [40, 160, 310, 610];
+% bin_center = [30, 150, 300, 600];
+% 
+% % latice two
+% bin_edge_l = [90,  220, 335, 465, 710];
+% bin_edge_r = [110, 240, 355, 485, 740];
+% bin_center = [100, 230, 345, 470, 725];
+ 
+% both latices
+bin_edge_l = [20, 90,  140, 220, 290, 335, 465, 590, 710];
+bin_edge_r = [40, 110, 160, 240, 310, 355, 485, 610, 740];
+bin_center = [30, 100, 150, 230, 300, 345, 470, 600, 725];
 
 for i_ex = 1:numel(dat)
     
@@ -37,7 +48,7 @@ for i_ex = 1:numel(dat)
             end
         end
         
-        if sum(~isnan(bined_fr)) >=3
+        if sum(~isnan(bined_fr)) >= 3
             % add the statistics to the appropriate cell array
             groupdata.fi{group_idx} = cat(1, groupdata.fi{group_idx}, {bined_fr});
         else
