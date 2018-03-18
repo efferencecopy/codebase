@@ -23,6 +23,10 @@ switch DATASET
         clear dat
 end
 
+% CD to figure dir for easier saving
+cd('\\crash.dhe.duke.edu\charlie\wcstp_manuscript_stuff\wcstp_figures_second_pass')
+
+
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
@@ -105,9 +109,17 @@ end
 
 close all; clc
 
-fig_pnp1_ratios(dat_wcstp, plotgroups_wcstp_all)
+ppr_groups = plotgroups_wcstp_all;
+
+[recovpop, groupdata] = fig_pnp1_ratios(dat_wcstp, ppr_groups);
+% quant_test_pprs(recovpop, groupdata, ppr_groups)
 
 
+%% Figure 3: P10 vs P3 scatter plot
+
+close all; clc
+
+fig_ppr_scatter(dat_wcstp, plotgroups_wcstp_ml)
 
 
 

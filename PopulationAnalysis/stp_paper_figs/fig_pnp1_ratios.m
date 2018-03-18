@@ -1,4 +1,4 @@
-function fig_pnp1_ratios(dat, plotgroups)
+function [recovpop, groupdata] = fig_pnp1_ratios(dat, plotgroups)
 
 
 MIN_TRL_COUNT = 0; % set to 0 to turn off
@@ -83,14 +83,16 @@ for i_ex = 1:numel(dat)
                 end
                 
                 % pull out the EPSC amplitudes (mean across sweeps), norm to
-                % first pulse
-                tmp_psc = mean(dat{i_ex}.expt.(condnames_trains{cond_idx}).stats.EPSCamp{i_ch}, 3);
-                norm_fact = tmp_psc(1);
-                tmp_psc = tmp_psc ./ norm_fact;
+                % first pulse (i.e., deal with non-stationarity). Mean
+                % across trials comes later...
+                tmp_psc = dat{i_ex}.expt.(condnames_trains{cond_idx}).stats.EPSCamp{i_ch};
+                real_trl_nums = dat{i_ex}.expt.(condnames_trains{cond_idx}).realTrialNum{i_ch};
+                p1_norm_vals = dat{i_ex}.qc.p1amp_norm{i_ch}(real_trl_nums);
+                tmp_psc = bsxfun(@rdivide, tmp_psc, permute(p1_norm_vals, [3,1,2]));
                 
                 % concatenate 1:10 into 'trains', and the 11th into 'recov'
-                recovpop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf} = cat(1, recovpop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf}, tmp_psc(1:end-1)');
-                recovpop.dat{i_ex}.psc_amps{i_ch}{3}{i_tf,2}{i_recov} = cat(1, recovpop.dat{i_ex}.psc_amps{i_ch}{3}{i_tf,2}{i_recov}, tmp_psc(end));
+                recovpop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf} = cat(3, recovpop.dat{i_ex}.psc_amps{i_ch}{2}{i_tf}, tmp_psc(1:10,:,:));
+                recovpop.dat{i_ex}.psc_amps{i_ch}{3}{i_tf,2}{i_recov} = cat(3, recovpop.dat{i_ex}.psc_amps{i_ch}{3}{i_tf,2}{i_recov}, tmp_psc(end,:,:));
 
                 % pull out the EPSC waveforms (mean across sweeps)
                 tmp_wfs = mean(dat{i_ex}.expt.(condnames_trains{cond_idx}).raw.snips{i_ch}, 3);% Npulses x Ntime
@@ -179,7 +181,7 @@ for i_ex = 1:numel(dat)
         ex_tfs = cell2mat(wf_top_level{1});
         
         wfs_train = cellfun(@(x) mean(x, 3), wf_top_level{2}, 'uniformoutput', false); % average across replicates
-        amps_train = cellfun(@(x) mean(x, 1), amps_top_level{2}, 'uniformoutput', false); % average across replicates
+        amps_train = cellfun(@(x) mean(x, 3), amps_top_level{2}, 'uniformoutput', false); % average across replicates
         for i_tf = 1:numel(ex_tfs)
             
             % grab the data from cell array containing average across sweeps
@@ -187,6 +189,12 @@ for i_ex = 1:numel(dat)
             tf_wf = cat(2, tf_wf, nan(size(tf_wf, 1), 25)); % add some nans for separation
             tf_wf = reshape(tf_wf', 1, []); % a row vector
             tf_amps = amps_train{i_tf};
+            
+            % data have been de-trended (non-stationarity) but normed to
+            % P1. Do that here, since the mean across trials has been
+            % calculated now.
+            tf_norm_fact = tf_amps(1);
+            tf_amps = tf_amps ./ tf_norm_fact;
             
             
             % push the wfs data into the correct slot in the groupdata
@@ -197,7 +205,7 @@ for i_ex = 1:numel(dat)
             
             % push the amps data into the correct slot in the groupdata
             tmp_group = groupdata.amps{group_idx}{row_idx, 1};
-            tmp_group = cat(1, tmp_group, tf_amps); % Nneurons x Npulses
+            tmp_group = cat(1, tmp_group, tf_amps'); % Nneurons x Npulses
             groupdata.amps{group_idx}{row_idx, 1} = tmp_group;
             
             % loop over the recovery conditions and deal with those
@@ -212,7 +220,7 @@ for i_ex = 1:numel(dat)
                 
                 % deal with amps
                 tmp_group = groupdata.amps{group_idx}{row_idx, col_idx};
-                tmp_group = cat(1, tmp_group, amps_recovs{i_recov});
+                tmp_group = cat(1, tmp_group, amps_recovs{i_recov}./tf_norm_fact);
                 groupdata.amps{group_idx}{row_idx, col_idx} = tmp_group;
             end
         end
@@ -278,6 +286,6 @@ for i_tf = 1:Ntfs
     title(plt_string, 'fontsize', 12)
     legend(leghand{i_tf}, legtext{i_tf}, 'location', 'best', 'interpreter', 'none')
     legend boxoff
-    ylim([0.85, 1.6])
+    ylim([0.80, 1.65])
 end
 
