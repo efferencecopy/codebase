@@ -1,4 +1,4 @@
-function fig_1_dc_injections(dat, ex_num, ch_num)
+function fig_dc_injections(dat, ex_num, ch_num)
 
 
 
@@ -10,6 +10,7 @@ if ~isempty(dat{ex_num}.dcsteps.Vm_raw{ch_num})
     
     Vm = dat{ex_num}.dcsteps.Vm_raw{ch_num};
     Icmd = dat{ex_num}.dcsteps.Icmd{ch_num};
+    
     N = size(Vm, 2);
     tt = ([0:N-1] ./ dat{ex_num}.info.sampRate.dcsteps) - dat{ex_num}.info.pretime.dcsteps;
     

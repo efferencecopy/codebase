@@ -5,7 +5,7 @@ for i_mouse = 1:numel(mouse_names)
     mouse = mouse_names{i_mouse};
     
     hf = figure;
-    hf.Name = mouse;
+    hf.Name = sprintf('%s, %s', mouse, dat.(mouse).layer_line);
     hf.Units = 'normalized';
     hf.Position = [0.3049   -0.1722    0.3618    1.0578];
     max_y = 0;

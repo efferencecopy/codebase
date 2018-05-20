@@ -26,13 +26,22 @@ for i_group = 1:size(plotgroups, 1)
     end
 end
 
-[p, tbl, stats] = anovan(all_log_pprs,...
+[~, ~, stats] = anovan(all_log_pprs,...
                         {all_hva_labels, all_tf_labels, all_pnum_labels},...
                         'model', 'interaction',...
                         'varnames', {'all_hva_labels', 'all_tf_labels', 'all_pnum_labels'});
-figure
-multcompare(stats, 'Dimension', [3]);
-figure
-multcompare(stats, 'Dimension', [2]);
-figure
-multcompare(stats, 'Dimension', [1]);
+if numel(unique(all_pnum_labels)) > 1
+    figure
+    multcompare(stats, 'Dimension', [3]);
+end
+if numel(unique(all_tf_labels)) > 1
+    figure
+    multcompare(stats, 'Dimension', [2]);
+end
+if size(unique(all_hva_labels, 'rows'), 1) > 1
+    figure
+    multcompare(stats, 'Dimension', [1]);
+end
+
+
+

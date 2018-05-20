@@ -34,8 +34,11 @@ genotype = raw(:, strcmpi(header, 'genotype'));
 genotype_folder = repmat({'null'}, Nfiles, 1);
 layer_line = repmat({'null'}, Nfiles, 1);
 for i_fid = 1:Nfiles
-    if regexpi(genotype{i_fid}, 'EMX')
+    if regexpi(genotype{i_fid}, 'GIN')
         genotype_folder{i_fid} = 'GIN';
+        layer_line{i_fid} = 'emx';
+    elseif regexpi(genotype{i_fid}, 'EMX')
+        genotype_folder{i_fid} = 'EMX-cre';
         layer_line{i_fid} = 'emx';
     elseif regexpi(genotype{i_fid}, 'PV-Cre')
         genotype_folder{i_fid} = 'PVCre';
@@ -80,6 +83,7 @@ for i_fid = 1:Nfiles
     
     % save some meta data
     dat.(mouseName{i_fid}).cre_dependent = cre_dependent{i_fid};
+    dat.(mouseName{i_fid}).layer_line = layer_line{i_fid};
     
     % derive the file name for the .tiff file from the layered_cellfill_...
     % name.

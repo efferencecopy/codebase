@@ -10,7 +10,7 @@ for mouse = mouse_names'
     end
     
     hf = figure;
-    hf.Name = mouse;
+    hf.Name = sprintf('%s, %s', mouse, dat.(mouse).layer_line);
     hf.Units = 'normalized';
     hf.Position = [0.1542    0.0089    0.3042    0.9033];
     for i_hva = 1:numel(all_hvas)

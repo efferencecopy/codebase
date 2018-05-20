@@ -80,7 +80,33 @@ hl.Interpreter = 'none';
 legend boxoff
 
 
-
+%
+%  box plot of Rin
+%
+%%%%%%%%%%%%%%%%%%%%%
+box_groups = [];
+box_colors = [];
+box_data = [];
+for i_group = 1:numel(groupdata.tau_neg)
+    
+    hva_name = plotgroups{i_group, 3};
+    box_colors = cat(1, box_colors, hvaPlotColor(hva_name));
+    
+    N = numel(groupdata.tau_neg{i_group});
+    box_data = cat(1, box_data, groupdata.tau_neg{i_group} .* 1000);
+    box_groups = cat(1, box_groups, repmat(hva_name, N, 1));
+end
+hf = figure;
+hb = boxplot(box_data, box_groups,...
+             'grouporder', plotgroups(:,3),...
+             'colors', box_colors,...
+             'notch', 'on',...
+             'symbol', '',...
+             'whisker', 0);
+set(gca, 'tickdir', 'out', 'fontsize', 24, 'ylim', [0, 18])
+set(hb, 'linewidth', 3)
+ylabel(sprintf('Membrane Time Constant\n(ms)'))
+legend(gca, plotgroups(:,3)')
 
 
 

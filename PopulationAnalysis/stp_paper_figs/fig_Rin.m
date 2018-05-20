@@ -1,6 +1,4 @@
-function fig_1_Rin(dat, plotgroups)
-
-
+function fig_Rin(dat, plotgroups)
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
 groupdata.Rin_asym = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -161,6 +159,73 @@ for i_group = 1:numel(groupdata.Rin_asym)
     ylabel('Proportion');
 end
 legend(legtext)
+
+
+%
+% bar plot of Rin
+%
+%%%%%%%%%%%%%%%%%%%%%%%%
+f=figure;
+hold on,
+f.Units = 'Pixels';
+f.Position = [182   110   575   648];
+Ngroups = (numel(groupdata.Rin_peak));
+
+legtext = {};
+xtick_labels = {};
+hb = [];
+for i_group = 1:numel(groupdata.Rin_asym)
+    
+    hva_name = plotgroups{i_group, 3};
+    grp_clr = hvaPlotColor(hva_name);
+    
+    % -30 pA
+    xbar = mean(groupdata.R_neg_30pA{i_group});
+    sem = stderr(groupdata.R_neg_30pA{i_group});
+    hb(i_group) = bar(i_group, xbar, 'facecolor', grp_clr, 'edgecolor', grp_clr);
+    plot([i_group, i_group], [xbar, xbar+sem], 'color', grp_clr, 'linewidth', 3)
+    
+    N = numel(groupdata.R_neg_30pA{i_group});
+    legtext{i_group} = sprintf('%s, n=%d', plotgroups{i_group,3}, N);
+    xtick_labels{i_group} = plotgroups{i_group,3};
+end
+set(gca, 'xtick', [1:4], 'xticklabel', xtick_labels)
+title('Rin from -30pA step');
+xlabel('Input R (MOhm)');
+ylabel('Proportion');
+legend(hb, legtext)
+legend boxoff
+
+%
+%  box plot of Rin
+%
+%%%%%%%%%%%%%%%%%%%%%
+box_groups = [];
+box_colors = [];
+box_data = [];
+for i_group = 1:numel(groupdata.R_neg_30pA)
+    
+    hva_name = plotgroups{i_group, 3};
+    box_colors = cat(1, box_colors, hvaPlotColor(hva_name));
+    
+    N = numel(groupdata.R_neg_30pA{i_group});
+    box_data = cat(1, box_data, groupdata.R_neg_30pA{i_group});
+    box_groups = cat(1, box_groups, repmat(hva_name, N, 1));
+end
+hf = figure;
+hb = boxplot(box_data, box_groups,...
+             'grouporder', plotgroups(:,3),...
+             'colors', box_colors,...
+             'notch', 'on',...
+             'symbol', '',...
+             'whisker', 0);
+set(gca, 'tickdir', 'out', 'fontsize', 24, 'ylim', [30, 100])
+set(hb, 'linewidth', 3)
+ylabel('Input Resistance')
+legend(gca, plotgroups(:,3)')
+
+
+
 
 
 

@@ -1,4 +1,14 @@
-function plot_avg_density_profile_within_mice(dat, all_hvas, NORMALIZE)
+function plot_avg_density_profile_within_mice(dat, all_hvas, NORMALIZE, PROFILE_TYPE)
+
+switch PROFILE_TYPE
+    case 'baselined'
+        ptype = 'baselined_profiles';
+        yy_ptype = 'yy_baselined';
+    case 'average'
+        ptype = 'avg_profiles';
+        yy_ptype = 'yy_avg';
+end
+
 
 mouse_names = fieldnames(dat);
 for mouse = mouse_names'
@@ -11,16 +21,26 @@ for mouse = mouse_names'
         end
         legend_text{end+1} = all_hvas{i_hva};
         
-        % compute yy_profile average across different lengthed profiles
-        [xx_avg, yy_avg] = compute_avg_profile(dat, mouse, all_hvas{i_hva});
+        % grab the pre-computed y-profile
+        if isfield(dat.(mouse), ptype)
+            xx_avg = dat.(mouse).(ptype).(all_hvas{i_hva}).xx_common;
+            yy_avg = dat.(mouse).(ptype).(all_hvas{i_hva}).(yy_ptype);
+        else
+            [xx_avg, yy_avg] = compute_avg_profile(dat, mouse, all_hvas{i_hva});
+        end
         
-        if NORMALIZE
-            yy_avg = yy_avg ./ max(yy_avg(xx_avg>0));
+        switch NORMALIZE
+            case 'max'
+                l_L23 = xx_avg>0 & xx_avg<400;
+                yy_avg = yy_avg ./ max(yy_avg(l_L23));
+            case 'integral'
+                l_ctx = xx_avg>-100 & xx_avg<850;
+                yy_avg = yy_avg ./ nansum(yy_avg(l_ctx));
         end
         plt_clr = hvaPlotColor(all_hvas{i_hva});
         plot(xx_avg, yy_avg, '-', 'color', plt_clr, 'linewidth', 2)
     end
-    hf.Name = mouse;
+    hf.Name = sprintf('%s, %s', mouse, dat.(mouse).layer_line);
     ylabel(all_hvas{i_hva});
     legend(legend_text, 'location', 'best')
     axis tight

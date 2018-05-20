@@ -65,13 +65,51 @@ all_hvas = {'lm', 'pm', 'al', 'am'};
 plot_density_profiles_from_all_slices(dat, all_hvas);
 
 
+
+%% SUBTRACT OFF AUTOFLUROESCENCE
+
+close all; clc
+all_hvas = {'lm', 'al', 'pm', 'am'};
+dat = subtract_autofluorescence(dat, all_hvas);
+
+
 %% AVERAGE FLUORESCENCE INTENSITY (WITHIN MOUSE)
 
 close all; clc
 
-NORMALIZE = false;
+NORMALIZE = 'max';
+PROFILE_TYPE = 'baselined';
 all_hvas = {'lm', 'al', 'pm', 'am'};
-plot_avg_density_profile_within_mice(dat, all_hvas, NORMALIZE)
+plot_avg_density_profile_within_mice(dat, all_hvas, NORMALIZE, PROFILE_TYPE);
+
+
+%% AVERAGE FLUORESCENCE INTENSITY (ACROSS MICE)
+
+close all; clc
+
+NORMALIZE = 'none';
+PROFILE_TYPE = 'baselined';
+all_hvas = {'lm', 'al', 'pm', 'am'};
+
+hva_aggs = aggregate_data_across_mice(dat, all_hvas, NORMALIZE, PROFILE_TYPE);
+
+plot_avg_density_profile_across_mice(hva_aggs, all_hvas);
+
+%% HEAT MAP OF ABSOLUTE STRENGTH OF AXON INPUTS
+
+close all; clc
+
+all_hvas = {'lm', 'al', 'pm', 'am'};
+dat = get_average_layer_boundaries(dat, all_hvas);
+hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
+
+plot_absolute_axon_density_across_mice(hva_aggs, all_hvas);
+
+
+
+
+
+
 
 
 

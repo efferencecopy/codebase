@@ -10,24 +10,34 @@ fin
 % sheet 3 = SOMcre cells
 %
 
-CELLTYPE = 'GIN';
+CELLTYPE = 'PVcre';
 
 xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
-mouseName = txt(2:end, 1);
-fileName = txt(2:end, 2);
-brainArea = txt(2:end,3);
+header = txt(1,:);
+hidx = struct();
+for i_head = 1:numel(header)
+    if numel(header{i_head}) > 0
+        head_name = regexprep(header{i_head}, ' ', '_');
+        head_name = regexprep(head_name, '/', '');
+        hidx.(head_name) = i_head;
+    end
+end
+mouseName = txt(2:end, hidx.Mouse);
+fileName = txt(2:end, hidx.Filename);
+brainArea_fpath = txt(2:end, hidx.HVA_directory);
+brainArea_analysis = txt(2:end, hidx.HVA_analysis);
 Nfiles = size(fileName, 1);
-ap_dist = cat(1, raw{2:end,6});
+ap_dist = cat(1, raw{2:end, hidx.ap_distance_to_cc});
 ap_dist(Nfiles+1:end) = []; % cut the junk that comes along for the ride
-ml_dist = cat(1, raw{2:end,7});
+ml_dist = cat(1, raw{2:end, hidx.ml_distance});
 ml_dist(Nfiles+1:end) = [];
 
 startingPath = [GL_DATPATH(1:end-5), 'SOM_PV_Density', filesep];
 
-
 % initalize the output variables
 results = [];
+
 for i_file = 1:Nfiles
     
     fprintf('Analyzing file %d of %d \n', i_file, Nfiles)
@@ -35,9 +45,9 @@ for i_file = 1:Nfiles
     % locate the .mat file for the cell fill mask that contains the laminar
     % boundaries already marked.
     tmp_fname = fileName{i_file}; %specify a file
-    tmp_area = brainArea{i_file};
+    tmp_area = brainArea_fpath{i_file};
     tmp_mouse = mouseName{i_file};
-    optpath = [startingPath, tmp_mouse, filesep, 'confocal', filesep, tmp_area];
+    optpath = [startingPath, CELLTYPE, filesep, tmp_mouse, filesep, 'confocal', filesep, tmp_area];
     
     out = findfile(tmp_fname, optpath, '.mat'); % recursively look for it
     load(out); % load the data
@@ -84,19 +94,19 @@ fprintf('  ** Done loading data **\n')
 
 %% PLOTTING ROUTINES:  CELL DENSITY
 
-
+close all; clc
 
 Nmice = size(unique(mouseName),1);
-Nareas = size(unique(brainArea), 1);
+Nareas = size(unique(brainArea_analysis), 1);
 mice = unique(mouseName);
-areas = unique(brainArea);
+areas = unique(brainArea_analysis);
 
 % Pre-assemble the population structure. Assume that all mice were tested in
 % every brain area, and that there are 4 layers per brain area. This is not
 % true in every case, so pad with NaNs.
 
 popdat = [];
-allHVAs = {'PM','AL', 'ERC', 'RL'};
+allHVAs = {'PM', 'AL', 'AM', 'RL', 'ERC'};
 for i_area = 1:numel(allHVAs)
     popdat.(allHVAs{i_area}).totalVolume = nan(4, Nmice); %The array is Nlayers x Nmice
     popdat.(allHVAs{i_area}).cellCount = nan(4, Nmice);
@@ -107,7 +117,7 @@ for i_mouse = 1:Nmice
     for i_area = 1:Nareas
         
         % grab the raw data;
-        idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea, areas{i_area});
+        idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea_analysis, areas{i_area});
         if sum(idx)==0
          
             continue % this brain area was not tested in this mouse.
@@ -125,14 +135,14 @@ for i_mouse = 1:Nmice
                 end
             end
             
-            % A hack to only include 4 of the slices from CH_150612_A
-            if strcmpi(mice{i_mouse}, 'CH_150612_A')
-                tmp_inds = find(idx);
-                if strcmpi(areas(i_area), 'pm')
-                    idx(tmp_inds(2)) = false;
-                    idx(tmp_inds(7):tmp_inds(end)) = false;
-                end
-            end
+%             % A hack to only include 4 of the slices from CH_150612_A
+%             if strcmpi(mice{i_mouse}, 'CH_150612_A')
+%                 tmp_inds = find(idx);
+%                 if strcmpi(areas(i_area), 'pm')
+%                     idx(tmp_inds(2)) = false;
+%                     idx(tmp_inds(7):tmp_inds(end)) = false;
+%                 end
+%             end
                     
             
             
@@ -165,7 +175,7 @@ end
 
 
 % simple plot of volume, counts, density for each area and layer
-areas = {'PM','AL', 'RL', 'ERC'};
+areas = {'PM', 'AL', 'AM', 'RL', 'ERC'};
 figure
 set(gcf, 'position', [184    35   764   746])
 for i_area = 1:numel(areas);
@@ -178,7 +188,7 @@ for i_area = 1:numel(areas);
     counts{i_area} = tmp_counts;
     density{i_area} = tmp_counts ./ tmp_volume;
     
-    subplot(4, 3, (i_area-1)*3 + 1)
+    subplot(6, 3, (i_area-1)*3 + 1)
     plot(tmp_counts, '.-')
     xlabel('layer')
     ylabel('counts')
@@ -186,7 +196,7 @@ for i_area = 1:numel(areas);
     box off
     axis tight
     
-    subplot(4, 3, (i_area-1)*3 + 2)
+    subplot(6, 3, (i_area-1)*3 + 2)
     plot(tmp_volume, '.-')
     xlabel('layer')
     ylabel('volume')
@@ -194,7 +204,7 @@ for i_area = 1:numel(areas);
     box off
     axis tight
     
-    subplot(4, 3, (i_area-1)*3 + 3)
+    subplot(6, 3, (i_area-1)*3 + 3)
     plot(density{i_area}, '.-')
     xlabel('layer')
     ylabel('density')
@@ -253,8 +263,8 @@ end
 
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
-layers = [1:3]; % 1= L2/3, 2=L4, 3=L5, 4=L6
-normArea = 1; % 1=PM, 2=AL
+layers = [1]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+normArea = 2; % 1=PM, 2=AL
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
     
@@ -266,18 +276,19 @@ for i_area = 1:numel(areas);
 end
 
 figure, hold on,
-plot(densityAcrossLayers, '.--')
+plot(densityAcrossLayers, 'o--')
 nareas = numel(areas);
 xbar = nanmean(densityAcrossLayers,2);
 sem = nanstd(densityAcrossLayers,[], 2) ./ sqrt(sum(~isnan(densityAcrossLayers), 2));
 errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
+legend(unique(mouseName))
 
 % now plotting percent change relative to a single area
 figure, hold on,
 diff_vals = bsxfun(@minus, densityAcrossLayers, densityAcrossLayers(normArea,:));
 prcnt_change = bsxfun(@rdivide, diff_vals, densityAcrossLayers(normArea,:));
-plot(prcnt_change, '.--')
+plot(prcnt_change, 'o--')
 nareas = numel(areas);
 xbar = nanmean(prcnt_change, 2);
 sem = nanstd(prcnt_change,[], 2) ./ sqrt(sum(~isnan(prcnt_change), 2));
@@ -295,7 +306,7 @@ areas = {'PM','AL', 'RL', 'ERC'};
 for i_area = 1:numel(areas)
     
     % grab the raw data;
-    idx = strcmpi(brainArea, areas{i_area});
+    idx = strcmpi(brainArea_analysis, areas{i_area});
     popdat.(areas{i_area}).cellDepth = cat(1, results(idx).cellDepths);
     popdat.(areas{i_area}).cellDiam = cat(1, results(idx).cellDiam);
     popdat.(areas{i_area}).minorAxis = cat(1, results(idx).minorAxis);
@@ -382,9 +393,9 @@ end
 
 
 Nmice = size(unique(mouseName),1);
-Nareas = size(unique(brainArea), 1);
+Nareas = size(unique(brainArea_analysis), 1);
 mice = unique(mouseName);
-areas = unique(brainArea);
+areas = unique(brainArea_analysis);
 
 % Pre-assemble the population structure. Assume that all mice were tested in
 % every brain area, and that there are 4 layers per brain area. This is not
@@ -402,7 +413,7 @@ for i_mouse = 1:Nmice
     for i_area = 1:Nareas
         
         % grab the raw data;
-        idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea, areas{i_area});
+        idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea_analysis, areas{i_area});
         if sum(idx)==0
             
             continue % this brain area was not tested in this mouse.
@@ -547,9 +558,9 @@ tmp_density = tmp_counts ./ tmp_volume;
 % clr_raw, and then color code the mean location with a square (with
 % clr_avg).
 Nmice = size(unique(mouseName),1);
-Nareas = size(unique(brainArea), 1);
+Nareas = size(unique(brainArea_analysis), 1);
 mice = unique(mouseName);
-areas = unique(brainArea);
+areas = unique(brainArea_analysis);
 PLOTRAW = false;
 
 figure; hold on,
@@ -557,7 +568,7 @@ set(gcf, 'position', [296   142   575   620])
 for i_mouse = 1:Nmice
     for i_area = 1:Nareas
         
-        idx = strcmpi(mice{i_mouse}, mouseName) & strcmpi(areas{i_area}, brainArea);
+        idx = strcmpi(mice{i_mouse}, mouseName) & strcmpi(areas{i_area}, brainArea_analysis);
         
         X = -ml_dist(idx);
         Y = -ap_dist(idx);
@@ -592,32 +603,33 @@ PLOTINJ = false;
 
 % GRAB ALL THE DATA FROM ALL MICE
 [all_ap_dist, all_ml_dist, all_norm_ap, all_norm_ml, all_inj_ap] = deal([]);
-[all_mouseName, all_brainArea] = deal({});
+[all_mouseName, all_brainArea_analysis] = deal({});
 for i_type = 1:3
     xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
     [~, txt, raw] =xlsread(xlspath, i_type);
+    error('need to generate a new header index dict')
     
-    all_mouseName = cat(1, all_mouseName, txt(2:end, 1));
-    all_brainArea = cat(1, all_brainArea, txt(2:end, 3));
+    all_mouseName = cat(1, all_mouseName, txt(2:end, hidx.Mouse));
+    all_brainArea_analysis = cat(1, all_brainArea_analysis, txt(2:end, hidx.HVA_analysis));
     Nfiles = size(txt, 1)-1;
     
-    tmp_ap = cat(1, raw{2:end,6});
+    tmp_ap = cat(1, raw{2:end, hidx.ap_distance_to_cc});
     tmp_ap(Nfiles+1:end) = []; % cut the junk that comes along for the ride
     all_ap_dist = cat(1, all_ap_dist, tmp_ap);
     
-    tmp_ml = cat(1, raw{2:end,7});
+    tmp_ml = cat(1, raw{2:end, hidx.ml_distance_to_cc});
     tmp_ml(Nfiles+1:end) = [];
     all_ml_dist = cat(1, all_ml_dist, tmp_ml);
     
-    tmp_norm_fact = cat(1, raw{2:end,9});
-    tmp_norm_fact(Nfiles+1:end) = [];
+    tmp_norm_fact = cat(1, raw{2:end, hidx.AP_norm_fact});
+    tmp_norm_fact(Nfiles+1:end) = []; 
     all_norm_ap = cat(1, all_norm_ap, tmp_norm_fact);
     
-    tmp_norm_fact = cat(1, raw{2:end,10});
+    tmp_norm_fact = cat(1, raw{2:end, hidx.ML_norm_fact});
     tmp_norm_fact(Nfiles+1:end) = [];
     all_norm_ml = cat(1, all_norm_ml, tmp_norm_fact);
     
-    tmp_inj_ap = cat(1, raw{2:end,12});
+    tmp_inj_ap = cat(1, raw{2:end, hidx.V1_inj_um_from_cc});
     tmp_inj_ap(Nfiles+1:end) = [];
     all_inj_ap = cat(1, all_inj_ap, tmp_inj_ap);
 end
@@ -634,16 +646,16 @@ all_norm_ml = all_norm_ml .* umPerPix;
 % clr_raw, and then color code the mean location with a square (with
 % clr_avg).
 Nmice = size(unique(all_mouseName),1);
-Nareas = size(unique(all_brainArea), 1);
+Nareas = size(unique(all_brainArea_analysis), 1);
 mice = unique(all_mouseName);
-areas = unique(all_brainArea);
+areas = unique(all_brainArea_analysis);
 
 figure; hold on,
 set(gcf, 'position', [296   142   575   620])
 for i_mouse = 1:Nmice
     for i_area = 1:Nareas
         
-        idx = strcmpi(mice{i_mouse}, all_mouseName) & strcmpi(areas{i_area}, all_brainArea);
+        idx = strcmpi(mice{i_mouse}, all_mouseName) & strcmpi(areas{i_area}, all_brainArea_analysis);
         
         if sum(idx) == 0
             continue

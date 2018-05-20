@@ -106,7 +106,7 @@ pool = gcp('nocreate');
 if isempty(pool)
     pool = parpool();
 end
-parfor i_ex_par = 1:Nexpts
+for i_ex_par = 200:Nexpts
     dat{i_ex_par} = wcstp_compile_data(attributes{i_ex_par}, hidx, params);
     close all
 end
@@ -346,8 +346,10 @@ close all; clc
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 plotgroups = {
-    'PY', 'L23', 'med', 'any';...
-    'PY', 'L23', 'lat', 'any'
+    'PY', 'L23', 'AM', 'any';...
+    'PY', 'L23', 'PM', 'any';...
+    'PY', 'L23', 'AL', 'any';...
+    'PY', 'L23', 'LM', 'any';...
     };
 
 groupdata.Rin_peak = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(plotgroups, 1). Each cell has a matrix with a cononicalGrid:
@@ -2176,15 +2178,14 @@ end
 PLOT_RAW_DATA = false;
 PLOT_AVG_DATA = true;
 PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
+PLOT_AVG_MANIFOLD = true;
 
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'LM', 'chief';...
-    'PY', 'L23', 'AL', 'chief';...
-    'PY', 'L23', 'PM', 'chief';...
-    'PY', 'L23', 'AM', 'chief';...
+    'PY', 'L23', 'med', 'chief';...
+    'PY', 'L23', 'lat', 'chief';...
     };
 
 allTFs = recovpop.TFsAllExpts;
@@ -2200,6 +2201,9 @@ template = repmat({[]}, Ntfs, Nrecovs+1);
 groupdata = [];
 groupdata.wfs = repmat({template}, size(man_plotgrps,1), 1);
 groupdata.amps = repmat({template}, size(man_plotgrps,1), 1);
+
+empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
+[groupdata_smooth, group_params] = deal(empty_array);
 
 % iterate over the experiments. For each recording channel, determine what
 % the attributes are, and place the data in the correct ploting group.
@@ -2273,7 +2277,10 @@ for i_ex = 1:numel(dat)
                 groupdata.amps{group_idx}{row_idx, col_idx} = tmp_group;
             end
         end
-        
+        if PLOT_AVG_MANIFOLD
+            groupdata_smooth{group_idx} = cat(3, groupdata_smooth{group_idx}, pprpop.smoothManifold{i_ex}{i_ch});
+            group_params{group_idx} = cat(1, group_params{group_idx}, pprpop.params{i_ex}{i_ch});
+        end
     end
 end
 
@@ -2427,6 +2434,14 @@ for i_group = 1:size(man_plotgrps, 1)
                     recov_amps(i_recov) = pred_amps(end);
                 end
                 plot([xx_trains, xx_recov], [train_amps, recov_amps], '--', 'color', plt_clr)
+            end
+            if PLOT_AVG_MANIFOLD
+                train_isi_ms = 1000 ./ allTFs(i_tf);
+                [~, smooth_tf_idx] = min(abs(pprpop.smoothManifold_isi_ms - train_isi_ms));
+                N_pulses_smooth = pprpop.smoothManifold_numPulses;
+                
+                grid_average = nanmean(groupdata_smooth{i_group}, 3);
+                h_smooth = plot(1:N_pulses_smooth, grid_average(:, smooth_tf_idx), '--', 'color', plt_clr);
             end
         end
         
@@ -3084,6 +3099,7 @@ for i_ex = 1:numel(dat)   %  i_ex = 17,46 is a good one for debugging.
         
     end
     drawnow
+    clf
     
     
 end
@@ -3759,8 +3775,10 @@ PLOT_DATASETS_INDIVIDUALLY = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    %'all_som', 'L23', 'any', 'any';...
-    'all_pv', 'L23', 'any', 'any';...
+    'PY', 'L23', 'PM', 'chief';...
+    'PY', 'L23', 'AM', 'chief';...
+    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'AL', 'chief';...
     };
 
 empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
@@ -4009,6 +4027,72 @@ if PLOT_DATASETS_INDIVIDUALLY
         
     end
 end
+
+%% PLOT THE RATIO OF THE MANIFOLDS
+close all; clc
+
+% plot the average smoothManifold
+isi_ms = pprpop.smoothManifold_isi_ms;
+N_pulses_smooth = pprpop.smoothManifold_numPulses;
+X = 1000./isi_ms;
+Y = N_pulses_smooth:-1:1;
+
+grid_averages = {};
+min_val = Inf;
+max_val = -Inf;
+max_abs_diff = 0;
+for i_group = 1:numel(groupdata_raw)
+    grid_averages{i_group} = nanmean(groupdata_smooth{i_group}, 3);
+    min_val = min(min_val, min(reshape(grid_averages{i_group}(2:end,:), 1, [])));
+    max_val = max(max_val, max(reshape(grid_averages{i_group}(2:end,:), 1, [])));
+    max_abs_diff = max(abs(min_val-1), abs(max_val-1));
+end
+
+plt_x = round(linspace(1, numel(X), 5));
+plt_x_labels = round(X(plt_x));
+
+f = figure;
+f.Position = [17         508        1391         273];
+for i_group = 1:numel(grid_averages)
+    subplot(1, numel(grid_averages)+1, i_group)
+    manifold = grid_averages{i_group}(2:end, :);
+    imagesc(manifold)
+    set(gca, 'xtick', plt_x, 'xticklabels', plt_x_labels)
+    set(gca, 'ytick', [1:9], 'yticklabel', [2:10]) 
+    axis tight
+    colorbar
+    colormap(brewermap(256, '*RdYlBu'))
+%     caxis([1-max_abs_diff, 1+max_abs_diff])
+    xlabel('temporal frequency')
+    ylabel('pulse number')
+    title(sprintf('HVA: %s', man_plotgrps{i_group,3}))
+end
+
+ratio = grid_averages{1}(2:end, :) ./ grid_averages{2}(2:end, :);
+diffvals = grid_averages{1}(2:end, :) - grid_averages{2}(2:end, :);
+
+y_raw = [1:9];
+y_interp = 1:0.01:9;
+x_raw = 1000./isi_ms;
+x_interp = x_raw;
+
+[X,Y] = meshgrid(x_raw, y_raw);
+diffvals = interp2(X, Y, diffvals, x_interp, y_interp(:));
+plt_max_val = max(abs(diffvals(:)));
+
+subplot(1, numel(grid_averages)+1, numel(grid_averages)+1)
+imagesc(diffvals)
+set(gca, 'xtick', plt_x, 'xticklabels', plt_x_labels)
+set(gca, 'ytick', [1:100:900], 'yticklabel', [2:10]) 
+axis tight
+colorbar
+% caxis([-plt_max_val, plt_max_val])
+xlabel('temporal frequency')
+ylabel('pulse number')
+title('ratio')
+
+
+
 
 %%  FIT THE "GRAND AVERAGE" MANIFOLDS
 % the manifold of the average params is dead wrong. Instead, find the 
@@ -4328,7 +4412,7 @@ end
 
 %% INTERNEURON LATENCY ANALYSIS (DATA COLLECTION)
 
-ENFORCE_MIN_EPSC = false;
+ENFORCE_MIN_EPSC = true;
 
 % this analysis is only reasonable when the INs are recorded simultaneous
 % to the PY cells.
@@ -4359,7 +4443,7 @@ for i_ex = 1:numel(dat)
     % latencys
     %
     %%%%%%%
-    latency_pop.dat{i_ex}.p1_latency = {};
+    latency_pop.dat{i_ex}.p1_latency_ms = {};
     latency_pop.dat{i_ex}.p1_wf = {};
     condnames = fieldnames(dat{i_ex}.expt);
     for i_ch = 1:2
@@ -4374,9 +4458,21 @@ for i_ex = 1:numel(dat)
         minval = min(avg_p1_wf(peak_window));
         eq2min = avg_p1_wf == minval;
         peak_idx = find(eq2min & peak_window, 1, 'first');
-        p1_latency = tt(peak_idx);
+        p1_latency_ms = tt(peak_idx) * 1000;
         
-        latency_pop.dat{i_ex}.p1_latency{i_ch} = p1_latency;
+        % estimate the EPSCs rise moment
+        threshold = std(avg_p1_wf(tt<0)) * -4 + mean(avg_p1_wf(tt<0));
+        below_thresh = avg_p1_wf < threshold;
+        below_thresh(peak_idx:end) = false;
+        below_thresh(tt<0) = false;
+        rise_idx = find(below_thresh, 1, 'first');
+        if ~isempty(rise_idx)
+            p1_latency_rise_ms = tt(rise_idx) * 1000;
+        else
+            p1_latency_rise_ms = nan;
+        end
+        
+        latency_pop.dat{i_ex}.p1_latency_ms{i_ch} = p1_latency_rise_ms;
         latency_pop.dat{i_ex}.p1_wf{i_ch} = avg_p1_wf;
     end
 end
@@ -4384,7 +4480,7 @@ end
 
 %% INTERNEURON LATENCY ANALYSIS (PLOT RAW WAVEFORMS)
 
-NORM_WF = true;
+NORM_WF = false;
 
 close all; clc
 assert(strcmp(EXPTTYPE, 'IN_strength'), 'ERROR: not the correct type of experiment for latency analysis')
@@ -4577,7 +4673,7 @@ for i_ex = 1:numel(dat)
             latency_idx = strcmp(row_names, 'PY_latency');
         end
         
-        ex_template{latency_idx} = latency_pop.dat{i_ex}.p1_latency{i_ch};
+        ex_template{latency_idx} = latency_pop.dat{i_ex}.p1_latency_ms{i_ch};
         
     end
     
@@ -4590,7 +4686,7 @@ t_latency.diffval = minus(t_latency.IN_latency, t_latency.PY_latency);
 % summary table:
 t_xbar = grpstats(t_latency,...
                   {'BrainArea','IN_type'},...
-                  {'mean'},...
+                  {'nanmean'},...
                   'DataVars', {'PY_latency', 'IN_latency', 'diffval'},...
                   'VarNames', {'BrainArea','IN_type','GroupCount','PY_mean','IN_mean', 'diff_mean'})
               
@@ -4638,7 +4734,7 @@ hl.Interpreter = 'None';
 hl.Location = 'Best';
 hl.Box = 'off';
 title('diff val: IN - PY')
-ylabel('latency (sec)')
+ylabel('latency (ms)')
 xlabel('brain area')
 set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
 
@@ -4648,14 +4744,14 @@ for i_in = 1:numel(unique_cell_types)
     errorbar(1:numel(unique_areas), py_xbar(:,i_in), py_sem(:,i_in),...
         'linewidth', 3, 'color', in_pltclrs{i_in})
 end
-ylim([3e-3, 5.8e-3])
+% ylim([3e-3, 5.8e-3])
 xlim([0.75, xmax+.25])
 hl = legend(unique_cell_types);
 hl.Interpreter = 'None';
 hl.Location = 'Best';
 hl.Box = 'off';
 title('raw latency PY only')
-ylabel('latency (sec)')
+ylabel('latency (ms)')
 xlabel('brain area')
 set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
 
@@ -4666,14 +4762,14 @@ for i_in = 1:numel(unique_cell_types)
     errorbar(1:numel(unique_areas), in_xbar(:,i_in), in_sem(:,i_in),...
         'linewidth', 3, 'color', in_pltclrs{i_in})
 end
-ylim([3e-3, 5.8e-3])
+% ylim([3e-3, 5.8e-3])
 xlim([0.75, xmax+.25])
 hl = legend(unique_cell_types);
 hl.Interpreter = 'None';
 hl.Location = 'Best';
 hl.Box = 'off';
 title('raw latency IN only')
-ylabel('latency (sec)')
+ylabel('latency (ms)')
 xlabel('brain area')
 set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
 

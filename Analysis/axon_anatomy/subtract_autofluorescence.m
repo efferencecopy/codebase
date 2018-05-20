@@ -1,12 +1,12 @@
+function dat = subtract_autofluorescence(dat, all_hvas)
 
-close all; clc;
 
 mouse_names = fieldnames(dat);
 plt_clr = 'k'; % so that the user is agnostic to area
-for mouse = mouse_names(1)'
+for mouse = mouse_names'
     mouse = mouse{1};
     hf = figure;
-    hf.Position = [440 393 1338 405];
+    hf.Position = [32         273        1338         405];
     ax1 = subplot(1,2,1); hold on,
     raw_profiles = struct();
     for i_hva = 1:numel(all_hvas)
@@ -58,7 +58,7 @@ for mouse = mouse_names(1)'
         
         % omit stuff that's negative
         l_neg = subtracted_profile < 0;
-        subtracted_profile(l_neg) = nan;
+        subtracted_profile(l_neg) = 0;
         
         % store the new values
         baselined_profiles.(all_hvas{i_hva}).xx_common = xx_baseline;
@@ -70,4 +70,10 @@ for mouse = mouse_names(1)'
     end
     ylabel('Baseline subtracted Fluroescence');
     axis tight
+    
+    % include these data in the dat struct for persistance
+    dat.(mouse).avg_profiles = raw_profiles;
+    dat.(mouse).baselined_profiles = baselined_profiles;
+    dat.(mouse).baseline_coeffs = coeff;
+    
 end

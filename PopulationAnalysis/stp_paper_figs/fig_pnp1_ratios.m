@@ -1,4 +1,4 @@
-function [recovpop, groupdata] = fig_pnp1_ratios(dat, plotgroups)
+function [recovpop, groupdata] = fig_pnp1_ratios(dat, plotgroups, pprpop, options)
 
 
 MIN_TRL_COUNT = 0; % set to 0 to turn off
@@ -17,11 +17,6 @@ for i_ex = 1:numel(dat)
     recovpop.dat{i_ex}.psc_wfs = {};
     recovpop.dat{i_ex}.ignore={[],[]};
     
-    % check the attributes
-    ch_attribs = {'PY_L23', dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
-    group_idx = groupMatcher(plotgroups, ch_attribs);
-    if sum(group_idx) == 0; continue; end
-    
     % find the normal trains. Assume the field name is NOT 'ritv'
     condnames = fieldnames(dat{i_ex}.expt);
     l_trains = ~strncmp(condnames, 'RITv', 4);
@@ -32,9 +27,11 @@ for i_ex = 1:numel(dat)
     trainParams = cat(1, trainParams{:});
     recovpop.trainParams{i_ex} = trainParams;
     unique_tfs = unique(trainParams(:,3));
+    if numel(unique_tfs) ~= 3 || ~all(unique_tfs(:)' == [12,25,50]); continue; end
     unique_recov = unique(trainParams(:,4));
     unique_recov(unique_recov == 0) = [];
     if isempty(unique_recov); continue; end
+    if numel(unique_recov) > 3; continue; end
     
     % make sure the pulse amplitude and width were identical across ttypes
     assert(numel(unique(trainParams(:,1)))==1, 'ERROR: more than one pulse amplitude')
@@ -45,6 +42,11 @@ for i_ex = 1:numel(dat)
     Ntfs = numel(unique_tfs);
     Nrecov = numel(unique_recov);
     for i_ch = 1:2
+        
+        % check the attributes
+        ch_attribs = {dat{i_ex}.info.cellType{i_ch}, dat{i_ex}.info.brainArea, dat{i_ex}.info.opsin};
+        group_idx = groupMatcher(plotgroups, ch_attribs);
+        if sum(group_idx) == 0; continue; end
         
         % remove instances where there is insufficient data to constrain
         % the fit
@@ -143,14 +145,32 @@ groupdata = [];
 groupdata.wfs = repmat({template}, size(plotgroups,1), 1);
 groupdata.amps = repmat({template}, size(plotgroups,1), 1);
 
+empty_array = repmat({[]}, 1, size(plotgroups, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
+[groupdata_smooth, group_params] = deal(empty_array);
+
+
 % iterate over the experiments. For each recording channel, determine what
 % the attributes are, and place the data in the correct ploting group.
 for i_ex = 1:numel(dat)
     
     % skip experiments that have no data (i.e., trains but no recovery)
-    if isempty(recovpop.dat{i_ex});
-        disp('here')
+    if isempty(recovpop.dat{i_ex}.psc_amps);
         continue;
+    end
+    
+    % for IN recordings, force a paired recording setup
+    if options.FORCE_PAIRED_RECORDINGS
+        if ~all(dat{i_ex}.info.HS_is_valid_Vclamp)
+            continue
+        end
+        if ~any(strcmpi(dat{i_ex}.info.cellType, 'py_l23')) % check for PY cell
+            continue
+        end
+        in_types = {'pvcre_l23', 'fs_l23', 'somcre_l23', 'ltsin_l23', 'all_som', 'all_pv'};
+        at_least_1_in = any(cellfun(@(x) any(strcmpi(in_types, x)), dat{i_ex}.info.cellType));
+        if ~at_least_1_in
+            continue
+        end
     end
     
     for i_ch = 1:2
@@ -224,7 +244,10 @@ for i_ex = 1:numel(dat)
                 groupdata.amps{group_idx}{row_idx, col_idx} = tmp_group;
             end
         end
-        
+        if options.PLOT_AVG_MANIFOLD
+            groupdata_smooth{group_idx} = cat(3, groupdata_smooth{group_idx}, pprpop.smoothManifold{i_ex}{i_ch});
+            group_params{group_idx} = cat(1, group_params{group_idx}, pprpop.params{i_ex}{i_ch});
+        end
     end
 end
 
@@ -265,11 +288,23 @@ for i_group = 1:size(plotgroups, 1)
             sem_recov = stderr(recov_amps, 1);
             xx_recov = numel(xbar_trains)+1 : numel(xbar_trains)+numel(xbar_recov);
             
-            % plot
-            hp = my_errorbar(xx_trains, xbar_trains, sem_trains, 'color', plt_clr, 'linewidth', 2);
-            my_errorbar(xx_recov, xbar_recov, sem_recov, 'o', 'markerfacecolor', plt_clr, 'markeredgecolor', plt_clr, 'color', plt_clr, 'linewidth', 2);
+            % plot pulses 1:10
+            if options.PLOT_AVG_MANIFOLD
+                train_isi_ms = 1000 ./ allTFs(i_tf);
+                [~, smooth_tf_idx] = min(abs(pprpop.smoothManifold_isi_ms - train_isi_ms));
+                N_pulses_smooth = pprpop.smoothManifold_numPulses;
+                
+                grid_average = nanmean(groupdata_smooth{i_group}, 3);
+                hp = plot(1:N_pulses_smooth, grid_average(:, smooth_tf_idx), 'color', plt_clr, 'linewidth', 2);
+                my_errorbar(xx_trains, xbar_trains, sem_trains, 'o', 'markerfacecolor', plt_clr, 'markeredgecolor', plt_clr, 'color', plt_clr, 'linewidth', 2);
+            else
+                hp = my_errorbar(xx_trains, xbar_trains, sem_trains, 'color', plt_clr, 'linewidth', 2);
+            end
             leghand{i_tf}(end+1) = hp(1);
             legtext{i_tf}{end+1} = sprintf('%s, %s, %s, N=%d', plotgroups{i_group,1}, plotgroups{i_group,2}, plotgroups{i_group,3}, N_expts);
+            
+            % plot the recovery pulses
+            my_errorbar(xx_recov, xbar_recov, sem_recov, 'o', 'markerfacecolor', plt_clr, 'markeredgecolor', plt_clr, 'color', plt_clr, 'linewidth', 2);
         end
         
     end
@@ -286,6 +321,11 @@ for i_tf = 1:Ntfs
     title(plt_string, 'fontsize', 12)
     legend(leghand{i_tf}, legtext{i_tf}, 'location', 'best', 'interpreter', 'none')
     legend boxoff
-    ylim([0.80, 1.65])
+    if options.LOG_SPACE
+        set(gca, 'yscale', 'log')
+        ylim([0.4, 10.5])
+    else        
+        ylim([0.80, 1.65])
+    end
 end
 
