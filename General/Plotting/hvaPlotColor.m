@@ -1,7 +1,7 @@
 function plt_clr = hvaPlotColor(hva)
 
 switch lower(hva)
-    case {'pm', 'med'}
+    case {'pm', 'med', 'all_som'}
         plt_clr = [0, 0.4470, 0.7410];
         
     case 'al'
@@ -13,7 +13,7 @@ switch lower(hva)
     case 'am'
         plt_clr = [0.4940    0.1840    0.5560];
              
-    case 'erc'
+    case {'erc', 'all_pv'}
         plt_clr = [0 0.5 0];
         
     otherwise

@@ -106,9 +106,8 @@ pool = gcp('nocreate');
 if isempty(pool)
     pool = parpool();
 end
-for i_ex_par = 200:Nexpts
+parfor i_ex_par = 1:Nexpts
     dat{i_ex_par} = wcstp_compile_data(attributes{i_ex_par}, hidx, params);
-    close all
 end
 fprintf('All done importing data\n')
 
@@ -225,7 +224,7 @@ fprintf('deleted %d experiments\n', sum(~l_mice_with_2HVAs))
 
 close all
 
-for i_ex = 180:numel(dat)
+for i_ex = 1:numel(dat)
 
     f = figure;
     f.Name = sprintf('Mouse %s, site %s, HVA: %s', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, dat{i_ex}.info.brainArea);
@@ -2045,6 +2044,7 @@ end
 
 
 
+
 %% V-CLAMP POPULATION ANALYSIS (DATA COLLECTION)
 
 % loop through the experiments. Pull out the trains data. Ignore the
@@ -2178,7 +2178,7 @@ end
 PLOT_RAW_DATA = false;
 PLOT_AVG_DATA = true;
 PLOT_MANIFOLD_OF_AVG_RAW_DATA = false;
-PLOT_AVG_MANIFOLD = true;
+PLOT_AVG_MANIFOLD = false;
 
 % define a set of attributes for each analysis group
 % {CellType, Layer,  BrainArea,  OpsinType}
@@ -3775,10 +3775,8 @@ PLOT_DATASETS_INDIVIDUALLY = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'PM', 'chief';...
-    'PY', 'L23', 'AM', 'chief';...
-    'PY', 'L23', 'LM', 'chief';...
-    'PY', 'L23', 'AL', 'chief';...
+    'PY', 'L23', 'med', 'chief';...
+    'PY', 'L23', 'lat', 'chief';...
     };
 
 empty_array = repmat({[]}, 1, size(man_plotgrps, 1)); % should only have N cells, where N = size(man_plotgrps, 1). Each cell has a matrix with a cononicalGrid:
@@ -4038,11 +4036,13 @@ X = 1000./isi_ms;
 Y = N_pulses_smooth:-1:1;
 
 grid_averages = {};
+grid_SDs = {};
 min_val = Inf;
 max_val = -Inf;
 max_abs_diff = 0;
 for i_group = 1:numel(groupdata_raw)
     grid_averages{i_group} = nanmean(groupdata_smooth{i_group}, 3);
+    grid_SDs{i_group} = nanstd(groupdata_smooth{i_group}, [], 3);
     min_val = min(min_val, min(reshape(grid_averages{i_group}(2:end,:), 1, [])));
     max_val = max(max_val, max(reshape(grid_averages{i_group}(2:end,:), 1, [])));
     max_abs_diff = max(abs(min_val-1), abs(max_val-1));
@@ -4062,34 +4062,25 @@ for i_group = 1:numel(grid_averages)
     axis tight
     colorbar
     colormap(brewermap(256, '*RdYlBu'))
-%     caxis([1-max_abs_diff, 1+max_abs_diff])
+    caxis([0.97, 1.42])
     xlabel('temporal frequency')
     ylabel('pulse number')
     title(sprintf('HVA: %s', man_plotgrps{i_group,3}))
 end
 
-ratio = grid_averages{1}(2:end, :) ./ grid_averages{2}(2:end, :);
 diffvals = grid_averages{1}(2:end, :) - grid_averages{2}(2:end, :);
-
-y_raw = [1:9];
-y_interp = 1:0.01:9;
-x_raw = 1000./isi_ms;
-x_interp = x_raw;
-
-[X,Y] = meshgrid(x_raw, y_raw);
-diffvals = interp2(X, Y, diffvals, x_interp, y_interp(:));
-plt_max_val = max(abs(diffvals(:)));
+pool_SDs = (grid_SDs{1} + grid_SDs{2}) ./ 2;
+zscores = diffvals ./ pool_SDs(2:end, :);
 
 subplot(1, numel(grid_averages)+1, numel(grid_averages)+1)
-imagesc(diffvals)
+imagesc(zscores)
 set(gca, 'xtick', plt_x, 'xticklabels', plt_x_labels)
-set(gca, 'ytick', [1:100:900], 'yticklabel', [2:10]) 
+set(gca, 'ytick', [1:9], 'yticklabel', [2:10]) 
 axis tight
 colorbar
-% caxis([-plt_max_val, plt_max_val])
 xlabel('temporal frequency')
 ylabel('pulse number')
-title('ratio')
+title('difference (Z-score)')
 
 
 
@@ -4412,7 +4403,7 @@ end
 
 %% INTERNEURON LATENCY ANALYSIS (DATA COLLECTION)
 
-ENFORCE_MIN_EPSC = true;
+ENFORCE_MIN_EPSC = false;
 
 % this analysis is only reasonable when the INs are recorded simultaneous
 % to the PY cells.
@@ -4445,6 +4436,7 @@ for i_ex = 1:numel(dat)
     %%%%%%%
     latency_pop.dat{i_ex}.p1_latency_ms = {};
     latency_pop.dat{i_ex}.p1_wf = {};
+    latency_pop.dat{i_ex}.all_p1_wfs = {};
     condnames = fieldnames(dat{i_ex}.expt);
     for i_ch = 1:2
         wfs = cellfun(@(x) dat{i_ex}.expt.(x).raw.snips{i_ch}(1,:,:), condnames, 'uniformoutput', false);
@@ -4474,6 +4466,7 @@ for i_ex = 1:numel(dat)
         
         latency_pop.dat{i_ex}.p1_latency_ms{i_ch} = p1_latency_rise_ms;
         latency_pop.dat{i_ex}.p1_wf{i_ch} = avg_p1_wf;
+        latency_pop.dat{i_ex}.all_p1_wfs{i_ch} = wfs;
     end
 end
 
@@ -4603,6 +4596,8 @@ for i_in = 1:numel(cell_type_list)
         title(sprintf('%s-tom cells', cell_type_list{i_in}), 'fontsize', 14)
     end
 end
+
+
 %% INTERNEURON LATENCY ANALYSIS (PLOTS)
 
 
@@ -4681,7 +4676,7 @@ for i_ex = 1:numel(dat)
 end
 
 t_latency = cell2table(groupdata, 'VariableNames', row_names);
-t_latency.diffval = minus(t_latency.IN_latency, t_latency.PY_latency);
+t_latency.diffval = minus(t_latency.PY_latency, t_latency.IN_latency);
 
 % summary table:
 t_xbar = grpstats(t_latency,...
@@ -4733,7 +4728,7 @@ hl = legend(unique_cell_types);
 hl.Interpreter = 'None';
 hl.Location = 'Best';
 hl.Box = 'off';
-title('diff val: IN - PY')
+title('diff val: PY - IN')
 ylabel('latency (ms)')
 xlabel('brain area')
 set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
@@ -4919,6 +4914,13 @@ for i_ex = 1:numel(dat)
     end
     
     groupdata(i_ex,:) = ex_template;
+    
+%     % print some details
+%     IN_idx = strcmp(row_names, 'IN_amp');
+%     PY_idx = strcmp(row_names, 'PY_amp');
+%     ratval = groupdata{i_ex, IN_idx} ./ groupdata{i_ex, PY_idx};
+%     fprintf('%s, %s, %.2f \n', dat{i_ex}.info.mouseName, dat{i_ex}.info.siteNum, ratval)
+    
 end
 
 t_amp = cell2table(groupdata, 'VariableNames', row_names);
@@ -4990,7 +4992,11 @@ for i_in = 1:numel(unique_cell_types)
     xlabel('brain area', 'fontsize', 14)
     set(gca, 'tickDir', 'out', 'xticklabel', unique_areas, 'box', 'off')
     set(gca, 'yscale', 'linear')
+    
+    % stats for IN strength
+    [h,p, ~, stats] = ttest2(log(all_ratio_vals{1, i_in}), log(all_ratio_vals{2, i_in}))
 end
+
 
 
 

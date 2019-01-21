@@ -28,15 +28,18 @@ for i_ex = 1:numel(dat)
         
         % add the statistics to the appropriate cell array
         if isfield(dat{i_ex}.dcsteps, 'tau') && ~isempty(dat{i_ex}.dcsteps.tau{i_ch})
-            tmp_all_tau = dat{i_ex}.dcsteps.tau{i_ch}(:,3);
+            tmp_all_tau = dat{i_ex}.dcsteps.tau{i_ch}(:,4);
             tmp_Icmd = dat{i_ex}.dcsteps.tau{i_ch}(:,1);
             
-            if any(tmp_Icmd==30) && any(tmp_Icmd == -30)
-                tau_pos_30pA = tmp_all_tau(tmp_Icmd==30);
-                tau_neg_30pA = tmp_all_tau(tmp_Icmd == -30);
-                
-                groupdata.tau_neg{group_idx} = cat(1, groupdata.tau_neg{group_idx}, tau_neg_30pA);
+            l_pos_cmd = (tmp_Icmd > 25) & (tmp_Icmd < 35);
+            if any(l_pos_cmd) 
+                tau_pos_30pA = tmp_all_tau(l_pos_cmd);
                 groupdata.tau_pos{group_idx} = cat(1, groupdata.tau_pos{group_idx}, tau_pos_30pA);
+            end 
+            l_neg_cmd = (tmp_Icmd < -25) & (tmp_Icmd > -35);
+            if any(l_neg_cmd)
+                tau_neg_30pA = tmp_all_tau(l_neg_cmd);
+                groupdata.tau_neg{group_idx} = cat(1, groupdata.tau_neg{group_idx}, tau_neg_30pA);
             end
         end
     end
@@ -47,7 +50,8 @@ f = figure; hold on,
 f.Position = [440   156   561   642];
 allTaus = cat(1, groupdata.tau_pos{:}, groupdata.tau_neg{:});
 edges_taus = linspace(min(allTaus)-0.002, 0.050, 50).*1000;
-legtext = {};
+legtext_neg = {};
+legtext_pos = {};
 for i_group = 1:numel(groupdata.tau_pos)
     hva_name = plotgroups{i_group, 3};
     grp_clr = hvaPlotColor(hva_name);
@@ -58,7 +62,7 @@ for i_group = 1:numel(groupdata.tau_pos)
     cdf_vals = cumsum(N)./sum(N);
     stairs(edges_taus, cdf_vals, '-', 'color', grp_clr)
     num_cells = numel(groupdata.tau_pos{i_group});
-    legtext{i_group} = sprintf('%s, %s, %s, n=%d', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3}, num_cells);
+    legtext_pos{i_group} = sprintf('%s, %s, %s, n=%d', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3}, num_cells);
     force_consistent_figs(gca, 'ax');
     xlabel('Time constant (ms)')
     ylabel('Proportion')
@@ -70,15 +74,21 @@ for i_group = 1:numel(groupdata.tau_pos)
     N = [0, N];
     cdf_vals = cumsum(N)./sum(N);
     stairs(edges_taus, cdf_vals, '-', 'color', grp_clr)
+    num_cells = numel(groupdata.tau_neg{i_group});
+    legtext_neg{i_group} = sprintf('%s, %s, %s, n=%d', plotgroups{i_group,1},plotgroups{i_group, 2},plotgroups{i_group,3}, num_cells);
     force_consistent_figs(gca, 'ax');
     xlabel('Time constant (ms)')
     ylabel('Proportion')
     title('Tau from -30 pA cmd')
 end
-hl = legend(legtext, 'Location', 'best');
+subplot(2,1,1)
+hl = legend(legtext_pos, 'Location', 'best');
 hl.Interpreter = 'none';
 legend boxoff
-
+subplot(2,1,2)
+h2 = legend(legtext_neg, 'Location', 'best');
+h2.Interpreter = 'none';
+legend boxoff
 
 %
 %  box plot of Rin

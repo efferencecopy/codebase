@@ -174,6 +174,7 @@ Ngroups = size(plotgroups,1);
 facealpha = linspace(1, 0.5, Ntfs);
 x_vals = []; % xbar and sem for each tf
 y_vals = []; % xbar and sem for each tf
+p2_vals = []; % xbar for pulse 2 data
 for i_group = 1:Ngroups
     plt_clr = hvaPlotColor(plotgroups{i_group, 3});
     
@@ -182,9 +183,10 @@ for i_group = 1:Ngroups
         
         X = pprs(:, XP);
         Y = pprs(:, YP);
+        Z = pprs(:, 2);
         xvals(i_group, :, i_tf) = [mean(X), stderr(X)];
         yvals(i_group, :, i_tf) = [mean(Y), stderr(Y)];
-        
+        p2_vals(i_group, :, i_tf) = [mean(Z), stderr(Z)];
         scatter(X, Y, 40, 'o', 'markeredgecolor', 'w',...
                                'markerfacecolor', plt_clr,...
                                'markerfacealpha', facealpha(i_tf))
@@ -216,6 +218,18 @@ for i_group = 1:Ngroups
                                'markerfacecolor', plt_clr,...
                                'markerfacealpha', facealpha(i_tf))
     end
+    
+%     % if this is for the lateral HVA, re-plot after shifting so that P2s
+%     % are equal
+%     if strcmpi(plotgroups{i_group, 3}, 'lat')
+%         p2_vals_lat = permute(p2_vals(i_group, 1, :), [3,1,2]);
+%         idx_med = strcmpi(plotgroups(:, 3), 'med');
+%         p2_vals_med = permute(p2_vals(idx_med, 1, :), [3,1,2]);
+%         new_x_xbar = x_xbar - p2_vals_lat + p2_vals_med;
+%         new_y_xbar = y_xbar - p2_vals_lat + p2_vals_med;
+%         plot(new_x_xbar, new_y_xbar, '--', 'color', plt_clr, 'linewidth', 2)
+%     end
+    
     
 end
 xlabel(sprintf('Pulse %d (normalized)', XP))

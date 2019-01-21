@@ -27,9 +27,9 @@
 
 %% LOAD IN ALL THE DATA
 
-fin
-dat = load_all_data();
-save \\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed.mat dat -v7.3
+% fin
+% dat = load_all_data();
+save \\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed_13z_tlx_emx_only_baselined.mat dat -v7.3
 fprintf('All done importing the data\n')
 
 
@@ -37,8 +37,9 @@ fprintf('All done importing the data\n')
 
 % the load command defines 'dat', which is a structure array
 fin
-load('\\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed.mat')
-
+load('\\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed_13z_tlx_emx_only.mat')
+dat = dat_small;
+clear dat_small
 
 %% QC PLOT: Z-PROFILES
 
@@ -87,7 +88,7 @@ plot_avg_density_profile_within_mice(dat, all_hvas, NORMALIZE, PROFILE_TYPE);
 
 close all; clc
 
-NORMALIZE = 'none';
+NORMALIZE = 'max';
 PROFILE_TYPE = 'baselined';
 all_hvas = {'lm', 'al', 'pm', 'am'};
 
@@ -101,9 +102,12 @@ close all; clc
 
 all_hvas = {'lm', 'al', 'pm', 'am'};
 dat = get_average_layer_boundaries(dat, all_hvas);
+
+% do not normalize the data to anything (will happen in plot function)
 hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
 
-plot_absolute_axon_density_across_mice(hva_aggs, all_hvas);
+
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'self');
 
 
 

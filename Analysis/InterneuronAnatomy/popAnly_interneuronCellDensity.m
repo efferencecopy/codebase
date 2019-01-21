@@ -106,7 +106,7 @@ areas = unique(brainArea_analysis);
 % true in every case, so pad with NaNs.
 
 popdat = [];
-allHVAs = {'PM', 'AL', 'AM', 'RL', 'ERC'};
+allHVAs = {'AL', 'PM', 'AM', 'RL', 'ERC'};
 for i_area = 1:numel(allHVAs)
     popdat.(allHVAs{i_area}).totalVolume = nan(4, Nmice); %The array is Nlayers x Nmice
     popdat.(allHVAs{i_area}).cellCount = nan(4, Nmice);
@@ -118,7 +118,7 @@ for i_mouse = 1:Nmice
         
         % grab the raw data;
         idx = strcmpi(mouseName, mice{i_mouse}) & strcmpi(brainArea_analysis, areas{i_area});
-        if sum(idx)==0
+        if sum(idx)<4
          
             continue % this brain area was not tested in this mouse.
             
@@ -157,9 +157,7 @@ for i_mouse = 1:Nmice
             % each mouse
             tmp_volume = sum(tmp_volume, 2);
             tmp_counts = sum(tmp_counts, 2);
-            
-        else
-            error('Incorrect number of matches')
+           
         end
         
         % the population data. The array is Nlayers x Nmice
@@ -175,7 +173,7 @@ end
 
 
 % simple plot of volume, counts, density for each area and layer
-areas = {'PM', 'AL', 'AM', 'RL', 'ERC'};
+areas = {'PM', 'LM', 'AM', 'AL'} %, 'RL', 'ERC'};
 figure
 set(gcf, 'position', [184    35   764   746])
 for i_area = 1:numel(areas);
@@ -264,7 +262,7 @@ end
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
 layers = [1]; % 1= L2/3, 2=L4, 3=L5, 4=L6
-normArea = 2; % 1=PM, 2=AL
+normArea = 1;
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
     
@@ -297,6 +295,48 @@ set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
 legend(unique(mouseName))
 
+%% BAR PLOTS OF DENSITY
+
+% Plot of density, integrated across specific layers, and comparing across
+% brain areas
+layers = [1]; % 1= L2/3, 2=L4, 3=L5, 4=L6
+normArea = 1;
+densityAcrossLayers = [];
+for i_area = 1:numel(areas);
+    
+    tmp_volume = volume{i_area}(layers,:); % [Nareas, Nmice]
+    tmp_counts = counts{i_area}(layers,:); % [Nareas, Nmice]
+    
+    tmp_density = sum(tmp_counts, 1) ./ sum(tmp_volume, 1);
+    densityAcrossLayers(i_area,:) = tmp_density; % notice that the dim is [Nareas x Nmice]
+end
+
+% analyze only paired data
+l_mouse_has_all_areas = ~any(isnan(densityAcrossLayers), 1);
+densityAcrossLayers = densityAcrossLayers(:, l_mouse_has_all_areas);
+
+% now plotting percent change relative to a single area
+figure, hold on,
+diff_vals = bsxfun(@minus, densityAcrossLayers, densityAcrossLayers(normArea,:));
+prcnt_change = bsxfun(@rdivide, diff_vals, densityAcrossLayers(normArea,:));
+nareas = numel(areas);
+xbar = nanmean(prcnt_change, 2);
+sem = nanstd(prcnt_change,[], 2) ./ sqrt(sum(~isnan(prcnt_change), 2));
+for i_hva = 1:length(sem)
+    pltclr = hvaPlotColor(areas{i_hva});
+    plot([i_hva, i_hva], [xbar(i_hva)-sem(i_hva), xbar(i_hva)+sem(i_hva)], 'color', pltclr, 'linewidth', 3)
+    bar(i_hva, xbar(i_hva), 0.8, 'facecolor', pltclr)
+end
+
+set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
+ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
+
+
+% ask if there are significant differeces
+X_anova = log10(reshape(prcnt_change, [], 1));
+G_anova = [];
+
+    
 %% PLOTTING ROUTINES: CELL SIZE
 
 

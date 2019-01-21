@@ -166,7 +166,13 @@ for i_ex = 1:numel(dat)
         if ~any(strcmpi(dat{i_ex}.info.cellType, 'py_l23')) % check for PY cell
             continue
         end
-        in_types = {'pvcre_l23', 'fs_l23', 'somcre_l23', 'ltsin_l23', 'all_som', 'all_pv'};
+        if any(strcmpi(plotgroups(:,1), 'all_som'))
+            in_types = {'somcre_l23', 'ltsin_l23'};
+        elseif any(strcmpi(plotgroups(:,1), 'all_pv'))
+            in_types = {'pvcre_l23', 'fs_l23'};
+        else
+            error('Did not recognize cell types')
+        end
         at_least_1_in = any(cellfun(@(x) any(strcmpi(in_types, x)), dat{i_ex}.info.cellType));
         if ~at_least_1_in
             continue
@@ -295,7 +301,14 @@ for i_group = 1:size(plotgroups, 1)
                 N_pulses_smooth = pprpop.smoothManifold_numPulses;
                 
                 grid_average = nanmean(groupdata_smooth{i_group}, 3);
-                hp = plot(1:N_pulses_smooth, grid_average(:, smooth_tf_idx), 'color', plt_clr, 'linewidth', 2);
+                
+                if options.FORCE_PAIRED_RECORDINGS && any(strcmpi(plotgroups(i_group,1), {'all_som', 'all_pv'}))
+                    linsty = '--';
+                else
+                    linsty = '-';
+                end
+                
+                hp = plot(1:N_pulses_smooth, grid_average(:, smooth_tf_idx), linsty, 'color', plt_clr, 'linewidth', 2);
                 my_errorbar(xx_trains, xbar_trains, sem_trains, 'o', 'markerfacecolor', plt_clr, 'markeredgecolor', plt_clr, 'color', plt_clr, 'linewidth', 2);
             else
                 hp = my_errorbar(xx_trains, xbar_trains, sem_trains, 'color', plt_clr, 'linewidth', 2);

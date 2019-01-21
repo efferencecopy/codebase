@@ -119,10 +119,12 @@ for i_fid = 1:Nfiles
     
     % get the intensity profile
     intensity_profile = permute(mean(mean(tiff_raw, 1), 2), [3,1,2]);
-    threshold_intensity = max(intensity_profile) ./ 2;
+    [~, maxidx] = max(intensity_profile);
+%     threshold_intensity = max(intensity_profile) ./ 2;
     
     % store the slices above threshold
-    l_above_threshold = intensity_profile >= threshold_intensity;
+%     l_above_threshold = intensity_profile >= threshold_intensity;
+    l_above_threshold = maxidx-6 : maxidx+6;
     tiff_raw = double(tiff_raw(:, :, l_above_threshold));
     idx_img = numel(dat.(mouseName{i_fid}).(slice_hva).images) + 1;
     dat.(mouseName{i_fid}).(slice_hva).images{idx_img} = tiff_raw;

@@ -427,16 +427,16 @@ function dat = unpack_dc_injections(dat)
         ms1_in_samps = round(0.001 .* dat.info.sampRate.dcsteps);
         thresholds_first_last = nan(size(raw_Vm,1), 2);
         resets_first_last = nan(size(raw_Vm,1), 2);
-        figure
-        set(gcf, 'position', [12         383        1903         420])
-        fig_name = sprintf('  %s, site: %s, ch: %d', dat.info.mouseName, dat.info.siteNum, i_ch);
-        set(gcf, 'name', fig_name)
-        fig_count = 0;
+%         figure
+%         set(gcf, 'position', [12         383        1903         420])
+%         fig_name = sprintf('  %s, site: %s, ch: %d', dat.info.mouseName, dat.info.siteNum, i_ch);
+%         set(gcf, 'name', fig_name)
+%         fig_count = 0;
         for i_trl = 1:size(raw_Vm,1)
-            if ~l_no_spikes(i_trl)
-                fig_count = fig_count + 1;
-                subplot(1,sum(~l_no_spikes), fig_count), hold on,
-            end
+%             if ~l_no_spikes(i_trl)
+%                 fig_count = fig_count + 1;
+%                 subplot(1,sum(~l_no_spikes), fig_count), hold on,
+%             end
             
             spike_idx = [false, diff(raw_Vm(i_trl,:)>spike_threshold)==1];
             tmp_spike_thresholds = [];
@@ -456,10 +456,10 @@ function dat = unpack_dc_injections(dat)
                         thresh_val = spk_raw_Vm(thresh_idx);
                     end
                     tmp_spike_thresholds = cat(1, tmp_spike_thresholds, thresh_val);
-                    if ~l_no_spikes(i_trl)
-                        plot(spk_raw_Vm, 'k')
-                        plot(thresh_idx, spk_raw_Vm(thresh_idx), 'ko', 'markerfacecolor', 'k')
-                    end
+%                     if ~l_no_spikes(i_trl)
+%                         plot(spk_raw_Vm, 'k')
+%                         plot(thresh_idx, spk_raw_Vm(thresh_idx), 'ko', 'markerfacecolor', 'k')
+%                     end
                     
                     % get spike reset Vm
                     if  (i_spk < numel(spike_idx)) && (numel(spike_idx)>=2)
@@ -467,10 +467,10 @@ function dat = unpack_dc_injections(dat)
                         [ahp_val, ahp_idx] = min(spk_raw_Vm);
                         tmp_spike_reset = cat(1, tmp_spike_reset, ahp_val);
                         
-                        if ~l_no_spikes(i_trl)
-                            plot(spk_raw_Vm, 'b')
-                            plot(ahp_idx, spk_raw_Vm(ahp_idx), 'bo', 'markerfacecolor','b')
-                        end
+%                         if ~l_no_spikes(i_trl)
+%                             plot(spk_raw_Vm, 'b')
+%                             plot(ahp_idx, spk_raw_Vm(ahp_idx), 'bo', 'markerfacecolor','b')
+%                         end
                     end
                 end
             end
@@ -487,7 +487,7 @@ function dat = unpack_dc_injections(dat)
                 resets_first_last(i_trl,2) = tmp_spike_reset(end); % need 3 spikes to define "last" AHP
             end
         end
-        drawnow
+%         drawnow
         
         % aggregate Vthresh and Vreset data across Icmd conditions, keeping
         % track of first/last spike
@@ -988,6 +988,11 @@ function [Ao, tau, C, tau_guess] = fit_exp1(vm, tt)
     tau = fitted_params(2);
     C = fitted_params(3);
     
+    figure, hold on
+    plot(tt, vm, 'k')
+    vm_pred = Ao .* exp(-tt./tau) + C;
+    plot(tt, vm_pred, 'r')
+    drawnow
     function err = sse_err(params)
         
         fit = params(1) .* exp(-tt./params(2)) + params(3);

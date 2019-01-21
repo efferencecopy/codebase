@@ -54,18 +54,28 @@ plotgroups_wcstp_all = {
     'PY', 'L23', 'AL', 'chief';...
     };
 
+
 %% Figure 2: DC injections
 
 close all; clc;
 
-% example cell: CH_180118_B site2 ch2 AM
-example_idx = 221;
-example_ch = 2;
 
-fig_dc_injections(dat_passive, example_idx, example_ch)
+% % example cell for PY: CH_180118_B site2 ch2 AM
+% example_idx = 221;
+% example_ch = 2;
+
+% example cell for SOM
+example_idx = 39;
+example_ch = 1;
+
+% example Cell for PV 
+% example_idx = 54;
+% example_ch = 1;
+
+fig_dc_injections(dat_interneurons, example_idx, example_ch)
 
 
-%% Figure 2: Input resistance
+%% Figure 2: Input resistance (pyramidal cells)
 
 close all; clc
 
@@ -74,7 +84,7 @@ fig_Rin(dat_passive, plotgroups_passive_all);
 
 %% Figure 2: Membrane time constant
 
-close all; clc
+% close all; clc
 
 fig_tau(dat_passive, plotgroups_passive_all);
 
@@ -89,7 +99,7 @@ fig_input_output_curves(dat_passive, plotgroups_passive_all)
 
 close all; clc
 
-% example cells:
+% example PY cells for STP:
 ex_cells = {
 'CH_170220_B', 1, 2; ...
 'CH_170829_A', 2, 1; ...
@@ -100,11 +110,24 @@ ex_cells = {
 'CH_180118_C', 1, 2; ...  % keeps
 };
 
+% % example cells for PTP from lateral HVAs
+% ex_cells = {
+% 'CH_180104_C', 1, 2; ...
+% 'CH_170112_C', 4, 2; ...
+% 'CH_161022_B', 2, 2; ...
+% 'CH_160929_B', 1, 1; ...
+% 'CH_160915_B', 2, 2; ...
+% };
+
+% % example cells for PTP from medial HVAs
+% ex_cells = {
+% 'CH_160915_B', 1, 2; ...
+% 'CH_161026_A', 2, 1; ...
+% };
 
 for i_cell = 1:size(ex_cells,1)
     fig_example_stp_single_cell(dat_wcstp, ex_cells{i_cell, 1}, ex_cells{i_cell, 2}, ex_cells{i_cell, 3});
 end
-
 
 %% Figure 3: Pn:P1 for all P (PY cells)
 
@@ -112,12 +135,24 @@ close all; clc
 
 ppr_groups = plotgroups_wcstp_all;
 
-options.PLOT_AVG_MANIFOLD = true;
+options.PLOT_AVG_MANIFOLD = false;
 options.FORCE_PAIRED_RECORDINGS = false;
 options.LOG_SPACE = false;
 
 [recovpop, groupdata] = fig_pnp1_ratios(dat_wcstp, ppr_groups, pprpop, options);
 quant_test_pprs(recovpop, groupdata, ppr_groups)
+
+
+%% Figure 6: Input resistance (interneurons)
+
+close all; clc
+
+plotgroups_passive_ins = {
+    'all_som', 'any', 'med', 'any';...
+    'all_pv', 'any', 'med', 'any';...
+    };
+
+fig_Rin(dat_passive, plotgroups_passive_ins);
 
 
 
@@ -126,16 +161,12 @@ quant_test_pprs(recovpop, groupdata, ppr_groups)
 close all; clc
 
 plotgroups_wcstp_ins = {
-    'all_som', 'L23', 'med', 'any';...
-    'all_som', 'L23', 'lat', 'any';...
     'all_pv', 'L23', 'med', 'any';...
     'all_pv', 'L23', 'lat', 'any';...
-    'PY', 'L23', 'med', 'any';...
-    'PY', 'L23', 'lat', 'any';...
 };
 
-options.PLOT_AVG_MANIFOLD = true;
-options.FORCE_PAIRED_RECORDINGS = true;
+options.PLOT_AVG_MANIFOLD = false;
+options.FORCE_PAIRED_RECORDINGS = false;
 options.LOG_SPACE = true;
 
 [recovpop, groupdata] = fig_pnp1_ratios(dat_wcstp, plotgroups_wcstp_ins, pprpop, options);

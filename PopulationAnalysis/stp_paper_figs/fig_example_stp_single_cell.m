@@ -1,5 +1,7 @@
-function fig_example_stp_single_cell(dat, mouse, site, i_ch)
+function f = fig_example_stp_single_cell(dat, mouse, site, i_ch)
 
+i_ex = NaN;
+f = NaN;
 for idx = 1:numel(dat)
     is_mouse = strcmpi(dat{idx}.info.mouseName, mouse);
     is_site = str2double(dat{idx}.info.siteNum) == site;
@@ -8,6 +10,9 @@ for idx = 1:numel(dat)
     end
 end
 
+if isnan(i_ex)
+    return
+end
 
 % loop through the experiments. Pull out the trains data. Ignore the
 % recovery train (if present) and aggregate across recovery conditions.
@@ -82,7 +87,8 @@ Nrecov = numel(unique_recov);
             isrecovery = trainParams(cond_idx,4) > 0;
             no_data = isempty(dat{i_ex}.expt.(condnames_trains{cond_idx}).stats.EPSCamp{i_ch});
             if ~isvalid || ~isrecovery || no_data
-                error('could not find data')
+%                 error('could not find data')
+                return
             end
             
             % pull out the EPSC amplitudes (mean across sweeps), norm to
@@ -236,7 +242,6 @@ for i_tf = 1:Ntfs
     %ylim([min_val*1.05, 10])
     axis tight
 end
-
 
 
 

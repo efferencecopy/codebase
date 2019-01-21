@@ -36,11 +36,16 @@ for i_ex = 1:numel(dat)
         Icmd = dat{i_ex}.dcsteps.IVasym.raw{i_ch}(:,1);
         delta_mV = dat{i_ex}.dcsteps.IVasym.raw{i_ch}(:,2) - v_rest;
         MOhm = abs(delta_mV  ./ (Icmd./1000));
-        if any(Icmd == 30) && any(Icmd == -30)
-            groupdata.R_pos_30pA{group_idx} = cat(1, groupdata.R_pos_30pA{group_idx}, MOhm(Icmd==30));
-            groupdata.R_neg_30pA{group_idx} = cat(1, groupdata.R_neg_30pA{group_idx}, MOhm(Icmd == -30));
+        
+        l_pos_cmd = (Icmd > 25) & (Icmd < 35);
+        if any(l_pos_cmd)
+            groupdata.R_pos_30pA{group_idx} = cat(1, groupdata.R_pos_30pA{group_idx}, MOhm(l_pos_cmd));
         end
         
+        l_neg_cmd = (Icmd < -25) & (Icmd > -35);
+        if any(l_neg_cmd)
+            groupdata.R_neg_30pA{group_idx} = cat(1, groupdata.R_neg_30pA{group_idx}, MOhm(l_neg_cmd));
+        end
     end
 end
 
@@ -121,6 +126,11 @@ for i_group = 1:numel(groupdata.Rin_asym)
 end
 
 
+
+%
+% CDF plots for +/- 30pA conditions
+%
+%%%%%%%%%%%%%%%%%%%%%%%%
 f=figure;
 f.Units = 'Pixels';
 f.Position = [182   110   575   648];
@@ -128,7 +138,8 @@ Ngroups = (numel(groupdata.Rin_peak)); % adding one for "summary" cdf fig
 
 allNums = cat(1, groupdata.R_pos_30pA{:}, groupdata.R_neg_30pA{:});
 edges = linspace(min(allNums)-1, max(allNums)+1, 50);
-legtext = {};
+legtext_pos = {};
+legtext_neg = {};
 for i_group = 1:numel(groupdata.Rin_asym)
     
     hva_name = plotgroups{i_group, 3};
@@ -140,6 +151,8 @@ for i_group = 1:numel(groupdata.Rin_asym)
     N = [0, N];
     cdf_vals = cumsum(N)./sum(N);
     stairs(edges, cdf_vals, '-', 'color', grp_clr)
+    N = numel(groupdata.R_pos_30pA{i_group});
+    legtext_pos{i_group} = sprintf('%s, n=%d', plotgroups{i_group,3}, N);
     force_consistent_figs(gca, 'ax');
     title('Rin from +30pA step');
     xlabel('Input R (MOhm)');
@@ -152,13 +165,16 @@ for i_group = 1:numel(groupdata.Rin_asym)
     cdf_vals = cumsum(N)./sum(N);
     stairs(edges, cdf_vals, '-', 'color', grp_clr);
     N = numel(groupdata.R_neg_30pA{i_group});
-    legtext{i_group} = sprintf('%s, n=%d', plotgroups{i_group,3}, N);
+    legtext_neg{i_group} = sprintf('%s, n=%d', plotgroups{i_group,3}, N);
     force_consistent_figs(gca, 'ax');
     title('Rin from -30pA step');
     xlabel('Input R (MOhm)');
     ylabel('Proportion');
 end
-legend(legtext)
+subplot(2,1,1)
+h1 = legend(legtext_pos);
+subplot(2,1,2)
+h2 = legend(legtext_neg);
 
 
 %
@@ -186,47 +202,46 @@ for i_group = 1:numel(groupdata.Rin_asym)
     plot([i_group, i_group], [xbar, xbar+sem], 'color', grp_clr, 'linewidth', 3)
     
     N = numel(groupdata.R_neg_30pA{i_group});
-    legtext{i_group} = sprintf('%s, n=%d', plotgroups{i_group,3}, N);
-    xtick_labels{i_group} = plotgroups{i_group,3};
+    legtext{i_group} = sprintf('%s, n=%d', hva_name, N);
+    xtick_labels{i_group} = hva_name;
 end
 set(gca, 'xtick', [1:4], 'xticklabel', xtick_labels)
 title('Rin from -30pA step');
-xlabel('Input R (MOhm)');
-ylabel('Proportion');
+ylabel('Input R (MOhm)');
 legend(hb, legtext)
 legend boxoff
 
-%
-%  box plot of Rin
-%
-%%%%%%%%%%%%%%%%%%%%%
-box_groups = [];
-box_colors = [];
-box_data = [];
-for i_group = 1:numel(groupdata.R_neg_30pA)
-    
-    hva_name = plotgroups{i_group, 3};
-    box_colors = cat(1, box_colors, hvaPlotColor(hva_name));
-    
-    N = numel(groupdata.R_neg_30pA{i_group});
-    box_data = cat(1, box_data, groupdata.R_neg_30pA{i_group});
-    box_groups = cat(1, box_groups, repmat(hva_name, N, 1));
-end
-hf = figure;
-hb = boxplot(box_data, box_groups,...
-             'grouporder', plotgroups(:,3),...
-             'colors', box_colors,...
-             'notch', 'on',...
-             'symbol', '',...
-             'whisker', 0);
-set(gca, 'tickdir', 'out', 'fontsize', 24, 'ylim', [30, 100])
-set(hb, 'linewidth', 3)
-ylabel('Input Resistance')
-legend(gca, plotgroups(:,3)')
-
-
-
-
-
+% %
+% %  box plot of Rin
+% %
+% %%%%%%%%%%%%%%%%%%%%%
+% box_groups = [];
+% box_colors = [];
+% box_data = [];
+% for i_group = 1:numel(groupdata.R_neg_30pA)
+%     
+%     hva_name = plotgroups{i_group, 3};
+%     box_colors = cat(1, box_colors, hvaPlotColor(hva_name));
+%     
+%     N = numel(groupdata.R_neg_30pA{i_group});
+%     box_data = cat(1, box_data, groupdata.R_neg_30pA{i_group});
+%     box_groups = cat(1, box_groups, repmat(hva_name, N, 1));
+% end
+% hf = figure;
+% hb = boxplot(box_data, box_groups,...
+%              'grouporder', plotgroups(:,3),...
+%              'colors', box_colors,...
+%              'notch', 'on',...
+%              'symbol', '',...
+%              'whisker', 0);
+% set(gca, 'tickdir', 'out', 'fontsize', 24, 'ylim', [30, 100])
+% set(hb, 'linewidth', 3)
+% ylabel('Input Resistance')
+% legend(gca, plotgroups(:,3)')
+% 
+% 
+% 
+% 
+% 
 
 

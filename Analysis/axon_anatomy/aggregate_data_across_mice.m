@@ -14,8 +14,8 @@ hva_aggs = struct();
 
 % loop over mice and hvas, save data to the agg container
 mouse_names = fieldnames(dat);
-for mouse = mouse_names'
-    mouse = mouse{1};
+for i_mouse = 1:numel(mouse_names)
+    mouse = mouse_names{i_mouse};
     layer_line = dat.(mouse).layer_line;
     for i_hva = 1:numel(all_hvas)
         
@@ -46,17 +46,30 @@ for mouse = mouse_names'
             xx_avg = dat.(mouse).(ptype).(all_hvas{i_hva}).xx_common;
             yy_avg = dat.(mouse).(ptype).(all_hvas{i_hva}).(yy_ptype);
         else
-            % identical to ptype = "yy_avg"
-            [xx_avg, yy_avg] = compute_avg_profile(dat, mouse, all_hvas{i_hva});
+            % if PROFILE_TYPE is 'average', and it doesn't currently exist,
+            % we can just call compute_avg_profile and use the return args.
+            % But if we want 'baseline' profiles we should throw an error
+            % b/c the return of compute_avg_profile is 'average', not
+            % 'baseline'
+            if strcmpi(PROFILE_TYPE, 'average')
+                [xx_avg, yy_avg] = compute_avg_profile(dat, mouse, all_hvas{i_hva});
+            else
+                error('baseline metrics have not been computed')
+            end
         end
         
         switch NORMALIZE
             case 'max'
-                l_L23 = xx_avg>0 & xx_avg<400;  % roughly just L2/3
+                L23_xx = dat.(mouse).(all_hvas{i_hva}).layer_avg(2);
+                l_L23 = xx_avg>0 & xx_avg<L23_xx;
                 yy_avg = yy_avg ./ max(yy_avg(l_L23));
             case 'integral'
-                l_ctx = xx_avg>-100 & xx_avg<850; % roughly all of cortex
+                l_ctx = xx_avg>-75 & xx_avg<850; % roughly all of cortex
                 yy_avg = yy_avg ./ nansum(yy_avg(l_ctx));
+            case 'none'
+                % do nothing to the yy_avg
+            otherwise
+                error('unknown normalize method')
         end
         
         % add these data to the aggregated dataset
@@ -67,6 +80,7 @@ for mouse = mouse_names'
         % compute the absolute fluroescence in each layer
         layer_bounds = dat.(mouse).(all_hvas{i_hva}).layer_avg;
         layer_bounds = cat(1, -75, layer_bounds); % so that L1 can get calculated too
+
         n_layers = numel(layer_bounds);
         f_per_pix = nan(n_layers-1, 1);
         for i_layer = 1:n_layers-1
