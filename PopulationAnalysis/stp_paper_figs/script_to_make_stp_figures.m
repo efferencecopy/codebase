@@ -2,29 +2,30 @@
 
 fin
 
-DATASET = 'wcstp';
+DATASET = 'interneurons';
 
+file_path = '\\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\pre_processed_data\';
 switch DATASET
     case 'wcstp'
-        load('\\crash.dhe.duke.edu\charlie\pre_processed_data\wcstp_180219_with_ddff_fits_and_grand_fit.mat');
+        load(strcat(file_path, 'wcstp_180219_with_ddff_fits_and_grand_fit.mat'));
         dat_wcstp = dat;
         clear dat
     case 'passive'
-        load('\\crash.dhe.duke.edu\charlie\pre_processed_data\passive_props_180219.mat');
+        load(strcat(file_path, 'passive_props_180219.mat'));
         dat_passive = dat;
         clear dat
     case 'interneurons'
-        load('\\crash.dhe.duke.edu\charlie\pre_processed_data\interneurons_180219.mat');
+        load(strcat(file_path, 'interneurons_180219.mat'));
         dat_interneurons = dat;
         clear dat
     case 'multipower'
-        load('\\crash.dhe.duke.edu\charlie\pre_processed_data\interneurons_multipower_180219.mat');
+        load(strcat(file_path, 'interneurons_multipower_180219.mat'));
         dat_multipower = dat;
         clear dat
 end
 
 % CD to figure dir for easier saving
-cd('\\crash.dhe.duke.edu\charlie\wcstp_manuscript_stuff\wcstp_figures_second_pass')
+cd('\\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\wcstp_manuscript_stuff\wcstp_figures_thrid_pass')
 
 
 % define a set of attributes for each analysis group
@@ -55,24 +56,24 @@ plotgroups_wcstp_all = {
     };
 
 
-%% Figure 2: DC injections
+%% Figure 2: DC injections example cell
 
 close all; clc;
 
 
 % % example cell for PY: CH_180118_B site2 ch2 AM
-% example_idx = 221;
-% example_ch = 2;
+example_idx = 221;
+example_ch = 2;
 
 % example cell for SOM
-example_idx = 39;
-example_ch = 1;
+% example_idx = 39;
+% example_ch = 1;
 
 % example Cell for PV 
 % example_idx = 54;
 % example_ch = 1;
 
-fig_dc_injections(dat_interneurons, example_idx, example_ch)
+fig_dc_injections(dat_passive, example_idx, example_ch)
 
 
 %% Figure 2: Input resistance (pyramidal cells)
@@ -84,7 +85,7 @@ fig_Rin(dat_passive, plotgroups_passive_all);
 
 %% Figure 2: Membrane time constant
 
-% close all; clc
+close all; clc
 
 fig_tau(dat_passive, plotgroups_passive_all);
 
@@ -148,11 +149,11 @@ quant_test_pprs(recovpop, groupdata, ppr_groups)
 close all; clc
 
 plotgroups_passive_ins = {
-    'all_som', 'any', 'med', 'any';...
-    'all_pv', 'any', 'med', 'any';...
+    'all_som', 'any', 'any', 'any';...
+    'all_pv', 'any', 'any', 'any';...
     };
 
-fig_Rin(dat_passive, plotgroups_passive_ins);
+fig_Rin(dat_interneurons, plotgroups_passive_ins);
 
 
 

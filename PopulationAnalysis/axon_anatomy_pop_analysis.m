@@ -29,7 +29,7 @@
 
 % fin
 % dat = load_all_data();
-save \\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed_13z_tlx_emx_only_baselined.mat dat -v7.3
+save \\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\pre_processed_data\axon_density_preprocessed_13z_tlx_emx_only_baselined.mat dat -v7.3
 fprintf('All done importing the data\n')
 
 
@@ -37,9 +37,8 @@ fprintf('All done importing the data\n')
 
 % the load command defines 'dat', which is a structure array
 fin
-load('\\crash.dhe.duke.edu\charlie\pre_processed_data\axon_density_preprocessed_13z_tlx_emx_only.mat')
-dat = dat_small;
-clear dat_small
+load('\\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\pre_processed_data\axon_density_preprocessed_13z_tlx_emx_only_baselined.mat')
+
 
 %% QC PLOT: Z-PROFILES
 
@@ -96,7 +95,8 @@ hva_aggs = aggregate_data_across_mice(dat, all_hvas, NORMALIZE, PROFILE_TYPE);
 
 plot_avg_density_profile_across_mice(hva_aggs, all_hvas);
 
-%% HEAT MAP OF ABSOLUTE STRENGTH OF AXON INPUTS
+
+%% HEAT MAP OF RELATIVE STRENGTH OF AXON INPUTS
 
 close all; clc
 
@@ -106,8 +106,211 @@ dat = get_average_layer_boundaries(dat, all_hvas);
 % do not normalize the data to anything (will happen in plot function)
 hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
 
+% make the heat maps.
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'self');
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+
+%% STATS: EMX layer specificity Oneway Anova with tukey
+
+close all; clc
 
 mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'self');
+
+emx_data = mline_data.emx; % N_layers x N_hvas x N_mice
+emx_data = permute(emx_data, [3,2,1]); % N_mice x N_hvas x N_layers
+
+n_expected_rows = size(emx_data, 1) * size(emx_data, 2);
+n_layers = 5;
+emx_data = reshape(emx_data, n_expected_rows, n_layers);
+
+[~,~,STATS] = anova1(log10(emx_data), {'L1', 'L2/3', 'L4', 'L5', 'L6'}, 'on');
+
+
+comparison = multcompare(STATS);
+
+%% STATS: EMX HVA specificity.
+
+close all; clc
+
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+emx_data = mline_data.emx; % N_layers x N_hvas x N_mice
+emx_data = permute(emx_data, [3,1,2]); % N_mice x N_layers x N_hvas
+
+n_expected_rows = size(emx_data, 1) * size(emx_data, 2);
+N_hvas = length(all_hvas);
+emx_data = reshape(emx_data, n_expected_rows, N_hvas);
+
+[~,~,STATS] = anova1(log10(emx_data), all_hvas, 'on');
+multcompare(STATS);
+
+
+%% STATS:EMX two way anova
+
+close all; clc
+
+all_hvas = {'lm', 'al', 'pm', 'am'};
+dat = get_average_layer_boundaries(dat, all_hvas);
+hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+
+N_hvas = length(all_hvas);
+N_layers = 5;
+layer_mtx = repmat({'l1'; 'l23'; 'l4'; 'l5'; 'l6'}, 1, N_hvas);
+hva_mtx = repmat(all_hvas, N_layers, 1);
+
+% deal with the EMX data
+emx_data = mline_data.emx; % N_layers x N_hvas x N_mice
+emx_group_layers = repmat(layer_mtx, 1, 1, size(emx_data, 3));
+emx_group_hvas = repmat(hva_mtx, 1, 1, size(emx_data, 3));
+emx_group_genotype = repmat({'emx'}, size(emx_data));
+
+
+% create 2 cols (lat, med)
+Y = emx_data(:);
+group_layers = emx_group_layers(:);
+group_hvas = emx_group_hvas(:);
+
+group = {group_hvas, group_layers};
+
+
+[P, T, STATS, TERMS] = anovan(Y, group, 'varnames', {'hva', 'layers'});
+figure
+multcompare(STATS, 'dimension', [1,2])
+
+%% STATS:TLX vs. EMX
+
+close all; clc
+
+all_hvas = {'lm', 'al', 'pm', 'am'};
+dat = get_average_layer_boundaries(dat, all_hvas);
+hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+
+N_hvas = length(all_hvas);
+N_layers = 5;
+layer_mtx = repmat({'l1'; 'l23'; 'l4'; 'l5'; 'l6'}, 1, N_hvas);
+hva_mtx = repmat(all_hvas, N_layers, 1);
+
+% deal with the EMX data
+emx_data = mline_data.emx; % N_layers x N_hvas x N_mice
+emx_group_layers = repmat(layer_mtx, 1, 1, size(emx_data, 3));
+emx_group_hvas = repmat(hva_mtx, 1, 1, size(emx_data, 3));
+emx_group_genotype = repmat({'emx'}, size(emx_data));
+
+% deal with the TLX data
+tlx_data = mline_data.tlx3; % N_layers x N_hvas x N_mice
+tlx_group_layers = repmat(layer_mtx, 1, 1, size(tlx_data, 3));
+tlx_group_hvas = repmat(hva_mtx, 1, 1, size(tlx_data, 3));
+tlx_group_genotype = repmat({'tlx'}, size(tlx_data));
+
+
+% create 2 cols (lat, med)
+Y = cat(1, emx_data(:), tlx_data(:));
+group_layers = cat(1, emx_group_layers(:), tlx_group_layers(:));
+group_hvas = cat(1, emx_group_hvas(:), tlx_group_hvas(:));
+group_genotype = cat(1, emx_group_genotype(:), tlx_group_genotype(:));
+
+group = {group_genotype, group_hvas, group_layers};
+
+
+[P, T, STATS, TERMS] = anovan(Y, group, 'varnames', {'genotype', 'hva', 'layers'});
+figure
+multcompare(STATS)
+
+
+%% STATS: TLX HVA specificity.
+
+close all; clc
+all_hvas = {'lm', 'al', 'pm', 'am'};
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+tlx3_data = mline_data.tlx3; % N_layers x N_hvas x N_mice
+tlx3_data = permute(tlx3_data, [3,1,2]); % N_mice x N_layers x N_hvas
+
+n_expected_rows = size(tlx3_data, 1) * size(tlx3_data, 2);
+N_hvas = length(all_hvas);
+tlx3_data = reshape(tlx3_data, n_expected_rows, N_hvas);
+
+[~,~,STATS] = anova1(tlx3_data, all_hvas, 'on');
+multcompare(STATS);
+
+
+
+
+%% STATS: EMX layer by layer
+
+close all; clc
+
+layer_to_analyze = 3;
+
+all_hvas = {'lm', 'al', 'pm', 'am'};
+dat = get_average_layer_boundaries(dat, all_hvas);
+hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+N_layers = 1;
+hva_mtx = repmat(all_hvas, N_layers, 1);
+
+% deal with the EMX data
+emx_data = mline_data.emx(layer_to_analyze, :, :); % 1_layer x N_hvas x N_mice
+emx_group_hvas = repmat(hva_mtx, 1, 1, size(emx_data, 3));
+
+% create 2 cols (lat, med)
+Y = emx_data(:);
+group_hvas = emx_group_hvas(:);
+
+group = {group_hvas};
+
+
+[P, T, STATS, TERMS] = anovan(Y, group, 'varnames', {'hva'});
+figure
+multcompare(STATS)
+
+
+%% STATS: TLX vs. EMX main effect of layers
+
+close all; clc
+
+all_hvas = {'lm', 'al', 'pm', 'am'};
+dat = get_average_layer_boundaries(dat, all_hvas);
+hva_aggs = aggregate_data_across_mice(dat, all_hvas, 'none', 'baselined');
+mline_data = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, 'lm');
+
+
+N_hvas = length(all_hvas);
+N_layers = 5;
+layer_mtx = repmat({'l1'; 'l23'; 'l4'; 'l5'; 'l6'}, 1, N_hvas);
+hva_mtx = repmat(all_hvas, N_layers, 1);
+
+% deal with the EMX data
+emx_data = mline_data.emx; % N_layers x N_hvas x N_mice
+emx_group_layers = repmat(layer_mtx, 1, 1, size(emx_data, 3));
+emx_group_hvas = repmat(hva_mtx, 1, 1, size(emx_data, 3));
+emx_group_genotype = repmat({'emx'}, size(emx_data));
+
+% deal with the TLX data
+tlx_data = mline_data.tlx3; % N_layers x N_hvas x N_mice
+tlx_group_layers = repmat(layer_mtx, 1, 1, size(tlx_data, 3));
+tlx_group_hvas = repmat(hva_mtx, 1, 1, size(tlx_data, 3));
+tlx_group_genotype = repmat({'tlx'}, size(tlx_data));
+
+
+% create 2 cols (lat, med)
+Y = cat(1, emx_data(:), tlx_data(:));
+group_layers = cat(1, emx_group_layers(:), tlx_group_layers(:));
+group_hvas = cat(1, emx_group_hvas(:), tlx_group_hvas(:));
+group_genotype = cat(1, emx_group_genotype(:), tlx_group_genotype(:));
+
+group = {group_genotype, group_hvas, group_layers};
+
+
+[P, T, STATS, TERMS] = anovan(Y, group, 'varnames', {'genotype', 'hva', 'layers'});
+figure
+multcompare(STATS, 'dimension', [2,3])
 
 
 

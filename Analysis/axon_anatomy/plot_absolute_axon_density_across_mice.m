@@ -1,4 +1,4 @@
-function all_raw_dat = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, norm_method)
+function all_norm_dat = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas, norm_method)
 % make a figure that has N_lines x N_layers cells. Each element
 % represents the avg_unnormed fluorescence intensity in that layer.
 % plot the results as imagesc (norm and un-norm to L23)
@@ -11,7 +11,7 @@ function all_raw_dat = plot_absolute_axon_density_across_mice(hva_aggs, all_hvas
 
 mouse_lines = fieldnames(hva_aggs);
 n_lines = numel(mouse_lines);
-all_raw_dat = struct();
+all_norm_dat = struct();
 abs_f_dat = struct(); % init a container to fill up
 for i_mline = 1:n_lines
    
@@ -64,7 +64,7 @@ for i_mline = 1:n_lines
         l_good_mice(1,1,i_mouse) = ~any(isnan(reshape(norm_dat(:,:,i_mouse), 1, [])));
     end
     norm_dat = norm_dat(:,:,l_good_mice);
-    all_raw_dat.(mouse_lines{i_mline}) = raw_dat(:,:,l_good_mice);
+    all_norm_dat.(mouse_lines{i_mline}) = norm_dat; % raw_dat(:,:,l_good_mice);
     avg_img = mean(norm_dat, 3);
     
     imagesc(avg_img);

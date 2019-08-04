@@ -196,10 +196,13 @@ for i_group = 1:numel(groupdata.Rin_asym)
     grp_clr = hvaPlotColor(hva_name);
     
     % -30 pA
-    xbar = mean(groupdata.R_neg_30pA{i_group});
-    sem = stderr(groupdata.R_neg_30pA{i_group});
-    hb(i_group) = bar(i_group, xbar, 'facecolor', grp_clr, 'edgecolor', grp_clr);
-    plot([i_group, i_group], [xbar, xbar+sem], 'color', grp_clr, 'linewidth', 3)
+    xmedian = median(groupdata.R_neg_30pA{i_group});
+    N = length(groupdata.R_neg_30pA{i_group});
+    btstrp_inds = unidrnd(N, [N, 10000]);
+    btstrp_data = groupdata.R_neg_30pA{i_group}(btstrp_inds);
+    se = std(median(btstrp_data, 1));
+    hb(i_group) = bar(i_group, xmedian, 'facecolor', grp_clr, 'edgecolor', grp_clr);
+    plot([i_group, i_group], [xmedian, xmedian+se], 'color', grp_clr, 'linewidth', 3)
     
     N = numel(groupdata.R_neg_30pA{i_group});
     legtext{i_group} = sprintf('%s, n=%d', hva_name, N);
@@ -207,7 +210,7 @@ for i_group = 1:numel(groupdata.Rin_asym)
 end
 set(gca, 'xtick', [1:4], 'xticklabel', xtick_labels)
 title('Rin from -30pA step');
-ylabel('Input R (MOhm)');
+ylabel(sprintf('Input R (MOhm)\n(Median +/- SE)'));
 legend(hb, legtext)
 legend boxoff
 
@@ -240,8 +243,35 @@ legend boxoff
 % legend(gca, plotgroups(:,3)')
 % 
 % 
-% 
-% 
-% 
+
+% Do an analysis of variance (kruskal wallis)
+X = [];
+group = [];
+for i_group = 1:numel(groupdata.Rin_asym)
+    
+    hva_name = plotgroups{i_group, 3};
+    
+    % -30 pA
+    X = cat(1, X, groupdata.R_neg_30pA{i_group});
+    N = length(groupdata.R_neg_30pA{i_group});
+    group = cat(1, group, repmat({hva_name}, N, 1));
+end
+[~,~,STATS] = kruskalwallis(X, group);
+comparison = multcompare(STATS);
+p_sig = comparison(:,end) < 0.05;
+sig_comps = comparison(p_sig, 1:2);
+h_pmtx = figure;
+hold on,
+for i_sig = 1:size(sig_comps, 1)
+   x=sig_comps(i_sig, 1);
+   y=sig_comps(i_sig, 2);
+   text(x, y, 'X') 
+end
+ylim([0, 5])
+xlim([0, 5])
+labels = {plotgroups{:,3}};
+set(gca, 'XTickLabel', labels, 'XTick', [1,2,3,4])
+set(gca, 'YTickLabel', labels, 'YTick', [1,2,3,4])
+
 
 

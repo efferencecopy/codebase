@@ -38,9 +38,9 @@ switch whoami
         
     case 'nuke'
         GL_DOCUPATH = 'C:\Users\charlie\Documents\SourceTree_local\docubase\';
-        GL_DATPATH =  '\\crash.dhe.duke.edu\charlie\Data\Mice\';
-        GL_POPDATPATH = '\\crash.dhe.duke.edu\charlie\Data\population_analysis_DBs\';
-        GL_ALLENPATH = '\\crash.dhe.duke.edu\charlie\Allen Images\';
+        GL_DATPATH =  '\\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\Data\Mice\';
+        GL_POPDATPATH = '\\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\Data\population_analysis_DBs\';
+        GL_ALLENPATH = '\\duhs-user-nc1.dhe.duke.edu\dusom_glickfeldlab\All_Staff\home\charlie\Allen Images\';
         defaultpath = 'C:\Users\charlie\Documents\MATLAB';
 end
 

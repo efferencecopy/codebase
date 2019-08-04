@@ -107,3 +107,16 @@ legend(leghands, legtext, 'location', 'northwest')
 legend boxoff
 
 
+% make data for ANOVA
+anova_Y = [];
+anova_group = {};
+for i_bin = 1:numel(bin_center)
+    for i_group = 1:Ngroups
+        hva_name = plotgroups{i_group, 3};
+        Y = group_all_frs{i_group}(:, i_bin);
+        Y = Y(~isnan(Y));
+        anova_Y = cat(1, anova_Y, Y(:));
+        anova_group = cat(1, anova_group, repmat({hva_name}, numel(Y), 1));
+    end
+end
+[P,table,STATS] = kruskalwallis(anova_Y, anova_group, 'on');

@@ -571,6 +571,8 @@ end
 f=figure;
 Ngroups = (numel(groupdata.Rin_asym));
 f.Position = [49         305        1333         602];
+Y_rin_vs_depth = [];
+group_rin_vs_depth = {{}, []}; % hva, depth
 for i_group = 1:numel(groupdata.Rin_asym)
     
     hva_name = plotgroups{i_group, 3};
@@ -604,6 +606,13 @@ for i_group = 1:numel(groupdata.Rin_asym)
     end
     xlim([min(allDepth).*.95, max(allDepth).*1.05])
     ylim([min(allRin).*.95, max(allRin).*1.05])
+    
+    % setup the 2-way anova
+    l_non_nan = ~isnan(X);
+    Y_rin_vs_depth = cat(1, Y_rin_vs_depth, X(l_non_nan));
+    g_hva = cat(1, group_rin_vs_depth{1}, repmat({hva_name}, sum(l_non_nan), 1));
+    g_depth = cat(1, group_rin_vs_depth{2}, Y(l_non_nan));
+    group_rin_vs_depth = {g_hva, g_depth};
     
     % incubation period vs. Rin
     pltidx = sub2ind([3, Ngroups], 2, i_group);
@@ -648,8 +657,10 @@ for i_group = 1:numel(groupdata.Rin_asym)
     
 end
 
-
-
+% anovan on depth and Rin
+[~, ~, STATS] = anovan(Y_rin_vs_depth, group_rin_vs_depth, 'continuous', 2, 'varnames', {'hva', 'depth'});
+figure
+multcompare(STATS)
 %
 % Line plots of I-V curves, and peak vs. steady state
 %
@@ -2184,8 +2195,10 @@ PLOT_AVG_MANIFOLD = false;
 % {CellType, Layer,  BrainArea,  OpsinType}
 % Brain Area can be: 'AL', 'PM', 'AM', 'LM', 'any', 'med', 'lat'. CASE SENSITIVE
 man_plotgrps = {
-    'PY', 'L23', 'med', 'chief';...
-    'PY', 'L23', 'lat', 'chief';...
+    'PY', 'L23', 'PM', 'chief';...
+    'PY', 'L23', 'AM', 'chief';...
+    'PY', 'L23', 'LM', 'chief';...
+    'PY', 'L23', 'AL', 'chief';...
     };
 
 allTFs = recovpop.TFsAllExpts;
@@ -2554,9 +2567,8 @@ end
 
 [p, tbl, stats] = anovan(all_log_pprs,...
                         {all_hva_labels, all_tf_labels, all_pnum_labels},...
-                        'model', 'interaction',...
                         'varnames', {'all_hva_labels', 'all_tf_labels', 'all_pnum_labels'});
-multcompare(stats, 'Dimension', [3])
+multcompare(stats, 'Dimension', [1])
 
 
 
@@ -4770,6 +4782,138 @@ set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
 
 
 
+%% INTERNEURON LATENCY ANALYSIS COLLAPSED ACROSS AREAS (PLOTS)
+
+
+close all; clc
+
+
+COMBINE_HVAS = true;
+COMBINE_OPSINS = true;
+COMBINE_INS = true;
+
+assert(strcmp(EXPTTYPE, 'IN_strength'), 'ERROR: not the correct type of experiment for latency analysis')
+assert(COMBINE_OPSINS, 'error: combine opsins needs to be true, otherwise things may break')
+assert(COMBINE_INS, 'error: combine interneurons needs to be true, otherwise things may break')
+
+% make a table with the following fields
+% {BrainArea, OpsinType, IN_type, PY_latency, IN_latency}
+groupdata = {};
+row_names = {'BrainArea', 'OpsinType', 'IN_type', 'PY_latency', 'IN_latency'};
+template = {'str', 'str', 'str', NaN, NaN};
+
+for i_ex = 1:numel(dat)
+    
+    ex_template = template;
+    ex_brain_area = dat{i_ex}.info.brainArea;
+    ex_opsin = dat{i_ex}.info.opsin;
+    
+    if COMBINE_HVAS
+        if regexpi(ex_brain_area, 'pm|am|lm|al')
+            ex_brain_area = 'all';
+        else
+            error('did not identify area')
+        end
+    end
+    ex_template{1} = ex_brain_area;
+    
+    if COMBINE_OPSINS
+        if regexpi(ex_opsin, 'chronos')
+            ex_opsin = 'chronos';
+        elseif regexpi(ex_opsin, 'chief')
+            ex_opsin = 'chief';
+        else
+            error('did not identify opsin')
+        end
+    end
+    ex_template{2} = ex_opsin;
+    
+    
+    
+    
+    for i_ch = 1:2
+        
+        cell_type = dat{i_ex}.info.cellType{i_ch};
+        if ~strcmpi(cell_type, 'py_l23')
+            if COMBINE_INS
+                if regexpi(cell_type, 'LTSIN|SOMCRE')
+                    cell_type = 'all_som';
+                elseif regexpi(cell_type, 'FS|PVCRE')
+                    cell_type = 'all_pv';
+                else
+                    error('did not identify cell type')
+                end
+            end
+            ex_template{3} = cell_type;
+            latency_idx = strcmp(row_names, 'IN_latency');
+        else
+            latency_idx = strcmp(row_names, 'PY_latency');
+        end
+        
+        ex_template{latency_idx} = latency_pop.dat{i_ex}.p1_latency_ms{i_ch};
+        
+    end
+    
+    groupdata(i_ex,:) = ex_template;
+end
+
+t_latency = cell2table(groupdata, 'VariableNames', row_names);
+t_latency.diffval = minus(t_latency.IN_latency, t_latency.PY_latency);
+
+% summary table:
+t_xbar = grpstats(t_latency,...
+                  {'BrainArea','IN_type'},...
+                  {'nanmean'},...
+                  'DataVars', {'PY_latency', 'IN_latency', 'diffval'},...
+                  'VarNames', {'BrainArea','IN_type','GroupCount','PY_mean','IN_mean', 'diff_mean'})
+              
+t_sem = grpstats(t_latency,...
+                  {'BrainArea','IN_type'},...
+                  {'stderr'},...
+                  'DataVars', {'PY_latency', 'IN_latency', 'diffval'},...
+                  'VarNames', {'BrainArea','IN_type','GroupCount','PY_sem','IN_sem', 'diff_sem'});
+
+unique_cell_types = unique(t_latency.IN_type);
+unique_areas = unique(t_latency.BrainArea);
+[py_xbar, in_xbar, diff_vals] = deal([]);
+[py_sem, in_sem, diff_sem] = deal([]);
+for i_area = 1:numel(unique_areas)
+    for i_in = 1:numel(unique_cell_types)
+        l_area = strcmpi(t_latency.BrainArea, unique_areas{i_area});
+        l_in = strcmpi(t_latency.IN_type, unique_cell_types{i_in});
+        
+        t_grp = t_latency(l_area & l_in, {'PY_latency', 'IN_latency', 'diffval'});
+        py_xbar(i_area, i_in) = nanmean(t_grp.PY_latency);
+        in_xbar(i_area, i_in) = nanmean(t_grp.IN_latency);
+        diff_vals(i_area, i_in) = nanmean(t_grp.diffval);
+        
+        py_sem(i_area, i_in) = stderr(t_grp.PY_latency);
+        in_sem(i_area, i_in) = stderr(t_grp.IN_latency);
+        diff_sem(i_area, i_in) = stderr(t_grp.diffval);
+    end
+end
+
+in_pltclrs = {'g', [255, 140, 0]./255};
+
+hf = figure;
+hf.Position = [402         216        1289         368];
+hold on,
+xmax = numel(unique_areas);
+for i_in = 1:numel(unique_cell_types)
+    errorbar(1:numel(unique_areas), diff_vals(:,i_in), diff_sem(:,i_in),...
+        'linewidth', 3, 'color', in_pltclrs{i_in}, 'marker', 'o', 'markerfacecolor', in_pltclrs{i_in})
+end
+plot([0.75, xmax+.25], [0 0], '--k')
+xlim([0.75, xmax+.25])
+hl = legend(unique_cell_types);
+hl.Interpreter = 'None';
+hl.Location = 'Best';
+hl.Box = 'off';
+title('diff val: IN - PY')
+ylabel('latency (ms)')
+xlabel('brain area')
+set(gca, 'tickDir', 'out', 'xtick', [1:xmax], 'xticklabel', unique_areas)
+
 %% INTERNEURON AMPLITUDE ANALYSIS (DATA COLLECTION)
 
 ENFORCE_MIN_EPSC = false;
@@ -5771,4 +5915,61 @@ for i_hva = 1:numel(hvas)
         set(gca, 'xtick', [], 'ytick', [])
     end
 end
+
+%% Determine mouse ages at injection and recording
+
+% mdb = initMouseDB('update', false);
+
+dob = [];
+doinj = [];
+dorec = [];
+for i_mouse = 1:numel(dat)
+    mouse_name = dat{i_mouse}.info.mouseName;
+    mouse_idx = strcmpi(mdb.mouseNames, mouse_name);
+    db = mdb.mice{mouse_idx};
+    bd = db.info.dob;
+    if length(bd) > 0
+        dob(i_mouse, :) = [str2num(bd(1:2)), str2num(bd(4:5)), str2num(bd(7:end))];
+    else
+        continue
+    end
+    
+    inj = mouse_name(4:9);
+    doinj(i_mouse, :) = [str2num(inj(3:4)), str2num(inj(5:6)), str2num(inj(1:2))];
+    
+    rec = db.phys.cell(1).file(1).FileName;
+    if ~strcmpi(rec, 'nan')
+        dorec(i_mouse, :) = [str2num(rec(6:7)), str2num(rec(9:10)), str2num(rec(1:4))];
+    else
+        continue
+    end
+end
+ 
+days_at_inj = []
+for i_mouse = 1:size(doinj,1)
+    bd = dob(i_mouse, :);
+    bd = datetime(bd(3), bd(1), bd(2));
+    inj = doinj(i_mouse, :);
+    inj = datetime(inj(3)+2000, inj(1), inj(2));
+    dt = inj - bd;
+    days_at_inj(i_mouse) = days(dt);
+end
+l = (days_at_inj > 0) & (days_at_inj < 100);
+days_at_inj = days_at_inj(l);
+mean(days_at_inj)
+std(days_at_inj)
+
+days_at_rec = []
+for i_mouse = 1:size(doinj,1)
+    bd = dob(i_mouse, :);
+    bd = datetime(bd(3), bd(1), bd(2));
+    rec = dorec(i_mouse, :);
+    rec = datetime(rec(3), rec(1), rec(2));
+    dt = rec - bd;
+    days_at_rec(i_mouse) = days(dt);
+end
+l = (days_at_rec > 0) & (days_at_rec < 100);
+days_at_rec = days_at_rec(l);
+mean(days_at_rec)
+std(days_at_rec)
 

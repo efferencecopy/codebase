@@ -10,9 +10,9 @@ fin
 % sheet 3 = SOMcre cells
 %
 
-CELLTYPE = 'PVcre';
+CELLTYPE = 'SOMcre';
 
-xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis.xlsx'];
+xlspath = [GL_DOCUPATH 'Other_workbooks', filesep, 'Interneuron_density_analysis_ian.xlsx'];
 [~, txt, raw] =xlsread(xlspath, CELLTYPE);
 header = txt(1,:);
 hidx = struct();
@@ -295,12 +295,37 @@ set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
 legend(unique(mouseName))
 
-%% BAR PLOTS OF DENSITY
+%% LINE PLOTS OF DENSITY
+% 
+% PV cells are significantly more numerous in anterior areas than
+% in posterior areas (p<X; one-way ANOVA with post hoc Tukey tests; n=X
+% mice).
+%
+% There are significantly more Sst cells in medial
+% areas than in lateral areas (p<X; one-way ANOVA with post hoc Tukey
+% tests; n=X mice).
+%
+% both PV and Sst cells were more numerous in
+% lateral compared to medial areas (p<X; one-way ANOVA with post hoc Tukey
+% tests; n=X mice; Figure 5c).
 
+
+close all, clc
 % Plot of density, integrated across specific layers, and comparing across
 % brain areas
+areas = {'PM', 'AM', 'LM', 'AL'};
 layers = [1]; % 1= L2/3, 2=L4, 3=L5, 4=L6
 normArea = 1;
+
+volume = {};
+counts = {};
+for i_area = 1:numel(areas);
+    
+    volume{i_area} = popdat.(areas{i_area}).totalVolume;
+    counts{i_area} = popdat.(areas{i_area}).cellCount;
+end
+
+
 densityAcrossLayers = [];
 for i_area = 1:numel(areas);
     
@@ -313,30 +338,71 @@ end
 
 % analyze only paired data
 l_mouse_has_all_areas = ~any(isnan(densityAcrossLayers), 1);
+fprintf('num of mice: %d\n', sum(l_mouse_has_all_areas))
 densityAcrossLayers = densityAcrossLayers(:, l_mouse_has_all_areas);
 
-% now plotting percent change relative to a single area
-figure, hold on,
+% calc prcnt diff
 diff_vals = bsxfun(@minus, densityAcrossLayers, densityAcrossLayers(normArea,:));
 prcnt_change = bsxfun(@rdivide, diff_vals, densityAcrossLayers(normArea,:));
 nareas = numel(areas);
 xbar = nanmean(prcnt_change, 2);
 sem = nanstd(prcnt_change,[], 2) ./ sqrt(sum(~isnan(prcnt_change), 2));
-for i_hva = 1:length(sem)
-    pltclr = hvaPlotColor(areas{i_hva});
-    plot([i_hva, i_hva], [xbar(i_hva)-sem(i_hva), xbar(i_hva)+sem(i_hva)], 'color', pltclr, 'linewidth', 3)
-    bar(i_hva, xbar(i_hva), 0.8, 'facecolor', pltclr)
-end
 
+figure, hold on,
+plot(prcnt_change, 'o')
+errorbar(1:nareas, xbar, sem, 'k', 'linewidth', 3)
 set(gca, 'xtick', 1:nareas, 'xTickLabel', areas)
 ylabel(sprintf('percent change (relative to %s)', areas{normArea}))
+% ylim([-1, 1])
+
+[p, ~, stats] = anova1(densityAcrossLayers', areas);
+multcompare(stats, 'ctype', 'hsd')
 
 
-% ask if there are significant differeces
-X_anova = log10(reshape(prcnt_change, [], 1));
-G_anova = [];
+% look at a pair-wise comprisons of areas
+for i_hva = 1:numel(areas)
+    fprintf('Comparing %s to null hypothesis = 0\n', areas{i_hva})
+    norm_densities = prcnt_change(i_hva, :);
+    fprintf('N = %d\n', length(norm_densities));
+    [h, p] = ttest(norm_densities)
+end
 
-    
+%% plot using ians mice
+close all
+pv_names = {'al', 'am', 'lm', 'pm'};
+norm_idx = strcmp(pv_names, 'pm');
+
+pv_ian = [
+86	82	81	76
+81	75	94	74
+90	99	82	86
+87	75	92	77
+80	82	90	87
+85	94	94	84
+90	67	94	63
+87	74	88	80
+];
+
+pv_ian = pv_ian';  % transpose [N_areas, N_mice]
+diff_vals = bsxfun(@minus, pv_ian, pv_ian(norm_idx, :));
+prcnt_change = bsxfun(@rdivide, diff_vals, pv_ian(norm_idx, :));
+
+x = [1, 2, 3, 4];
+
+figure
+hold on,
+plot(x, prcnt_change, 'o')
+plot(x, mean(prcnt_change, 2), '-')
+ylim([-1, 1])
+xlim([0, 5])
+
+
+
+
+
+
+
+
 %% PLOTTING ROUTINES: CELL SIZE
 
 

@@ -116,7 +116,21 @@ hb = boxplot(box_data, box_groups,...
 set(gca, 'tickdir', 'out', 'fontsize', 24, 'ylim', [0, 18])
 set(hb, 'linewidth', 3)
 ylabel(sprintf('Membrane Time Constant\n(ms)'))
-legend(gca, plotgroups(:,3)')
+% legend(gca, plotgroups(:,3)')
 
-
-
+%
+% ANOVA on HVAs
+%
+%%%%%%%
+Y_kw = [];
+group_kw = {};
+for i_group = 1:numel(groupdata.tau_neg)
+    
+    hva_name = plotgroups{i_group, 3};
+    N = numel(groupdata.tau_neg{i_group});
+    Y_kw = cat(1, Y_kw, groupdata.tau_neg{i_group});
+    group_kw = cat(1, group_kw, repmat({hva_name}, N, 1));
+end
+[~, ~, STATS] = kruskalwallis(Y_kw, group_kw)
+figure
+multcompare(STATS)
